@@ -1,0 +1,6 @@
+{
+  "name": "Sabi JAMB Prep Platform",
+  "description": "Nigeria's Intelligent JAMB Preparation Platform featuring personalized mastery maps, spaced repetition, smart and custom practice, and an interactive RAG-powered Gemini AI Tutor with multi-tier memory.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
