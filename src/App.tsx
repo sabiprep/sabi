@@ -2732,16 +2732,24 @@ export default function App() {
             </div>
             <div className="p-2.5 theme bg-[#F4F7FB] rounded-xl">
               <span className="block text-[8px] uppercase tracking-wide text-slate-400">Streak history</span>
-              <span className="font-bold text-[#0A1128] text-[10px] block font-mono">7 Days Active</span>
+              <span className="font-bold text-[#0A1128] text-[10px] block font-mono">Backend sync pending</span>
             </div>
           </div>
 
-          <div className="place-actions pt-2 border-t border-slate-100 flex gap-2">
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3 text-left">
+              <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Account & access</span>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div><span className="block text-[8px] uppercase text-slate-400">Access status</span><span className="text-[10px] font-black text-[#0A1128]">Backend sync pending</span></div>
+                <div><span className="block text-[8px] uppercase text-slate-400">AI credits</span><span className="text-[10px] font-black text-[#0A1128]">Not available in preview</span></div>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-2 leading-relaxed">Subscription, entitlements, payments, AI-credit balance and account security are authoritative server state and are not fabricated here.</p>
+            </div>
             <button
               onClick={handleResetProfileSystem}
               className="w-full py-2 bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[10px] uppercase tracking-wider rounded-xl transition"
             >
-              Reset profile & diagnostic
+              Reset frontend preview
             </button>
           </div>
         </div>
