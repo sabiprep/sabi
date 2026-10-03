@@ -2247,45 +2247,164 @@ export default function App() {
 
   function renderProgressTab() {
     const subjects = profile?.chosenSubjects || [];
+    const evidenceTotal = Object.values(masteryMap).reduce((sum, item) => sum + item.attempts, 0);
+    const topicsObserved = Object.values(masteryMap).filter(item => item.attempts > 0).length;
+    const recentEvidence = Object.values(masteryMap)
+      .filter(item => item.attempts > 0)
+      .sort((a, b) => new Date(b.lastAttemptAt || 0).getTime() - new Date(a.lastAttemptAt || 0).getTime())
+      .slice(0, 5);
+
     return (
-      <div className="space-y-4 animate-fade-in max-w-4xl mx-auto w-full">
-        <div className="sabi-surface p-5 md:p-6">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Learning state</span>
-          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Progress & Mastery</h2>
-          <p className="text-sm text-slate-500 mt-1">Mastery, confidence, coverage and readiness are displayed from the learning engine; they are not calculated in this screen.</p>
-        </div>
-
-        <div className="grid sm:grid-cols-2 gap-3">
-          {subjects.map(subject => {
-            const evidence = Object.values(masteryMap).filter(item => item.subject === subject).reduce((sum, item) => sum + item.attempts, 0);
-            const confidence = profile?.subjectConfidence?.[subject];
-            return (
-              <button key={subject} onClick={() => { setMapSubject(subject); setActiveTab('mastery'); }} className="sabi-surface p-4 text-left hover:border-[#4A90D9] transition">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="font-black text-sm text-[#0A1128]">{subject}</span>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
-                    <span className="block text-[9px] uppercase font-bold text-slate-400">Observed evidence</span>
-                    <span className="font-black text-lg text-[#0A1128]">{evidence}</span>
-                  </div>
-                  <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
-                    <span className="block text-[9px] uppercase font-bold text-slate-400">Self-report</span>
-                    <span className="font-black text-lg text-[#0A1128]">{confidence ? `${confidence}/5` : '—'}</span>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="sabi-surface p-5">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-[#4A90D9]" />
-            <span className="font-black text-sm text-[#0A1128]">Not enough evidence?</span>
+      <div className="space-y-4 animate-fade-in max-w-5xl mx-auto w-full">
+        <section className="rounded-3xl bg-[#0A1128] text-white p-6 md:p-8 overflow-hidden relative">
+          <div className="absolute -right-16 -top-16 w-52 h-52 rounded-full bg-[#4A90D9]/20" />
+          <div className="absolute right-16 -bottom-24 w-44 h-44 rounded-full bg-[#F5C518]/10" />
+          <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+            <div>
+              <span className="text-[9px] uppercase tracking-[0.22em] font-black text-[#F5C518]">Learning intelligence</span>
+              <h2 className="text-2xl md:text-3xl font-black mt-2">Progress & Mastery</h2>
+              <p className="text-sm text-white/65 mt-2 max-w-2xl leading-relaxed">
+                See the evidence SABI has collected while the learning engine remains the source of truth for mastery, readiness and recommendations.
+              </p>
+            </div>
+            <div className="rounded-2xl bg-white/10 border border-white/10 p-4 min-w-[220px]">
+              <span className="text-[9px] uppercase tracking-wider font-black text-white/40">Backend learning state</span>
+              <p className="text-sm font-black mt-1">Awaiting authoritative sync</p>
+              <p className="text-[10px] text-white/50 mt-1 leading-relaxed">No frontend-generated mastery or JAMB score is shown here.</p>
+            </div>
           </div>
-          <p className="text-sm text-slate-500 mt-2">SABI should never turn missing evidence into a 0% score. Complete learning sessions and let the backend update the learning state.</p>
+        </section>
+
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="sabi-surface p-5">
+            <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Observed attempts</span>
+            <p className="text-2xl font-black text-[#0A1128] font-mono mt-1">{evidenceTotal}</p>
+            <p className="text-[10px] text-slate-500 mt-1">Evidence recorded in this frontend state.</p>
+          </div>
+          <div className="sabi-surface p-5">
+            <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Topics with evidence</span>
+            <p className="text-2xl font-black text-[#0A1128] font-mono mt-1">{topicsObserved}</p>
+            <p className="text-[10px] text-slate-500 mt-1">Not a mastery percentage.</p>
+          </div>
+          <div className="sabi-surface p-5">
+            <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Readiness</span>
+            <p className="text-2xl font-black text-[#0A1128] mt-1">—</p>
+            <p className="text-[10px] text-slate-500 mt-1">Supplied by the learning engine.</p>
+          </div>
+        </div>
+
+        <section className="sabi-surface p-5 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+            <div>
+              <span className="text-[9px] uppercase tracking-[0.18em] font-black text-[#4A90D9]">Subject evidence</span>
+              <h3 className="text-lg font-black text-[#0A1128] mt-1">Your four-subject view</h3>
+            </div>
+            <span className="px-2.5 py-1 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] text-[9px] font-black text-slate-500">Backend mastery pending</span>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3 mt-5">
+            {subjects.map(subject => {
+              const items = Object.values(masteryMap).filter(item => item.subject === subject);
+              const attempts = items.reduce((sum, item) => sum + item.attempts, 0);
+              const observedTopics = items.filter(item => item.attempts > 0).length;
+              const confidence = profile?.subjectConfidence?.[subject];
+
+              return (
+                <button
+                  key={subject}
+                  type="button"
+                  onClick={() => { setMapSubject(subject); setActiveTab('mastery'); }}
+                  className="group rounded-2xl border border-slate-200 bg-white p-4 md:p-5 text-left hover:border-[#4A90D9] hover:shadow-sm transition"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Subject</span>
+                      <h4 className="text-sm md:text-base font-black text-[#0A1128] mt-1">{subject}</h4>
+                    </div>
+                    <span className="w-9 h-9 rounded-xl bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center group-hover:bg-[#EBF1FA] transition">
+                      <ChevronRight className="w-4 h-4 text-[#4A90D9]" />
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 mt-5">
+                    <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                      <span className="block text-[8px] uppercase font-black text-slate-400">Attempts</span>
+                      <span className="block text-lg font-black font-mono text-[#0A1128] mt-1">{attempts}</span>
+                    </div>
+                    <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                      <span className="block text-[8px] uppercase font-black text-slate-400">Topics</span>
+                      <span className="block text-lg font-black font-mono text-[#0A1128] mt-1">{observedTopics}</span>
+                    </div>
+                    <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                      <span className="block text-[8px] uppercase font-black text-slate-400">Confidence</span>
+                      <span className="block text-lg font-black font-mono text-[#0A1128] mt-1">{confidence ? `${confidence}/5` : '—'}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-[9px] font-bold">
+                    <span className="text-slate-400">Open mastery map</span>
+                    <span className="text-[#4A90D9]">View topics →</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <div className="grid lg:grid-cols-[1fr_320px] gap-4">
+          <section className="sabi-surface p-5 md:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[9px] uppercase tracking-[0.18em] font-black text-[#4A90D9]">Observed learning evidence</span>
+                <h3 className="text-lg font-black text-[#0A1128] mt-1">Recent topic activity</h3>
+              </div>
+              <span className="text-[9px] font-black uppercase text-slate-400">{recentEvidence.length} shown</span>
+            </div>
+
+            {recentEvidence.length > 0 ? (
+              <div className="space-y-2 mt-5">
+                {recentEvidence.map(item => (
+                  <div key={`${item.subject}-${item.topic}-${item.subtopic}`} className="rounded-2xl border border-slate-200 bg-white p-3.5 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-[#EBF1FA] border border-[#D6E4F0] flex items-center justify-center shrink-0">
+                      <BookOpen className="w-4 h-4 text-[#4A90D9]" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-[#0A1128] truncate">{item.topic}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">{item.subject} • {item.attempts} observed attempt{item.attempts === 1 ? '' : 's'}</p>
+                    </div>
+                    <span className="text-[9px] font-black uppercase text-slate-400 shrink-0">
+                      Evidence
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-[#F8FAFC] p-6 text-center">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center mx-auto">
+                  <BookOpen className="w-4 h-4 text-slate-400" />
+                </div>
+                <h4 className="text-sm font-black text-[#0A1128] mt-3">No observed topic evidence yet</h4>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Complete a practice or diagnostic session and the connected learning engine can populate this view.</p>
+              </div>
+            )}
+          </section>
+
+          <aside className="space-y-3">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-700" />
+                <span className="text-[9px] uppercase tracking-wider font-black text-amber-900">Important</span>
+              </div>
+              <h4 className="text-sm font-black text-amber-950 mt-2">Missing evidence is not zero mastery.</h4>
+              <p className="text-xs text-amber-800 mt-2 leading-relaxed">An unassessed topic should remain unassessed until the backend learning engine has enough evidence to determine its state.</p>
+            </div>
+            <div className="sabi-surface p-5">
+              <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Next action</span>
+              <h4 className="text-sm font-black text-[#0A1128] mt-1">Build more evidence</h4>
+              <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">Practice now and let the connected learning engine update your learning state.</p>
+              <button type="button" onClick={() => setActiveTab('practice')} className="mt-4 w-full py-3 rounded-xl bg-[#F5C518] text-[#0A1128] text-[10px] font-black uppercase tracking-wider">Open Practice</button>
+            </div>
+          </aside>
         </div>
       </div>
     );
