@@ -148,7 +148,7 @@ export default function App() {
   const [tutorChatActive, setTutorChatActive] = useState<boolean>(false);
 
   // Home Dashboard States & Tabs
-  const [activeTab, setActiveTab] = useState<'home' | 'practice' | 'mastery' | 'leaderboard' | 'profile' | 'aitutor' | 'mobile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'practice' | 'blitz' | 'cbt' | 'progress' | 'recommendations' | 'mastery' | 'leaderboard' | 'profile' | 'aitutor' | 'mobile'>('home');
   const [selectedSubjectPractice, setSelectedSubjectPractice] = useState<SubjectName>('English Language');
   const [activeSessionTopicPractice, setActiveSessionTopicPractice] = useState<string>('');
   const [practiceSessionType, setPracticeSessionType] = useState<'smart' | 'custom' | null>(null);
@@ -1922,10 +1922,11 @@ export default function App() {
     if (!profile) return null;
 
     const tabsList = [
-      { id: 'home', label: 'Home', icon: Clock, action: () => { setActiveTab('home'); } },
+      { id: 'home', label: 'Home', icon: Home, action: () => { setActiveTab('home'); } },
       { id: 'practice', label: 'Practice', icon: Play, action: () => { setActiveTab('practice'); setPracticeSessionType(null); } },
-      { id: 'aitutor', label: 'Tutor', icon: Heart, action: () => { setActiveTab('aitutor'); } },
-      { id: 'mastery', label: 'Mastery Map', icon: Sliders, action: () => { setActiveTab('mastery'); setMapSubject(profile.chosenSubjects[0]); } },
+      { id: 'blitz', label: 'Blitz', icon: Zap, action: () => { setActiveTab('blitz'); } },
+      { id: 'cbt', label: 'CBT', icon: FileText, action: () => { setActiveTab('cbt'); } },
+      { id: 'progress', label: 'Progress', icon: ArrowUpRight, action: () => { setActiveTab('progress'); } },
       { id: 'profile', label: 'Profile', icon: User, action: () => { setActiveTab('profile'); } },
     ];
 
@@ -2051,7 +2052,7 @@ export default function App() {
             ) : (
               <div className="flex items-center">
                 <span className="text-sm md:text-base font-black uppercase tracking-widest text-[#F5C518] md:text-[#0A1128]">
-                  {activeTab === 'mastery' ? 'Syllabus Mastery Map' : activeTab === 'aitutor' ? 'AI Coach Hub' : activeTab === 'leaderboard' ? 'Standings Leaderboard' : activeTab === 'mobile' ? 'Mobile App Prototype' : 'Account Details'}
+                  {activeTab === 'mastery' ? 'Learning Evidence' : activeTab === 'aitutor' ? 'AI Coach Hub' : activeTab === 'leaderboard' ? 'Standings Leaderboard' : activeTab === 'mobile' ? 'Mobile App Prototype' : activeTab === 'blitz' ? 'Blitz' : activeTab === 'cbt' ? 'CBT Simulator' : activeTab === 'progress' ? 'Progress' : activeTab === 'recommendations' ? 'Recommendations' : 'Account Details'}
                 </span>
               </div>
             )}
@@ -2061,6 +2062,10 @@ export default function App() {
           <div className={`flex-1 ${((activeTab === 'practice' && practiceSessionType === null) || activeTab === 'aitutor') ? 'overflow-hidden flex flex-col bg-[#F4F7FB] p-3 md:p-4 pb-4 md:pb-4' : 'overflow-y-auto p-4 md:p-6 pb-20 md:pb-6'} relative break-words`}>
             {activeTab === 'home' && renderHomeTab()}
             {activeTab === 'practice' && renderPracticeTab()}
+            {activeTab === 'blitz' && renderBlitzTab()}
+            {activeTab === 'cbt' && renderCBTTab()}
+            {activeTab === 'progress' && renderProgressTab()}
+            {activeTab === 'recommendations' && renderRecommendationsTab()}
             {activeTab === 'mastery' && renderMasteryTab()}
             {activeTab === 'leaderboard' && renderLeaderboardTab()}
             {activeTab === 'profile' && renderProfileTab()}
@@ -2097,21 +2102,19 @@ export default function App() {
 
     return (
       <div className="space-y-4 animate-fade-in font-sans">
-        {/* Core predicted Score hero container */}
-        <div className="bg-white border border-[#D6E4F0] p-4 rounded-2xl shadow-sm text-center space-y-1 relative overflow-hidden">
-          {/* Floating Circle detail */}
-          <div className="absolute -left-8 -bottom-8 w-20 h-20 rounded-full bg-slate-50" />
-          
-          <span className="text-[9px] uppercase font-bold text-slate-400">Current Predicted UTME Score</span>
-          <h2 className="text-4xl font-extrabold text-[#0A1128] font-mono leading-none flex justify-center items-end gap-1">
-            <span className="text-[#F5C518]">
-              {Math.floor(calculatedScoreRange.min)} - {Math.ceil(calculatedScoreRange.max)}
-            </span>
-            <span className="text-xs text-slate-400 font-sans mb-1 uppercase font-bold">/400</span>
-          </h2>
-          <div className="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1 mt-1">
-            <ArrowUpRight className="h-3.5 w-3.5" />
-            <span>+18 points calculated this week</span>
+        {/* Learning-state hero: never present client calculations as authoritative */}
+        <div className="sabi-surface p-5 md:p-6 relative overflow-hidden">
+          <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-[#4A90D9]/5 pointer-events-none" />
+          <div className="relative">
+            <span className="text-[9px] uppercase font-black tracking-widest text-[#4A90D9]">Today's learning state</span>
+            <h2 className="text-2xl md:text-3xl font-black text-[#0A1128] mt-1">What should I do now?</h2>
+            <p className="text-sm text-slate-500 mt-2 max-w-2xl">SABI keeps the measurement and recommendation logic behind the interface. This dashboard presents the state supplied by the learning engine.</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button onClick={() => setActiveTab('practice')} className="px-4 py-2.5 rounded-xl bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-wider">Practice</button>
+              <button onClick={() => setActiveTab('blitz')} className="px-4 py-2.5 rounded-xl bg-[#0A1128] text-white font-black text-xs uppercase tracking-wider">Blitz</button>
+              <button onClick={() => setActiveTab('cbt')} className="px-4 py-2.5 rounded-xl border border-[#D6E4F0] bg-white text-[#0A1128] font-black text-xs uppercase tracking-wider">CBT</button>
+              <button onClick={() => setActiveTab('recommendations')} className="px-4 py-2.5 rounded-xl border border-[#D6E4F0] bg-white text-[#0A1128] font-black text-xs uppercase tracking-wider">Focus area</button>
+            </div>
           </div>
         </div>
 
@@ -2141,14 +2144,10 @@ export default function App() {
           <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Your Syllabus Progress:</span>
           <div className="grid grid-cols-1 gap-2">
             {profile.chosenSubjects.map((subName) => {
-              // Get average score from topics matching subject
-              const topics = (Object.values(masteryMap) as MasteryMapItem[]).filter(t => t.subject === subName);
-              const sum = topics.reduce((acc, curr) => acc + curr.score, 0);
-              const avgScore = topics.length > 0 ? Math.floor(sum / topics.length) : (profile.subjectConfidence[subName] || 3) * 16;
-              
-              let progressColor = 'bg-[#27AE60]';
-              if (avgScore < 40) progressColor = 'bg-[#E74C3C]';
-              else if (avgScore < 75) progressColor = 'bg-[#F5C518]';
+              const observedEvidence = (Object.values(masteryMap) as MasteryMapItem[])
+                .filter(t => t.subject === subName)
+                .reduce((sum, item) => sum + item.attempts, 0);
+              const selfReportedConfidence = profile.subjectConfidence[subName];
 
               return (
                 <div
@@ -2165,12 +2164,10 @@ export default function App() {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[#0A1128] truncate max-w-[170px]">{subName}</p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Syllabus Mastery: {avgScore}%</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">{observedEvidence} observed question{observedEvidence === 1 ? '' : 's'} • self-report {selfReportedConfidence}/5</p>
                     </div>
                   </div>
-                  <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${progressColor}`} style={{ width: `${avgScore}%` }} />
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               );
             })}
@@ -2202,6 +2199,157 @@ export default function App() {
             >
               Practice on Your Own
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SUB-PANE: BLITZ / PROGRESS / CBT / RECOMMENDATIONS ---
+  function renderBlitzTab() {
+    const blitzQuestion = practiceQuestions[0] || SEED_QUESTIONS.find(q => profile?.chosenSubjects.includes(q.subject)) || SEED_QUESTIONS[0];
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Rapid personalized practice</span>
+              <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Blitz</h2>
+              <p className="text-sm text-slate-500 mt-1">One question at a time. No timer, speed score, or speed ranking.</p>
+            </div>
+            <div className="px-3 py-2 rounded-xl bg-[#F4F7FB] border border-[#D6E4F0] text-right shrink-0">
+              <span className="block text-[9px] uppercase font-bold text-slate-400">Session</span>
+              <span className="text-xs font-black text-[#0A1128]">Open-ended</span>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#D6E4F0] bg-[#F8FBFF] p-5">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#4A90D9]">{blitzQuestion.subject}</span>
+              <span className="text-[10px] font-bold text-slate-400">{blitzQuestion.topic}</span>
+            </div>
+            <div className="text-sm md:text-base font-bold leading-relaxed text-[#0A1128]">
+              <MathText text={blitzQuestion.question} />
+            </div>
+            <div className="grid gap-2 mt-5">
+              {Object.entries(blitzQuestion.options).map(([key, value]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setPracticeQuestions([blitzQuestion]);
+                    setPracticeSelectedAnswer(key as any);
+                    setPracticeHasSubmitted(true);
+                    setPracticeSessionType('smart');
+                  }}
+                  className="w-full text-left p-3.5 rounded-xl border border-slate-200 bg-white hover:border-[#4A90D9] transition flex gap-3 items-center"
+                >
+                  <span className="w-7 h-7 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center text-xs font-black">{key}</span>
+                  <span className="text-sm text-slate-700"><MathText text={value as string} /></span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-4">Preview mode: question selection and scoring will move behind the backend Blitz engine when its contract is connected.</p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderProgressTab() {
+    const subjects = profile?.chosenSubjects || [];
+    return (
+      <div className="space-y-4 animate-fade-in max-w-4xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Learning state</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Progress & Mastery</h2>
+          <p className="text-sm text-slate-500 mt-1">Mastery, confidence, coverage and readiness are displayed from the learning engine; they are not calculated in this screen.</p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          {subjects.map(subject => {
+            const evidence = Object.values(masteryMap).filter(item => item.subject === subject).reduce((sum, item) => sum + item.attempts, 0);
+            const confidence = profile?.subjectConfidence?.[subject];
+            return (
+              <button key={subject} onClick={() => { setMapSubject(subject); setActiveTab('mastery'); }} className="sabi-surface p-4 text-left hover:border-[#4A90D9] transition">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-black text-sm text-[#0A1128]">{subject}</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                    <span className="block text-[9px] uppercase font-bold text-slate-400">Observed evidence</span>
+                    <span className="font-black text-lg text-[#0A1128]">{evidence}</span>
+                  </div>
+                  <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                    <span className="block text-[9px] uppercase font-bold text-slate-400">Self-report</span>
+                    <span className="font-black text-lg text-[#0A1128]">{confidence ? `${confidence}/5` : '—'}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="sabi-surface p-5">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-[#4A90D9]" />
+            <span className="font-black text-sm text-[#0A1128]">Not enough evidence?</span>
+          </div>
+          <p className="text-sm text-slate-500 mt-2">SABI should never turn missing evidence into a 0% score. Complete learning sessions and let the backend update the learning state.</p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderRecommendationsTab() {
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Next best action</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Recommendations</h2>
+          <p className="text-sm text-slate-500 mt-1">Recommendations come from the learning engine. This screen does not rank or invent them.</p>
+        </div>
+        <div className="sabi-surface p-5">
+          <div className="rounded-2xl bg-[#F8FBFF] border border-[#D6E4F0] p-5">
+            <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Current state</span>
+            <h3 className="text-base font-black text-[#0A1128] mt-1">Waiting for recommendation data</h3>
+            <p className="text-sm text-slate-500 mt-2 leading-relaxed">Once the recommendation API supplies an action, target, reason, priority and estimated duration, this surface will render it here without recomputing those values.</p>
+          </div>
+          <button onClick={() => setActiveTab('practice')} className="mt-4 w-full sm:w-auto px-5 py-3 rounded-xl bg-[#0A1128] text-[#F5C518] font-black text-xs uppercase tracking-wider">
+            Open Practice
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderCBTTab() {
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Strict exam environment</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">CBT Simulator</h2>
+          <p className="text-sm text-slate-500 mt-1">English Language plus your three selected subjects. AI assistance is unavailable during an active exam.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => alert('CBT Full Mock will connect to startCBT(config) when the backend contract is available.')}>
+            <span className="text-[10px] uppercase font-black tracking-widest text-[#4A90D9]">Full Mock</span>
+            <h3 className="text-lg font-black text-[#0A1128] mt-1">180 questions</h3>
+            <p className="text-sm text-slate-500 mt-1">120 minutes • fixed question set</p>
+          </button>
+          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => alert('CBT Quick Mock will connect to startCBT(config) when the backend contract is available.')}>
+            <span className="text-[10px] uppercase font-black tracking-widest text-[#4A90D9]">Quick Mock</span>
+            <h3 className="text-lg font-black text-[#0A1128] mt-1">40 questions</h3>
+            <p className="text-sm text-slate-500 mt-1">30 minutes • fixed question set</p>
+          </button>
+        </div>
+        <div className="sabi-surface p-5">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+            <div>
+              <h3 className="font-black text-sm text-[#0A1128]">Backend contract required for launch</h3>
+              <p className="text-sm text-slate-500 mt-1">The frontend must not fabricate exam sessions, timer authority, scoring or submission state.</p>
+            </div>
           </div>
         </div>
       </div>
