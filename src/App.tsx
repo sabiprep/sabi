@@ -798,6 +798,12 @@ export default function App() {
 
       {/* Main play Workspace */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 py-6 flex flex-col z-40">
+        {isOfflineSimulated && (
+          <div role="status" aria-live="polite" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-700 flex items-center gap-2">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            Offline simulation is active. Network-backed account, learning and payment state must not be treated as synchronized.
+          </div>
+        )}
         <div className="flex-1 flex flex-col min-h-[600px]">
           {renderScreenRouter()}
         </div>
@@ -805,7 +811,7 @@ export default function App() {
 
       {/* Footer system details */}
       <footer className="shrink-0 border-t border-[#D6E4F0] py-4 px-6 text-center text-xs text-slate-500 bg-white z-20">
-        <p>© 2026 Sabi JAMB Team • Crafting your personal adaptive jamb tutor. All content synced and secure.</p>
+        <p>© 2026 Sabi JAMB Team • Frontend preview. Authoritative account, learning and payment state is supplied by backend services.</p>
       </footer>
 
       {renderOtpValidationModal()}
