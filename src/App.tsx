@@ -137,7 +137,7 @@ export default function App() {
   const [aiExplainLanguage, setAiExplainLanguage] = useState<'formal' | 'pidgin' | 'mixed'>('mixed');
 
   // Evaluation Metrics
-  const [calculatedScoreRange, setCalculatedScoreRange] = useState({ min: 215, max: 245 });
+  const [calculatedScoreRange, setCalculatedScoreRange] = useState({ min: 0, max: 0 });
   const [calculatedBlindspots, setCalculatedBlindspots] = useState<string[]>([]);
   const [calculatedWeakAreas, setCalculatedWeakAreas] = useState<string[]>([]);
   const [evaluationProgress, setEvaluationProgress] = useState(0);
@@ -326,33 +326,21 @@ export default function App() {
       setDiagnosticHasSubmitted(false);
       setAiExplainText('');
     } else {
-      // Fail-proof dynamic mock question if pool is empty
-      const mockQ: Question = {
-        id: `MOCK-${Math.floor(Math.random() * 9000)}`,
-        exam_type: 'AI-Generated',
-        subject: subj,
-        topic: 'General Syllabus Concept',
-        subtopic: 'Review Module',
-        year: 2026,
-        question: `Which represents a core fundamental pillar in ${subj} diagnostics?`,
-        options: {
-          A: 'The analytical proof models',
-          B: 'The standard formulas alignment',
-          C: 'The structured context framework',
-          D: 'The general logic boundary'
-        },
-        answer: 'C',
-        explanation: 'The structured context framework represents a core fundamental pillar.',
-        explanation_short: 'Option C represents the correct syllabus structure.',
-        explanation_pidgin: 'Normal normal, Option C make sense pass others for inside this topic context.',
-        difficulty: targetDifficulty,
-        concepts: ['analytical concepts'],
-        source: 'Sabi Engine',
-        status: 'verified',
-        confidence_score: 0.95,
-        created_at: new Date().toISOString()
-      };
-      setDiagnosticActiveQuestion(mockQ);
+      // Never fabricate or label an invented question as verified.
+      // If the preview pool is exhausted, reuse a real seeded question
+      // for the UI rather than manufacturing assessment content.
+      const reusablePool = SEED_QUESTIONS.filter(q => q.subject === subj);
+      if (reusablePool.length === 0) {
+        setDiagnosticActiveQuestion(null);
+        setDiagnosticSelectedConfidence('Medium');
+        setDiagnosticAnswerSelected(null);
+        setDiagnosticHasSubmitted(false);
+        setAiExplainText('');
+        return;
+      }
+
+      const selectedQ = reusablePool[Math.floor(Math.random() * reusablePool.length)];
+      setDiagnosticActiveQuestion(selectedQ);
       setDiagnosticSelectedConfidence('Medium');
       setDiagnosticAnswerSelected(null);
       setDiagnosticHasSubmitted(false);
@@ -374,7 +362,7 @@ export default function App() {
       correct: isCorrect,
       difficulty: diagnosticActiveQuestion.difficulty,
       confidence: diagnosticSelectedConfidence,
-      timeSpent: 12 // generic simulated timer
+      timeSpent: 0 // Preview: real timing belongs to the diagnostic session service.
     };
 
     const newLog = [...quizAnswerLog, logItem];
@@ -449,53 +437,20 @@ export default function App() {
   };
 
   const handleTransitionToEvaluation = (fullLog = quizAnswerLog) => {
+    // The diagnostic has captured frontend evidence, but authoritative
+    // mastery, readiness, weak areas, blindspots and score ranges belong
+    // to the backend learning engine.
     setAppStage('PROFILE_EVALUATION');
     setEvaluationProgress(10);
-    
-    // Simulate diagnostic analytical progress:
+
     let step = 10;
     const interval = setInterval(() => {
       step += 15;
+
       if (step >= 100) {
         step = 100;
         clearInterval(interval);
-        
-        // Finalize state database calculations
-        const correctAnswers = fullLog.filter(l => l.correct).length;
-        const total = fullLog.length || 1;
-        const accuracy = correctAnswers / total;
-        
-        // Calculate realistic predicted score (0-400)
-        // Average JAMB score: correct answer moves score between 180 and 340
-        const mappedBase = Math.floor(180 + (accuracy * 150));
-        const finalMin = Math.max(180, mappedBase - 15);
-        const finalMax = Math.min(400, mappedBase + 15);
-        setCalculatedScoreRange({ min: finalMin, max: finalMax });
 
-        // Calculate top 3 weak areas based on wrong answers
-        const wrongQIds = fullLog.filter(l => !l.correct).map(l => l.questionId);
-        let weaks: string[] = [];
-        if (wrongQIds.length > 0) {
-          wrongQIds.forEach(id => {
-            const matchedQ = SEED_QUESTIONS.find(q => q.id === id);
-            if (matchedQ && !weaks.includes(matchedQ.topic)) {
-              weaks.push(matchedQ.topic);
-            }
-          });
-        }
-        if (weaks.length === 0) {
-          weaks = ['Newton\'s Laws', 'Proximity Concord', 'Calculus Derivatives'];
-        }
-        setCalculatedWeakAreas(weaks.slice(0, 3));
-
-        // Blindspot calculation: Confidence was "High" or "Medium" but was incorrect
-        const blindspots = fullLog.filter(l => !l.correct && (l.confidence === 'High' || l.confidence === 'Medium')).map(l => {
-          const matchedQ = SEED_QUESTIONS.find(q => q.id === l.questionId);
-          return matchedQ ? matchedQ.topic : 'Algebra';
-        });
-        setCalculatedBlindspots(Array.from(new Set(blindspots)));
-
-        // Create the profile
         const activeProfile: StudentProfile = {
           name: onboardingAnswers.name,
           classLevel: onboardingAnswers.classAndAttempts.classLevel === "Out-of-school Candidate / Resitter"
@@ -503,8 +458,8 @@ export default function App() {
             : (onboardingAnswers.classAndAttempts.classLevel || 'Senior Secondary 3 (SS3)'),
           attempts: onboardingAnswers.classAndAttempts.attempts.includes('First-time') ? 0 : 1,
           chosenSubjects: onboardingAnswers.chosenSubjects,
-          targetCourse: onboardingAnswers.targets.course.trim() || 'Electrical Engineering',
-          targetUniversity: onboardingAnswers.targets.university.trim() || 'University of Uyo',
+          targetCourse: onboardingAnswers.targets.course.trim() || '',
+          targetUniversity: onboardingAnswers.targets.university.trim() || '',
           monthsUntilExam: parseInt(onboardingAnswers.monthsUntilExam) || getDynamicJAMBCountdown().months,
           subjectConfidence: onboardingAnswers.subjectConfidence,
           struggleTypes: onboardingAnswers.chosenSubjects.reduce((acc: any, curr: any) => {
@@ -517,63 +472,26 @@ export default function App() {
           explanationPreference: onboardingAnswers.explanationPreference.includes('Detailed') ? 'step-by-step' : 'short',
           languagePreference: onboardingAnswers.languagePreference.includes('Pidgin') ? 'pidgin' : onboardingAnswers.languagePreference.includes('Mixed') ? 'mixed' : 'english',
           motivation: onboardingAnswers.motivation,
-          blindSpots: blindspots,
-          streakCount: 7, // Starter 7-day streak encouragement
-          xpPoints: 120, // Starting onboarding bonus!
-          unlockedSubjectsCount: 4,
-          isPremium: true,
-          aiCredits: 50,
+          blindSpots: [],
+          // Account, entitlement and engagement values are backend-owned.
+          streakCount: 0,
+          xpPoints: 0,
+          unlockedSubjectsCount: 0,
+          isPremium: false,
+          aiCredits: 0,
           topicMemories: {},
           conversationHistory: []
         };
 
         setProfile(activeProfile);
 
-        // Prepopulate Mastery Map Database
-        const masteryDB: Record<string, MasteryMapItem> = {};
-        SEED_QUESTIONS.forEach(q => {
-          if (onboardingAnswers.chosenSubjects.includes(q.subject)) {
-            // Check if user answered questions in this topic
-            const attemptsTopic = fullLog.filter(l => {
-              const matchedQ = SEED_QUESTIONS.find(s => s.id === l.questionId);
-              return matchedQ && matchedQ.topic === q.topic;
-            });
-            const attemptsCount = attemptsTopic.length;
-            const correctCount = attemptsTopic.filter(a => a.correct).length;
-            
-            // Baseline score based on correct/attempts
-            let scoreValue = 40; // Default
-            if (attemptsCount > 0) {
-              scoreValue = Math.floor((correctCount / attemptsCount) * 100);
-            } else {
-              // Self-reported confidence baseline
-              const conf = onboardingAnswers.subjectConfidence[q.subject] || 3; // 1 to 5 scale
-              scoreValue = conf * 16; // Up to 80%
-            }
+        // Keep diagnostic evidence in the session only. Do not convert it
+        // into client-authoritative mastery scores or review dates.
+        setCalculatedWeakAreas([]);
+        setCalculatedBlindspots([]);
+        setCalculatedScoreRange({ min: 0, max: 0 });
 
-            masteryDB[q.topic] = {
-              subject: q.subject,
-              topic: q.topic,
-              subtopic: q.subtopic,
-              score: Math.min(100, Math.max(10, scoreValue)),
-              confidence: attemptsCount > 0 && correctCount === attemptsCount ? 'High' : 'Medium',
-              attempts: attemptsCount,
-              nextReviewDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Spaced repetition +4 days
-              history: attemptsTopic.map(a => ({
-                questionId: a.questionId,
-                correct: a.correct,
-                timestamp: new Date().toISOString(),
-                timeSpentSeconds: a.timeSpent
-              }))
-            };
-          }
-        });
-
-        setMasteryMap(masteryDB);
-        
-        setTimeout(() => {
-          setEvaluationProgress(100);
-        }, 300);
+        setTimeout(() => setEvaluationProgress(100), 300);
       } else {
         setEvaluationProgress(step);
       }
@@ -1853,29 +1771,12 @@ export default function App() {
                 <p className="text-[9px] text-[#4A5568] uppercase font-semibold">Authoritative readiness and score data will come from the learning engine.</p>
               </div>
 
-              {/* Blindspots or weak alerts */}
-              {calculatedWeakAreas.length > 0 && (
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase font-extrabold text-[#E74C3C] tracking-wide block">Priority Weak Topics Identified:</span>
-                  <div className="space-y-1">
-                    {calculatedWeakAreas.map((weak, i) => (
-                      <div key={i} className="text-[10px] bg-white border border-[#D6E4F0] p-2 py-1.5 rounded-lg text-slate-700 italic flex items-center gap-1.5 shadow-sm">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#E74C3C]" />
-                        <span>{weak}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {calculatedBlindspots.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  <span className="text-[9px] uppercase font-extrabold text-[#F5C518] tracking-wide block">Blindspots Detected:</span>
-                  <p className="text-[10px] text-slate-500 leading-snug">
-                    Topics where you rated high confidence but answered wrong: {calculatedBlindspots.join(', ')}
-                  </p>
-                </div>
-              )}
+              <div className="rounded-xl bg-white border border-[#D6E4F0] p-3 space-y-2">
+                <span className="text-[9px] uppercase font-extrabold text-[#4A90D9] tracking-wide block">Diagnostic evidence</span>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  {quizAnswerLog.length} response{quizAnswerLog.length === 1 ? '' : 's'} captured in this frontend preview. The learning engine will determine mastery, weak areas, blindspots, readiness and score after the diagnostic is connected to the backend.
+                </p>
+              </div>
 
               <button
                 onClick={handleEnterDashboard}
