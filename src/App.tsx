@@ -597,20 +597,21 @@ export default function App() {
       languagePreference: 'english',
       motivation: "Pass JAMB flawlessly",
       blindSpots: [],
-      streakCount: 1,
-      xpPoints: 50,
-      unlockedSubjectsCount: 4,
-      isPremium: true,
-      aiCredits: 50,
+      // Backend-owned account metrics remain neutral until the account/profile API is connected.
+      streakCount: 0,
+      xpPoints: 0,
+      unlockedSubjectsCount: 0,
+      isPremium: false,
+      aiCredits: 0,
       topicMemories: {},
       conversationHistory: []
     };
 
     setProfile(activeProfile);
 
-    // Mock generic calculated score
-    setCalculatedScoreRange({ min: 250, max: 280 });
-    setCalculatedWeakAreas(['Algebra', 'Newton\'s Laws']);
+    // Do not manufacture authoritative score, weak-area, or blindspot data in the client.
+    setCalculatedScoreRange({ min: 0, max: 0 });
+    setCalculatedWeakAreas([]);
     setCalculatedBlindspots([]);
 
     // Populate a basic Mastery Map
@@ -1959,8 +1960,8 @@ export default function App() {
                 <p className="text-[10px] font-bold text-sky-300 mt-1">{getDynamicJAMBCountdown().diffDays} Days to Exam</p>
               </div>
               <div className="flex justify-between items-center text-[10px] bg-white/10 px-2 py-1 rounded-lg">
-                <span className="text-slate-300">Level Points:</span>
-                <span className="font-extrabold text-[#F5C518] font-mono">{profile.xpPoints} XP</span>
+                <span className="text-slate-300">Account sync:</span>
+                <span className="font-extrabold text-[#F5C518]">Pending</span>
               </div>
             </div>
 
@@ -2041,12 +2042,12 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <div className="flex md:hidden items-center gap-1 bg-white/10 px-2 py-1 rounded-full border border-white/20">
                     <Zap className="h-3.5 w-3.5 text-[#F5C518] fill-current" />
-                    <span className="text-[10px] font-black font-mono">{profile.xpPoints} XP</span>
+                    <span className="text-[10px] font-black">Account sync pending</span>
                   </div>
                   
                   <div className="hidden md:flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-xl border border-yellow-200 text-[#0A1128]">
                     <Zap className="h-4 w-4 text-[#F5C518] fill-current" />
-                    <span className="text-xs font-black font-mono">{profile.xpPoints} XP</span>
+                    <span className="text-xs font-black">Account sync pending</span>
                   </div>
                 </div>
               </>
