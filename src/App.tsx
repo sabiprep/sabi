@@ -3203,57 +3203,87 @@ export default function App() {
   function renderProfileTab() {
     if (!profile) return null;
 
+    const initials = profile.name.trim().split(/\\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+
     return (
-      <div className="space-y-4 animate-fade-in font-sans">
-        {/* Profile Card details */}
-        <div className="bg-white border border-[#D6E4F0] p-5 rounded-2xl shadow-sm space-y-4 text-center">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#0A1128] to-[#4A90D9] text-white flex items-center justify-center font-bold text-lg mx-auto uppercase">
-            {profile.name[0]}
-          </div>
-
-          <div className="space-y-1">
-            <h4 className="text-sm font-bold text-[#0A1128]">{profile.name}</h4>
-            <p className="text-[10px] text-[#4A90D9] leading-tight bg-[#F4F7FB] px-3 py-1 rounded inline-block font-bold">
-              Goal: {profile.targetCourse} at {profile.targetUniversity}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-left">
-            <div className="p-2.5 theme bg-[#F4F7FB] rounded-xl">
-              <span className="block text-[8px] uppercase tracking-wide text-slate-400">Class Level</span>
-              <span className="font-bold text-[#0A1128] text-[10px] truncate block">{profile.classLevel}</span>
-            </div>
-            <div className="p-2.5 theme bg-[#F4F7FB] rounded-xl">
-              <span className="block text-[8px] uppercase tracking-wide text-slate-400">Language preference</span>
-              <span className="font-bold text-[#0A1128] text-[10px] uppercase block">{profile.languagePreference}</span>
-            </div>
-            <div className="p-2.5 theme bg-[#F4F7FB] rounded-xl">
-              <span className="block text-[8px] uppercase tracking-wide text-slate-400">Explanation style</span>
-              <span className="font-bold text-[#0A1128] text-[10px] uppercase block">{profile.explanationPreference}</span>
-            </div>
-            <div className="p-2.5 theme bg-[#F4F7FB] rounded-xl">
-              <span className="block text-[8px] uppercase tracking-wide text-slate-400">Streak history</span>
-              <span className="font-bold text-[#0A1128] text-[10px] block font-mono">Backend sync pending</span>
-            </div>
-          </div>
-
-          <div className="pt-2 border-t border-slate-100 space-y-3">
-            <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3 text-left">
-              <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Account & access</span>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <div><span className="block text-[8px] uppercase text-slate-400">Access status</span><span className="text-[10px] font-black text-[#0A1128]">Backend sync pending</span></div>
-                <div><span className="block text-[8px] uppercase text-slate-400">AI credits</span><span className="text-[10px] font-black text-[#0A1128]">Not available in preview</span></div>
+      <div className="space-y-5 animate-fade-in max-w-5xl mx-auto w-full">
+        <section className="rounded-3xl bg-[#0A1128] text-white overflow-hidden">
+          <div className="p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="h-16 w-16 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-xl font-black text-[#F5C518]">
+                {initials || 'S'}
               </div>
-              <p className="text-[9px] text-slate-500 mt-2 leading-relaxed">Subscription, entitlements, payments, AI-credit balance and account security are authoritative server state and are not fabricated here.</p>
+              <div>
+                <span className="text-[9px] uppercase tracking-[0.2em] font-black text-white/45">Student profile</span>
+                <h2 className="text-2xl md:text-3xl font-black mt-1">{profile.name}</h2>
+                <p className="text-xs text-white/55 mt-1">Your profile describes your learning context. Authoritative account state comes from the backend.</p>
+              </div>
             </div>
-            <button
-              onClick={handleResetProfileSystem}
-              className="w-full py-2 bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[10px] uppercase tracking-wider rounded-xl transition"
-            >
-              Reset frontend preview
+            <button type="button" onClick={() => setActiveTab('settings')} className="px-4 py-2.5 rounded-xl bg-[#F5C518] text-[#0A1128] text-xs font-black uppercase tracking-wider">
+              Account settings
             </button>
           </div>
+        </section>
+
+        <div className="grid lg:grid-cols-[1.2fr_.8fr] gap-5">
+          <section className="sabi-surface p-5 md:p-6">
+            <span className="text-[9px] uppercase tracking-[0.18em] font-black text-[#4A90D9]">Your learning profile</span>
+            <h3 className="text-lg font-black text-[#0A1128] mt-1">Personalized context</h3>
+            <div className="grid sm:grid-cols-2 gap-3 mt-5">
+              {[
+                ['Target course', profile.targetCourse || 'Not set'],
+                ['Target university', profile.targetUniversity || 'Not set'],
+                ['Class level', profile.classLevel || 'Not set'],
+                ['Language', profile.languagePreference || 'Not set'],
+                ['Explanation style', profile.explanationPreference || 'Not set'],
+                ['Study history', profile.attempts || 'Not set']
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-2xl border border-[#D6E4F0] bg-[#F8FBFF] p-4">
+                  <span className="block text-[8px] uppercase tracking-widest font-black text-slate-400">{label}</span>
+                  <p className="text-xs font-black text-[#0A1128] mt-1 leading-relaxed">{String(value)}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-5">
+            <div className="sabi-surface p-5">
+              <span className="text-[9px] uppercase tracking-[0.18em] font-black text-slate-400">Chosen subjects</span>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {(profile.chosenSubjects || []).map(subject => (
+                  <span key={subject} className="px-3 py-1.5 rounded-full bg-[#EBF4FF] border border-[#D6E4F0] text-[10px] font-black text-[#0A1128]">{subject}</span>
+                ))}
+              </div>
+              {!(profile.chosenSubjects || []).length && <p className="text-xs text-slate-500 mt-3">Subject selection will appear after onboarding sync.</p>}
+            </div>
+
+            <div className="sabi-surface p-5">
+              <span className="text-[9px] uppercase tracking-[0.18em] font-black text-slate-400">Account state</span>
+              <div className="mt-3 space-y-2">
+                {[
+                  ['Access', 'Backend sync pending'],
+                  ['AI credits', 'Backend sync pending'],
+                  ['Streak', 'Backend sync pending']
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between gap-3 py-2 border-b last:border-0 border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-500">{label}</span>
+                    <span className="text-[10px] font-black text-[#0A1128]">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
         </div>
+
+        <section className="rounded-2xl border border-[#D6E4F0] bg-white p-5 md:p-6">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-[#4A90D9]" />
+            <span className="text-[9px] uppercase tracking-[0.18em] font-black text-[#0A1128]">Account boundary</span>
+          </div>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+            Subscription, entitlements, payments, AI-credit balance, streaks and other authoritative account metrics are server state. This frontend never invents values for them.
+          </p>
+        </section>
       </div>
     );
   }
@@ -3261,41 +3291,75 @@ export default function App() {
   // --- SUB-PANE: DASHBOARD SETTINGS TAB ---
   function renderSettingsTab() {
     return (
-      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
-        <div className="sabi-surface p-5 md:p-6">
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Account preferences</span>
-          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Settings</h2>
-          <p className="text-sm text-slate-500 mt-1">Manage learning preferences and account controls. Changes that affect the account must be persisted by the backend.</p>
-        </div>
-        <div className="grid gap-3">
-          <div className="sabi-surface p-5 space-y-4">
-            <h3 className="text-sm font-black text-[#0A1128]">Learning preferences</h3>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="rounded-xl border border-slate-200 p-3"><span className="block text-[9px] uppercase font-black text-slate-400">Language</span><span className="text-xs font-bold text-[#0A1128]">{profile?.languagePreference || 'Not set'}</span></div>
-              <div className="rounded-xl border border-slate-200 p-3"><span className="block text-[9px] uppercase font-black text-slate-400">Explanation style</span><span className="text-xs font-bold text-[#0A1128]">{profile?.explanationPreference || 'Not set'}</span></div>
+      <div className="space-y-5 animate-fade-in max-w-5xl mx-auto w-full">
+        <section className="rounded-3xl bg-[#0A1128] text-white overflow-hidden">
+          <div className="p-6 md:p-8">
+            <span className="text-[9px] uppercase tracking-[0.2em] font-black text-[#F5C518]">Account control center</span>
+            <h2 className="text-2xl md:text-4xl font-black mt-2">Settings</h2>
+            <p className="text-sm text-white/55 mt-2 max-w-2xl">Keep your learning preferences, access state and session controls in one place. Account-changing actions will be connected to the appropriate backend services.</p>
+          </div>
+        </section>
+
+        <div className="grid lg:grid-cols-2 gap-5">
+          <section className="sabi-surface p-5 md:p-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#EBF4FF] flex items-center justify-center"><Sliders className="w-4 h-4 text-[#4A90D9]" /></div>
+              <div><span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Learning</span><h3 className="text-base font-black text-[#0A1128]">Preferences</h3></div>
             </div>
-            <p className="text-[10px] text-slate-500">Preference editing controls will connect to the profile/preferences API. This preview does not silently persist local changes as account state.</p>
-          </div>
-          <div className="sabi-surface p-5 space-y-3">
-            <h3 className="text-sm font-black text-[#0A1128]">Access & billing</h3>
-            <div className="grid sm:grid-cols-3 gap-2">
-              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">Plan</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
-              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">Entitlements</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
-              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">AI credits</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+            <div className="mt-5 space-y-3">
+              <div className="rounded-2xl border border-[#D6E4F0] p-4">
+                <span className="block text-[8px] uppercase tracking-widest font-black text-slate-400">Language preference</span>
+                <p className="text-xs font-black text-[#0A1128] mt-1">{profile?.languagePreference || 'Not set'}</p>
+              </div>
+              <div className="rounded-2xl border border-[#D6E4F0] p-4">
+                <span className="block text-[8px] uppercase tracking-widest font-black text-slate-400">Explanation style</span>
+                <p className="text-xs font-black text-[#0A1128] mt-1">{profile?.explanationPreference || 'Not set'}</p>
+              </div>
             </div>
-            <p className="text-[10px] text-slate-500">Payment, subscription, access limits and AI-credit balances are server-authoritative.</p>
-          </div>
-          <div className="sabi-surface p-5 space-y-3">
-            <h3 className="text-sm font-black text-[#0A1128]">Session</h3>
-            <button onClick={handleResetProfileSystem} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-black uppercase tracking-wider">Exit frontend preview</button>
-            <p className="text-[10px] text-slate-500">Production logout will invalidate the authenticated session through the authentication service. This preview action only exits the local frontend flow.</p>
-          </div>
+            <button type="button" disabled className="mt-4 w-full py-3 rounded-xl border border-slate-200 text-slate-400 text-xs font-black uppercase tracking-wider cursor-not-allowed">Edit preferences — API pending</button>
+          </section>
+
+          <section className="sabi-surface p-5 md:p-6">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-[#FFF8D8] flex items-center justify-center"><Lock className="w-4 h-4 text-[#0A1128]" /></div>
+              <div><span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Commercial</span><h3 className="text-base font-black text-[#0A1128]">Access & billing</h3></div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 mt-5">
+              {['Plan','Entitlements','AI credits'].map(label => (
+                <div key={label} className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3">
+                  <span className="block text-[8px] uppercase font-black text-slate-400">{label}</span>
+                  <p className="text-[10px] font-black text-[#0A1128] mt-1">Pending sync</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-4 leading-relaxed">Payment status, subscription, entitlements and credit balances are authoritative server state.</p>
+            <button type="button" disabled className="mt-3 w-full py-3 rounded-xl border border-slate-200 text-slate-400 text-xs font-black uppercase tracking-wider cursor-not-allowed">Manage access — API pending</button>
+          </section>
         </div>
+
+        <section className="sabi-surface p-5 md:p-6">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] flex items-center justify-center"><ShieldAlert className="w-4 h-4 text-[#4A90D9]" /></div>
+            <div><span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Session</span><h3 className="text-base font-black text-[#0A1128]">Security & recovery</h3></div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3 mt-5">
+            <div className="rounded-2xl border border-[#D6E4F0] p-4">
+              <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Authentication</span>
+              <p className="text-xs font-black text-[#0A1128] mt-1">Session service pending</p>
+              <p className="text-[10px] text-slate-500 mt-2">Production logout and session invalidation will be handled by the authentication service.</p>
+            </div>
+            <div className="rounded-2xl border border-[#D6E4F0] p-4">
+              <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Frontend preview</span>
+              <p className="text-xs font-black text-[#0A1128] mt-1">Local state only</p>
+              <p className="text-[10px] text-slate-500 mt-2">Use this only to leave the current frontend preview while backend auth is not connected.</p>
+            </div>
+          </div>
+          <button type="button" onClick={handleResetProfileSystem} className="mt-4 w-full md:w-auto px-5 py-3 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider">Exit frontend preview</button>
+        </section>
       </div>
     );
   }
 
-  // --- SUB-PANE: AI TUTOR HUB CHAT ---
   function renderAITutorTab() {
     return (
       <SabiAIChat
