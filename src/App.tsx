@@ -3596,9 +3596,9 @@ export default function App() {
                   
                   {/* Gauge speedometer hero */}
                   <div className="bg-[#0A1128] text-white p-4 rounded-b-2xl items-center flex flex-col space-y-1">
-                    <span className="text-[8px] font-mono text-slate-300 tracking-wider font-bold">ESTIMATED EXAM SCALE</span>
+                    <span className="text-[8px] font-mono text-slate-300 tracking-wider font-bold">EXAM SCALE — DESIGN PREVIEW</span>
                     <div className="w-24 h-14 border-4 border-dashed border-[#F5C518] rounded-t-full flex items-center justify-center pt-4 mt-1">
-                      <span className="text-2xl font-black font-mono text-[#F5C518]">312</span>
+                      <span className="text-2xl font-black font-mono text-[#F5C518]">—</span>
                     </div>
                     <span className="text-[8px] text-slate-400">CALIBRATION DATA — BACKEND REQUIRED</span>
                   </div>
@@ -3620,11 +3620,11 @@ export default function App() {
 
                     {/* Metric deck performance */}
                     <div className="space-y-1 bg-white p-3 rounded-lg border border-slate-200">
-                      <span className="text-[8px] font-black text-slate-400 mt-1 uppercase block">Registered Performance Metrics</span>
+                      <span className="text-[8px] font-black text-slate-400 mt-1 uppercase block">Backend Performance Metrics</span>
                       {[
-                        { name: 'Mathematics', value: '78%', width: 'w-[78%]', color: 'bg-emerald-500' },
-                        { name: 'English Concord', value: '61%', width: 'w-[61%]', color: 'bg-indigo-500' },
-                        { name: 'Chemistry Surds', value: '30%', width: 'w-[30%]', color: 'bg-[#D32F2F]' }
+                        { name: 'Mathematics', value: '—', width: 'w-0', color: 'bg-emerald-500' },
+                        { name: 'English Concord', value: '—', width: 'w-0', color: 'bg-indigo-500' },
+                        { name: 'Chemistry Surds', value: '—', width: 'w-0', color: 'bg-[#D32F2F]' }
                       ].map(metric => (
                         <div key={metric.name} className="space-y-0.5 text-slate-700 text-[10px]">
                           <div className="flex justify-between items-center font-bold">
