@@ -205,7 +205,8 @@ export default function App() {
   const handleTriggerSignupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupForm.email || !signupForm.password) return;
-    // Open OTP Dialogue
+    // Authentication is not connected to the backend yet.
+    // Keep the OTP surface as a UI preview without claiming a real verification.
     setShowOtpModal(true);
     setOtpError('');
     // Focus first input box
@@ -221,12 +222,13 @@ export default function App() {
       return;
     }
     setIsVerifyingOtp(true);
-    // Simulate verification
+    // Preview-only transition. A real implementation must call the
+    // authentication/verification API and use its authoritative session state.
     setTimeout(() => {
       setIsVerifyingOtp(false);
       setShowOtpModal(false);
-      setAppStage('WELCOME_SETUP'); // Proceed
-    }, 1000);
+      setAppStage('WELCOME_SETUP');
+    }, 600);
   };
 
   // Onboarding Question validation and navigation
@@ -970,7 +972,7 @@ export default function App() {
 
         <button 
           onClick={handleSkipToDashboard}
-          title="Skip to Dashboard"
+          title="Open frontend preview dashboard"
           className="absolute top-6 right-6 z-20 text-slate-400 hover:text-[#0A1128] p-2 hover:bg-slate-100 rounded-full transition-colors flex items-center justify-center"
         >
           <Home className="w-4 h-4" />
@@ -979,13 +981,13 @@ export default function App() {
         <div className="space-y-5 pt-2 z-10">
           <div className="text-center space-y-1.5 pt-1">
             <span className="text-[9px] font-black uppercase tracking-widest text-[#4A90D9] block">
-              Stage 1 of 5: FAST ENTRY
+              Stage 1 of 5: ACCOUNT PREVIEW
             </span>
             <h3 className="text-xl font-bold text-[#0A1128] font-display tracking-tight">
-              Create Account
+              Create Account — Frontend Preview
             </h3>
             <p className="text-xs text-[#4A5568] leading-relaxed px-1">
-              We'll customize your study pathways specifically to pass your target score.
+              Account creation will be connected to the authentication service. This screen currently previews the approved signup experience.
             </p>
           </div>
 
@@ -1097,7 +1099,7 @@ export default function App() {
               Enter Verification Code
             </h4>
             <p className="text-[11px] text-[#4A5568] leading-normal px-1">
-              We sent a 6-digit verification code to your device.
+              Authentication service is not connected in this frontend preview. Enter any 6 digits to preview the next state.
             </p>
           </div>
 
@@ -1134,13 +1136,13 @@ export default function App() {
               </>
             ) : (
               <>
-                <span>CONFIRM CODE</span>
+                <span>CONTINUE PREVIEW</span>
               </>
             )}
           </button>
 
           <p className="text-[11px] text-slate-400 text-center">
-            Didn't get a code? <span className="font-[#0A1128] font-bold text-[#0A1128] hover:underline cursor-pointer">Resend SMS</span>
+            Real OTP delivery and resend will be supplied by the authentication service.
           </p>
         </div>
       </div>
@@ -1159,7 +1161,7 @@ export default function App() {
             WELCOME ONBOARD
           </span>
           <p className="text-xs text-sky-100 font-display mt-0.5">
-            Sabi adaptive pathways configured
+            Sabi adaptive pathways — preview
           </p>
         </div>
 
