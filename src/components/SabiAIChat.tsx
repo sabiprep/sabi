@@ -72,7 +72,7 @@ export default function SabiAIChat({
   const missedCount = currentMasteryItem?.history?.filter((h: any) => !h.correct).length || 0;
   const totalAttempts = currentMasteryItem?.history?.length || 0;
 
-  let performanceText = `You haven't attempted any question on ${chatTopic} yet. Sabi AI recommends building a solid foundation here to avoid blind spots in your JAMB exam!`;
+  let performanceText = `You haven't attempted any question on ${chatTopic} yet. Build evidence on this topic through practice before treating it as a learning priority.`;
   if (missedCount > 0) {
     performanceText = `You missed ${missedCount} question${missedCount > 1 ? 's' : ''} on ${chatTopic} during your recent practice sessions. Let's close your knowledge gaps and master this topic together!`;
   } else if (totalAttempts > 0) {
