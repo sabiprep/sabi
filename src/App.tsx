@@ -1723,10 +1723,10 @@ export default function App() {
           </div>
 
           <div className="space-y-2">
-            <span className="text-[10px] font-extrabold text-[#4A90D9] uppercase tracking-wider block">Calculating Bounds</span>
-            <h3 className="text-base font-extrabold text-[#0A1128] font-display">Generating Sabi Profile</h3>
+            <span className="text-[10px] font-extrabold text-[#4A90D9] uppercase tracking-wider block">Processing Diagnostic</span>
+            <h3 className="text-base font-extrabold text-[#0A1128] font-display">Preparing Your Learning Profile</h3>
             <p className="text-[11px] text-slate-500 leading-normal">
-              Analyzing subject confidence gaps, pinpointing blindspots, and structuring recommended study timelines...
+              Preparing the diagnostic evidence for the learning engine. Authoritative mastery, readiness, recommendations and score data are not calculated in this frontend.
             </p>
           </div>
 
