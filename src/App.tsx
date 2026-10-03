@@ -2763,9 +2763,6 @@ export default function App() {
       <SabiAIChat
         profile={profile}
         masteryMap={masteryMap}
-        onUpdateXp={(xp) => {
-          setProfile(prev => prev ? { ...prev, xpPoints: prev.xpPoints + xp } : null);
-        }}
         messages={tutorMessages}
         setMessages={setTutorMessages}
         chatSubject={tutorSubject}
