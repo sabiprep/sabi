@@ -541,7 +541,8 @@ export default function App() {
     setActiveTab('home');
   };
 
-  // Simulated Quiz Initialization Router (represents the backend adaptive fetching)
+  // Preview-only question router. The production backend will own Smart Practice
+  // selection, exclusions, adaptive sequencing and session configuration.
   const quizInitializationRouter = (sessionType: 'smart' | 'custom', subject: SubjectName): Question[] => {
     const subjectPool = SEED_QUESTIONS.filter(q => q.subject === subject);
     if (subjectPool.length === 0) {
@@ -549,8 +550,8 @@ export default function App() {
     }
 
     if (sessionType === 'smart') {
-      // Pulls the adaptive 50/30/20 question mix strictly within the subject's syllabus boundaries
-      // Target session length of 10 questions: 5 easy (50%), 3 medium (30%), 2 hard (20%).
+      // Preview mix only: 5 easy, 3 medium and 2 hard where available.
+      // This must not be treated as the production adaptive-selection algorithm.
       const easyPool = subjectPool.filter(q => q.difficulty === 'easy');
       const mediumPool = subjectPool.filter(q => q.difficulty === 'medium');
       const hardPool = subjectPool.filter(q => q.difficulty === 'hard');
@@ -590,13 +591,8 @@ export default function App() {
 
     const subjectNorm = topicOrSubject as SubjectName;
     const questions = quizInitializationRouter('smart', subjectNorm);
-    if (questions.length > 0) {
-      setPracticeQuestions(questions);
-      setActiveTab('practice');
-    } else {
-      setPracticeQuestions(SEED_QUESTIONS.slice(0, 5));
-      setActiveTab('practice');
-    }
+    setPracticeQuestions(questions);
+    setActiveTab('practice');
   };
 
   const handleLaunchCustomPractice = () => {
@@ -617,10 +613,9 @@ export default function App() {
     if (customPracticeYear !== 'All') {
       subPool = subPool.filter(q => q.year === parseInt(customPracticeYear, 10));
     }
-    if (subPool.length === 0) {
-      // Fallback
-      subPool = SEED_QUESTIONS.filter(q => q.subject === customPracticeSubject).slice(0, 5);
-    }
+    // Do not silently replace a requested subject/topic/year with unrelated questions.
+    // An empty result should become an explicit empty state once the backend
+    // question-search contract is connected.
     setPracticeQuestions(subPool);
     setActiveTab('practice');
   };
@@ -2297,9 +2292,12 @@ export default function App() {
               ))}
             </div>
 
-            <div className="bg-[#EBF1FA] rounded-xl p-3 border border-[#D0E1F9]">
+            <div className="bg-[#EBF1FA] rounded-xl p-3 border border-[#D0E1F9] space-y-1">
               <p className="text-[11px] text-[#0A1128] font-bold leading-normal">
                 Recommendation status: waiting for backend learning-engine data
+              </p>
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                This frontend currently previews the practice experience with seeded questions. The backend will own question selection, adaptive sequencing, exclusions and session persistence.
               </p>
             </div>
 
@@ -2307,7 +2305,7 @@ export default function App() {
               onClick={() => handleStartSmartPractice(activeSmartSubject)}
               className="w-full py-3 bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-widest rounded-xl hover:bg-yellow-400 transition shadow"
             >
-              Start Adaptive {activeSmartSubject} Session
+              Start Smart Practice Preview
             </button>
           </div>
 
@@ -2411,7 +2409,7 @@ export default function App() {
                   onClick={handleQuizExitAndSave}
                   className="w-full py-3 bg-[#0A1128] text-white font-bold text-xs uppercase tracking-wide rounded-xl"
                 >
-                  Save & Exit
+                  Exit Preview
                 </button>
                 <button
                   onClick={() => setShowExitQuizModal(false)}
