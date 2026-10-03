@@ -62,22 +62,15 @@ export default function MasteryMap({
 }: MasteryMapProps) {
   const [selectedTopicDetail, setSelectedTopicDetail] = useState<MasteryMapItem | null>(null);
 
-  // SECTION 1 Calculations: Overall Readiness
+  // IMPORTANT: Mastery/readiness/recommendation values are backend-authoritative.
+  // This component only presents topic evidence already supplied to it.
   const topicsArray = Object.values(masteryMap || {});
-  const totalScoreAll = topicsArray.reduce((acc, curr) => acc + curr.score, 0);
-  const averageScoreAll = topicsArray.length > 0 ? totalScoreAll / topicsArray.length : 40;
-  const avgScore = Math.min(100, Math.max(10, averageScoreAll));
-
-  // Dynamic predicted JAMB score range (e.g., "Predicted Score: 275 - 310")
-  const predictedMin = Math.max(120, Math.round((avgScore * 4) - 15));
-  const predictedMax = Math.min(400, Math.round((avgScore * 4) + 15));
-
-  let overallStatusMessage = "Sabi Coach recommends practicing highlighted weak areas to secure high-priority exam marks.";
-  if (avgScore >= 75) {
-    overallStatusMessage = "Outstanding readiness baseline! You are currently on track for a high-percentile national ranking.";
-  } else if (avgScore >= 55) {
-    overallStatusMessage = "Solid readiness foundation. Target remaining weak topics to push comfortably into the 300+ zone!";
-  }
+  const topicsWithEvidence = topicsArray.filter(item => item.attempts > 0).length;
+  const overallStatusMessage = topicsArray.length === 0
+    ? "SABI needs learning evidence before it can show mastery or readiness."
+    : topicsWithEvidence === 0
+      ? "No observed learning evidence has been recorded yet. Start a practice session to build your learning state."
+      : "Your learning evidence is shown below. SABI's learning engine determines mastery, readiness and recommendations.";
 
   // SECTION 2 Calculations: Subjects cards (exactly 4)
   const finalSubjectsList = profile?.chosenSubjects && profile.chosenSubjects.length >= 4
@@ -100,20 +93,14 @@ export default function MasteryMap({
 
   const getSubjectMetric = (subj: SubjectName) => {
     const subTopics = Object.values(masteryMap || {}).filter(m => m.subject === subj);
-    const avg = subTopics.length > 0
-      ? Math.round(subTopics.reduce((acc, curr) => acc + curr.score, 0) / subTopics.length)
-      : 40;
-    
-    let statusText = "Critical";
-    let colorClass = "text-rose-600 bg-rose-50 border-rose-100";
-    if (avg >= 75) {
-      statusText = "Mastered";
-      colorClass = "text-emerald-700 bg-emerald-50 border-emerald-100";
-    } else if (avg >= 50) {
-      statusText = "Building";
-      colorClass = "text-amber-700 bg-amber-50 border-amber-100";
-    }
-    return { avg, statusText, colorClass };
+    const evidenceCount = subTopics.reduce((sum, item) => sum + item.attempts, 0);
+    return {
+      evidenceCount,
+      statusText: evidenceCount > 0 ? "Evidence recorded" : "Not assessed",
+      colorClass: evidenceCount > 0
+        ? "text-sky-700 bg-sky-50 border-sky-100"
+        : "text-slate-500 bg-slate-50 border-slate-100"
+    };
   };
 
   // SECTION 3 Calculations: Selected Subject Drill-Down sorted weakest first
@@ -121,27 +108,12 @@ export default function MasteryMap({
     .filter(m => m.subject === selectedSubject)
     .sort((a, b) => a.score - b.score);
 
-  const checkIsBlindSpot = (item: MasteryMapItem) => {
-    return (item.score < 40 && item.attempts > 0);
-  };
-
-  // SECTION 4 Calculations: Highest relative syllabus weight + Lowest score recommendation 
-  const priorityRecommendations = Object.values(masteryMap || {}).map(m => {
-    const importance = NODE_COORDINATES_IMPORTANCE[m.topic] || 'medium';
-    const weight = importance === 'high' ? 3 : importance === 'medium' ? 2 : 1;
-    const priorityRating = weight * (100 - m.score);
-    return { item: m, priorityRating };
-  });
-  const sortedRecs = [...priorityRecommendations].sort((a, b) => b.priorityRating - a.priorityRating);
-  const bestOpp = sortedRecs.length > 0 ? sortedRecs[0] : null;
-
-  let coachingCopy = "Your biggest opportunity: Spend 20 minutes on basic topics to boost your exam score by 15 points!";
-  if (bestOpp) {
-    const oppTopic = bestOpp.item.topic;
-    const oppSubject = bestOpp.item.subject;
-    const potentialBoost = Math.round((100 - bestOpp.item.score) * 0.35 + 8);
-    coachingCopy = `Your biggest opportunity: Spend 20 minutes on ${oppTopic} in ${oppSubject} to boost your exam score by ${potentialBoost} marks!`;
-  }
+  // Topic ordering is presentation-only. The values themselves are supplied by the learning state.
+  // Until the recommendation engine supplies a concrete action, keep this area neutral.
+  const focusTopic = activeSubjectTopics[0] || null;
+  const coachingCopy = focusTopic
+    ? `Continue building evidence for ${focusTopic.topic}.`
+    : `Start a practice session to build your learning evidence.`;
 
   return (
     <div id="mastery-dashboard-view" className="space-y-4 animate-fade-in text-[#0A1128] flex flex-col h-full relative select-none">
@@ -151,14 +123,14 @@ export default function MasteryMap({
         <div className="absolute top-0 right-0 transform translate-x-3 -translate-y-3 w-28 h-28 bg-[#4A90D9]/5 rounded-full filter blur-xl pointer-events-none" />
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <span className="text-[10px] uppercase font-extrabold text-[#4A90D9] tracking-wider block">Estimated Exam Competency</span>
-            <h2 className="text-xl md:text-2xl font-black text-[#0A1128] font-display uppercase tracking-tight mt-0.5 animate-pulse-slow">
-              Predicted Score: {predictedMin} - {predictedMax}
+            <span className="text-[10px] uppercase font-extrabold text-[#4A90D9] tracking-wider block">Learning Evidence</span>
+            <h2 className="text-xl md:text-2xl font-black text-[#0A1128] font-display uppercase tracking-tight mt-0.5">
+              {topicsWithEvidence} {topicsWithEvidence === 1 ? 'topic' : 'topics'} observed
             </h2>
           </div>
           <div className="flex items-center gap-2 bg-[#0A1128] text-white px-3 py-1.5 rounded-xl border border-slate-800 self-start md:self-auto shadow-sm">
-            <Award className="h-4 w-4 text-[#F5C518]" />
-            <span className="font-mono text-xs font-bold">{Math.round(avgScore)}% Global Mastery</span>
+            <Info className="h-4 w-4 text-[#F5C518]" />
+            <span className="font-mono text-xs font-bold">Backend mastery state</span>
           </div>
         </div>
         <p className="text-[11px] text-slate-550 font-medium leading-relaxed mt-2.5 flex items-center gap-1.5 border-t border-slate-100 pt-2.5">
@@ -172,7 +144,7 @@ export default function MasteryMap({
         <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block ml-1">Choose Focus Subject:</span>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {subjectsToRender.map((subj) => {
-            const { avg, statusText, colorClass } = getSubjectMetric(subj);
+            const { evidenceCount, statusText, colorClass } = getSubjectMetric(subj);
             const isSelected = selectedSubject === subj;
 
             // Circular SVG calculations
@@ -193,32 +165,8 @@ export default function MasteryMap({
                     {subj.replace(' Language', '')}
                   </span>
                   
-                  {/* Circular progress ring */}
-                  <div className="relative w-9 h-9 shrink-0 flex items-center justify-center">
-                    <svg width={size} height={size} className="transform -rotate-95">
-                      <circle
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                        fill="none"
-                        stroke={isSelected ? '#1E293B' : '#E2E8F0'}
-                        strokeWidth={strokeWidth}
-                      />
-                      <circle
-                        cx={size / 2}
-                        cy={size / 2}
-                        r={radius}
-                        fill="none"
-                        stroke={isSelected ? '#F5C518' : '#4A90D9'}
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <span className="absolute text-[8.5px] font-mono font-bold">
-                      {avg}%
-                    </span>
+                  <div className="w-9 h-9 shrink-0 rounded-full border border-current/20 flex items-center justify-center">
+                    <span className="text-[8.5px] font-mono font-bold">{evidenceCount}</span>
                   </div>
                 </div>
 
@@ -262,26 +210,18 @@ export default function MasteryMap({
             </div>
           ) : (
             activeSubjectTopics.map((topicItem) => {
-              const isBlindSpot = checkIsBlindSpot(topicItem);
               const isLowConfidence = topicItem.attempts < 5;
 
               return (
                 <div
                   key={topicItem.topic}
-                  onClick={() => setSelectedTopicDetail(topicItem)}
-                  className={`p-3.5 rounded-xl border text-left cursor-pointer transition relative hover:bg-slate-50 flex items-center justify-between gap-4 ${isBlindSpot ? 'border-amber-400 bg-amber-50/20 border-l-[6px] border-l-amber-500' : 'border-slate-200 bg-white'}`}
+                  onClick={() => setSelectedTopicDetail(topicItem)} className="p-3.5 rounded-xl border border-slate-200 bg-white text-left cursor-pointer transition relative hover:bg-slate-50 flex items-center justify-between gap-4"
                 >
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-slate-800 tracking-tight leading-tight block">
                         {topicItem.topic}
                       </span>
-                      {isBlindSpot && (
-                        <span className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[8px] font-black uppercase tracking-wider">
-                          <AlertCircle className="h-3 w-3 text-amber-600" />
-                          <span>Blind Spot</span>
-                        </span>
-                      )}
                       {isLowConfidence && (
                         <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[8px] font-bold uppercase tracking-wider whitespace-nowrap">
                           Low Confidence
@@ -327,11 +267,7 @@ export default function MasteryMap({
         </div>
         <button
           onClick={() => {
-            if (bestOpp) {
-              onStartPractice(bestOpp.item.topic);
-            } else {
-              onStartPractice(selectedSubject === 'English Language' ? 'Proximity Concord' : 'Algebra');
-            }
+            onStartPractice(focusTopic?.topic || (selectedSubject === 'English Language' ? 'Proximity Concord' : 'Algebra'));
           }}
           className="bg-[#F5C518] text-[#0A1128] font-black text-[10px] uppercase tracking-wider px-3.5 py-2.5 rounded-xl border border-transparent hover:bg-white active:scale-95 transition shrink-0 flex items-center gap-1"
         >
@@ -365,104 +301,19 @@ export default function MasteryMap({
               </button>
             </div>
 
-            {/* Topic state mapping contextually */}
-            {selectedTopicDetail.score < 40 && selectedTopicDetail.attempts > 0 ? (
-              /* RED STATE / BLIND SPOT */
-              <div className="space-y-4 bg-amber-50/50 rounded-2xl p-4 border border-amber-200">
-                <div className="flex items-center gap-2 text-amber-700">
-                  <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 animate-bounce" />
-                  <span className="font-extrabold text-xs uppercase tracking-wider">CRITICAL BLIND SPOT DETECTED</span>
-                </div>
-                <p className="text-[11.5px] leading-relaxed text-slate-750 font-bold">
-                  This topic is compromising your margins! Sabi AI recommends jumping straight into conceptual coaching before doing more practice mock questions.
-                </p>
-                <div className="pt-2 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      onStartPractice(selectedTopicDetail.topic);
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2 px-3 text-[10px] font-black uppercase text-[#0A1128] bg-white border border-[#D6E4F0] hover:bg-slate-50 rounded-xl transition shadow-sm text-center"
-                  >
-                    📝 Practice Topic
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (onStartTutor) {
-                        onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic);
-                      }
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-sm text-center flex items-center justify-center gap-1"
-                  >
-                    <Sparkles className="h-3 w-3 text-[#F5C518]" />
-                    <span>Ask Sabi AI</span>
-                  </button>
-                </div>
+            <div className="space-y-4 bg-slate-50 rounded-2xl p-4 border border-slate-200">
+              <div className="flex items-center gap-2 text-[#4A90D9]">
+                <Info className="h-5 w-5 shrink-0" />
+                <span className="font-extrabold text-xs uppercase tracking-wider">BACKEND LEARNING STATE</span>
               </div>
-            ) : selectedTopicDetail.score >= 75 ? (
-              /* GREEN STATE / MASTERED */
-              <div className="space-y-4 bg-emerald-50/50 rounded-2xl p-4 border border-emerald-200">
-                <div className="flex items-center gap-2 text-emerald-800">
-                  <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
-                  <span className="font-extrabold text-xs uppercase tracking-wider">SECURED ACADEMIC DOMAIN</span>
-                </div>
-                <p className="text-[11.5px] leading-relaxed text-slate-750 font-medium">
-                  Superb hold! You have acquired robust fluency on this syllabus key point. Perfect score is active. Next scheduled spaced recall check on:
-                </p>
-                <div className="bg-white px-3 py-2.5 rounded-xl border border-slate-100">
-                  <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 block mb-0.5">Spaced repetition schedule</span>
-                  <p className="font-mono font-bold text-[#0A1128] text-xs">
-                    {new Date(selectedTopicDetail.nextReviewDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={() => setSelectedTopicDetail(null)}
-                    className="py-2 px-4 text-[10px] font-black uppercase text-slate-650 hover:text-slate-800 transition"
-                  >
-                    Done
-                  </button>
-                </div>
+              <p className="text-[11.5px] leading-relaxed text-slate-700 font-medium">
+                SABI displays the learning evidence supplied for this topic. Mastery status, recommendations and review scheduling are determined by the learning engine rather than inferred by this screen.
+              </p>
+              <div className="pt-2 grid grid-cols-2 gap-3">
+                <button onClick={() => { onStartPractice(selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-lg text-center">Start Practice</button>
+                <button onClick={() => { if (onStartTutor) onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition text-center">Ask Sabi AI</button>
               </div>
-            ) : (
-              /* DEFAULT / UNTESTED OR BUILDING */
-              <div className="space-y-4 bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-[#4A90D9]">
-                  <CompassIcon className="h-5 w-5 text-[#4A90D9] shrink-0" />
-                  <span className="font-extrabold text-xs uppercase tracking-wider">FOUNDATIONAL ESTABLISHMENT TARGET</span>
-                </div>
-                <p className="text-[11.5px] leading-relaxed text-slate-750 font-medium">
-                  {selectedTopicDetail.attempts === 0 
-                    ? "This topic hasn't been tested in your practice runs yet. Establish your entry-level baseline scorecard right away!"
-                    : "You are currently building fluency here! Engage in focused practice sets to secure your peak exam potential."
-                  }
-                </p>
-                <div className="pt-2 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      onStartPractice(selectedTopicDetail.topic);
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2.5 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-lg text-center flex items-center justify-center gap-1.5"
-                  >
-                    <span>Start Practice Run</span>
-                    <ArrowRight className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (onStartTutor) {
-                        onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic);
-                      }
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2.5 px-3 text-[10px] font-black uppercase text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition text-center"
-                  >
-                    📖 Read Lesson Note
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
 
             {/* Performance Statistics */}
             <div className="bg-[#FAFBFD] p-4.5 rounded-2xl border border-[#D6E4F0] space-y-2.5 text-xs">

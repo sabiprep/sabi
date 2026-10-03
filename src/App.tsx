@@ -6,6 +6,7 @@ import {
   Users,
   Settings,
   HelpCircle,
+  Info,
   Play,
   CheckCircle,
   XCircle,
@@ -135,10 +136,7 @@ export default function App() {
   const [aiExplainLoading, setAiExplainLoading] = useState(false);
   const [aiExplainLanguage, setAiExplainLanguage] = useState<'formal' | 'pidgin' | 'mixed'>('mixed');
 
-  // Evaluation Metrics
-  const [calculatedScoreRange, setCalculatedScoreRange] = useState({ min: 215, max: 245 });
-  const [calculatedBlindspots, setCalculatedBlindspots] = useState<string[]>([]);
-  const [calculatedWeakAreas, setCalculatedWeakAreas] = useState<string[]>([]);
+  // Diagnostic processing state. Authoritative learning metrics come from the backend.
   const [evaluationProgress, setEvaluationProgress] = useState(0);
 
   // Lifted AI Tutor state to prevent reset on tab transitions
@@ -148,7 +146,7 @@ export default function App() {
   const [tutorChatActive, setTutorChatActive] = useState<boolean>(false);
 
   // Home Dashboard States & Tabs
-  const [activeTab, setActiveTab] = useState<'home' | 'practice' | 'mastery' | 'leaderboard' | 'profile' | 'aitutor' | 'mobile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'practice' | 'blitz' | 'cbt' | 'progress' | 'recommendations' | 'mastery' | 'leaderboard' | 'profile' | 'settings' | 'aitutor' | 'mobile'>('home');
   const [selectedSubjectPractice, setSelectedSubjectPractice] = useState<SubjectName>('English Language');
   const [activeSessionTopicPractice, setActiveSessionTopicPractice] = useState<string>('');
   const [practiceSessionType, setPracticeSessionType] = useState<'smart' | 'custom' | null>(null);
@@ -164,6 +162,14 @@ export default function App() {
   const [practiceCorrectCount, setPracticeCorrectCount] = useState(0);
   const [showExitQuizModal, setShowExitQuizModal] = useState(false);
   const [customPracticeModalVisible, setCustomPracticeModalVisible] = useState(false);
+
+  // CBT preview state. Production exam session/timer/scoring must come from the backend.
+  const [cbtPreviewConfig, setCbtPreviewConfig] = useState<{mode: 'full' | 'quick'; questionCount: number; durationMinutes: number} | null>(null);
+  const [cbtPreviewQuestions, setCbtPreviewQuestions] = useState<Question[]>([]);
+  const [cbtPreviewIndex, setCbtPreviewIndex] = useState(0);
+  const [cbtPreviewAnswers, setCbtPreviewAnswers] = useState<Record<string, 'A' | 'B' | 'C' | 'D'>>({});
+  const [cbtPreviewSubmitted, setCbtPreviewSubmitted] = useState(false);
+  const [cbtPreviewStartedAt, setCbtPreviewStartedAt] = useState<number | null>(null);
 
   // Leaderboard lists
   const [leaderboardFilter, setLeaderboardFilter] = useState<'weekly' | 'alltime'>('weekly');
@@ -204,7 +210,8 @@ export default function App() {
   const handleTriggerSignupSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!signupForm.email || !signupForm.password) return;
-    // Open OTP Dialogue
+    // Authentication is not connected to the backend yet.
+    // Keep the OTP surface as a UI preview without claiming a real verification.
     setShowOtpModal(true);
     setOtpError('');
     // Focus first input box
@@ -220,12 +227,13 @@ export default function App() {
       return;
     }
     setIsVerifyingOtp(true);
-    // Simulate verification
+    // Preview-only transition. A real implementation must call the
+    // authentication/verification API and use its authoritative session state.
     setTimeout(() => {
       setIsVerifyingOtp(false);
       setShowOtpModal(false);
-      setAppStage('WELCOME_SETUP'); // Proceed
-    }, 1000);
+      setAppStage('WELCOME_SETUP');
+    }, 600);
   };
 
   // Onboarding Question validation and navigation
@@ -323,33 +331,21 @@ export default function App() {
       setDiagnosticHasSubmitted(false);
       setAiExplainText('');
     } else {
-      // Fail-proof dynamic mock question if pool is empty
-      const mockQ: Question = {
-        id: `MOCK-${Math.floor(Math.random() * 9000)}`,
-        exam_type: 'AI-Generated',
-        subject: subj,
-        topic: 'General Syllabus Concept',
-        subtopic: 'Review Module',
-        year: 2026,
-        question: `Which represents a core fundamental pillar in ${subj} diagnostics?`,
-        options: {
-          A: 'The analytical proof models',
-          B: 'The standard formulas alignment',
-          C: 'The structured context framework',
-          D: 'The general logic boundary'
-        },
-        answer: 'C',
-        explanation: 'The structured context framework represents a core fundamental pillar.',
-        explanation_short: 'Option C represents the correct syllabus structure.',
-        explanation_pidgin: 'Normal normal, Option C make sense pass others for inside this topic context.',
-        difficulty: targetDifficulty,
-        concepts: ['analytical concepts'],
-        source: 'Sabi Engine',
-        status: 'verified',
-        confidence_score: 0.95,
-        created_at: new Date().toISOString()
-      };
-      setDiagnosticActiveQuestion(mockQ);
+      // Never fabricate or label an invented question as verified.
+      // If the preview pool is exhausted, reuse a real seeded question
+      // for the UI rather than manufacturing assessment content.
+      const reusablePool = SEED_QUESTIONS.filter(q => q.subject === subj);
+      if (reusablePool.length === 0) {
+        setDiagnosticActiveQuestion(null);
+        setDiagnosticSelectedConfidence('Medium');
+        setDiagnosticAnswerSelected(null);
+        setDiagnosticHasSubmitted(false);
+        setAiExplainText('');
+        return;
+      }
+
+      const selectedQ = reusablePool[Math.floor(Math.random() * reusablePool.length)];
+      setDiagnosticActiveQuestion(selectedQ);
       setDiagnosticSelectedConfidence('Medium');
       setDiagnosticAnswerSelected(null);
       setDiagnosticHasSubmitted(false);
@@ -371,7 +367,7 @@ export default function App() {
       correct: isCorrect,
       difficulty: diagnosticActiveQuestion.difficulty,
       confidence: diagnosticSelectedConfidence,
-      timeSpent: 12 // generic simulated timer
+      timeSpent: 0 // Preview: real timing belongs to the diagnostic session service.
     };
 
     const newLog = [...quizAnswerLog, logItem];
@@ -446,53 +442,20 @@ export default function App() {
   };
 
   const handleTransitionToEvaluation = (fullLog = quizAnswerLog) => {
+    // The diagnostic has captured frontend evidence, but authoritative
+    // mastery, readiness, weak areas, blindspots and score ranges belong
+    // to the backend learning engine.
     setAppStage('PROFILE_EVALUATION');
     setEvaluationProgress(10);
-    
-    // Simulate diagnostic analytical progress:
+
     let step = 10;
     const interval = setInterval(() => {
       step += 15;
+
       if (step >= 100) {
         step = 100;
         clearInterval(interval);
-        
-        // Finalize state database calculations
-        const correctAnswers = fullLog.filter(l => l.correct).length;
-        const total = fullLog.length || 1;
-        const accuracy = correctAnswers / total;
-        
-        // Calculate realistic predicted score (0-400)
-        // Average JAMB score: correct answer moves score between 180 and 340
-        const mappedBase = Math.floor(180 + (accuracy * 150));
-        const finalMin = Math.max(180, mappedBase - 15);
-        const finalMax = Math.min(400, mappedBase + 15);
-        setCalculatedScoreRange({ min: finalMin, max: finalMax });
 
-        // Calculate top 3 weak areas based on wrong answers
-        const wrongQIds = fullLog.filter(l => !l.correct).map(l => l.questionId);
-        let weaks: string[] = [];
-        if (wrongQIds.length > 0) {
-          wrongQIds.forEach(id => {
-            const matchedQ = SEED_QUESTIONS.find(q => q.id === id);
-            if (matchedQ && !weaks.includes(matchedQ.topic)) {
-              weaks.push(matchedQ.topic);
-            }
-          });
-        }
-        if (weaks.length === 0) {
-          weaks = ['Newton\'s Laws', 'Proximity Concord', 'Calculus Derivatives'];
-        }
-        setCalculatedWeakAreas(weaks.slice(0, 3));
-
-        // Blindspot calculation: Confidence was "High" or "Medium" but was incorrect
-        const blindspots = fullLog.filter(l => !l.correct && (l.confidence === 'High' || l.confidence === 'Medium')).map(l => {
-          const matchedQ = SEED_QUESTIONS.find(q => q.id === l.questionId);
-          return matchedQ ? matchedQ.topic : 'Algebra';
-        });
-        setCalculatedBlindspots(Array.from(new Set(blindspots)));
-
-        // Create the profile
         const activeProfile: StudentProfile = {
           name: onboardingAnswers.name,
           classLevel: onboardingAnswers.classAndAttempts.classLevel === "Out-of-school Candidate / Resitter"
@@ -500,8 +463,8 @@ export default function App() {
             : (onboardingAnswers.classAndAttempts.classLevel || 'Senior Secondary 3 (SS3)'),
           attempts: onboardingAnswers.classAndAttempts.attempts.includes('First-time') ? 0 : 1,
           chosenSubjects: onboardingAnswers.chosenSubjects,
-          targetCourse: onboardingAnswers.targets.course.trim() || 'Electrical Engineering',
-          targetUniversity: onboardingAnswers.targets.university.trim() || 'University of Uyo',
+          targetCourse: onboardingAnswers.targets.course.trim() || '',
+          targetUniversity: onboardingAnswers.targets.university.trim() || '',
           monthsUntilExam: parseInt(onboardingAnswers.monthsUntilExam) || getDynamicJAMBCountdown().months,
           subjectConfidence: onboardingAnswers.subjectConfidence,
           struggleTypes: onboardingAnswers.chosenSubjects.reduce((acc: any, curr: any) => {
@@ -514,63 +477,22 @@ export default function App() {
           explanationPreference: onboardingAnswers.explanationPreference.includes('Detailed') ? 'step-by-step' : 'short',
           languagePreference: onboardingAnswers.languagePreference.includes('Pidgin') ? 'pidgin' : onboardingAnswers.languagePreference.includes('Mixed') ? 'mixed' : 'english',
           motivation: onboardingAnswers.motivation,
-          blindSpots: blindspots,
-          streakCount: 7, // Starter 7-day streak encouragement
-          xpPoints: 120, // Starting onboarding bonus!
-          unlockedSubjectsCount: 4,
-          isPremium: true,
-          aiCredits: 50,
+          blindSpots: [],
+          // Account, entitlement and engagement values are backend-owned.
+          streakCount: 0,
+          xpPoints: 0,
+          unlockedSubjectsCount: 0,
+          isPremium: false,
+          aiCredits: 0,
           topicMemories: {},
           conversationHistory: []
         };
 
         setProfile(activeProfile);
 
-        // Prepopulate Mastery Map Database
-        const masteryDB: Record<string, MasteryMapItem> = {};
-        SEED_QUESTIONS.forEach(q => {
-          if (onboardingAnswers.chosenSubjects.includes(q.subject)) {
-            // Check if user answered questions in this topic
-            const attemptsTopic = fullLog.filter(l => {
-              const matchedQ = SEED_QUESTIONS.find(s => s.id === l.questionId);
-              return matchedQ && matchedQ.topic === q.topic;
-            });
-            const attemptsCount = attemptsTopic.length;
-            const correctCount = attemptsTopic.filter(a => a.correct).length;
-            
-            // Baseline score based on correct/attempts
-            let scoreValue = 40; // Default
-            if (attemptsCount > 0) {
-              scoreValue = Math.floor((correctCount / attemptsCount) * 100);
-            } else {
-              // Self-reported confidence baseline
-              const conf = onboardingAnswers.subjectConfidence[q.subject] || 3; // 1 to 5 scale
-              scoreValue = conf * 16; // Up to 80%
-            }
-
-            masteryDB[q.topic] = {
-              subject: q.subject,
-              topic: q.topic,
-              subtopic: q.subtopic,
-              score: Math.min(100, Math.max(10, scoreValue)),
-              confidence: attemptsCount > 0 && correctCount === attemptsCount ? 'High' : 'Medium',
-              attempts: attemptsCount,
-              nextReviewDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Spaced repetition +4 days
-              history: attemptsTopic.map(a => ({
-                questionId: a.questionId,
-                correct: a.correct,
-                timestamp: new Date().toISOString(),
-                timeSpentSeconds: a.timeSpent
-              }))
-            };
-          }
-        });
-
-        setMasteryMap(masteryDB);
-        
-        setTimeout(() => {
-          setEvaluationProgress(100);
-        }, 300);
+        // Keep diagnostic evidence in the session only. Do not convert it
+        // into client-authoritative mastery scores or review dates.
+        setTimeout(() => setEvaluationProgress(100), 300);
       } else {
         setEvaluationProgress(step);
       }
@@ -596,37 +518,27 @@ export default function App() {
       languagePreference: 'english',
       motivation: "Pass JAMB flawlessly",
       blindSpots: [],
-      streakCount: 1,
-      xpPoints: 50,
-      unlockedSubjectsCount: 4,
-      isPremium: true,
-      aiCredits: 50,
+      // Backend-owned account metrics remain neutral until the account/profile API is connected.
+      streakCount: 0,
+      xpPoints: 0,
+      unlockedSubjectsCount: 0,
+      isPremium: false,
+      aiCredits: 0,
       topicMemories: {},
       conversationHistory: []
     };
 
     setProfile(activeProfile);
 
-    // Mock generic calculated score
-    setCalculatedScoreRange({ min: 250, max: 280 });
-    setCalculatedWeakAreas(['Algebra', 'Newton\'s Laws']);
+    // Do not manufacture authoritative score, weak-area, or blindspot data in the client.
+    setCalculatedScoreRange({ min: 0, max: 0 });
+    setCalculatedWeakAreas([]);
     setCalculatedBlindspots([]);
 
-    // Populate a basic Mastery Map
-    const masteryDB: Record<string, MasteryMapItem> = {};
-    SEED_QUESTIONS.forEach(q => {
-      masteryDB[q.topic] = {
-        subject: q.subject,
-        topic: q.topic,
-        subtopic: q.subtopic,
-        score: 40,
-        confidence: 'Medium',
-        attempts: 0,
-        nextReviewDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-        history: []
-      };
-    });
-    setMasteryMap(masteryDB);
+    // No synthetic mastery records in the dashboard preview.
+    // The backend learning engine must supply authoritative mastery state.
+    setMasteryMap({});
+
 
     setAppStage('DASHBOARD');
     setActiveTab('home');
@@ -637,7 +549,8 @@ export default function App() {
     setActiveTab('home');
   };
 
-  // Simulated Quiz Initialization Router (represents the backend adaptive fetching)
+  // Preview-only question router. The production backend will own Smart Practice
+  // selection, exclusions, adaptive sequencing and session configuration.
   const quizInitializationRouter = (sessionType: 'smart' | 'custom', subject: SubjectName): Question[] => {
     const subjectPool = SEED_QUESTIONS.filter(q => q.subject === subject);
     if (subjectPool.length === 0) {
@@ -645,8 +558,8 @@ export default function App() {
     }
 
     if (sessionType === 'smart') {
-      // Pulls the adaptive 50/30/20 question mix strictly within the subject's syllabus boundaries
-      // Target session length of 10 questions: 5 easy (50%), 3 medium (30%), 2 hard (20%).
+      // Preview mix only: 5 easy, 3 medium and 2 hard where available.
+      // This must not be treated as the production adaptive-selection algorithm.
       const easyPool = subjectPool.filter(q => q.difficulty === 'easy');
       const mediumPool = subjectPool.filter(q => q.difficulty === 'medium');
       const hardPool = subjectPool.filter(q => q.difficulty === 'hard');
@@ -686,13 +599,8 @@ export default function App() {
 
     const subjectNorm = topicOrSubject as SubjectName;
     const questions = quizInitializationRouter('smart', subjectNorm);
-    if (questions.length > 0) {
-      setPracticeQuestions(questions);
-      setActiveTab('practice');
-    } else {
-      setPracticeQuestions(SEED_QUESTIONS.slice(0, 5));
-      setActiveTab('practice');
-    }
+    setPracticeQuestions(questions);
+    setActiveTab('practice');
   };
 
   const handleLaunchCustomPractice = () => {
@@ -713,10 +621,9 @@ export default function App() {
     if (customPracticeYear !== 'All') {
       subPool = subPool.filter(q => q.year === parseInt(customPracticeYear, 10));
     }
-    if (subPool.length === 0) {
-      // Fallback
-      subPool = SEED_QUESTIONS.filter(q => q.subject === customPracticeSubject).slice(0, 5);
-    }
+    // Do not silently replace a requested subject/topic/year with unrelated questions.
+    // An empty result should become an explicit empty state once the backend
+    // question-search contract is connected.
     setPracticeQuestions(subPool);
     setActiveTab('practice');
   };
@@ -725,12 +632,8 @@ export default function App() {
     setShowExitQuizModal(false);
     setPracticeSessionType(null);
     setPracticeQuestions([]);
-    if (profile && practiceCorrectCount > 0 && !practiceComplete) {
-      setProfile(prev => prev ? {
-        ...prev,
-        xpPoints: prev.xpPoints + (practiceCorrectCount * 15)
-      } : null);
-    }
+    // No authoritative progress or XP is written here.
+    // The backend session-result contract will own persistence.
   };
 
   const handleSubmitPracticeChoice = async () => {
@@ -742,31 +645,10 @@ export default function App() {
     setPracticeHasSubmitted(true);
     if (isCorrect) setPracticeCorrectCount(p => p + 1);
 
-    // Dynamic database score update
-    setMasteryMap(prev => {
-      const currentMap = { ...prev };
-      if (currentMap[activeQ.topic]) {
-        const item = currentMap[activeQ.topic];
-        const newAttempts = item.attempts + 1;
-        const newHistory = [...item.history, {
-          questionId: activeQ.id,
-          correct: isCorrect,
-          timestamp: new Date().toISOString(),
-          timeSpentSeconds: 15
-        }];
-        const corrects = newHistory.filter(h => h.correct).length;
-        const newScore = Math.floor((corrects / newAttempts) * 100);
-
-        currentMap[activeQ.topic] = {
-          ...item,
-          attempts: newAttempts,
-          score: Math.min(100, Math.max(10, newScore)),
-          history: newHistory,
-          nextReviewDate: new Date(Date.now() + (isCorrect ? 8 : 2) * 24 * 60 * 60 * 1000).toISOString() // Spaced spacing increment!
-        };
-      }
-      return currentMap;
-    });
+    // Practice correctness is kept only for this UI session until the backend
+    // practice-result contract is connected. Do not mutate mastery, review dates,
+    // XP, or readiness state from the frontend.
+    
 
     // Auto-advance if correct
     if (isCorrect) {
@@ -819,13 +701,7 @@ export default function App() {
       // Clear global AI Tutor session slice when the student completes the practice loop
       setTutorMessages([]);
       setTutorChatActive(false);
-      // Award XP
-      if (profile) {
-        setProfile(prev => prev ? {
-          ...prev,
-          xpPoints: prev.xpPoints + (practiceCorrectCount * 15)
-        } : null);
-      }
+      // Persistence is intentionally deferred to the backend session-result contract.
     }
   };
 
@@ -922,6 +798,12 @@ export default function App() {
 
       {/* Main play Workspace */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 md:px-6 py-6 flex flex-col z-40">
+        {isOfflineSimulated && (
+          <div role="status" aria-live="polite" className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-700 flex items-center gap-2">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            Offline simulation is active. Network-backed account, learning and payment state must not be treated as synchronized.
+          </div>
+        )}
         <div className="flex-1 flex flex-col min-h-[600px]">
           {renderScreenRouter()}
         </div>
@@ -929,7 +811,7 @@ export default function App() {
 
       {/* Footer system details */}
       <footer className="shrink-0 border-t border-[#D6E4F0] py-4 px-6 text-center text-xs text-slate-500 bg-white z-20">
-        <p>© 2026 Sabi JAMB Team • Crafting your personal adaptive jamb tutor. All content synced and secure.</p>
+        <p>© 2026 Sabi JAMB Team • Frontend preview. Authoritative account, learning and payment state is supplied by backend services.</p>
       </footer>
 
       {renderOtpValidationModal()}
@@ -999,7 +881,7 @@ export default function App() {
 
         <button 
           onClick={handleSkipToDashboard}
-          title="Skip to Dashboard"
+          title="Open frontend preview dashboard"
           className="absolute top-6 right-6 z-20 text-slate-400 hover:text-[#0A1128] p-2 hover:bg-slate-100 rounded-full transition-colors flex items-center justify-center"
         >
           <Home className="w-4 h-4" />
@@ -1008,13 +890,13 @@ export default function App() {
         <div className="space-y-5 pt-2 z-10">
           <div className="text-center space-y-1.5 pt-1">
             <span className="text-[9px] font-black uppercase tracking-widest text-[#4A90D9] block">
-              Stage 1 of 5: FAST ENTRY
+              Stage 1 of 5: ACCOUNT PREVIEW
             </span>
             <h3 className="text-xl font-bold text-[#0A1128] font-display tracking-tight">
-              Create Account
+              Create Account — Frontend Preview
             </h3>
             <p className="text-xs text-[#4A5568] leading-relaxed px-1">
-              We'll customize your study pathways specifically to pass your target score.
+              Account creation will be connected to the authentication service. This screen currently previews the approved signup experience.
             </p>
           </div>
 
@@ -1126,7 +1008,7 @@ export default function App() {
               Enter Verification Code
             </h4>
             <p className="text-[11px] text-[#4A5568] leading-normal px-1">
-              We sent a 6-digit verification code to your device.
+              Authentication service is not connected in this frontend preview. Enter any 6 digits to preview the next state.
             </p>
           </div>
 
@@ -1163,13 +1045,13 @@ export default function App() {
               </>
             ) : (
               <>
-                <span>CONFIRM CODE</span>
+                <span>CONTINUE PREVIEW</span>
               </>
             )}
           </button>
 
           <p className="text-[11px] text-slate-400 text-center">
-            Didn't get a code? <span className="font-[#0A1128] font-bold text-[#0A1128] hover:underline cursor-pointer">Resend SMS</span>
+            Real OTP delivery and resend will be supplied by the authentication service.
           </p>
         </div>
       </div>
@@ -1188,7 +1070,7 @@ export default function App() {
             WELCOME ONBOARD
           </span>
           <p className="text-xs text-sky-100 font-display mt-0.5">
-            Sabi adaptive pathways configured
+            Sabi adaptive pathways — preview
           </p>
         </div>
 
@@ -1855,10 +1737,10 @@ export default function App() {
           </div>
 
           <div className="space-y-2">
-            <span className="text-[10px] font-extrabold text-[#4A90D9] uppercase tracking-wider block">Calculating Bounds</span>
-            <h3 className="text-base font-extrabold text-[#0A1128] font-display">Generating Sabi Profile</h3>
+            <span className="text-[10px] font-extrabold text-[#4A90D9] uppercase tracking-wider block">Processing Diagnostic</span>
+            <h3 className="text-base font-extrabold text-[#0A1128] font-display">Preparing Your Learning Profile</h3>
             <p className="text-[11px] text-slate-500 leading-normal">
-              Analyzing subject confidence gaps, pinpointing blindspots, and structuring recommended study timelines...
+              Preparing the diagnostic evidence for the learning engine. Authoritative mastery, readiness, recommendations and score data are not calculated in this frontend.
             </p>
           </div>
 
@@ -1873,36 +1755,19 @@ export default function App() {
           {evaluationProgress === 100 && (
             <div className="bg-[#F4F7FB] border border-[#D6E4F0] p-4 rounded-2xl animate-fade-in space-y-4 text-left">
               <div className="text-center font-sans space-y-0.5 border-b border-rose-50 pb-3">
-                <span className="text-[10px] uppercase font-bold text-[#4A5568]">Initial predicted score:</span>
-                <h4 className="text-3xl font-black text-[#0A1128] font-mono leading-none tracking-tight">
-                  <span className="text-[#F5C518]">{calculatedScoreRange.min}</span> - <span className="text-sky-600">{calculatedScoreRange.max}</span>
+                <span className="text-[10px] uppercase font-bold text-[#4A5568]">Initial learning profile:</span>
+                <h4 className="text-xl font-black text-[#0A1128] leading-tight tracking-tight">
+                  Diagnostic evidence captured
                 </h4>
-                <p className="text-[9px] text-[#4A5568] uppercase font-semibold">Predicted UTME Score range (Out of 400)</p>
+                <p className="text-[9px] text-[#4A5568] uppercase font-semibold">Authoritative readiness and score data will come from the learning engine.</p>
               </div>
 
-              {/* Blindspots or weak alerts */}
-              {calculatedWeakAreas.length > 0 && (
-                <div className="space-y-1">
-                  <span className="text-[9px] uppercase font-extrabold text-[#E74C3C] tracking-wide block">Priority Weak Topics Identified:</span>
-                  <div className="space-y-1">
-                    {calculatedWeakAreas.map((weak, i) => (
-                      <div key={i} className="text-[10px] bg-white border border-[#D6E4F0] p-2 py-1.5 rounded-lg text-slate-700 italic flex items-center gap-1.5 shadow-sm">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#E74C3C]" />
-                        <span>{weak}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {calculatedBlindspots.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  <span className="text-[9px] uppercase font-extrabold text-[#F5C518] tracking-wide block">Blindspots Detected:</span>
-                  <p className="text-[10px] text-slate-500 leading-snug">
-                    Topics where you rated high confidence but answered wrong: {calculatedBlindspots.join(', ')}
-                  </p>
-                </div>
-              )}
+              <div className="rounded-xl bg-white border border-[#D6E4F0] p-3 space-y-2">
+                <span className="text-[9px] uppercase font-extrabold text-[#4A90D9] tracking-wide block">Diagnostic evidence</span>
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  {quizAnswerLog.length} response{quizAnswerLog.length === 1 ? '' : 's'} captured in this frontend preview. The learning engine will determine mastery, weak areas, blindspots, readiness and score after the diagnostic is connected to the backend.
+                </p>
+              </div>
 
               <button
                 onClick={handleEnterDashboard}
@@ -1922,11 +1787,13 @@ export default function App() {
     if (!profile) return null;
 
     const tabsList = [
-      { id: 'home', label: 'Home', icon: Clock, action: () => { setActiveTab('home'); } },
+      { id: 'home', label: 'Home', icon: Home, action: () => { setActiveTab('home'); } },
       { id: 'practice', label: 'Practice', icon: Play, action: () => { setActiveTab('practice'); setPracticeSessionType(null); } },
-      { id: 'aitutor', label: 'Tutor', icon: Heart, action: () => { setActiveTab('aitutor'); } },
-      { id: 'mastery', label: 'Mastery Map', icon: Sliders, action: () => { setActiveTab('mastery'); setMapSubject(profile.chosenSubjects[0]); } },
+      { id: 'blitz', label: 'Blitz', icon: Zap, action: () => { setActiveTab('blitz'); } },
+      { id: 'cbt', label: 'CBT', icon: FileText, action: () => { setActiveTab('cbt'); } },
+      { id: 'progress', label: 'Progress', icon: ArrowUpRight, action: () => { setActiveTab('progress'); } },
       { id: 'profile', label: 'Profile', icon: User, action: () => { setActiveTab('profile'); } },
+      { id: 'settings', label: 'Settings', icon: Settings, action: () => { setActiveTab('settings'); } },
     ];
 
     return (
@@ -1957,8 +1824,8 @@ export default function App() {
                 <p className="text-[10px] font-bold text-sky-300 mt-1">{getDynamicJAMBCountdown().diffDays} Days to Exam</p>
               </div>
               <div className="flex justify-between items-center text-[10px] bg-white/10 px-2 py-1 rounded-lg">
-                <span className="text-slate-300">Level Points:</span>
-                <span className="font-extrabold text-[#F5C518] font-mono">{profile.xpPoints} XP</span>
+                <span className="text-slate-300">Account sync:</span>
+                <span className="font-extrabold text-[#F5C518]">Pending</span>
               </div>
             </div>
 
@@ -2039,19 +1906,19 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <div className="flex md:hidden items-center gap-1 bg-white/10 px-2 py-1 rounded-full border border-white/20">
                     <Zap className="h-3.5 w-3.5 text-[#F5C518] fill-current" />
-                    <span className="text-[10px] font-black font-mono">{profile.xpPoints} XP</span>
+                    <span className="text-[10px] font-black">Account sync pending</span>
                   </div>
                   
                   <div className="hidden md:flex items-center gap-1.5 bg-yellow-50 px-3 py-1.5 rounded-xl border border-yellow-200 text-[#0A1128]">
                     <Zap className="h-4 w-4 text-[#F5C518] fill-current" />
-                    <span className="text-xs font-black font-mono">{profile.xpPoints} XP</span>
+                    <span className="text-xs font-black">Account sync pending</span>
                   </div>
                 </div>
               </>
             ) : (
               <div className="flex items-center">
                 <span className="text-sm md:text-base font-black uppercase tracking-widest text-[#F5C518] md:text-[#0A1128]">
-                  {activeTab === 'mastery' ? 'Syllabus Mastery Map' : activeTab === 'aitutor' ? 'AI Coach Hub' : activeTab === 'leaderboard' ? 'Standings Leaderboard' : activeTab === 'mobile' ? 'Mobile App Prototype' : 'Account Details'}
+                  {activeTab === 'mastery' ? 'Learning Evidence' : activeTab === 'aitutor' ? 'AI Coach Hub' : activeTab === 'leaderboard' ? 'Standings Leaderboard' : activeTab === 'mobile' ? 'Mobile App Prototype' : activeTab === 'settings' ? 'Settings' : activeTab === 'blitz' ? 'Blitz' : activeTab === 'cbt' ? 'CBT Simulator' : activeTab === 'progress' ? 'Progress' : activeTab === 'recommendations' ? 'Recommendations' : 'Account Details'}
                 </span>
               </div>
             )}
@@ -2061,9 +1928,14 @@ export default function App() {
           <div className={`flex-1 ${((activeTab === 'practice' && practiceSessionType === null) || activeTab === 'aitutor') ? 'overflow-hidden flex flex-col bg-[#F4F7FB] p-3 md:p-4 pb-4 md:pb-4' : 'overflow-y-auto p-4 md:p-6 pb-20 md:pb-6'} relative break-words`}>
             {activeTab === 'home' && renderHomeTab()}
             {activeTab === 'practice' && renderPracticeTab()}
+            {activeTab === 'blitz' && renderBlitzTab()}
+            {activeTab === 'cbt' && renderCBTTab()}
+            {activeTab === 'progress' && renderProgressTab()}
+            {activeTab === 'recommendations' && renderRecommendationsTab()}
             {activeTab === 'mastery' && renderMasteryTab()}
             {activeTab === 'leaderboard' && renderLeaderboardTab()}
             {activeTab === 'profile' && renderProfileTab()}
+            {activeTab === 'settings' && renderSettingsTab()}
             {activeTab === 'aitutor' && renderAITutorTab()}
             {activeTab === 'mobile' && renderMobileTab()}
           </div>
@@ -2097,43 +1969,32 @@ export default function App() {
 
     return (
       <div className="space-y-4 animate-fade-in font-sans">
-        {/* Core predicted Score hero container */}
-        <div className="bg-white border border-[#D6E4F0] p-4 rounded-2xl shadow-sm text-center space-y-1 relative overflow-hidden">
-          {/* Floating Circle detail */}
-          <div className="absolute -left-8 -bottom-8 w-20 h-20 rounded-full bg-slate-50" />
-          
-          <span className="text-[9px] uppercase font-bold text-slate-400">Current Predicted UTME Score</span>
-          <h2 className="text-4xl font-extrabold text-[#0A1128] font-mono leading-none flex justify-center items-end gap-1">
-            <span className="text-[#F5C518]">
-              {Math.floor(calculatedScoreRange.min)} - {Math.ceil(calculatedScoreRange.max)}
-            </span>
-            <span className="text-xs text-slate-400 font-sans mb-1 uppercase font-bold">/400</span>
-          </h2>
-          <div className="text-[10px] text-emerald-600 font-bold flex items-center justify-center gap-1 mt-1">
-            <ArrowUpRight className="h-3.5 w-3.5" />
-            <span>+18 points calculated this week</span>
+        {/* Learning-state hero: never present client calculations as authoritative */}
+        <div className="sabi-surface p-5 md:p-6 relative overflow-hidden">
+          <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-[#4A90D9]/5 pointer-events-none" />
+          <div className="relative">
+            <span className="text-[9px] uppercase font-black tracking-widest text-[#4A90D9]">Today's learning state</span>
+            <h2 className="text-2xl md:text-3xl font-black text-[#0A1128] mt-1">What should I do now?</h2>
+            <p className="text-sm text-slate-500 mt-2 max-w-2xl">SABI keeps the measurement and recommendation logic behind the interface. This dashboard presents the state supplied by the learning engine.</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <button onClick={() => setActiveTab('practice')} className="px-4 py-2.5 rounded-xl bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-wider">Practice</button>
+              <button onClick={() => setActiveTab('blitz')} className="px-4 py-2.5 rounded-xl bg-[#0A1128] text-white font-black text-xs uppercase tracking-wider">Blitz</button>
+              <button onClick={() => setActiveTab('cbt')} className="px-4 py-2.5 rounded-xl border border-[#D6E4F0] bg-white text-[#0A1128] font-black text-xs uppercase tracking-wider">CBT</button>
+              <button onClick={() => setActiveTab('recommendations')} className="px-4 py-2.5 rounded-xl border border-[#D6E4F0] bg-white text-[#0A1128] font-black text-xs uppercase tracking-wider">Focus area</button>
+            </div>
           </div>
         </div>
 
-        {/* Encouraging Streak Banner */}
-        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 p-3 rounded-2xl flex items-center justify-between text-slate-800">
-          <div className="flex items-center gap-2.5">
-            <Award className="h-5 w-5 text-orange-600 shrink-0" />
+        {/* Activity summary: do not fabricate streak values before the learning API is connected */}
+        <div className="sabi-surface p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Award className="h-5 w-5 text-[#4A90D9] shrink-0" />
             <div>
-              <p className="text-xs font-bold leading-tight">7-Day Study Streak! Keep it up!</p>
-              <p className="text-[9px] text-[#4A5568]">Study at least 5 questions daily to pass your margins.</p>
+              <p className="text-xs font-black text-[#0A1128]">Study activity</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Your streak, XP and activity history will appear here from the learning engine.</p>
             </div>
           </div>
-          <div className="flex gap-1.5">
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, dIdx) => (
-              <span
-                key={day}
-                className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[7px] font-black border ${dIdx < 6 ? 'bg-orange-600 text-white border-orange-600' : 'bg-transparent border-slate-300 text-slate-400'}`}
-              >
-                {day}
-              </span>
-            ))}
-          </div>
+          <span className="px-2.5 py-1 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] text-[9px] font-black uppercase text-slate-400 shrink-0">Sync pending</span>
         </div>
 
         {/* Subject progress modules */}
@@ -2141,14 +2002,10 @@ export default function App() {
           <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Your Syllabus Progress:</span>
           <div className="grid grid-cols-1 gap-2">
             {profile.chosenSubjects.map((subName) => {
-              // Get average score from topics matching subject
-              const topics = (Object.values(masteryMap) as MasteryMapItem[]).filter(t => t.subject === subName);
-              const sum = topics.reduce((acc, curr) => acc + curr.score, 0);
-              const avgScore = topics.length > 0 ? Math.floor(sum / topics.length) : (profile.subjectConfidence[subName] || 3) * 16;
-              
-              let progressColor = 'bg-[#27AE60]';
-              if (avgScore < 40) progressColor = 'bg-[#E74C3C]';
-              else if (avgScore < 75) progressColor = 'bg-[#F5C518]';
+              const observedEvidence = (Object.values(masteryMap) as MasteryMapItem[])
+                .filter(t => t.subject === subName)
+                .reduce((sum, item) => sum + item.attempts, 0);
+              const selfReportedConfidence = profile.subjectConfidence[subName];
 
               return (
                 <div
@@ -2165,43 +2022,393 @@ export default function App() {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[#0A1128] truncate max-w-[170px]">{subName}</p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Syllabus Mastery: {avgScore}%</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">{observedEvidence} observed question{observedEvidence === 1 ? '' : 's'} • self-report {selfReportedConfidence}/5</p>
                     </div>
                   </div>
-                  <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${progressColor}`} style={{ width: `${avgScore}%` }} />
-                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Daily Study Action Card */}
-        <div className="bg-[#0A1128] border-2 border-[#0A1128] rounded-2xl p-4 text-white uppercase relative overflow-hidden text-center shadow-lg space-y-3 pt-4">
-          {/* Floating Circle details */}
-          <div className="absolute top-10 right-6 w-12 h-12 rounded-full bg-white/10" />
-
-          <div className="space-y-1 text-[#0A1128]">
-            <span className="text-[8px] bg-[#F5C518] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Estimated Syllabus plan for today:</span>
-            <p className="text-xs font-bold text-sky-100 leading-snug mt-1 italic">
-              "We recommend you practice Concord on English and quadratic indices on Mathematics today"
-            </p>
-          </div>
-
-          <div className="space-y-2 mt-2">
+        {/* Recommendation surface: backend-owned */}
+        <div className="bg-[#0A1128] border-2 border-[#0A1128] rounded-2xl p-5 text-white relative overflow-hidden shadow-lg">
+          <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-white/10" />
+          <span className="text-[8px] bg-[#F5C518] text-[#0A1128] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Learning engine</span>
+          <h3 className="text-base font-black mt-3">Your next study action</h3>
+          <p className="text-[11px] text-sky-100 leading-relaxed mt-1.5">
+            SABI will show the next recommended subject, topic, reason and duration here when recommendation data is available.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2 mt-4">
             <button
-              onClick={() => handleStartSmartPractice(profile?.chosenSubjects[0] || 'English Language')}
-              className="w-full py-2.5 bg-[#F5C518] text-[#0A1128] font-black font-display text-[10px] uppercase tracking-wider rounded-xl hover:bg-yellow-400 transition"
+              onClick={() => setActiveTab('recommendations')}
+              className="w-full py-2.5 bg-[#F5C518] text-[#0A1128] font-black text-[10px] uppercase tracking-wider rounded-xl hover:bg-yellow-400 transition"
             >
-              Start daily plan
+              View recommendations
             </button>
             <button
               onClick={() => { setActiveTab('practice'); setPracticeSessionType(null); }}
-              className="w-full py-2.5 bg-transparent border-2 border-[#D6E4F0]/30 text-sky-100 font-black font-display text-[10px] uppercase tracking-wider rounded-xl hover:bg-white/5 transition"
+              className="w-full py-2.5 bg-transparent border-2 border-white/20 text-sky-100 font-black text-[10px] uppercase tracking-wider rounded-xl hover:bg-white/5 transition"
             >
-              Practice on Your Own
+              Practice on your own
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SUB-PANE: BLITZ / PROGRESS / CBT / RECOMMENDATIONS ---
+  function renderBlitzTab() {
+    const blitzQuestion = practiceQuestions[0] || SEED_QUESTIONS.find(q => profile?.chosenSubjects.includes(q.subject)) || SEED_QUESTIONS[0];
+    const hasAnswer = practiceSelectedAnswer !== null;
+    const isCorrect = hasAnswer && practiceSelectedAnswer === blitzQuestion.answer;
+
+    return (
+      <div className="space-y-4 animate-fade-in max-w-5xl mx-auto w-full">
+        {/* Blitz hero */}
+        <div className="relative overflow-hidden rounded-3xl bg-[#0A1128] text-white p-5 md:p-7 shadow-lg">
+          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-[#4A90D9]/20" />
+          <div className="absolute right-16 -bottom-20 h-36 w-36 rounded-full bg-[#F5C518]/10" />
+          <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-[#F5C518] text-[#0A1128]">
+                  <Zap className="h-4 w-4" />
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] font-black text-[#F5C518]">Blitz</span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-black mt-3 tracking-tight">Fast practice. One question at a time.</h2>
+              <p className="text-sm text-slate-300 mt-2 max-w-2xl leading-relaxed">
+                Blitz is a focused rapid-practice mode. The learning engine will control question selection, session state and scoring when connected.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:min-w-[250px]">
+              <div className="rounded-2xl bg-white/10 border border-white/10 p-3">
+                <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-400">Mode</span>
+                <span className="block text-sm font-black mt-1">Rapid practice</span>
+              </div>
+              <div className="rounded-2xl bg-white/10 border border-white/10 p-3">
+                <span className="block text-[9px] uppercase tracking-wider font-bold text-slate-400">State</span>
+                <span className="block text-sm font-black mt-1">Preview</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Session controls / evidence boundary */}
+        <div className="grid md:grid-cols-[1fr_auto] gap-3 items-stretch">
+          <div className="sabi-surface p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-1 rounded-full bg-[#EAF3FC] text-[#1B3A7A] text-[9px] uppercase tracking-wider font-black">Question 1</span>
+              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[9px] uppercase tracking-wider font-black">{blitzQuestion.subject}</span>
+              <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[9px] uppercase tracking-wider font-black">{blitzQuestion.difficulty}</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-3">
+              No frontend speed ranking or authoritative score is calculated here.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              setPracticeQuestions([]);
+              setPracticeSelectedAnswer(null);
+              setPracticeHasSubmitted(false);
+              setPracticeSessionType(null);
+            }}
+            className="px-4 py-3 rounded-2xl border border-[#D6E4F0] bg-white text-[#0A1128] font-black text-[10px] uppercase tracking-wider hover:border-[#4A90D9] transition"
+          >
+            Reset preview
+          </button>
+        </div>
+
+        {/* Question workspace */}
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-4 items-start">
+          <section className="sabi-surface overflow-hidden">
+            <div className="px-5 md:px-7 py-4 border-b border-[#D6E4F0] flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[9px] uppercase tracking-widest font-black text-[#4A90D9]">Question</span>
+                <h3 className="text-sm md:text-base font-black text-[#0A1128] mt-0.5">{blitzQuestion.topic}</h3>
+              </div>
+              <span className="text-[10px] font-bold text-slate-400">{blitzQuestion.year} • {blitzQuestion.exam_type}</span>
+            </div>
+
+            <div className="p-5 md:p-7">
+              <div className="text-base md:text-lg font-bold leading-8 text-[#0A1128]">
+                <MathText text={blitzQuestion.question} />
+              </div>
+
+              <div className="grid gap-3 mt-7">
+                {Object.entries(blitzQuestion.options).map(([key, value]) => {
+                  const selected = practiceSelectedAnswer === key;
+                  const correct = key === blitzQuestion.answer;
+                  const resultClass = hasAnswer
+                    ? correct
+                      ? 'border-[#15803D] bg-[#F0FDF4]'
+                      : selected
+                        ? 'border-[#B91C1C] bg-[#FEF2F2]'
+                        : 'border-slate-200 bg-white opacity-80'
+                    : selected
+                      ? 'border-[#4A90D9] bg-[#EAF3FC]'
+                      : 'border-slate-200 bg-white hover:border-[#4A90D9] hover:bg-[#F8FBFF]';
+
+                  return (
+                    <button
+                      key={key}
+                      disabled={hasAnswer}
+                      onClick={() => {
+                        setPracticeQuestions([blitzQuestion]);
+                        setPracticeSelectedAnswer(key as any);
+                        setPracticeHasSubmitted(true);
+                        setPracticeSessionType('smart');
+                      }}
+                      className={`w-full text-left p-4 rounded-2xl border-2 transition flex items-start gap-3 ${resultClass}`}
+                    >
+                      <span className="w-9 h-9 shrink-0 rounded-xl bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center text-xs font-black text-[#0A1128]">{key}</span>
+                      <span className="text-sm md:text-base text-slate-700 leading-relaxed pt-1"><MathText text={value as string} /></span>
+                      {hasAnswer && correct && <CheckCircle className="h-5 w-5 text-[#15803D] ml-auto shrink-0 mt-1" />}
+                      {hasAnswer && selected && !correct && <XCircle className="h-5 w-5 text-[#B91C1C] ml-auto shrink-0 mt-1" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {hasAnswer && (
+                <div className={`mt-6 rounded-2xl border p-4 ${isCorrect ? 'border-[#BBF7D0] bg-[#F0FDF4]' : 'border-[#FECACA] bg-[#FEF2F2]'}`}>
+                  <div className="flex items-center gap-2">
+                    {isCorrect ? <CheckCircle className="h-5 w-5 text-[#15803D]" /> : <Info className="h-5 w-5 text-[#B91C1C]" />}
+                    <span className={`text-sm font-black ${isCorrect ? 'text-[#166534]' : 'text-[#991B1B]'}`}>
+                      {isCorrect ? 'Answer recorded in preview' : 'Answer recorded in preview'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    The authoritative result, mastery update and any XP/recommendation changes must come from the backend Blitz session.
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-black/5">
+                    <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Explanation preview</span>
+                    <p className="text-sm text-slate-700 mt-1 leading-relaxed">
+                      <MathText text={blitzQuestion.explanation_short || blitzQuestion.explanation} />
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Blitz information rail */}
+          <aside className="space-y-3">
+            <div className="sabi-surface p-4">
+              <span className="text-[9px] uppercase tracking-widest font-black text-[#4A90D9]">How Blitz works</span>
+              <div className="space-y-3 mt-4">
+                <div className="flex gap-3">
+                  <span className="h-7 w-7 rounded-lg bg-[#EAF3FC] text-[#1B3A7A] flex items-center justify-center text-xs font-black">1</span>
+                  <div><p className="text-xs font-black text-[#0A1128]">Receive a focused question</p><p className="text-[10px] text-slate-500 mt-0.5">Selection comes from SABI's learning engine.</p></div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="h-7 w-7 rounded-lg bg-[#FFF8D8] text-[#8A6900] flex items-center justify-center text-xs font-black">2</span>
+                  <div><p className="text-xs font-black text-[#0A1128]">Answer quickly</p><p className="text-[10px] text-slate-500 mt-0.5">Stay focused without frontend speed scoring.</p></div>
+                </div>
+                <div className="flex gap-3">
+                  <span className="h-7 w-7 rounded-lg bg-[#F0FDF4] text-[#166534] flex items-center justify-center text-xs font-black">3</span>
+                  <div><p className="text-xs font-black text-[#0A1128]">Build learning evidence</p><p className="text-[10px] text-slate-500 mt-0.5">Backend services update mastery and recommendations.</p></div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-[#F8FBFF] border border-[#D6E4F0] p-4">
+              <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Backend boundary</span>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                This preview intentionally does not invent streaks, XP, mastery, readiness or predicted JAMB scores.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </div>
+    );
+  }
+
+  function renderProgressTab() {
+    const subjects = profile?.chosenSubjects || [];
+    return (
+      <div className="space-y-4 animate-fade-in max-w-4xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Learning state</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Progress & Mastery</h2>
+          <p className="text-sm text-slate-500 mt-1">Mastery, confidence, coverage and readiness are displayed from the learning engine; they are not calculated in this screen.</p>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          {subjects.map(subject => {
+            const evidence = Object.values(masteryMap).filter(item => item.subject === subject).reduce((sum, item) => sum + item.attempts, 0);
+            const confidence = profile?.subjectConfidence?.[subject];
+            return (
+              <button key={subject} onClick={() => { setMapSubject(subject); setActiveTab('mastery'); }} className="sabi-surface p-4 text-left hover:border-[#4A90D9] transition">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-black text-sm text-[#0A1128]">{subject}</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                    <span className="block text-[9px] uppercase font-bold text-slate-400">Observed evidence</span>
+                    <span className="font-black text-lg text-[#0A1128]">{evidence}</span>
+                  </div>
+                  <div className="rounded-xl bg-[#F8FAFC] border border-slate-100 p-3">
+                    <span className="block text-[9px] uppercase font-bold text-slate-400">Self-report</span>
+                    <span className="font-black text-lg text-[#0A1128]">{confidence ? `${confidence}/5` : '—'}</span>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="sabi-surface p-5">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-[#4A90D9]" />
+            <span className="font-black text-sm text-[#0A1128]">Not enough evidence?</span>
+          </div>
+          <p className="text-sm text-slate-500 mt-2">SABI should never turn missing evidence into a 0% score. Complete learning sessions and let the backend update the learning state.</p>
+        </div>
+      </div>
+    );
+  }
+
+  function renderRecommendationsTab() {
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Next best action</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Recommendations</h2>
+          <p className="text-sm text-slate-500 mt-1">Recommendations come from the learning engine. This screen does not rank or invent them.</p>
+        </div>
+        <div className="sabi-surface p-5">
+          <div className="rounded-2xl bg-[#F8FBFF] border border-[#D6E4F0] p-5">
+            <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Current state</span>
+            <h3 className="text-base font-black text-[#0A1128] mt-1">Waiting for recommendation data</h3>
+            <p className="text-sm text-slate-500 mt-2 leading-relaxed">Once the recommendation API supplies an action, target, reason, priority and estimated duration, this surface will render it here without recomputing those values.</p>
+          </div>
+          <button onClick={() => setActiveTab('practice')} className="mt-4 w-full sm:w-auto px-5 py-3 rounded-xl bg-[#0A1128] text-[#F5C518] font-black text-xs uppercase tracking-wider">
+            Open Practice
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderCBTTab() {
+    const currentQuestion = cbtPreviewQuestions[cbtPreviewIndex];
+
+    if (cbtPreviewConfig && !cbtPreviewSubmitted && cbtPreviewQuestions.length > 0) {
+      const selectedAnswer = currentQuestion ? cbtPreviewAnswers[currentQuestion.id] : undefined;
+      const answeredCount = Object.keys(cbtPreviewAnswers).length;
+
+      return (
+        <div className="space-y-4 animate-fade-in max-w-4xl mx-auto w-full">
+          <div className="sabi-surface p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-[#4A90D9]">CBT preview</span>
+              <h2 className="text-lg md:text-xl font-black text-[#0A1128] mt-1">{cbtPreviewConfig.mode === 'full' ? 'Full Mock' : 'Quick Mock'}</h2>
+              <p className="text-xs text-slate-500 mt-1">Preview question {cbtPreviewIndex + 1} of {cbtPreviewQuestions.length} • {answeredCount} answered</p>
+            </div>
+            <button onClick={() => setCbtPreviewConfig(null)} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-600 hover:bg-slate-50">Exit Preview</button>
+          </div>
+
+          <div className="sabi-surface p-5 md:p-7">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <span className="px-2.5 py-1 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] text-[9px] font-black uppercase tracking-wider text-slate-500">{currentQuestion?.subject}</span>
+              <span className="text-[10px] font-black text-slate-400">No production timer active</span>
+            </div>
+            <div className="text-base md:text-lg font-bold text-[#0A1128] leading-relaxed">{currentQuestion?.question}</div>
+            <div className="grid gap-2.5 mt-6">
+              {(['A', 'B', 'C', 'D'] as const).map(option => (
+                <button
+                  key={option}
+                  disabled={Boolean(selectedAnswer)}
+                  onClick={() => currentQuestion && setCbtPreviewAnswers(prev => ({ ...prev, [currentQuestion.id]: option }))}
+                  className={selectedAnswer === option ? 'w-full text-left p-3.5 rounded-xl border-2 transition font-medium text-sm border-[#4A90D9] bg-[#EEF6FF] text-[#0A1128]' : 'w-full text-left p-3.5 rounded-xl border-2 transition font-medium text-sm border-slate-200 bg-white hover:border-[#4A90D9]/60'}
+                >
+                  <span className="font-black mr-2">{option}.</span>{currentQuestion?.options[option]}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 mt-6 pt-4 border-t border-slate-100">
+              <button disabled={cbtPreviewIndex === 0} onClick={() => setCbtPreviewIndex(i => Math.max(0, i - 1))} className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-black disabled:opacity-40">Previous</button>
+              {cbtPreviewIndex < cbtPreviewQuestions.length - 1 ? (
+                <button onClick={() => setCbtPreviewIndex(i => i + 1)} className="px-5 py-2.5 rounded-xl bg-[#0A1128] text-white text-xs font-black">Next Question</button>
+              ) : (
+                <button onClick={() => setCbtPreviewSubmitted(true)} className="px-5 py-2.5 rounded-xl bg-[#F5C518] text-[#0A1128] text-xs font-black">Submit Preview</button>
+              )}
+            </div>
+          </div>
+
+          <div className="sabi-surface p-4 flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+            <p className="text-xs text-slate-500 leading-relaxed"><strong className="text-[#0A1128]">Preview boundary:</strong> these answers are local to this screen. Production CBT must own question order, authoritative timer, autosave, expiry, submission, scoring and recovery.</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (cbtPreviewConfig && cbtPreviewSubmitted) {
+      const answeredQuestions = cbtPreviewQuestions.filter(q => cbtPreviewAnswers[q.id]);
+      const correctAnswers = answeredQuestions.filter(q => cbtPreviewAnswers[q.id] === q.answer).length;
+
+      return (
+        <div className="space-y-4 animate-fade-in max-w-2xl mx-auto w-full">
+          <div className="sabi-surface p-6 md:p-8 text-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Preview complete</span>
+            <h2 className="text-2xl font-black text-[#0A1128] mt-2">CBT Preview Submitted</h2>
+            <p className="text-sm text-slate-500 mt-2">This is a local UI result only. It is not an official JAMB score or backend exam result.</p>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="rounded-xl bg-[#F8FAFC] border border-slate-200 p-4"><span className="text-[9px] uppercase font-black text-slate-400">Answered</span><strong className="block text-xl font-black text-[#0A1128] mt-1">{answeredQuestions.length}/{cbtPreviewQuestions.length}</strong></div>
+              <div className="rounded-xl bg-[#F8FAFC] border border-slate-200 p-4"><span className="text-[9px] uppercase font-black text-slate-400">Preview accuracy</span><strong className="block text-xl font-black text-[#0A1128] mt-1">{answeredQuestions.length ? Math.round((correctAnswers / answeredQuestions.length) * 100) : 0}%</strong></div>
+            </div>
+            <button onClick={() => { setCbtPreviewConfig(null); setCbtPreviewQuestions([]); setCbtPreviewAnswers({}); setCbtPreviewSubmitted(false); setCbtPreviewIndex(0); setCbtPreviewStartedAt(null); }} className="mt-6 w-full py-3 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider">Back to CBT</button>
+          </div>
+        </div>
+      );
+    }
+
+    const startPreview = (mode: 'full' | 'quick') => {
+      const count = mode === 'full' ? 180 : 40;
+      const duration = mode === 'full' ? 120 : 30;
+      const questions = [...SEED_QUESTIONS].slice(0, Math.min(count, SEED_QUESTIONS.length));
+      setCbtPreviewConfig({ mode, questionCount: count, durationMinutes: duration });
+      setCbtPreviewQuestions(questions);
+      setCbtPreviewIndex(0);
+      setCbtPreviewAnswers({});
+      setCbtPreviewSubmitted(false);
+      setCbtPreviewStartedAt(Date.now());
+    };
+
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Strict exam environment</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">CBT Simulator</h2>
+          <p className="text-sm text-slate-500 mt-1">English Language plus your three selected subjects. AI assistance is unavailable during an active exam.</p>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => startPreview('full')}>
+            <span className="text-[10px] uppercase font-black tracking-widest text-[#4A90D9]">Full Mock</span>
+            <h3 className="text-lg font-black text-[#0A1128] mt-1">180 questions</h3>
+            <p className="text-sm text-slate-500 mt-1">120 minutes • production configuration</p>
+            <span className="inline-block mt-4 px-3 py-1.5 rounded-lg bg-[#0A1128] text-white text-[9px] font-black uppercase">Open UI Preview</span>
+          </button>
+          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => startPreview('quick')}>
+            <span className="text-[10px] uppercase font-black tracking-widest text-[#4A90D9]">Quick Mock</span>
+            <h3 className="text-lg font-black text-[#0A1128] mt-1">40 questions</h3>
+            <p className="text-sm text-slate-500 mt-1">30 minutes • production configuration</p>
+            <span className="inline-block mt-4 px-3 py-1.5 rounded-lg bg-[#0A1128] text-white text-[9px] font-black uppercase">Open UI Preview</span>
+          </button>
+        </div>
+        <div className="sabi-surface p-5">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+            <div>
+              <h3 className="font-black text-sm text-[#0A1128]">Production CBT contract still required</h3>
+              <p className="text-sm text-slate-500 mt-1">The preview lets us validate the interface without pretending that local questions, the local clock or local scoring are the real exam service.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -2212,7 +2419,7 @@ export default function App() {
   function renderPracticeTab() {
     if (practiceSessionType === null) {
       return (
-        <div className="flex flex-col justify-between flex-1 pb-2 animate-fade-in z-20 h-full overflow-hidden space-y-3">
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto animate-fade-in pb-6">
           {customPracticeModalVisible && (
             <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end md:items-center justify-center pointer-events-auto">
               <div className="bg-white rounded-t-3xl md:rounded-3xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto animate-slide-up shadow-2xl relative">
@@ -2275,279 +2482,111 @@ export default function App() {
             </div>
           )}
 
-          {/* Compact Smart Practice Card (Top half) */}
-          <div className="flex-none bg-white border border-[#D6E4F0] p-4 md:p-5 rounded-2xl hover:border-[#4A90D9]/50 transition bg-gradient-to-br from-white to-[#F8FBFF] space-y-2">
-            <h3 className="text-xs md:text-sm font-bold text-[#0A1128] uppercase tracking-wide">🧠 Smart Practice (Recommended)</h3>
-            <p className="text-[10px] md:text-xs text-slate-500 mt-1 mb-2 leading-relaxed">
-              Continue your personalized JAMB path. Sabi determines exactly what you should practice based on your Mastery Map.
-            </p>
-
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {(((profile as any)?.subjects || profile?.chosenSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry']) as SubjectName[]).map(sub => (
-                <button
-                  key={sub}
-                  onClick={() => setActiveSmartSubject(sub)}
-                  className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition ${activeSmartSubject === sub ? 'bg-[#0A1128] text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                >
-                  {sub}
-                </button>
-              ))}
+          <div className="mb-5 rounded-3xl bg-[#0A1128] text-white p-5 md:p-7 relative overflow-hidden">
+            <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-[#4A90D9]/20 blur-2xl" />
+            <div className="absolute right-10 bottom-[-60px] w-32 h-32 rounded-full bg-[#F5C518]/10 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-2">
+                  <span className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4 text-[#F5C518]" />
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">Practice Hub</span>
+                </div>
+                <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-white/75">PREVIEW</span>
+              </div>
+              <div className="max-w-2xl">
+                <h2 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">Practice with purpose.</h2>
+                <p className="mt-2 text-sm md:text-base text-white/65 leading-relaxed max-w-xl">
+                  Choose how you want to practise. Smart Practice is designed around your learning state; Custom Practice lets you control the questions yourself.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 md:gap-3 mt-6 max-w-xl">
+                <div className="rounded-2xl bg-white/8 border border-white/10 p-3"><span className="text-[9px] uppercase tracking-wider text-white/45 block">Mode</span><span className="text-xs font-black mt-1 block">Focused</span></div>
+                <div className="rounded-2xl bg-white/8 border border-white/10 p-3"><span className="text-[9px] uppercase tracking-wider text-white/45 block">Selection</span><span className="text-xs font-black mt-1 block">Backend-led</span></div>
+                <div className="rounded-2xl bg-white/8 border border-white/10 p-3"><span className="text-[9px] uppercase tracking-wider text-white/45 block">Session</span><span className="text-xs font-black mt-1 block">Adaptive</span></div>
+              </div>
             </div>
-
-            <div className="bg-[#EBF1FA] rounded-xl p-3 border border-[#D0E1F9]">
-              <p className="text-[11px] text-[#0A1128] font-bold leading-normal">
-                Today's {activeSmartSubject === 'English Language' ? 'English' : activeSmartSubject === 'Mathematics' ? 'Math' : activeSmartSubject} Path: Spaced reviews + closing 1 known blind spot
-              </p>
-            </div>
-
-            <button
-              onClick={() => handleStartSmartPractice(activeSmartSubject)}
-              className="w-full py-3 bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-widest rounded-xl hover:bg-yellow-400 transition shadow"
-            >
-              Start Adaptive {activeSmartSubject} Session
-            </button>
           </div>
 
-          {/* Compact Custom Practice Card (Bottom half) */}
-          <div className="flex-none bg-white border border-[#D6E4F0] p-4 md:p-5 rounded-2xl hover:border-[#4A90D9]/50 transition space-y-2">
-            <h3 className="text-xs md:text-sm font-bold text-[#0A1128] uppercase tracking-wide mb-1">⚙️ Custom Practice</h3>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <button
-                onClick={() => setCustomPracticeModalVisible(true)}
-                className="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-850 hover:border-[#4A90D9] flex justify-between items-center transition"
-              >
-                <div className="flex flex-col min-w-0 pr-1">
-                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Subject</span>
-                   <span className="font-extrabold text-[10px] md:text-xs text-[#0A1128] leading-tight whitespace-normal break-words">
-                     {customPracticeSubject || 'Select Subject'}
-                   </span>
-                </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 ml-1" />
-              </button>
-              <button
-                onClick={() => setCustomPracticeModalVisible(true)}
-                className="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-850 hover:border-[#4A90D9] flex justify-between items-center transition"
-              >
-                <div className="flex flex-col min-w-0 pr-1">
-                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Topic / Year</span>
-                   <span className="font-extrabold text-[10px] md:text-xs text-[#0A1128] leading-tight whitespace-normal break-words">
-                     {customPracticeTopic && customPracticeYear 
-                       ? `${customPracticeTopic === 'All' ? 'All Areas' : customPracticeTopic} • ${customPracticeYear === 'All' ? 'Any' : customPracticeYear}` 
-                       : 'Select Topic/Year'}
-                   </span>
-                </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 ml-1" />
-              </button>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 mb-5 flex items-start gap-3">
+            <span className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shrink-0 border border-amber-100"><Info className="w-4 h-4 text-amber-700" /></span>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-900">Frontend preview boundary</p>
+              <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">Seeded questions power this interface preview. The production backend must own recommendations, question selection, adaptive sequencing, mastery, XP, readiness and session persistence.</p>
             </div>
-            <button
-              onClick={handleLaunchCustomPractice}
-              disabled={!customPracticeSubject || !customPracticeTopic || !customPracticeYear}
-              className={`w-full py-3 mb-4 font-black text-xs uppercase tracking-widest rounded-xl transition shadow ${(!customPracticeSubject || !customPracticeTopic || !customPracticeYear) ? 'bg-slate-100 text-slate-450 opacity-60 cursor-not-allowed pointer-events-none' : 'bg-[#0A1128] text-white hover:bg-slate-800'}`}
-            >
-              Launch Custom Quiz
-            </button>
+          </div>
+
+          <div className="grid lg:grid-cols-5 gap-4">
+            <section className="lg:col-span-3 rounded-3xl border border-[#D6E4F0] bg-white p-5 md:p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-9 h-9 rounded-xl bg-[#FFF3B0] border border-[#F5C518]/60 flex items-center justify-center"><Sparkles className="w-4 h-4 text-[#0A1128]" /></span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4A90D9]">Recommended mode</span>
+                  </div>
+                  <h3 className="text-xl font-black text-[#0A1128] tracking-tight">Smart Practice</h3>
+                  <p className="text-xs text-slate-500 mt-1.5 max-w-lg leading-relaxed">Let the learning engine decide what deserves your attention next. The current build uses a safe seeded preview until recommendation APIs are connected.</p>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-[#F8FAFC] border border-slate-200 p-4 mb-4">
+                <div className="flex items-center justify-between gap-3 mb-3"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Subject focus</span><span className="text-[9px] font-bold text-slate-400">Select one for preview</span></div>
+                <div className="flex flex-wrap gap-2">
+                  {(((profile as any)?.subjects || profile?.chosenSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry']) as SubjectName[]).map(sub => (
+                    <button key={sub} onClick={() => setActiveSmartSubject(sub)} className={activeSmartSubject === sub ? 'px-3 py-2 rounded-xl text-[10px] font-black transition border bg-[#0A1128] text-white border-[#0A1128]' : 'px-3 py-2 rounded-xl text-[10px] font-black transition border bg-white text-slate-600 border-slate-200 hover:border-[#4A90D9]'}>
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-[#D6E4F0] p-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-[#EBF1FA] flex items-center justify-center shrink-0"><RefreshCw className="w-4 h-4 text-[#4A90D9]" /></div>
+                <div className="min-w-0"><p className="text-xs font-black text-[#0A1128]">Recommendation data pending</p><p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">When connected, this area will show the backend-selected next practice focus.</p></div>
+              </div>
+              <button onClick={() => handleStartSmartPractice(activeSmartSubject)} className="w-full py-3.5 bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-[0.12em] rounded-2xl hover:bg-yellow-400 transition shadow-sm flex items-center justify-center gap-2">Start Smart Practice Preview<ChevronRight className="w-4 h-4" /></button>
+            </section>
+
+            <section className="lg:col-span-2 rounded-3xl border border-[#D6E4F0] bg-white p-5 md:p-6 shadow-sm">
+              <div className="flex items-start gap-3 mb-5">
+                <span className="w-9 h-9 rounded-xl bg-[#EBF1FA] border border-[#D6E4F0] flex items-center justify-center"><Sliders className="w-4 h-4 text-[#0A1128]" /></span>
+                <div><span className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">You control the mix</span><h3 className="text-xl font-black text-[#0A1128] tracking-tight mt-1">Custom Practice</h3></div>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed mb-5">Choose a subject, topic and past exam year, then launch a focused practice session.</p>
+              <div className="space-y-2.5 mb-4">
+                <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-[#4A90D9] p-3.5 text-left transition flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Subject</span><span className="text-xs font-black text-[#0A1128] block mt-1 truncate">{customPracticeSubject || 'Choose a subject'}</span></div><ChevronRight className="w-4 h-4 text-slate-400 shrink-0" /></button>
+                <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-[#4A90D9] p-3.5 text-left transition flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Topic</span><span className="text-xs font-black text-[#0A1128] block mt-1 truncate">{customPracticeTopic ? (customPracticeTopic === 'All' ? 'All Areas' : customPracticeTopic) : 'Choose a topic'}</span></div><ChevronRight className="w-4 h-4 text-slate-400 shrink-0" /></button>
+                <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-[#4A90D9] p-3.5 text-left transition flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Exam year</span><span className="text-xs font-black text-[#0A1128] block mt-1 truncate">{customPracticeYear ? (customPracticeYear === 'All' ? 'Any past year' : customPracticeYear) : 'Choose a year'}</span></div><ChevronRight className="w-4 h-4 text-slate-400 shrink-0" /></button>
+              </div>
+              <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full py-3.5 rounded-2xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-[0.12em] hover:bg-slate-800 transition">Configure Custom Practice</button>
+            </section>
+          </div>
+
+          <div className="mt-4 grid md:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="w-8 h-8 rounded-lg bg-[#F4F7FB] flex items-center justify-center text-[#4A90D9] mb-3"><Sparkles className="w-4 h-4" /></span><h4 className="text-[11px] font-black text-[#0A1128]">Smart Practice</h4><p className="text-[10px] text-slate-500 leading-relaxed mt-1">Personalized when backend recommendations are available.</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="w-8 h-8 rounded-lg bg-[#F4F7FB] flex items-center justify-center text-[#4A90D9] mb-3"><Sliders className="w-4 h-4" /></span><h4 className="text-[11px] font-black text-[#0A1128]">Custom Practice</h4><p className="text-[10px] text-slate-500 leading-relaxed mt-1">Choose your own subject, topic and year.</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="w-8 h-8 rounded-lg bg-[#F4F7FB] flex items-center justify-center text-[#4A90D9] mb-3"><BookOpen className="w-4 h-4" /></span><h4 className="text-[11px] font-black text-[#0A1128]">Shared question flow</h4><p className="text-[10px] text-slate-500 leading-relaxed mt-1">Answer, review and learn in one consistent experience.</p></div>
           </div>
         </div>
       );
     }
 
     if (practiceQuestions.length === 0) {
-      return (
-        <div className="space-y-3 text-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-[#4A90D9] mx-auto" />
-          <p className="text-xs text-slate-400">Loading your personalized practice workspace...</p>
-        </div>
-      );
+      return <div className="sabi-surface p-6 text-center space-y-4 max-w-xl mx-auto w-full"><div className="w-12 h-12 rounded-2xl bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center mx-auto"><AlertCircle className="h-5 w-5 text-[#4A90D9]" /></div><div><h4 className="text-base font-black text-[#0A1128]">No preview questions available</h4><p className="text-xs text-slate-500 mt-1">The selected configuration returned no seeded preview questions.</p></div><button onClick={() => { setPracticeSessionType(null); setPracticeQuestions([]); setPracticeComplete(false); }} className="px-5 py-2.5 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider">Return to Practice Hub</button></div>;
     }
 
     if (practiceComplete) {
       const accuracy = Math.floor((practiceCorrectCount / practiceQuestions.length) * 100);
-      return (
-        <div className="bg-white border border-[#D6E4F0] p-6 rounded-2xl text-center space-y-5 shadow-sm animate-fade-in font-sans">
-          <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-600">
-            <CheckCircle className="h-6 w-6" />
-          </div>
-          
-          <div className="space-y-1">
-            <h4 className="text-sm font-bold text-[#0A1128]">Practice Completed!</h4>
-            <p className="text-[10px] text-slate-400">Your performance metrics have been securely synchronised.</p>
-          </div>
-
-          <div className="border border-slate-100 p-4 rounded-xl grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-[8px] uppercase font-bold text-slate-400 block">Sittings</span>
-              <p className="text-base font-bold text-[#0A1128] font-mono">{practiceCorrectCount} / {practiceQuestions.length}</p>
-            </div>
-            <div>
-              <span className="text-[8px] uppercase font-bold text-slate-400 block">Accuracy</span>
-              <p className="text-base font-bold text-[#0A1128] font-mono">{accuracy}%</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveTab('home')}
-            className="w-full py-2 bg-[#0A1128] hover:bg-[#030610] text-[#F5C518] font-bold text-[10px] uppercase tracking-wide rounded-xl shadow"
-          >
-            Return to portal hub
-          </button>
-        </div>
-      );
+      return <div className="max-w-2xl mx-auto w-full animate-fade-in"><div className="rounded-3xl bg-[#0A1128] text-white p-6 md:p-8 text-center"><CheckCircle className="w-12 h-12 text-emerald-300 mx-auto mb-4" /><span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50">Session complete</span><h3 className="text-2xl font-black mt-2">Practice review finished.</h3><p className="text-xs text-white/60 mt-2">Preview result only. Authoritative progress comes from the learning engine.</p></div><div className="grid grid-cols-2 gap-3 mt-4"><div className="rounded-2xl border border-[#D6E4F0] bg-white p-5"><span className="text-[9px] uppercase font-black text-slate-400">Correct</span><p className="text-2xl font-black text-[#0A1128] mt-1 font-mono">{practiceCorrectCount}<span className="text-sm text-slate-400"> / {practiceQuestions.length}</span></p></div><div className="rounded-2xl border border-[#D6E4F0] bg-white p-5"><span className="text-[9px] uppercase font-black text-slate-400">Preview accuracy</span><p className="text-2xl font-black text-[#0A1128] mt-1 font-mono">{accuracy}%</p></div></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mt-3"><p className="text-[10px] font-black uppercase text-amber-900">Not a backend result</p><p className="text-[11px] text-amber-800 mt-1">This preview does not update mastery, XP, readiness, recommendations or JAMB score.</p></div><button onClick={() => { setPracticeSessionType(null); setPracticeQuestions([]); setPracticeComplete(false); setActiveTab('practice'); }} className="w-full mt-4 py-3.5 rounded-2xl bg-[#0A1128] text-white text-xs font-black uppercase">Back to Practice Hub</button></div>;
     }
 
     const currentQ = practiceQuestions[practiceIndex];
-
+    const progress = ((practiceIndex + (practiceHasSubmitted ? 1 : 0)) / practiceQuestions.length) * 100;
     return (
-      <div className="flex flex-col h-full animate-fade-in font-sans relative">
-        {showExitQuizModal && (
-          <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm rounded-xl flex items-center justify-center p-6">
-            <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm text-center">
-              <h3 className="text-lg font-bold text-[#0A1128] mb-2">Pause or End Session?</h3>
-              <p className="text-xs text-slate-500 mb-6">Would you like to save your progress before leaving?</p>
-              <div className="space-y-3">
-                <button
-                  onClick={handleQuizExitAndSave}
-                  className="w-full py-3 bg-[#0A1128] text-white font-bold text-xs uppercase tracking-wide rounded-xl"
-                >
-                  Save & Exit
-                </button>
-                <button
-                  onClick={() => setShowExitQuizModal(false)}
-                  className="w-full py-3 text-slate-500 font-bold text-xs uppercase tracking-wide rounded-xl hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="space-y-4">
-        <div className="bg-gradient-to-r from-[#0A1128] to-[#4A90D9] p-4 pt-6 md:pt-4 text-white rounded-b-[20px] relative overflow-hidden -mx-6 -mt-6">
-          <div className="absolute top-10 right-8 w-12 h-12 rounded-full bg-white/10 pointer-events-none" />
-          <div className="flex flex-row items-center justify-between relative z-10 w-full mb-2">
-            <div className="flex-[0.2] flex items-center">
-              <button 
-                onClick={() => setShowExitQuizModal(true)}
-                className="flex items-center gap-0.5 text-xs font-bold text-sky-200 hover:text-white uppercase tracking-wider"
-              >
-                <ChevronLeft className="w-4 h-4" /> Exit
-              </button>
-            </div>
-            <div className="flex-[0.6] flex flex-col items-center justify-center min-w-0 px-2">
-              <span className="text-[#F5C518] text-[10px] font-bold uppercase tracking-wider truncate w-full text-center">
-                {currentQ.subject}
-              </span>
-            </div>
-            <div className="flex-[0.2] flex justify-end">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-right whitespace-nowrap">
-                {practiceIndex + 1} of {practiceQuestions.length}
-              </span>
-            </div>
-          </div>
-          <div className="flex justify-between items-center mt-2 text-[9px] text-sky-100/90 font-semibold font-mono relative z-10">
-            <span className="truncate pr-2">Topic: {currentQ.topic}</span>
-            <span className="uppercase text-yellow-300 flex-shrink-0">Level: {currentQ.difficulty}</span>
-          </div>
-        </div>
-
-        {/* Question Panel */}
-        <div className="bg-white border border-[#D6E4F0] p-4 rounded-2xl shadow-sm space-y-4">
-          <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-            <div className="text-xs text-[#0A1128] font-bold leading-relaxed leading-[1.65]">
-              <MathText text={currentQ.question} />
-            </div>
-          </div>
-
-          {/* Option elements */}
-          <div className="space-y-2">
-            {Object.entries(currentQ.options).map(([key, value]) => {
-              const representsCorrect = key === currentQ.answer;
-              const isSelected = practiceSelectedAnswer === key;
-
-              let cardStyle = 'border-slate-100 hover:bg-slate-50 text-slate-700';
-              if (practiceHasSubmitted) {
-                if (isSelected) {
-                  cardStyle = representsCorrect ? 'border-[#27AE60] bg-emerald-50 text-emerald-950 font-bold' : 'border-[#E74C3C] bg-rose-50 text-rose-950';
-                } else if (representsCorrect) {
-                  cardStyle = 'border-[#27AE60] bg-emerald-50 text-emerald-950 font-bold';
-                } else {
-                  cardStyle = 'opacity-40 border-slate-50 text-slate-400 cursor-not-allowed';
-                }
-              } else if (isSelected) {
-                cardStyle = 'border-[#0a1128] bg-slate-50 font-bold text-[#0a1128]';
-              }
-
-              return (
-                <div
-                  key={key}
-                  onClick={() => {
-                    if (!practiceHasSubmitted) {
-                      setPracticeSelectedAnswer(key as any);
-                    }
-                  }}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer select-none transition flex items-center gap-3 ${cardStyle}`}
-                >
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] border ${isSelected ? 'bg-[#0a1128] text-[#F5C518] border-[#0a1128]' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                    {key}
-                  </span>
-                  <span>
-                    <MathText text={value as string} />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Worked explanation details */}
-          {practiceHasSubmitted && (
-            <div className="p-4 bg-indigo-50/40 border border-[#D6E4F0]/60 rounded-xl space-y-2 animate-fade-in text-xs">
-              {!aiExplainText && !aiExplainLoading ? (
-                <div className="flex flex-col items-center gap-2 py-1">
-                  <p className="text-[10px] text-slate-500 font-medium text-center">To check the step-by-step breakdown & RAG syllabus memory of Sabi AI Coach:</p>
-                  <button
-                    onClick={fetchPracticeExplanation}
-                    className="px-4 py-2 bg-[#0A1128] text-[#F5C518] rounded-xl text-xs font-bold hover:opacity-90 transition flex items-center gap-1.5 shadow-sm"
-                  >
-                    See Explanation
-                  </button>
-                </div>
-              ) : aiExplainLoading ? (
-                <div className="flex items-center gap-2 text-[#4A90D9] text-[10px]">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Coach is drafting explanation...</span>
-                </div>
-              ) : (
-                <>
-                  <span className="text-[10px] uppercase font-bold text-[#4A90D9] block">Sabi AI Worked Explanation</span>
-                  <div className="text-[11px] text-slate-800 leading-relaxed font-sans">
-                    <MathText text={aiExplainText} />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Nav tray controls */}
-          <div className="pt-2 flex justify-end">
-            {!practiceHasSubmitted ? (
-              <button
-                onClick={handleSubmitPracticeChoice}
-                disabled={!practiceSelectedAnswer}
-                className={`w-full py-2.5 font-bold text-[11px] uppercase tracking-wider rounded-xl transition ${!practiceSelectedAnswer ? 'bg-slate-200 text-slate-400 border-2 border-slate-200 opacity-60 cursor-not-allowed' : 'bg-[#F5C518] border-2 border-[#0A1128] text-[#0A1128]'}`}
-              >
-                Submit Choice
-              </button>
-            ) : (
-              <button
-                onClick={handleNextPracticeStep}
-                className="w-full py-2.5 bg-[#0A1128] text-white font-bold text-[11px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5"
-              >
-                <span>{practiceIndex === practiceQuestions.length - 1 ? 'Finish review & results' : 'Next Question'}</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <div className="flex flex-col animate-fade-in relative">
+        {showExitQuizModal && <div className="absolute inset-0 z-50 bg-slate-900/50 backdrop-blur-sm rounded-3xl flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm"><h3 className="text-lg font-black text-[#0A1128]">Leave this practice session?</h3><p className="text-xs text-slate-500 mt-2">Current preview answers are local only.</p><div className="grid grid-cols-2 gap-2 mt-5"><button onClick={() => setShowExitQuizModal(false)} className="py-3 rounded-xl border border-slate-200 text-xs font-black">Stay</button><button onClick={handleQuizExitAndSave} className="py-3 rounded-xl bg-[#0A1128] text-white text-xs font-black">Exit Preview</button></div></div></div>}
+        <div className="rounded-3xl bg-[#0A1128] text-white p-4 md:p-5 relative overflow-hidden"><div className="relative"><div className="flex items-center justify-between gap-3"><button onClick={() => setShowExitQuizModal(true)} className="flex items-center gap-1 text-[10px] font-black uppercase text-white/60"><ChevronLeft className="w-4 h-4" /> Exit</button><div className="text-center"><span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#F5C518] block">{practiceSessionType === 'smart' ? 'Smart Practice' : 'Custom Practice'}</span><span className="text-[10px] text-white/55 block mt-1">{currentQ.subject}</span></div><span className="text-[10px] font-black font-mono text-white/70">{practiceIndex + 1}/${practiceQuestions.length}</span></div><div className="mt-5 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-[#F5C518] rounded-full" style={{width: Math.min(100, progress) + '%'}} /></div><div className="flex justify-between mt-3 text-[9px] font-bold text-white/50 uppercase"><span>{currentQ.topic}</span><span>{currentQ.difficulty} difficulty</span></div></div></div>
+        <div className="grid lg:grid-cols-3 gap-4 mt-4"><main className="lg:col-span-2 rounded-3xl border border-[#D6E4F0] bg-white p-5 md:p-7 shadow-sm"><div className="flex justify-between mb-5"><span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#4A90D9]">Question {practiceIndex + 1}</span><span className="text-[9px] font-bold text-slate-400">Preview question</span></div><div className="text-base md:text-lg font-bold text-[#0A1128] leading-[1.8]"><MathText text={currentQ.question} /></div><div className="space-y-2.5 mt-7">{Object.entries(currentQ.options).map(([key, value]) => { const correct = key === currentQ.answer, selected = practiceSelectedAnswer === key; let style = 'border-slate-200 bg-white hover:border-[#4A90D9] hover:bg-[#F8FBFF] text-slate-700'; if (practiceHasSubmitted) style = selected && correct ? 'border-emerald-500 bg-emerald-50 text-emerald-950' : selected ? 'border-rose-500 bg-rose-50 text-rose-950' : correct ? 'border-emerald-500 bg-emerald-50 text-emerald-950' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'; else if (selected) style = 'border-[#0A1128] bg-[#F4F7FB] text-[#0A1128] ring-2 ring-[#0A1128]/5'; return <button key={key} type="button" disabled={practiceHasSubmitted} onClick={() => !practiceHasSubmitted && setPracticeSelectedAnswer(key as any)} className={'w-full p-4 rounded-2xl border text-left transition flex items-start gap-3 ' + style}><span className={'w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-black border ' + (selected ? 'bg-[#0A1128] text-[#F5C518] border-[#0A1128]' : 'bg-slate-50 text-slate-500 border-slate-200')}>{key}</span><span className="text-sm leading-relaxed pt-1"><MathText text={value as string} /></span></button>; })}</div>{practiceHasSubmitted && <div className="mt-5 rounded-2xl border border-[#D6E4F0] bg-[#F8FAFC] p-4">{!aiExplainText && !aiExplainLoading ? <div className="flex items-center justify-between gap-4"><div><p className="text-[9px] font-black uppercase tracking-wider text-[#4A90D9]">Sabi AI Coach</p><p className="text-[11px] text-slate-500 mt-1">See a step-by-step explanation.</p></div><button onClick={fetchPracticeExplanation} className="px-4 py-2.5 rounded-xl bg-[#0A1128] text-[#F5C518] text-[10px] font-black">Explain</button></div> : aiExplainLoading ? <div className="flex items-center gap-2 text-[#4A90D9] text-[10px]"><Loader2 className="h-4 w-4 animate-spin" /> Coach is drafting an explanation…</div> : <div><span className="text-[9px] uppercase font-black tracking-wider text-[#4A90D9]">Worked explanation</span><div className="text-xs text-slate-800 leading-relaxed mt-2"><MathText text={aiExplainText} /></div></div>}</div>}<div className="mt-6"><button onClick={practiceHasSubmitted ? handleNextPracticeStep : handleSubmitPracticeChoice} disabled={!practiceHasSubmitted && !practiceSelectedAnswer} className={'w-full py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider ' + (practiceHasSubmitted ? 'bg-[#0A1128] text-white' : practiceSelectedAnswer ? 'bg-[#F5C518] text-[#0A1128]' : 'bg-slate-100 text-slate-400 cursor-not-allowed')}>{practiceHasSubmitted ? (practiceIndex === practiceQuestions.length - 1 ? 'Finish Session' : 'Next Question') : 'Submit Answer'}</button></div></main>
+        <aside className="rounded-3xl border border-[#D6E4F0] bg-white p-5 h-fit"><div className="flex items-center gap-2 mb-4"><span className="w-9 h-9 rounded-xl bg-[#EBF1FA] flex items-center justify-center"><Info className="w-4 h-4 text-[#4A90D9]" /></span><h4 className="text-sm font-black text-[#0A1128]">Practice guide</h4></div><div className="space-y-4"><div><span className="text-[9px] font-black uppercase text-slate-400">1. Choose</span><p className="text-[10px] text-slate-500 mt-1">Select one answer before submitting.</p></div><div><span className="text-[9px] font-black uppercase text-slate-400">2. Review</span><p className="text-[10px] text-slate-500 mt-1">Review the answer and explanation after submission.</p></div><div><span className="text-[9px] font-black uppercase text-slate-400">3. Learn</span><p className="text-[10px] text-slate-500 mt-1">Production learning evidence will be handled by the backend.</p></div></div><div className="mt-5 rounded-2xl bg-amber-50 border border-amber-200 p-3"><p className="text-[9px] font-black uppercase text-amber-900">Preview boundary</p><p className="text-[10px] text-amber-800 mt-1">No XP, mastery, readiness, recommendation or JAMB score changes here.</p></div></aside></div>
       </div>
     );
   }
@@ -2574,77 +2613,18 @@ export default function App() {
   // --- SUB-PANE: SQUAD LEADERBOARDS ---
   function renderLeaderboardTab() {
     return (
-      <div className="space-y-4 animate-fade-in font-sans">
-        <div className="bg-white border border-[#D6E4F0] p-4 rounded-2xl shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <div>
-              <h4 className="text-xs font-bold font-display uppercase tracking-wide text-[#0A1128]">Sabi Improvement League</h4>
-              <p className="text-[10px] text-slate-400">Praising consistency & hard work across Nigeria</p>
-            </div>
-            
-            <select
-              value={leaderboardFilter}
-              onChange={(e: any) => setLeaderboardFilter(e.target.value)}
-              className="text-[9px] font-bold p-1 border border-slate-200 rounded bg-white text-slate-700"
-            >
-              <option value="weekly">Weekly Mastery Gain</option>
-              <option value="alltime">Streak Length</option>
-            </select>
-          </div>
-
-          {/* List items */}
-          <div className="space-y-2">
-            {[
-              { rank: 1, name: 'Chidi Okonkwo', unit: '+24% Mastery', subText: 'UNILAG Aspirant', xp: 540 },
-              { rank: 2, name: 'Tosin Abayomi', unit: '+18% Mastery', subText: 'OAU Aspirant', xp: 480 },
-              { rank: 3, name: `${profile?.name?.split(' ')[0] || 'Me'} (You)`, unit: '+15% Mastery', subText: 'Active Aspirant', xp: profile?.xpPoints || 120, isMe: true },
-              { rank: 4, name: 'Fatima Yar’Adua', unit: '+10% Mastery', subText: 'ABU Aspirant', xp: 320 }
-            ].map((peer, pIdx) => (
-              <div
-                key={pIdx}
-                className={`p-2.5 rounded-xl border text-xs flex justify-between items-center ${peer.isMe ? 'border-2 border-[#0A1128] bg-yellow-50/50' : 'border-slate-100 bg-white'}`}
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] ${peer.isMe ? 'bg-[#0A1128] text-white' : 'bg-slate-100 text-slate-500'}`}>
-                    {peer.rank}
-                  </span>
-                  <div className="truncate">
-                    <p className="font-bold text-[#0A1128] truncate">{peer.name}</p>
-                    <p className="text-[9px] text-slate-400">{peer.subText}</p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="font-bold font-mono text-xs block text-[#0A1128]">{peer.unit}</span>
-                  <span className="text-[8px] text-slate-400">{peer.xp} XP</span>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="space-y-4 animate-fade-in font-sans max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Community progress</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Leaderboard</h2>
+          <p className="text-sm text-slate-500 mt-1">Rankings, XP, streaks and mastery gains must come from the backend leaderboard service.</p>
         </div>
-
-        {/* Word of WhatsApp Campaign */}
-        <div className="bg-[#0A1128] text-white rounded-2xl p-4 shadow-md space-y-3">
-          <span className="text-[9px] uppercase font-bold text-[#F5C518]">Refer Friends & Get Credits</span>
-          <p className="text-[10px] text-sky-100/90 leading-relaxed font-sans">
-            Sabi thrives with peers! Invite your study buddies. If they complete their diagnostics, both of you earn 50 Sabi AI chat credits!
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              readOnly
-              value={whatsappInviteMessage}
-              className="flex-1 text-[9px] bg-[#12234e] border border-slate-700 rounded-xl p-2 font-mono"
-            />
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(whatsappInviteMessage);
-                alert('Copied link! Share onto your WhatsApp study groups.');
-              }}
-              className="px-3 bg-[#F5C518] text-[#0A1128] border-2 border-[#0A1128] font-bold text-[10px] uppercase rounded-xl shadow shrink-0 hover:bg-yellow-400 transition"
-            >
-              Copy
-            </button>
+        <div className="sabi-surface p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center mx-auto">
+            <Trophy className="w-5 h-5 text-[#4A90D9]" />
           </div>
+          <h3 className="text-base font-black text-[#0A1128] mt-4">Leaderboard data pending</h3>
+          <p className="text-sm text-slate-500 mt-2 leading-relaxed">No peer rankings are shown until the leaderboard API supplies authoritative rank, period, participant and score data. The frontend will not invent standings.</p>
         </div>
       </div>
     );
@@ -2684,17 +2664,62 @@ export default function App() {
             </div>
             <div className="p-2.5 theme bg-[#F4F7FB] rounded-xl">
               <span className="block text-[8px] uppercase tracking-wide text-slate-400">Streak history</span>
-              <span className="font-bold text-[#0A1128] text-[10px] block font-mono">7 Days Active</span>
+              <span className="font-bold text-[#0A1128] text-[10px] block font-mono">Backend sync pending</span>
             </div>
           </div>
 
-          <div className="place-actions pt-2 border-t border-slate-100 flex gap-2">
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3 text-left">
+              <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Account & access</span>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <div><span className="block text-[8px] uppercase text-slate-400">Access status</span><span className="text-[10px] font-black text-[#0A1128]">Backend sync pending</span></div>
+                <div><span className="block text-[8px] uppercase text-slate-400">AI credits</span><span className="text-[10px] font-black text-[#0A1128]">Not available in preview</span></div>
+              </div>
+              <p className="text-[9px] text-slate-500 mt-2 leading-relaxed">Subscription, entitlements, payments, AI-credit balance and account security are authoritative server state and are not fabricated here.</p>
+            </div>
             <button
               onClick={handleResetProfileSystem}
               className="w-full py-2 bg-rose-50 border border-rose-200 text-rose-600 font-bold text-[10px] uppercase tracking-wider rounded-xl transition"
             >
-              Reset profile & diagnostic
+              Reset frontend preview
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SUB-PANE: DASHBOARD SETTINGS TAB ---
+  function renderSettingsTab() {
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Account preferences</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Settings</h2>
+          <p className="text-sm text-slate-500 mt-1">Manage learning preferences and account controls. Changes that affect the account must be persisted by the backend.</p>
+        </div>
+        <div className="grid gap-3">
+          <div className="sabi-surface p-5 space-y-4">
+            <h3 className="text-sm font-black text-[#0A1128]">Learning preferences</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="rounded-xl border border-slate-200 p-3"><span className="block text-[9px] uppercase font-black text-slate-400">Language</span><span className="text-xs font-bold text-[#0A1128]">{profile?.languagePreference || 'Not set'}</span></div>
+              <div className="rounded-xl border border-slate-200 p-3"><span className="block text-[9px] uppercase font-black text-slate-400">Explanation style</span><span className="text-xs font-bold text-[#0A1128]">{profile?.explanationPreference || 'Not set'}</span></div>
+            </div>
+            <p className="text-[10px] text-slate-500">Preference editing controls will connect to the profile/preferences API. This preview does not silently persist local changes as account state.</p>
+          </div>
+          <div className="sabi-surface p-5 space-y-3">
+            <h3 className="text-sm font-black text-[#0A1128]">Access & billing</h3>
+            <div className="grid sm:grid-cols-3 gap-2">
+              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">Plan</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">Entitlements</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">AI credits</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+            </div>
+            <p className="text-[10px] text-slate-500">Payment, subscription, access limits and AI-credit balances are server-authoritative.</p>
+          </div>
+          <div className="sabi-surface p-5 space-y-3">
+            <h3 className="text-sm font-black text-[#0A1128]">Session</h3>
+            <button onClick={handleResetProfileSystem} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-black uppercase tracking-wider">Exit frontend preview</button>
+            <p className="text-[10px] text-slate-500">Production logout will invalidate the authenticated session through the authentication service. This preview action only exits the local frontend flow.</p>
           </div>
         </div>
       </div>
@@ -2707,9 +2732,6 @@ export default function App() {
       <SabiAIChat
         profile={profile}
         masteryMap={masteryMap}
-        onUpdateXp={(xp) => {
-          setProfile(prev => prev ? { ...prev, xpPoints: prev.xpPoints + xp } : null);
-        }}
         messages={tutorMessages}
         setMessages={setTutorMessages}
         chatSubject={tutorSubject}
@@ -3230,14 +3252,14 @@ export default function App() {
                         <span className="text-slate-400 block text-[8px]">ASPIRANT LEVEL</span>
                         <span className="font-extrabold text-white text-[11px]">Labc Candidate</span>
                       </div>
-                      <span className="bg-yellow-400/10 border border-[#F5C518] text-[#F5C518] font-mono text-[9px] px-2 py-0.5 rounded font-black">25 DAYS TO EXAM</span>
+                      <span className="bg-yellow-400/10 border border-[#F5C518] text-[#F5C518] font-mono text-[9px] px-2 py-0.5 rounded font-black">EXAM COUNTDOWN — BACKEND DATA</span>
                     </div>
 
                     {/* Giant score dial vector */}
                     <div className="flex flex-col items-center justify-center pt-1 relative">
-                      <span className="text-3xl font-black font-mono text-[#F5C518]">312</span>
-                      <span className="text-[7px] text-slate-300 font-bold tracking-widest uppercase">ESTIMATED EXPERT SCORE</span>
-                      <span className="bg-[#1B3A7A] text-[#FFF3B0] text-[8px] font-black px-2 py-0.5 rounded-full absolute bottom--6 font-mono">+12 PTS THIS WEEK ↑</span>
+                      <span className="text-3xl font-black font-mono text-[#F5C518]">—</span>
+                      <span className="text-[7px] text-slate-300 font-bold tracking-widest uppercase">BACKEND SCORE — DESIGN PREVIEW</span>
+                      <span className="bg-[#1B3A7A] text-[#FFF3B0] text-[8px] font-black px-2 py-0.5 rounded-full absolute bottom--6 font-mono">LIVE TREND — BACKEND DATA</span>
                     </div>
                   </div>
 
@@ -3245,7 +3267,7 @@ export default function App() {
                   <div className="mx-3 -mt-3 bg-white p-2.5 rounded-xl border border-slate-200 z-10 shadow-sm space-y-1.5 flex gap-2 items-center">
                     <span className="text-xl shrink-0">🔥</span>
                     <div className="flex-1">
-                      <span className="text-[10px] font-black leading-none block text-[#0A1128]">7-Day Study Streak!</span>
+                      <span className="text-[10px] font-black leading-none block text-[#0A1128]">Study streak — backend data</span>
                       <span className="text-[8px] text-slate-500 block">Sabi memory calibrator is active</span>
                     </div>
                     {/* Tiny micro dots representing day columns */}
@@ -3498,11 +3520,11 @@ export default function App() {
                   
                   {/* Gauge speedometer hero */}
                   <div className="bg-[#0A1128] text-white p-4 rounded-b-2xl items-center flex flex-col space-y-1">
-                    <span className="text-[8px] font-mono text-slate-300 tracking-wider font-bold">ESTIMATED EXAM SCALE</span>
+                    <span className="text-[8px] font-mono text-slate-300 tracking-wider font-bold">EXAM SCALE — DESIGN PREVIEW</span>
                     <div className="w-24 h-14 border-4 border-dashed border-[#F5C518] rounded-t-full flex items-center justify-center pt-4 mt-1">
-                      <span className="text-2xl font-black font-mono text-[#F5C518]">312</span>
+                      <span className="text-2xl font-black font-mono text-[#F5C518]">—</span>
                     </div>
-                    <span className="text-[8px] text-slate-400">92% CALIBRATION LEVEL ACCORDING TO TESTS</span>
+                    <span className="text-[8px] text-slate-400">CALIBRATION DATA — BACKEND REQUIRED</span>
                   </div>
 
                   <div className="p-3 space-y-3">
@@ -3513,20 +3535,20 @@ export default function App() {
                         <span>🎯</span><span>Strategic Score Prognosis</span>
                       </div>
                       <p className="text-[10px] text-slate-600 leading-normal">
-                        You need **+34 points** to secure medicine admission. Study these recommended topics:
+                        Score-gap and recommendation data will be supplied by the learning engine. This design preview does not calculate admission targets.
                       </p>
                       <div className="flex gap-1.5 pt-1">
-                        <span className="bg-[#D0E1F9] text-[9px] font-bold px-2 py-0.5 rounded text-[#0A1128]">Physics Concord (+15)</span>
+                        <span className="bg-[#D0E1F9] text-[9px] font-bold px-2 py-0.5 rounded text-[#0A1128]">Recommendation data pending</span>
                       </div>
                     </div>
 
                     {/* Metric deck performance */}
                     <div className="space-y-1 bg-white p-3 rounded-lg border border-slate-200">
-                      <span className="text-[8px] font-black text-slate-400 mt-1 uppercase block">Registered Performance Metrics</span>
+                      <span className="text-[8px] font-black text-slate-400 mt-1 uppercase block">Backend Performance Metrics</span>
                       {[
-                        { name: 'Mathematics', value: '78%', width: 'w-[78%]', color: 'bg-emerald-500' },
-                        { name: 'English Concord', value: '61%', width: 'w-[61%]', color: 'bg-indigo-500' },
-                        { name: 'Chemistry Surds', value: '30%', width: 'w-[30%]', color: 'bg-[#D32F2F]' }
+                        { name: 'Mathematics', value: '—', width: 'w-0', color: 'bg-emerald-500' },
+                        { name: 'English Concord', value: '—', width: 'w-0', color: 'bg-indigo-500' },
+                        { name: 'Chemistry Surds', value: '—', width: 'w-0', color: 'bg-[#D32F2F]' }
                       ].map(metric => (
                         <div key={metric.name} className="space-y-0.5 text-slate-700 text-[10px]">
                           <div className="flex justify-between items-center font-bold">

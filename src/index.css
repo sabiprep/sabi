@@ -41,3 +41,83 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+
+/* SABI frontend foundation
+ * Visual treatment is implementation-level; learning-state authority remains server-side.
+ */
+:root {
+  --sabi-ink: #0A1128;
+  --sabi-blue: #4A90D9;
+  --sabi-gold: #F5C518;
+  --sabi-surface: #FFFFFF;
+  --sabi-page: #F8FAFC;
+  --sabi-border: #D6E4F0;
+  --sabi-muted: #64748B;
+  --sabi-success: #15803D;
+  --sabi-danger: #B91C1C;
+  --sabi-radius-sm: 10px;
+  --sabi-radius-md: 14px;
+  --sabi-radius-lg: 18px;
+  --sabi-shadow-sm: 0 1px 3px rgb(15 23 42 / 0.06);
+  --sabi-shadow-md: 0 10px 30px rgb(15 23 42 / 0.08);
+}
+
+body {
+  background: var(--sabi-page);
+  color: var(--sabi-ink);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgb(74 144 217 / 0.45);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+.sabi-surface {
+  background: var(--sabi-surface);
+  border: 1px solid var(--sabi-border);
+  border-radius: var(--sabi-radius-lg);
+  box-shadow: var(--sabi-shadow-sm);
+}
+
+.sabi-focus-ring:focus-visible {
+  outline: 3px solid rgb(74 144 217 / 0.45);
+  outline-offset: 3px;
+}

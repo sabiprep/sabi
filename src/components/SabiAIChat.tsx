@@ -11,7 +11,6 @@ interface ChatMessage {
 
 interface SabiAIChatProps {
   profile: StudentProfile | null;
-  onUpdateXp: (xp: number) => void;
   masteryMap?: Record<string, MasteryMapItem>;
   messages: ChatMessage[];
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -33,7 +32,6 @@ const TOPICS_BY_SUBJECT: Record<string, string[]> = {
 
 export default function SabiAIChat({
   profile,
-  onUpdateXp,
   masteryMap = {},
   messages,
   setMessages,
@@ -74,7 +72,7 @@ export default function SabiAIChat({
   const missedCount = currentMasteryItem?.history?.filter((h: any) => !h.correct).length || 0;
   const totalAttempts = currentMasteryItem?.history?.length || 0;
 
-  let performanceText = `You haven't attempted any question on ${chatTopic} yet. Sabi AI recommends building a solid foundation here to avoid blind spots in your JAMB exam!`;
+  let performanceText = `You haven't attempted any question on ${chatTopic} yet. Build evidence on this topic through practice before treating it as a learning priority.`;
   if (missedCount > 0) {
     performanceText = `You missed ${missedCount} question${missedCount > 1 ? 's' : ''} on ${chatTopic} during your recent practice sessions. Let's close your knowledge gaps and master this topic together!`;
   } else if (totalAttempts > 0) {
@@ -88,9 +86,9 @@ export default function SabiAIChat({
     );
     return {
       topic,
-      score: item ? item.score : 40 // Default to 40% if hasn't been practiced
+      score: item ? item.score : null
     };
-  }).sort((a, b) => a.score - b.score);
+  }).sort((a, b) => (a.score ?? Number.POSITIVE_INFINITY) - (b.score ?? Number.POSITIVE_INFINITY));
 
   const handleSend = async (textOverride?: string) => {
     if (!isOnline) return;
@@ -131,7 +129,6 @@ export default function SabiAIChat({
       };
 
       setMessages((prev) => [...prev, modelMsg]);
-      onUpdateXp(15); // Reward 15 XP for studying with Sabi AI
     } catch (err) {
       console.error('Chat error:', err);
       const errorMsg: ChatMessage = {
@@ -393,12 +390,12 @@ export default function SabiAIChat({
                     <div className="flex flex-col pr-2 min-w-0">
                       <span className="truncate">{topic}</span>
                       <span className={`text-[9px] mt-0.5 ${chatTopic === topic ? 'text-slate-350' : 'text-slate-450'}`}>
-                        Topic Score: {score}%
+                        {score === null ? 'No evidence yet' : 'Backend mastery state available'}
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`text-[8.5px] px-2 py-0.5 rounded-full font-extrabold uppercase font-mono ${score < 55 ? 'bg-red-100 text-red-650' : score < 75 ? 'bg-yellow-100 text-yellow-650' : 'bg-emerald-100 text-emerald-650'}`}>
-                        {score < 55 ? 'Weakest' : score < 75 ? 'Growing' : 'Mastered'}
+                      <span className={`text-[8.5px] px-2 py-0.5 rounded-full font-extrabold uppercase font-mono ${score === null ? 'bg-slate-100 text-slate-600' : 'bg-sky-100 text-sky-700'}`}>
+                        {score === null ? 'Not assessed' : 'Backend state'}
                       </span>
                     </div>
                   </button>
