@@ -2419,7 +2419,7 @@ export default function App() {
   function renderPracticeTab() {
     if (practiceSessionType === null) {
       return (
-        <div className="flex flex-col justify-between flex-1 pb-2 animate-fade-in z-20 h-full overflow-hidden space-y-3">
+        <div className="flex flex-col flex-1 min-h-0 overflow-y-auto animate-fade-in pb-6">
           {customPracticeModalVisible && (
             <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end md:items-center justify-center pointer-events-auto">
               <div className="bg-white rounded-t-3xl md:rounded-3xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto animate-slide-up shadow-2xl relative">
@@ -2482,92 +2482,89 @@ export default function App() {
             </div>
           )}
 
-          <div className="sabi-surface border-amber-200 bg-amber-50/70 p-3 text-left">
-            <div className="flex items-start gap-2">
-              <Info className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-amber-900">Practice preview mode</p>
-                <p className="text-[10px] leading-relaxed text-amber-800 mt-0.5">
-                  Seeded questions are being used for the interface preview. Mastery, XP, recommendations, review dates, and readiness are not persisted by this frontend.
+          <div className="mb-5 rounded-3xl bg-[#0A1128] text-white p-5 md:p-7 relative overflow-hidden">
+            <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-[#4A90D9]/20 blur-2xl" />
+            <div className="absolute right-10 bottom-[-60px] w-32 h-32 rounded-full bg-[#F5C518]/10 blur-2xl" />
+            <div className="relative">
+              <div className="flex items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-2">
+                  <span className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center">
+                    <BookOpen className="w-4 h-4 text-[#F5C518]" />
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/60">Practice Hub</span>
+                </div>
+                <span className="text-[9px] font-bold px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-white/75">PREVIEW</span>
+              </div>
+              <div className="max-w-2xl">
+                <h2 className="text-2xl md:text-3xl font-black tracking-tight leading-tight">Practice with purpose.</h2>
+                <p className="mt-2 text-sm md:text-base text-white/65 leading-relaxed max-w-xl">
+                  Choose how you want to practise. Smart Practice is designed around your learning state; Custom Practice lets you control the questions yourself.
                 </p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 md:gap-3 mt-6 max-w-xl">
+                <div className="rounded-2xl bg-white/8 border border-white/10 p-3"><span className="text-[9px] uppercase tracking-wider text-white/45 block">Mode</span><span className="text-xs font-black mt-1 block">Focused</span></div>
+                <div className="rounded-2xl bg-white/8 border border-white/10 p-3"><span className="text-[9px] uppercase tracking-wider text-white/45 block">Selection</span><span className="text-xs font-black mt-1 block">Backend-led</span></div>
+                <div className="rounded-2xl bg-white/8 border border-white/10 p-3"><span className="text-[9px] uppercase tracking-wider text-white/45 block">Session</span><span className="text-xs font-black mt-1 block">Adaptive</span></div>
               </div>
             </div>
           </div>
 
-          {/* Compact Smart Practice Card (Top half) */}
-          <div className="flex-none bg-white border border-[#D6E4F0] p-4 md:p-5 rounded-2xl hover:border-[#4A90D9]/50 transition bg-gradient-to-br from-white to-[#F8FBFF] space-y-2">
-            <h3 className="text-xs md:text-sm font-bold text-[#0A1128] uppercase tracking-wide">🧠 Smart Practice (Recommended)</h3>
-            <p className="text-[10px] md:text-xs text-slate-500 mt-1 mb-2 leading-relaxed">
-              Your personalized path will appear here when the learning engine supplies a recommendation.
-            </p>
-
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              {(((profile as any)?.subjects || profile?.chosenSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry']) as SubjectName[]).map(sub => (
-                <button
-                  key={sub}
-                  onClick={() => setActiveSmartSubject(sub)}
-                  className={`px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider transition ${activeSmartSubject === sub ? 'bg-[#0A1128] text-white shadow-sm' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
-                >
-                  {sub}
-                </button>
-              ))}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3.5 mb-5 flex items-start gap-3">
+            <span className="w-8 h-8 rounded-xl bg-white flex items-center justify-center shrink-0 border border-amber-100"><Info className="w-4 h-4 text-amber-700" /></span>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-900">Frontend preview boundary</p>
+              <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">Seeded questions power this interface preview. The production backend must own recommendations, question selection, adaptive sequencing, mastery, XP, readiness and session persistence.</p>
             </div>
-
-            <div className="bg-[#EBF1FA] rounded-xl p-3 border border-[#D0E1F9] space-y-1">
-              <p className="text-[11px] text-[#0A1128] font-bold leading-normal">
-                Recommendation status: waiting for backend learning-engine data
-              </p>
-              <p className="text-[10px] text-slate-500 leading-relaxed">
-                This frontend currently previews the practice experience with seeded questions. The backend will own question selection, adaptive sequencing, exclusions and session persistence.
-              </p>
-            </div>
-
-            <button
-              onClick={() => handleStartSmartPractice(activeSmartSubject)}
-              className="w-full py-3 bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-widest rounded-xl hover:bg-yellow-400 transition shadow"
-            >
-              Start Smart Practice Preview
-            </button>
           </div>
 
-          {/* Compact Custom Practice Card (Bottom half) */}
-          <div className="flex-none bg-white border border-[#D6E4F0] p-4 md:p-5 rounded-2xl hover:border-[#4A90D9]/50 transition space-y-2">
-            <h3 className="text-xs md:text-sm font-bold text-[#0A1128] uppercase tracking-wide mb-1">⚙️ Custom Practice</h3>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <button
-                onClick={() => setCustomPracticeModalVisible(true)}
-                className="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-850 hover:border-[#4A90D9] flex justify-between items-center transition"
-              >
-                <div className="flex flex-col min-w-0 pr-1">
-                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Subject</span>
-                   <span className="font-extrabold text-[10px] md:text-xs text-[#0A1128] leading-tight whitespace-normal break-words">
-                     {customPracticeSubject || 'Select Subject'}
-                   </span>
+          <div className="grid lg:grid-cols-5 gap-4">
+            <section className="lg:col-span-3 rounded-3xl border border-[#D6E4F0] bg-white p-5 md:p-6 shadow-sm">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-9 h-9 rounded-xl bg-[#FFF3B0] border border-[#F5C518]/60 flex items-center justify-center"><Sparkles className="w-4 h-4 text-[#0A1128]" /></span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.16em] text-[#4A90D9]">Recommended mode</span>
+                  </div>
+                  <h3 className="text-xl font-black text-[#0A1128] tracking-tight">Smart Practice</h3>
+                  <p className="text-xs text-slate-500 mt-1.5 max-w-lg leading-relaxed">Let the learning engine decide what deserves your attention next. The current build uses a safe seeded preview until recommendation APIs are connected.</p>
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 ml-1" />
-              </button>
-              <button
-                onClick={() => setCustomPracticeModalVisible(true)}
-                className="w-full text-left p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-850 hover:border-[#4A90D9] flex justify-between items-center transition"
-              >
-                <div className="flex flex-col min-w-0 pr-1">
-                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Topic / Year</span>
-                   <span className="font-extrabold text-[10px] md:text-xs text-[#0A1128] leading-tight whitespace-normal break-words">
-                     {customPracticeTopic && customPracticeYear 
-                       ? `${customPracticeTopic === 'All' ? 'All Areas' : customPracticeTopic} • ${customPracticeYear === 'All' ? 'Any' : customPracticeYear}` 
-                       : 'Select Topic/Year'}
-                   </span>
+              </div>
+              <div className="rounded-2xl bg-[#F8FAFC] border border-slate-200 p-4 mb-4">
+                <div className="flex items-center justify-between gap-3 mb-3"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Subject focus</span><span className="text-[9px] font-bold text-slate-400">Select one for preview</span></div>
+                <div className="flex flex-wrap gap-2">
+                  {(((profile as any)?.subjects || profile?.chosenSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry']) as SubjectName[]).map(sub => (
+                    <button key={sub} onClick={() => setActiveSmartSubject(sub)} className={activeSmartSubject === sub ? 'px-3 py-2 rounded-xl text-[10px] font-black transition border bg-[#0A1128] text-white border-[#0A1128]' : 'px-3 py-2 rounded-xl text-[10px] font-black transition border bg-white text-slate-600 border-slate-200 hover:border-[#4A90D9]'}>
+                      {sub}
+                    </button>
+                  ))}
                 </div>
-                <ChevronRight className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 ml-1" />
-              </button>
-            </div>
-            <button
-              onClick={handleLaunchCustomPractice}
-              disabled={!customPracticeSubject || !customPracticeTopic || !customPracticeYear}
-              className={`w-full py-3 mb-4 font-black text-xs uppercase tracking-widest rounded-xl transition shadow ${(!customPracticeSubject || !customPracticeTopic || !customPracticeYear) ? 'bg-slate-100 text-slate-450 opacity-60 cursor-not-allowed pointer-events-none' : 'bg-[#0A1128] text-white hover:bg-slate-800'}`}
-            >
-              Launch Custom Quiz
-            </button>
+              </div>
+              <div className="flex items-center gap-3 rounded-2xl border border-[#D6E4F0] p-4 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-[#EBF1FA] flex items-center justify-center shrink-0"><RefreshCw className="w-4 h-4 text-[#4A90D9]" /></div>
+                <div className="min-w-0"><p className="text-xs font-black text-[#0A1128]">Recommendation data pending</p><p className="text-[10px] text-slate-500 leading-relaxed mt-0.5">When connected, this area will show the backend-selected next practice focus.</p></div>
+              </div>
+              <button onClick={() => handleStartSmartPractice(activeSmartSubject)} className="w-full py-3.5 bg-[#F5C518] text-[#0A1128] font-black text-xs uppercase tracking-[0.12em] rounded-2xl hover:bg-yellow-400 transition shadow-sm flex items-center justify-center gap-2">Start Smart Practice Preview<ChevronRight className="w-4 h-4" /></button>
+            </section>
+
+            <section className="lg:col-span-2 rounded-3xl border border-[#D6E4F0] bg-white p-5 md:p-6 shadow-sm">
+              <div className="flex items-start gap-3 mb-5">
+                <span className="w-9 h-9 rounded-xl bg-[#EBF1FA] border border-[#D6E4F0] flex items-center justify-center"><Sliders className="w-4 h-4 text-[#0A1128]" /></span>
+                <div><span className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">You control the mix</span><h3 className="text-xl font-black text-[#0A1128] tracking-tight mt-1">Custom Practice</h3></div>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed mb-5">Choose a subject, topic and past exam year, then launch a focused practice session.</p>
+              <div className="space-y-2.5 mb-4">
+                <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-[#4A90D9] p-3.5 text-left transition flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Subject</span><span className="text-xs font-black text-[#0A1128] block mt-1 truncate">{customPracticeSubject || 'Choose a subject'}</span></div><ChevronRight className="w-4 h-4 text-slate-400 shrink-0" /></button>
+                <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-[#4A90D9] p-3.5 text-left transition flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Topic</span><span className="text-xs font-black text-[#0A1128] block mt-1 truncate">{customPracticeTopic ? (customPracticeTopic === 'All' ? 'All Areas' : customPracticeTopic) : 'Choose a topic'}</span></div><ChevronRight className="w-4 h-4 text-slate-400 shrink-0" /></button>
+                <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full rounded-2xl border border-slate-200 bg-slate-50 hover:bg-white hover:border-[#4A90D9] p-3.5 text-left transition flex items-center justify-between gap-3"><div className="min-w-0"><span className="text-[9px] font-black uppercase tracking-wider text-slate-400 block">Exam year</span><span className="text-xs font-black text-[#0A1128] block mt-1 truncate">{customPracticeYear ? (customPracticeYear === 'All' ? 'Any past year' : customPracticeYear) : 'Choose a year'}</span></div><ChevronRight className="w-4 h-4 text-slate-400 shrink-0" /></button>
+              </div>
+              <button onClick={() => setCustomPracticeModalVisible(true)} className="w-full py-3.5 rounded-2xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-[0.12em] hover:bg-slate-800 transition">Configure Custom Practice</button>
+            </section>
+          </div>
+
+          <div className="mt-4 grid md:grid-cols-3 gap-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="w-8 h-8 rounded-lg bg-[#F4F7FB] flex items-center justify-center text-[#4A90D9] mb-3"><Sparkles className="w-4 h-4" /></span><h4 className="text-[11px] font-black text-[#0A1128]">Smart Practice</h4><p className="text-[10px] text-slate-500 leading-relaxed mt-1">Personalized when backend recommendations are available.</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="w-8 h-8 rounded-lg bg-[#F4F7FB] flex items-center justify-center text-[#4A90D9] mb-3"><Sliders className="w-4 h-4" /></span><h4 className="text-[11px] font-black text-[#0A1128]">Custom Practice</h4><p className="text-[10px] text-slate-500 leading-relaxed mt-1">Choose your own subject, topic and year.</p></div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="w-8 h-8 rounded-lg bg-[#F4F7FB] flex items-center justify-center text-[#4A90D9] mb-3"><BookOpen className="w-4 h-4" /></span><h4 className="text-[11px] font-black text-[#0A1128]">Shared question flow</h4><p className="text-[10px] text-slate-500 leading-relaxed mt-1">Answer, review and learn in one consistent experience.</p></div>
           </div>
         </div>
       );
