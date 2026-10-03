@@ -108,11 +108,7 @@ export default function MasteryMap({
     .filter(m => m.subject === selectedSubject)
     .sort((a, b) => a.score - b.score);
 
-  const checkIsBlindSpot = (item: MasteryMapItem) => {
-    return (item.score < 40 && item.attempts > 0);
-  };
-
-  // Recommendation priority is not calculated in the frontend.
+  // Topic ordering is presentation-only. The values themselves are supplied by the learning state.
   // Until the recommendation engine supplies a concrete action, keep this area neutral.
   const focusTopic = activeSubjectTopics[0] || null;
   const coachingCopy = focusTopic
@@ -214,26 +210,18 @@ export default function MasteryMap({
             </div>
           ) : (
             activeSubjectTopics.map((topicItem) => {
-              const isBlindSpot = checkIsBlindSpot(topicItem);
               const isLowConfidence = topicItem.attempts < 5;
 
               return (
                 <div
                   key={topicItem.topic}
-                  onClick={() => setSelectedTopicDetail(topicItem)}
-                  className={`p-3.5 rounded-xl border text-left cursor-pointer transition relative hover:bg-slate-50 flex items-center justify-between gap-4 ${isBlindSpot ? 'border-amber-400 bg-amber-50/20 border-l-[6px] border-l-amber-500' : 'border-slate-200 bg-white'}`}
+                  onClick={() => setSelectedTopicDetail(topicItem)} className="p-3.5 rounded-xl border border-slate-200 bg-white text-left cursor-pointer transition relative hover:bg-slate-50 flex items-center justify-between gap-4"
                 >
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-semibold text-slate-800 tracking-tight leading-tight block">
                         {topicItem.topic}
                       </span>
-                      {isBlindSpot && (
-                        <span className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[8px] font-black uppercase tracking-wider">
-                          <AlertCircle className="h-3 w-3 text-amber-600" />
-                          <span>Blind Spot</span>
-                        </span>
-                      )}
                       {isLowConfidence && (
                         <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[8px] font-bold uppercase tracking-wider whitespace-nowrap">
                           Low Confidence
@@ -313,104 +301,19 @@ export default function MasteryMap({
               </button>
             </div>
 
-            {/* Topic state mapping contextually */}
-            {selectedTopicDetail.score < 40 && selectedTopicDetail.attempts > 0 ? (
-              /* RED STATE / BLIND SPOT */
-              <div className="space-y-4 bg-amber-50/50 rounded-2xl p-4 border border-amber-200">
-                <div className="flex items-center gap-2 text-amber-700">
-                  <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 animate-bounce" />
-                  <span className="font-extrabold text-xs uppercase tracking-wider">CRITICAL BLIND SPOT DETECTED</span>
-                </div>
-                <p className="text-[11.5px] leading-relaxed text-slate-750 font-bold">
-                  This topic is compromising your margins! Sabi AI recommends jumping straight into conceptual coaching before doing more practice mock questions.
-                </p>
-                <div className="pt-2 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      onStartPractice(selectedTopicDetail.topic);
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2 px-3 text-[10px] font-black uppercase text-[#0A1128] bg-white border border-[#D6E4F0] hover:bg-slate-50 rounded-xl transition shadow-sm text-center"
-                  >
-                    📝 Practice Topic
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (onStartTutor) {
-                        onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic);
-                      }
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-sm text-center flex items-center justify-center gap-1"
-                  >
-                    <Sparkles className="h-3 w-3 text-[#F5C518]" />
-                    <span>Ask Sabi AI</span>
-                  </button>
-                </div>
+            <div className="space-y-4 bg-slate-50 rounded-2xl p-4 border border-slate-200">
+              <div className="flex items-center gap-2 text-[#4A90D9]">
+                <Info className="h-5 w-5 shrink-0" />
+                <span className="font-extrabold text-xs uppercase tracking-wider">BACKEND LEARNING STATE</span>
               </div>
-            ) : selectedTopicDetail.score >= 75 ? (
-              /* GREEN STATE / MASTERED */
-              <div className="space-y-4 bg-emerald-50/50 rounded-2xl p-4 border border-emerald-200">
-                <div className="flex items-center gap-2 text-emerald-800">
-                  <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0" />
-                  <span className="font-extrabold text-xs uppercase tracking-wider">SECURED ACADEMIC DOMAIN</span>
-                </div>
-                <p className="text-[11.5px] leading-relaxed text-slate-750 font-medium">
-                  Superb hold! You have acquired robust fluency on this syllabus key point. Perfect score is active. Next scheduled spaced recall check on:
-                </p>
-                <div className="bg-white px-3 py-2.5 rounded-xl border border-slate-100">
-                  <span className="text-[9px] uppercase tracking-wider font-extrabold text-slate-400 block mb-0.5">Spaced repetition schedule</span>
-                  <p className="font-mono font-bold text-[#0A1128] text-xs">
-                    {new Date(selectedTopicDetail.nextReviewDate).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-                  </p>
-                </div>
-                <div className="pt-2 flex justify-end">
-                  <button
-                    onClick={() => setSelectedTopicDetail(null)}
-                    className="py-2 px-4 text-[10px] font-black uppercase text-slate-650 hover:text-slate-800 transition"
-                  >
-                    Done
-                  </button>
-                </div>
+              <p className="text-[11.5px] leading-relaxed text-slate-700 font-medium">
+                SABI displays the learning evidence supplied for this topic. Mastery status, recommendations and review scheduling are determined by the learning engine rather than inferred by this screen.
+              </p>
+              <div className="pt-2 grid grid-cols-2 gap-3">
+                <button onClick={() => { onStartPractice(selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-lg text-center">Start Practice</button>
+                <button onClick={() => { if (onStartTutor) onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition text-center">Ask Sabi AI</button>
               </div>
-            ) : (
-              /* DEFAULT / UNTESTED OR BUILDING */
-              <div className="space-y-4 bg-slate-50 rounded-2xl p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-[#4A90D9]">
-                  <CompassIcon className="h-5 w-5 text-[#4A90D9] shrink-0" />
-                  <span className="font-extrabold text-xs uppercase tracking-wider">FOUNDATIONAL ESTABLISHMENT TARGET</span>
-                </div>
-                <p className="text-[11.5px] leading-relaxed text-slate-750 font-medium">
-                  {selectedTopicDetail.attempts === 0 
-                    ? "This topic hasn't been tested in your practice runs yet. Establish your entry-level baseline scorecard right away!"
-                    : "You are currently building fluency here! Engage in focused practice sets to secure your peak exam potential."
-                  }
-                </p>
-                <div className="pt-2 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => {
-                      onStartPractice(selectedTopicDetail.topic);
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2.5 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-lg text-center flex items-center justify-center gap-1.5"
-                  >
-                    <span>Start Practice Run</span>
-                    <ArrowRight className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (onStartTutor) {
-                        onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic);
-                      }
-                      setSelectedTopicDetail(null);
-                    }}
-                    className="py-2.5 px-3 text-[10px] font-black uppercase text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition text-center"
-                  >
-                    📖 Read Lesson Note
-                  </button>
-                </div>
-              </div>
-            )}
+            </div>
 
             {/* Performance Statistics */}
             <div className="bg-[#FAFBFD] p-4.5 rounded-2xl border border-[#D6E4F0] space-y-2.5 text-xs">
