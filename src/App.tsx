@@ -2449,9 +2449,20 @@ export default function App() {
 
     if (practiceQuestions.length === 0) {
       return (
-        <div className="space-y-3 text-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-[#4A90D9] mx-auto" />
-          <p className="text-xs text-slate-400">Loading your personalized practice workspace...</p>
+        <div className="sabi-surface p-6 text-center space-y-4 animate-fade-in max-w-xl mx-auto w-full">
+          <div className="w-12 h-12 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center mx-auto">
+            <AlertCircle className="h-5 w-5 text-[#4A90D9]" />
+          </div>
+          <div>
+            <h4 className="text-sm font-black text-[#0A1128]">No preview questions available</h4>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">The selected practice configuration did not return any seeded preview questions. The production question-search service will supply the authoritative result.</p>
+          </div>
+          <button
+            onClick={() => { setPracticeSessionType(null); setPracticeQuestions([]); setPracticeComplete(false); }}
+            className="px-5 py-2.5 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider"
+          >
+            Return to Practice Hub
+          </button>
         </div>
       );
     }
