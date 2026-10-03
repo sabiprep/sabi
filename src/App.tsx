@@ -2571,213 +2571,22 @@ export default function App() {
     }
 
     if (practiceQuestions.length === 0) {
-      return (
-        <div className="sabi-surface p-6 text-center space-y-4 animate-fade-in max-w-xl mx-auto w-full">
-          <div className="w-12 h-12 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center mx-auto">
-            <AlertCircle className="h-5 w-5 text-[#4A90D9]" />
-          </div>
-          <div>
-            <h4 className="text-sm font-black text-[#0A1128]">No preview questions available</h4>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">The selected practice configuration did not return any seeded preview questions. The production question-search service will supply the authoritative result.</p>
-          </div>
-          <button
-            onClick={() => { setPracticeSessionType(null); setPracticeQuestions([]); setPracticeComplete(false); }}
-            className="px-5 py-2.5 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider"
-          >
-            Return to Practice Hub
-          </button>
-        </div>
-      );
+      return <div className="sabi-surface p-6 text-center space-y-4 max-w-xl mx-auto w-full"><div className="w-12 h-12 rounded-2xl bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center mx-auto"><AlertCircle className="h-5 w-5 text-[#4A90D9]" /></div><div><h4 className="text-base font-black text-[#0A1128]">No preview questions available</h4><p className="text-xs text-slate-500 mt-1">The selected configuration returned no seeded preview questions.</p></div><button onClick={() => { setPracticeSessionType(null); setPracticeQuestions([]); setPracticeComplete(false); }} className="px-5 py-2.5 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider">Return to Practice Hub</button></div>;
     }
 
     if (practiceComplete) {
       const accuracy = Math.floor((practiceCorrectCount / practiceQuestions.length) * 100);
-      return (
-        <div className="bg-white border border-[#D6E4F0] p-6 rounded-2xl text-center space-y-5 shadow-sm animate-fade-in font-sans">
-          <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto text-emerald-600">
-            <CheckCircle className="h-6 w-6" />
-          </div>
-          
-          <div className="space-y-1">
-            <h4 className="text-sm font-bold text-[#0A1128]">Practice Preview Completed</h4>
-            <p className="text-[10px] text-slate-400">This session result is local to the preview and has not been synced to the learning engine.</p>
-          </div>
-
-          <div className="border border-slate-100 p-4 rounded-xl grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-[8px] uppercase font-bold text-slate-400 block">Correct answers</span>
-              <p className="text-base font-bold text-[#0A1128] font-mono">{practiceCorrectCount} / {practiceQuestions.length}</p>
-            </div>
-            <div>
-              <span className="text-[8px] uppercase font-bold text-slate-400 block">Session accuracy (preview)</span>
-              <p className="text-base font-bold text-[#0A1128] font-mono">{accuracy}%</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setActiveTab('home')}
-            className="w-full py-2 bg-[#0A1128] hover:bg-[#030610] text-[#F5C518] font-bold text-[10px] uppercase tracking-wide rounded-xl shadow"
-          >
-            Return to portal hub
-          </button>
-        </div>
-      );
+      return <div className="max-w-2xl mx-auto w-full animate-fade-in"><div className="rounded-3xl bg-[#0A1128] text-white p-6 md:p-8 text-center"><CheckCircle className="w-12 h-12 text-emerald-300 mx-auto mb-4" /><span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/50">Session complete</span><h3 className="text-2xl font-black mt-2">Practice review finished.</h3><p className="text-xs text-white/60 mt-2">Preview result only. Authoritative progress comes from the learning engine.</p></div><div className="grid grid-cols-2 gap-3 mt-4"><div className="rounded-2xl border border-[#D6E4F0] bg-white p-5"><span className="text-[9px] uppercase font-black text-slate-400">Correct</span><p className="text-2xl font-black text-[#0A1128] mt-1 font-mono">{practiceCorrectCount}<span className="text-sm text-slate-400"> / {practiceQuestions.length}</span></p></div><div className="rounded-2xl border border-[#D6E4F0] bg-white p-5"><span className="text-[9px] uppercase font-black text-slate-400">Preview accuracy</span><p className="text-2xl font-black text-[#0A1128] mt-1 font-mono">{accuracy}%</p></div></div><div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mt-3"><p className="text-[10px] font-black uppercase text-amber-900">Not a backend result</p><p className="text-[11px] text-amber-800 mt-1">This preview does not update mastery, XP, readiness, recommendations or JAMB score.</p></div><button onClick={() => { setPracticeSessionType(null); setPracticeQuestions([]); setPracticeComplete(false); setActiveTab('practice'); }} className="w-full mt-4 py-3.5 rounded-2xl bg-[#0A1128] text-white text-xs font-black uppercase">Back to Practice Hub</button></div>;
     }
 
     const currentQ = practiceQuestions[practiceIndex];
-
+    const progress = ((practiceIndex + (practiceHasSubmitted ? 1 : 0)) / practiceQuestions.length) * 100;
     return (
-      <div className="flex flex-col h-full animate-fade-in font-sans relative">
-        {showExitQuizModal && (
-          <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm rounded-xl flex items-center justify-center p-6">
-            <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm text-center">
-              <h3 className="text-lg font-bold text-[#0A1128] mb-2">End Practice Preview?</h3>
-              <p className="text-xs text-slate-500 mb-6">This preview does not persist authoritative progress yet. You can safely leave and return to the Practice Hub.</p>
-              <div className="space-y-3">
-                <button
-                  onClick={handleQuizExitAndSave}
-                  className="w-full py-3 bg-[#0A1128] text-white font-bold text-xs uppercase tracking-wide rounded-xl"
-                >
-                  Exit Preview
-                </button>
-                <button
-                  onClick={() => setShowExitQuizModal(false)}
-                  className="w-full py-3 text-slate-500 font-bold text-xs uppercase tracking-wide rounded-xl hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="space-y-4">
-        <div className="bg-gradient-to-r from-[#0A1128] to-[#4A90D9] p-4 pt-6 md:pt-4 text-white rounded-b-[20px] relative overflow-hidden -mx-6 -mt-6">
-          <div className="absolute top-10 right-8 w-12 h-12 rounded-full bg-white/10 pointer-events-none" />
-          <div className="flex flex-row items-center justify-between relative z-10 w-full mb-2">
-            <div className="flex-[0.2] flex items-center">
-              <button 
-                onClick={() => setShowExitQuizModal(true)}
-                className="flex items-center gap-0.5 text-xs font-bold text-sky-200 hover:text-white uppercase tracking-wider"
-              >
-                <ChevronLeft className="w-4 h-4" /> Exit
-              </button>
-            </div>
-            <div className="flex-[0.6] flex flex-col items-center justify-center min-w-0 px-2">
-              <span className="text-[#F5C518] text-[10px] font-bold uppercase tracking-wider truncate w-full text-center">
-                {currentQ.subject}
-              </span>
-            </div>
-            <div className="flex-[0.2] flex justify-end">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-right whitespace-nowrap">
-                {practiceIndex + 1} of {practiceQuestions.length}
-              </span>
-            </div>
-          </div>
-          <div className="flex justify-between items-center mt-2 text-[9px] text-sky-100/90 font-semibold font-mono relative z-10">
-            <span className="truncate pr-2">Topic: {currentQ.topic}</span>
-            <span className="uppercase text-yellow-300 flex-shrink-0">Level: {currentQ.difficulty}</span>
-          </div>
-        </div>
-
-        {/* Question Panel */}
-        <div className="bg-white border border-[#D6E4F0] p-4 rounded-2xl shadow-sm space-y-4">
-          <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl">
-            <div className="text-xs text-[#0A1128] font-bold leading-relaxed leading-[1.65]">
-              <MathText text={currentQ.question} />
-            </div>
-          </div>
-
-          {/* Option elements */}
-          <div className="space-y-2">
-            {Object.entries(currentQ.options).map(([key, value]) => {
-              const representsCorrect = key === currentQ.answer;
-              const isSelected = practiceSelectedAnswer === key;
-
-              let cardStyle = 'border-slate-100 hover:bg-slate-50 text-slate-700';
-              if (practiceHasSubmitted) {
-                if (isSelected) {
-                  cardStyle = representsCorrect ? 'border-[#27AE60] bg-emerald-50 text-emerald-950 font-bold' : 'border-[#E74C3C] bg-rose-50 text-rose-950';
-                } else if (representsCorrect) {
-                  cardStyle = 'border-[#27AE60] bg-emerald-50 text-emerald-950 font-bold';
-                } else {
-                  cardStyle = 'opacity-40 border-slate-50 text-slate-400 cursor-not-allowed';
-                }
-              } else if (isSelected) {
-                cardStyle = 'border-[#0a1128] bg-slate-50 font-bold text-[#0a1128]';
-              }
-
-              return (
-                <div
-                  key={key}
-                  onClick={() => {
-                    if (!practiceHasSubmitted) {
-                      setPracticeSelectedAnswer(key as any);
-                    }
-                  }}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer select-none transition flex items-center gap-3 ${cardStyle}`}
-                >
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] border ${isSelected ? 'bg-[#0a1128] text-[#F5C518] border-[#0a1128]' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                    {key}
-                  </span>
-                  <span>
-                    <MathText text={value as string} />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Worked explanation details */}
-          {practiceHasSubmitted && (
-            <div className="p-4 bg-indigo-50/40 border border-[#D6E4F0]/60 rounded-xl space-y-2 animate-fade-in text-xs">
-              {!aiExplainText && !aiExplainLoading ? (
-                <div className="flex flex-col items-center gap-2 py-1">
-                  <p className="text-[10px] text-slate-500 font-medium text-center">To check the step-by-step breakdown & RAG syllabus memory of Sabi AI Coach:</p>
-                  <button
-                    onClick={fetchPracticeExplanation}
-                    className="px-4 py-2 bg-[#0A1128] text-[#F5C518] rounded-xl text-xs font-bold hover:opacity-90 transition flex items-center gap-1.5 shadow-sm"
-                  >
-                    See Explanation
-                  </button>
-                </div>
-              ) : aiExplainLoading ? (
-                <div className="flex items-center gap-2 text-[#4A90D9] text-[10px]">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span>Coach is drafting explanation...</span>
-                </div>
-              ) : (
-                <>
-                  <span className="text-[10px] uppercase font-bold text-[#4A90D9] block">Sabi AI Worked Explanation</span>
-                  <div className="text-[11px] text-slate-800 leading-relaxed font-sans">
-                    <MathText text={aiExplainText} />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Nav tray controls */}
-          <div className="pt-2 flex justify-end">
-            {!practiceHasSubmitted ? (
-              <button
-                onClick={handleSubmitPracticeChoice}
-                disabled={!practiceSelectedAnswer}
-                className={`w-full py-2.5 font-bold text-[11px] uppercase tracking-wider rounded-xl transition ${!practiceSelectedAnswer ? 'bg-slate-200 text-slate-400 border-2 border-slate-200 opacity-60 cursor-not-allowed' : 'bg-[#F5C518] border-2 border-[#0A1128] text-[#0A1128]'}`}
-              >
-                Submit Choice
-              </button>
-            ) : (
-              <button
-                onClick={handleNextPracticeStep}
-                className="w-full py-2.5 bg-[#0A1128] text-white font-bold text-[11px] uppercase tracking-wider rounded-xl flex items-center justify-center gap-1.5"
-              >
-                <span>{practiceIndex === practiceQuestions.length - 1 ? 'Finish review & results' : 'Next Question'}</span>
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <div className="flex flex-col animate-fade-in relative">
+        {showExitQuizModal && <div className="absolute inset-0 z-50 bg-slate-900/50 backdrop-blur-sm rounded-3xl flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm"><h3 className="text-lg font-black text-[#0A1128]">Leave this practice session?</h3><p className="text-xs text-slate-500 mt-2">Current preview answers are local only.</p><div className="grid grid-cols-2 gap-2 mt-5"><button onClick={() => setShowExitQuizModal(false)} className="py-3 rounded-xl border border-slate-200 text-xs font-black">Stay</button><button onClick={handleQuizExitAndSave} className="py-3 rounded-xl bg-[#0A1128] text-white text-xs font-black">Exit Preview</button></div></div></div>}
+        <div className="rounded-3xl bg-[#0A1128] text-white p-4 md:p-5 relative overflow-hidden"><div className="relative"><div className="flex items-center justify-between gap-3"><button onClick={() => setShowExitQuizModal(true)} className="flex items-center gap-1 text-[10px] font-black uppercase text-white/60"><ChevronLeft className="w-4 h-4" /> Exit</button><div className="text-center"><span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#F5C518] block">{practiceSessionType === 'smart' ? 'Smart Practice' : 'Custom Practice'}</span><span className="text-[10px] text-white/55 block mt-1">{currentQ.subject}</span></div><span className="text-[10px] font-black font-mono text-white/70">{practiceIndex + 1}/${practiceQuestions.length}</span></div><div className="mt-5 h-1.5 rounded-full bg-white/10 overflow-hidden"><div className="h-full bg-[#F5C518] rounded-full" style={{width: Math.min(100, progress) + '%'}} /></div><div className="flex justify-between mt-3 text-[9px] font-bold text-white/50 uppercase"><span>{currentQ.topic}</span><span>{currentQ.difficulty} difficulty</span></div></div></div>
+        <div className="grid lg:grid-cols-3 gap-4 mt-4"><main className="lg:col-span-2 rounded-3xl border border-[#D6E4F0] bg-white p-5 md:p-7 shadow-sm"><div className="flex justify-between mb-5"><span className="text-[9px] font-black uppercase tracking-[0.18em] text-[#4A90D9]">Question {practiceIndex + 1}</span><span className="text-[9px] font-bold text-slate-400">Preview question</span></div><div className="text-base md:text-lg font-bold text-[#0A1128] leading-[1.8]"><MathText text={currentQ.question} /></div><div className="space-y-2.5 mt-7">{Object.entries(currentQ.options).map(([key, value]) => { const correct = key === currentQ.answer, selected = practiceSelectedAnswer === key; let style = 'border-slate-200 bg-white hover:border-[#4A90D9] hover:bg-[#F8FBFF] text-slate-700'; if (practiceHasSubmitted) style = selected && correct ? 'border-emerald-500 bg-emerald-50 text-emerald-950' : selected ? 'border-rose-500 bg-rose-50 text-rose-950' : correct ? 'border-emerald-500 bg-emerald-50 text-emerald-950' : 'border-slate-100 bg-slate-50 text-slate-400 opacity-60'; else if (selected) style = 'border-[#0A1128] bg-[#F4F7FB] text-[#0A1128] ring-2 ring-[#0A1128]/5'; return <button key={key} type="button" disabled={practiceHasSubmitted} onClick={() => !practiceHasSubmitted && setPracticeSelectedAnswer(key as any)} className={'w-full p-4 rounded-2xl border text-left transition flex items-start gap-3 ' + style}><span className={'w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-black border ' + (selected ? 'bg-[#0A1128] text-[#F5C518] border-[#0A1128]' : 'bg-slate-50 text-slate-500 border-slate-200')}>{key}</span><span className="text-sm leading-relaxed pt-1"><MathText text={value as string} /></span></button>; })}</div>{practiceHasSubmitted && <div className="mt-5 rounded-2xl border border-[#D6E4F0] bg-[#F8FAFC] p-4">{!aiExplainText && !aiExplainLoading ? <div className="flex items-center justify-between gap-4"><div><p className="text-[9px] font-black uppercase tracking-wider text-[#4A90D9]">Sabi AI Coach</p><p className="text-[11px] text-slate-500 mt-1">See a step-by-step explanation.</p></div><button onClick={fetchPracticeExplanation} className="px-4 py-2.5 rounded-xl bg-[#0A1128] text-[#F5C518] text-[10px] font-black">Explain</button></div> : aiExplainLoading ? <div className="flex items-center gap-2 text-[#4A90D9] text-[10px]"><Loader2 className="h-4 w-4 animate-spin" /> Coach is drafting an explanation…</div> : <div><span className="text-[9px] uppercase font-black tracking-wider text-[#4A90D9]">Worked explanation</span><div className="text-xs text-slate-800 leading-relaxed mt-2"><MathText text={aiExplainText} /></div></div>}</div>}<div className="mt-6"><button onClick={practiceHasSubmitted ? handleNextPracticeStep : handleSubmitPracticeChoice} disabled={!practiceHasSubmitted && !practiceSelectedAnswer} className={'w-full py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider ' + (practiceHasSubmitted ? 'bg-[#0A1128] text-white' : practiceSelectedAnswer ? 'bg-[#F5C518] text-[#0A1128]' : 'bg-slate-100 text-slate-400 cursor-not-allowed')}>{practiceHasSubmitted ? (practiceIndex === practiceQuestions.length - 1 ? 'Finish Session' : 'Next Question') : 'Submit Answer'}</button></div></main>
+        <aside className="rounded-3xl border border-[#D6E4F0] bg-white p-5 h-fit"><div className="flex items-center gap-2 mb-4"><span className="w-9 h-9 rounded-xl bg-[#EBF1FA] flex items-center justify-center"><Info className="w-4 h-4 text-[#4A90D9]" /></span><h4 className="text-sm font-black text-[#0A1128]">Practice guide</h4></div><div className="space-y-4"><div><span className="text-[9px] font-black uppercase text-slate-400">1. Choose</span><p className="text-[10px] text-slate-500 mt-1">Select one answer before submitting.</p></div><div><span className="text-[9px] font-black uppercase text-slate-400">2. Review</span><p className="text-[10px] text-slate-500 mt-1">Review the answer and explanation after submission.</p></div><div><span className="text-[9px] font-black uppercase text-slate-400">3. Learn</span><p className="text-[10px] text-slate-500 mt-1">Production learning evidence will be handled by the backend.</p></div></div><div className="mt-5 rounded-2xl bg-amber-50 border border-amber-200 p-3"><p className="text-[9px] font-black uppercase text-amber-900">Preview boundary</p><p className="text-[10px] text-amber-800 mt-1">No XP, mastery, readiness, recommendation or JAMB score changes here.</p></div></aside></div>
       </div>
     );
   }
