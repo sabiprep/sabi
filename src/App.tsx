@@ -727,12 +727,8 @@ export default function App() {
     setShowExitQuizModal(false);
     setPracticeSessionType(null);
     setPracticeQuestions([]);
-    if (profile && practiceCorrectCount > 0 && !practiceComplete) {
-      setProfile(prev => prev ? {
-        ...prev,
-        xpPoints: prev.xpPoints + (practiceCorrectCount * 15)
-      } : null);
-    }
+    // No authoritative progress or XP is written here.
+    // The backend session-result contract will own persistence.
   };
 
   const handleSubmitPracticeChoice = async () => {
@@ -744,31 +740,10 @@ export default function App() {
     setPracticeHasSubmitted(true);
     if (isCorrect) setPracticeCorrectCount(p => p + 1);
 
-    // Dynamic database score update
-    setMasteryMap(prev => {
-      const currentMap = { ...prev };
-      if (currentMap[activeQ.topic]) {
-        const item = currentMap[activeQ.topic];
-        const newAttempts = item.attempts + 1;
-        const newHistory = [...item.history, {
-          questionId: activeQ.id,
-          correct: isCorrect,
-          timestamp: new Date().toISOString(),
-          timeSpentSeconds: 15
-        }];
-        const corrects = newHistory.filter(h => h.correct).length;
-        const newScore = Math.floor((corrects / newAttempts) * 100);
-
-        currentMap[activeQ.topic] = {
-          ...item,
-          attempts: newAttempts,
-          score: Math.min(100, Math.max(10, newScore)),
-          history: newHistory,
-          nextReviewDate: new Date(Date.now() + (isCorrect ? 8 : 2) * 24 * 60 * 60 * 1000).toISOString() // Spaced spacing increment!
-        };
-      }
-      return currentMap;
-    });
+    // Practice correctness is kept only for this UI session until the backend
+    // practice-result contract is connected. Do not mutate mastery, review dates,
+    // XP, or readiness state from the frontend.
+    
 
     // Auto-advance if correct
     if (isCorrect) {
@@ -821,13 +796,7 @@ export default function App() {
       // Clear global AI Tutor session slice when the student completes the practice loop
       setTutorMessages([]);
       setTutorChatActive(false);
-      // Award XP
-      if (profile) {
-        setProfile(prev => prev ? {
-          ...prev,
-          xpPoints: prev.xpPoints + (practiceCorrectCount * 15)
-        } : null);
-      }
+      // Persistence is intentionally deferred to the backend session-result contract.
     }
   };
 
@@ -2412,11 +2381,23 @@ export default function App() {
             </div>
           )}
 
+          <div className="sabi-surface border-amber-200 bg-amber-50/70 p-3 text-left">
+            <div className="flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-700 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-900">Practice preview mode</p>
+                <p className="text-[10px] leading-relaxed text-amber-800 mt-0.5">
+                  Seeded questions are being used for the interface preview. Mastery, XP, recommendations, review dates, and readiness are not persisted by this frontend.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Compact Smart Practice Card (Top half) */}
           <div className="flex-none bg-white border border-[#D6E4F0] p-4 md:p-5 rounded-2xl hover:border-[#4A90D9]/50 transition bg-gradient-to-br from-white to-[#F8FBFF] space-y-2">
             <h3 className="text-xs md:text-sm font-bold text-[#0A1128] uppercase tracking-wide">🧠 Smart Practice (Recommended)</h3>
             <p className="text-[10px] md:text-xs text-slate-500 mt-1 mb-2 leading-relaxed">
-              Continue your personalized JAMB path. Sabi determines exactly what you should practice based on your Mastery Map.
+              Your personalized path will appear here when the learning engine supplies a recommendation.
             </p>
 
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -2433,7 +2414,7 @@ export default function App() {
 
             <div className="bg-[#EBF1FA] rounded-xl p-3 border border-[#D0E1F9]">
               <p className="text-[11px] text-[#0A1128] font-bold leading-normal">
-                Today's {activeSmartSubject === 'English Language' ? 'English' : activeSmartSubject === 'Mathematics' ? 'Math' : activeSmartSubject} Path: Spaced reviews + closing 1 known blind spot
+                Recommendation status: waiting for backend learning-engine data
               </p>
             </div>
 
@@ -2506,17 +2487,17 @@ export default function App() {
           </div>
           
           <div className="space-y-1">
-            <h4 className="text-sm font-bold text-[#0A1128]">Practice Completed!</h4>
-            <p className="text-[10px] text-slate-400">Your performance metrics have been securely synchronised.</p>
+            <h4 className="text-sm font-bold text-[#0A1128]">Practice Preview Completed</h4>
+            <p className="text-[10px] text-slate-400">This session result is local to the preview and has not been synced to the learning engine.</p>
           </div>
 
           <div className="border border-slate-100 p-4 rounded-xl grid grid-cols-2 gap-4">
             <div>
-              <span className="text-[8px] uppercase font-bold text-slate-400 block">Sittings</span>
+              <span className="text-[8px] uppercase font-bold text-slate-400 block">Correct answers</span>
               <p className="text-base font-bold text-[#0A1128] font-mono">{practiceCorrectCount} / {practiceQuestions.length}</p>
             </div>
             <div>
-              <span className="text-[8px] uppercase font-bold text-slate-400 block">Accuracy</span>
+              <span className="text-[8px] uppercase font-bold text-slate-400 block">Session accuracy (preview)</span>
               <p className="text-base font-bold text-[#0A1128] font-mono">{accuracy}%</p>
             </div>
           </div>
@@ -2538,8 +2519,8 @@ export default function App() {
         {showExitQuizModal && (
           <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm rounded-xl flex items-center justify-center p-6">
             <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm text-center">
-              <h3 className="text-lg font-bold text-[#0A1128] mb-2">Pause or End Session?</h3>
-              <p className="text-xs text-slate-500 mb-6">Would you like to save your progress before leaving?</p>
+              <h3 className="text-lg font-bold text-[#0A1128] mb-2">End Practice Preview?</h3>
+              <p className="text-xs text-slate-500 mb-6">This preview does not persist authoritative progress yet. You can safely leave and return to the Practice Hub.</p>
               <div className="space-y-3">
                 <button
                   onClick={handleQuizExitAndSave}
