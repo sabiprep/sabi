@@ -6,6 +6,7 @@ import {
   Users,
   Settings,
   HelpCircle,
+  Info,
   Play,
   CheckCircle,
   XCircle,
@@ -1873,11 +1874,11 @@ export default function App() {
           {evaluationProgress === 100 && (
             <div className="bg-[#F4F7FB] border border-[#D6E4F0] p-4 rounded-2xl animate-fade-in space-y-4 text-left">
               <div className="text-center font-sans space-y-0.5 border-b border-rose-50 pb-3">
-                <span className="text-[10px] uppercase font-bold text-[#4A5568]">Initial predicted score:</span>
-                <h4 className="text-3xl font-black text-[#0A1128] font-mono leading-none tracking-tight">
-                  <span className="text-[#F5C518]">{calculatedScoreRange.min}</span> - <span className="text-sky-600">{calculatedScoreRange.max}</span>
+                <span className="text-[10px] uppercase font-bold text-[#4A5568]">Initial learning profile:</span>
+                <h4 className="text-xl font-black text-[#0A1128] leading-tight tracking-tight">
+                  Diagnostic evidence captured
                 </h4>
-                <p className="text-[9px] text-[#4A5568] uppercase font-semibold">Predicted UTME Score range (Out of 400)</p>
+                <p className="text-[9px] text-[#4A5568] uppercase font-semibold">Authoritative readiness and score data will come from the learning engine.</p>
               </div>
 
               {/* Blindspots or weak alerts */}
@@ -2118,25 +2119,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Encouraging Streak Banner */}
-        <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 p-3 rounded-2xl flex items-center justify-between text-slate-800">
-          <div className="flex items-center gap-2.5">
-            <Award className="h-5 w-5 text-orange-600 shrink-0" />
+        {/* Activity summary: do not fabricate streak values before the learning API is connected */}
+        <div className="sabi-surface p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Award className="h-5 w-5 text-[#4A90D9] shrink-0" />
             <div>
-              <p className="text-xs font-bold leading-tight">7-Day Study Streak! Keep it up!</p>
-              <p className="text-[9px] text-[#4A5568]">Study at least 5 questions daily to pass your margins.</p>
+              <p className="text-xs font-black text-[#0A1128]">Study activity</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Your streak, XP and activity history will appear here from the learning engine.</p>
             </div>
           </div>
-          <div className="flex gap-1.5">
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, dIdx) => (
-              <span
-                key={day}
-                className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[7px] font-black border ${dIdx < 6 ? 'bg-orange-600 text-white border-orange-600' : 'bg-transparent border-slate-300 text-slate-400'}`}
-              >
-                {day}
-              </span>
-            ))}
-          </div>
+          <span className="px-2.5 py-1 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] text-[9px] font-black uppercase text-slate-400 shrink-0">Sync pending</span>
         </div>
 
         {/* Subject progress modules */}
@@ -2174,30 +2166,26 @@ export default function App() {
           </div>
         </div>
 
-        {/* Daily Study Action Card */}
-        <div className="bg-[#0A1128] border-2 border-[#0A1128] rounded-2xl p-4 text-white uppercase relative overflow-hidden text-center shadow-lg space-y-3 pt-4">
-          {/* Floating Circle details */}
-          <div className="absolute top-10 right-6 w-12 h-12 rounded-full bg-white/10" />
-
-          <div className="space-y-1 text-[#0A1128]">
-            <span className="text-[8px] bg-[#F5C518] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Estimated Syllabus plan for today:</span>
-            <p className="text-xs font-bold text-sky-100 leading-snug mt-1 italic">
-              "We recommend you practice Concord on English and quadratic indices on Mathematics today"
-            </p>
-          </div>
-
-          <div className="space-y-2 mt-2">
+        {/* Recommendation surface: backend-owned */}
+        <div className="bg-[#0A1128] border-2 border-[#0A1128] rounded-2xl p-5 text-white relative overflow-hidden shadow-lg">
+          <div className="absolute -right-8 -top-8 w-24 h-24 rounded-full bg-white/10" />
+          <span className="text-[8px] bg-[#F5C518] text-[#0A1128] px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Learning engine</span>
+          <h3 className="text-base font-black mt-3">Your next study action</h3>
+          <p className="text-[11px] text-sky-100 leading-relaxed mt-1.5">
+            SABI will show the next recommended subject, topic, reason and duration here when recommendation data is available.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-2 mt-4">
             <button
-              onClick={() => handleStartSmartPractice(profile?.chosenSubjects[0] || 'English Language')}
-              className="w-full py-2.5 bg-[#F5C518] text-[#0A1128] font-black font-display text-[10px] uppercase tracking-wider rounded-xl hover:bg-yellow-400 transition"
+              onClick={() => setActiveTab('recommendations')}
+              className="w-full py-2.5 bg-[#F5C518] text-[#0A1128] font-black text-[10px] uppercase tracking-wider rounded-xl hover:bg-yellow-400 transition"
             >
-              Start daily plan
+              View recommendations
             </button>
             <button
               onClick={() => { setActiveTab('practice'); setPracticeSessionType(null); }}
-              className="w-full py-2.5 bg-transparent border-2 border-[#D6E4F0]/30 text-sky-100 font-black font-display text-[10px] uppercase tracking-wider rounded-xl hover:bg-white/5 transition"
+              className="w-full py-2.5 bg-transparent border-2 border-white/20 text-sky-100 font-black text-[10px] uppercase tracking-wider rounded-xl hover:bg-white/5 transition"
             >
-              Practice on Your Own
+              Practice on your own
             </button>
           </div>
         </div>
