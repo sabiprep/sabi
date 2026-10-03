@@ -2681,77 +2681,18 @@ export default function App() {
   // --- SUB-PANE: SQUAD LEADERBOARDS ---
   function renderLeaderboardTab() {
     return (
-      <div className="space-y-4 animate-fade-in font-sans">
-        <div className="bg-white border border-[#D6E4F0] p-4 rounded-2xl shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-            <div>
-              <h4 className="text-xs font-bold font-display uppercase tracking-wide text-[#0A1128]">Sabi Improvement League</h4>
-              <p className="text-[10px] text-slate-400">Praising consistency & hard work across Nigeria</p>
-            </div>
-            
-            <select
-              value={leaderboardFilter}
-              onChange={(e: any) => setLeaderboardFilter(e.target.value)}
-              className="text-[9px] font-bold p-1 border border-slate-200 rounded bg-white text-slate-700"
-            >
-              <option value="weekly">Weekly Mastery Gain</option>
-              <option value="alltime">Streak Length</option>
-            </select>
-          </div>
-
-          {/* List items */}
-          <div className="space-y-2">
-            {[
-              { rank: 1, name: 'Chidi Okonkwo', unit: '+24% Mastery', subText: 'UNILAG Aspirant', xp: 540 },
-              { rank: 2, name: 'Tosin Abayomi', unit: '+18% Mastery', subText: 'OAU Aspirant', xp: 480 },
-              { rank: 3, name: `${profile?.name?.split(' ')[0] || 'Me'} (You)`, unit: '+15% Mastery', subText: 'Active Aspirant', xp: profile?.xpPoints || 120, isMe: true },
-              { rank: 4, name: 'Fatima Yar’Adua', unit: '+10% Mastery', subText: 'ABU Aspirant', xp: 320 }
-            ].map((peer, pIdx) => (
-              <div
-                key={pIdx}
-                className={`p-2.5 rounded-xl border text-xs flex justify-between items-center ${peer.isMe ? 'border-2 border-[#0A1128] bg-yellow-50/50' : 'border-slate-100 bg-white'}`}
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[9px] ${peer.isMe ? 'bg-[#0A1128] text-white' : 'bg-slate-100 text-slate-500'}`}>
-                    {peer.rank}
-                  </span>
-                  <div className="truncate">
-                    <p className="font-bold text-[#0A1128] truncate">{peer.name}</p>
-                    <p className="text-[9px] text-slate-400">{peer.subText}</p>
-                  </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="font-bold font-mono text-xs block text-[#0A1128]">{peer.unit}</span>
-                  <span className="text-[8px] text-slate-400">{peer.xp} XP</span>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="space-y-4 animate-fade-in font-sans max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Community progress</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Leaderboard</h2>
+          <p className="text-sm text-slate-500 mt-1">Rankings, XP, streaks and mastery gains must come from the backend leaderboard service.</p>
         </div>
-
-        {/* Word of WhatsApp Campaign */}
-        <div className="bg-[#0A1128] text-white rounded-2xl p-4 shadow-md space-y-3">
-          <span className="text-[9px] uppercase font-bold text-[#F5C518]">Refer Friends & Get Credits</span>
-          <p className="text-[10px] text-sky-100/90 leading-relaxed font-sans">
-            Sabi thrives with peers! Invite your study buddies. If they complete their diagnostics, both of you earn 50 Sabi AI chat credits!
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              readOnly
-              value={whatsappInviteMessage}
-              className="flex-1 text-[9px] bg-[#12234e] border border-slate-700 rounded-xl p-2 font-mono"
-            />
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(whatsappInviteMessage);
-                alert('Copied link! Share onto your WhatsApp study groups.');
-              }}
-              className="px-3 bg-[#F5C518] text-[#0A1128] border-2 border-[#0A1128] font-bold text-[10px] uppercase rounded-xl shadow shrink-0 hover:bg-yellow-400 transition"
-            >
-              Copy
-            </button>
+        <div className="sabi-surface p-6 text-center">
+          <div className="w-12 h-12 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] flex items-center justify-center mx-auto">
+            <Trophy className="w-5 h-5 text-[#4A90D9]" />
           </div>
+          <h3 className="text-base font-black text-[#0A1128] mt-4">Leaderboard data pending</h3>
+          <p className="text-sm text-slate-500 mt-2 leading-relaxed">No peer rankings are shown until the leaderboard API supplies authoritative rank, period, participant and score data. The frontend will not invent standings.</p>
         </div>
       </div>
     );
