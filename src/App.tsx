@@ -146,7 +146,7 @@ export default function App() {
   const [tutorChatActive, setTutorChatActive] = useState<boolean>(false);
 
   // Home Dashboard States & Tabs
-  const [activeTab, setActiveTab] = useState<'home' | 'practice' | 'blitz' | 'cbt' | 'progress' | 'recommendations' | 'mastery' | 'leaderboard' | 'profile' | 'aitutor' | 'mobile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'practice' | 'blitz' | 'cbt' | 'progress' | 'recommendations' | 'mastery' | 'leaderboard' | 'profile' | 'settings' | 'aitutor' | 'mobile'>('home');
   const [selectedSubjectPractice, setSelectedSubjectPractice] = useState<SubjectName>('English Language');
   const [activeSessionTopicPractice, setActiveSessionTopicPractice] = useState<string>('');
   const [practiceSessionType, setPracticeSessionType] = useState<'smart' | 'custom' | null>(null);
@@ -1787,6 +1787,7 @@ export default function App() {
       { id: 'cbt', label: 'CBT', icon: FileText, action: () => { setActiveTab('cbt'); } },
       { id: 'progress', label: 'Progress', icon: ArrowUpRight, action: () => { setActiveTab('progress'); } },
       { id: 'profile', label: 'Profile', icon: User, action: () => { setActiveTab('profile'); } },
+      { id: 'settings', label: 'Settings', icon: Settings, action: () => { setActiveTab('settings'); } },
     ];
 
     return (
@@ -1911,7 +1912,7 @@ export default function App() {
             ) : (
               <div className="flex items-center">
                 <span className="text-sm md:text-base font-black uppercase tracking-widest text-[#F5C518] md:text-[#0A1128]">
-                  {activeTab === 'mastery' ? 'Learning Evidence' : activeTab === 'aitutor' ? 'AI Coach Hub' : activeTab === 'leaderboard' ? 'Standings Leaderboard' : activeTab === 'mobile' ? 'Mobile App Prototype' : activeTab === 'blitz' ? 'Blitz' : activeTab === 'cbt' ? 'CBT Simulator' : activeTab === 'progress' ? 'Progress' : activeTab === 'recommendations' ? 'Recommendations' : 'Account Details'}
+                  {activeTab === 'mastery' ? 'Learning Evidence' : activeTab === 'aitutor' ? 'AI Coach Hub' : activeTab === 'leaderboard' ? 'Standings Leaderboard' : activeTab === 'mobile' ? 'Mobile App Prototype' : activeTab === 'settings' ? 'Settings' : activeTab === 'blitz' ? 'Blitz' : activeTab === 'cbt' ? 'CBT Simulator' : activeTab === 'progress' ? 'Progress' : activeTab === 'recommendations' ? 'Recommendations' : 'Account Details'}
                 </span>
               </div>
             )}
@@ -1928,6 +1929,7 @@ export default function App() {
             {activeTab === 'mastery' && renderMasteryTab()}
             {activeTab === 'leaderboard' && renderLeaderboardTab()}
             {activeTab === 'profile' && renderProfileTab()}
+            {activeTab === 'settings' && renderSettingsTab()}
             {activeTab === 'aitutor' && renderAITutorTab()}
             {activeTab === 'mobile' && renderMobileTab()}
           </div>
@@ -2751,6 +2753,43 @@ export default function App() {
             >
               Reset frontend preview
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- SUB-PANE: DASHBOARD SETTINGS TAB ---
+  function renderSettingsTab() {
+    return (
+      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
+        <div className="sabi-surface p-5 md:p-6">
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Account preferences</span>
+          <h2 className="text-xl md:text-2xl font-black text-[#0A1128] mt-1">Settings</h2>
+          <p className="text-sm text-slate-500 mt-1">Manage learning preferences and account controls. Changes that affect the account must be persisted by the backend.</p>
+        </div>
+        <div className="grid gap-3">
+          <div className="sabi-surface p-5 space-y-4">
+            <h3 className="text-sm font-black text-[#0A1128]">Learning preferences</h3>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="rounded-xl border border-slate-200 p-3"><span className="block text-[9px] uppercase font-black text-slate-400">Language</span><span className="text-xs font-bold text-[#0A1128]">{profile?.languagePreference || 'Not set'}</span></div>
+              <div className="rounded-xl border border-slate-200 p-3"><span className="block text-[9px] uppercase font-black text-slate-400">Explanation style</span><span className="text-xs font-bold text-[#0A1128]">{profile?.explanationPreference || 'Not set'}</span></div>
+            </div>
+            <p className="text-[10px] text-slate-500">Preference editing controls will connect to the profile/preferences API. This preview does not silently persist local changes as account state.</p>
+          </div>
+          <div className="sabi-surface p-5 space-y-3">
+            <h3 className="text-sm font-black text-[#0A1128]">Access & billing</h3>
+            <div className="grid sm:grid-cols-3 gap-2">
+              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">Plan</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">Entitlements</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+              <div className="rounded-xl bg-[#F8FBFF] border border-[#D6E4F0] p-3"><span className="block text-[8px] uppercase font-black text-slate-400">AI credits</span><span className="text-[10px] font-black text-[#0A1128]">Pending sync</span></div>
+            </div>
+            <p className="text-[10px] text-slate-500">Payment, subscription, access limits and AI-credit balances are server-authoritative.</p>
+          </div>
+          <div className="sabi-surface p-5 space-y-3">
+            <h3 className="text-sm font-black text-[#0A1128]">Session</h3>
+            <button onClick={handleResetProfileSystem} className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-black uppercase tracking-wider">Exit frontend preview</button>
+            <p className="text-[10px] text-slate-500">Production logout will invalidate the authenticated session through the authentication service. This preview action only exits the local frontend flow.</p>
           </div>
         </div>
       </div>
