@@ -136,10 +136,7 @@ export default function App() {
   const [aiExplainLoading, setAiExplainLoading] = useState(false);
   const [aiExplainLanguage, setAiExplainLanguage] = useState<'formal' | 'pidgin' | 'mixed'>('mixed');
 
-  // Evaluation Metrics
-  const [calculatedScoreRange, setCalculatedScoreRange] = useState({ min: 0, max: 0 });
-  const [calculatedBlindspots, setCalculatedBlindspots] = useState<string[]>([]);
-  const [calculatedWeakAreas, setCalculatedWeakAreas] = useState<string[]>([]);
+  // Diagnostic processing state. Authoritative learning metrics come from the backend.
   const [evaluationProgress, setEvaluationProgress] = useState(0);
 
   // Lifted AI Tutor state to prevent reset on tab transitions
@@ -487,10 +484,6 @@ export default function App() {
 
         // Keep diagnostic evidence in the session only. Do not convert it
         // into client-authoritative mastery scores or review dates.
-        setCalculatedWeakAreas([]);
-        setCalculatedBlindspots([]);
-        setCalculatedScoreRange({ min: 0, max: 0 });
-
         setTimeout(() => setEvaluationProgress(100), 300);
       } else {
         setEvaluationProgress(step);
@@ -534,21 +527,10 @@ export default function App() {
     setCalculatedWeakAreas([]);
     setCalculatedBlindspots([]);
 
-    // Populate a basic Mastery Map
-    const masteryDB: Record<string, MasteryMapItem> = {};
-    SEED_QUESTIONS.forEach(q => {
-      masteryDB[q.topic] = {
-        subject: q.subject,
-        topic: q.topic,
-        subtopic: q.subtopic,
-        score: 40,
-        confidence: 'Medium',
-        attempts: 0,
-        nextReviewDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
-        history: []
-      };
-    });
-    setMasteryMap(masteryDB);
+    // No synthetic mastery records in the dashboard preview.
+    // The backend learning engine must supply authoritative mastery state.
+    setMasteryMap({});
+
 
     setAppStage('DASHBOARD');
     setActiveTab('home');
