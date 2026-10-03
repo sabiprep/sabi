@@ -2421,67 +2421,138 @@ export default function App() {
       return (
         <div className="flex flex-col flex-1 min-h-0 overflow-y-auto animate-fade-in pb-6">
           {customPracticeModalVisible && (
-            <div className="absolute inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-end md:items-center justify-center pointer-events-auto">
-              <div className="bg-white rounded-t-3xl md:rounded-3xl p-6 w-full max-w-sm max-h-[80vh] overflow-y-auto animate-slide-up shadow-2xl relative">
-                <button onClick={() => setCustomPracticeModalVisible(false)} className="absolute top-4 right-4 p-2 text-slate-400 hover:bg-slate-100 rounded-full">
-                  <X className="w-5 h-5" />
-                </button>
-                <h3 className="text-sm font-bold text-[#0A1128] uppercase tracking-wide mb-6">Configure Custom Practice</h3>
-                <div className="space-y-5">
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wider">Subject Selection</label>
-                    <select
-                      className="w-full text-sm p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-[#4A90D9]"
-                      value={customPracticeSubject || ''}
-                      onChange={e => setCustomPracticeSubject(e.target.value as SubjectName)}
+            <div
+              className="absolute inset-0 z-[60] bg-[#0A1128]/55 backdrop-blur-md flex items-end md:items-center justify-center p-0 md:p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="custom-practice-title"
+            >
+              <div className="bg-white w-full md:max-w-2xl md:rounded-3xl rounded-t-[28px] shadow-2xl border border-[#D6E4F0] overflow-hidden animate-slide-up">
+                <div className="bg-[#0A1128] text-white px-5 md:px-7 py-5 relative overflow-hidden">
+                  <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-[#4A90D9]/20" />
+                  <div className="relative flex items-start justify-between gap-4">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-[0.18em] font-black text-[#F5C518]">Custom Practice</span>
+                      <h3 id="custom-practice-title" className="text-xl md:text-2xl font-black mt-1">Build your practice session.</h3>
+                      <p className="text-[11px] md:text-xs text-white/60 mt-1.5 max-w-lg">
+                        Choose exactly what you want to practise. Your selections stay visible before the session starts.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Close custom practice"
+                      onClick={() => setCustomPracticeModalVisible(false)}
+                      className="w-9 h-9 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/15 transition shrink-0"
                     >
-                      <option value="" disabled>Select Subject</option>
-                      {(((profile as any)?.subjects || profile?.chosenSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry']) as SubjectName[]).map(sub => (
-                        <option key={sub} value={sub}>{sub}</option>
-                      ))}
-                    </select>
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wider">Topic</label>
-                    <select
-                      className="w-full text-sm p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-[#4A90D9]"
-                      value={customPracticeTopic || ''}
-                      onChange={e => setCustomPracticeTopic(e.target.value)}
+                </div>
+
+                <div className="p-5 md:p-7 space-y-5 max-h-[72vh] overflow-y-auto">
+                  <div className="grid md:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-[#D6E4F0] bg-[#F8FBFF] p-4">
+                      <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Subject</span>
+                      <select
+                        aria-label="Custom practice subject"
+                        className="w-full mt-2 text-sm font-bold p-3 rounded-xl border border-slate-200 bg-white text-[#0A1128] focus:outline-none focus:border-[#4A90D9]"
+                        value={customPracticeSubject || ''}
+                        onChange={e => {
+                          setCustomPracticeSubject(e.target.value as SubjectName);
+                          setCustomPracticeTopic(null);
+                        }}
+                      >
+                        <option value="" disabled>Select subject</option>
+                        {(((profile as any)?.subjects || profile?.chosenSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry']) as SubjectName[]).map(sub => (
+                          <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#D6E4F0] bg-[#F8FBFF] p-4">
+                      <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Topic</span>
+                      <select
+                        aria-label="Custom practice topic"
+                        className="w-full mt-2 text-sm font-bold p-3 rounded-xl border border-slate-200 bg-white text-[#0A1128] focus:outline-none focus:border-[#4A90D9]"
+                        value={customPracticeTopic || ''}
+                        onChange={e => setCustomPracticeTopic(e.target.value)}
+                        disabled={!customPracticeSubject}
+                      >
+                        <option value="" disabled>{customPracticeSubject ? 'Select topic' : 'Select subject first'}</option>
+                        <option value="All">All topics</option>
+                        {Array.from(new Set(
+                          SEED_QUESTIONS
+                            .filter(q => q.subject === customPracticeSubject)
+                            .map(q => q.topic)
+                            .filter(Boolean)
+                        )).map(topic => (
+                          <option key={topic} value={topic}>{topic}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="rounded-2xl border border-[#D6E4F0] bg-[#F8FBFF] p-4">
+                      <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Exam year</span>
+                      <select
+                        aria-label="Custom practice exam year"
+                        className="w-full mt-2 text-sm font-bold p-3 rounded-xl border border-slate-200 bg-white text-[#0A1128] focus:outline-none focus:border-[#4A90D9]"
+                        value={customPracticeYear || ''}
+                        onChange={e => setCustomPracticeYear(e.target.value)}
+                      >
+                        <option value="" disabled>Select year</option>
+                        <option value="All">Any past year</option>
+                        {Array.from(new Set(
+                          SEED_QUESTIONS
+                            .filter(q => !customPracticeSubject || q.subject === customPracticeSubject)
+                            .map(q => q.year)
+                            .filter(Boolean)
+                        )).sort((a, b) => Number(b) - Number(a)).map(year => (
+                          <option key={year} value={String(year)}>{year}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-[#D6E4F0] bg-white p-4 md:p-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Session preview</span>
+                        <p className="text-sm font-black text-[#0A1128] mt-1">
+                          {customPracticeSubject || 'Choose a subject'}
+                          {customPracticeTopic ? ` • ${customPracticeTopic === 'All' ? 'All topics' : customPracticeTopic}` : ''}
+                          {customPracticeYear ? ` • ${customPracticeYear === 'All' ? 'Any past year' : customPracticeYear}` : ''}
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full bg-[#EAF3FC] text-[#1B3A7A] text-[9px] font-black uppercase">
+                        {customPracticeSubject && customPracticeTopic && customPracticeYear ? 'Ready to launch' : '3 selections required'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2">
+                      SABI will not substitute unrelated questions if this exact preview filter returns no results.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col-reverse sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCustomPracticeModalVisible(false)}
+                      className="flex-1 py-3.5 rounded-2xl border border-slate-200 bg-white text-[#0A1128] text-xs font-black uppercase tracking-wider hover:bg-slate-50 transition"
                     >
-                      <option value="" disabled>Select Topic</option>
-                      <option value="All">All Areas</option>
-                      <option value="Proximity Concord">Proximity Concord</option>
-                      <option value="Quadratic Equations">Quadratic Equations</option>
-                      <option value="Kinematics">Kinematics</option>
-                      <option value="Organic Chemistry">Organic Chemistry</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-2 uppercase tracking-wider">Exam Year</label>
-                    <select
-                      className="w-full text-sm p-3.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 focus:outline-none focus:border-[#4A90D9]"
-                      value={customPracticeYear || ''}
-                      onChange={e => setCustomPracticeYear(e.target.value)}
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLaunchCustomPractice}
+                      disabled={!customPracticeSubject || !customPracticeTopic || !customPracticeYear}
+                      className="flex-[1.5] py-3.5 rounded-2xl bg-[#F5C518] border border-[#0A1128] text-[#0A1128] text-xs font-black uppercase tracking-wider shadow-sm disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 disabled:shadow-none transition"
                     >
-                      <option value="" disabled>Select Year</option>
-                      <option value="All">Any Past Year</option>
-                      <option value="2023">2023</option>
-                      <option value="2022">2022</option>
-                      <option value="2021">2021</option>
-                    </select>
+                      Launch Custom Practice
+                    </button>
                   </div>
-                  <button
-                    onClick={handleLaunchCustomPractice}
-                    disabled={!customPracticeSubject || !customPracticeTopic || !customPracticeYear}
-                    className={`w-full py-4 mt-2 font-black text-xs uppercase tracking-widest rounded-2xl transition ${(!customPracticeSubject || !customPracticeTopic || !customPracticeYear) ? 'bg-slate-100 text-slate-400 opacity-65 cursor-not-allowed pointer-events-none' : 'bg-[#0A1128] text-white hover:bg-slate-800'}`}
-                  >
-                    Launch Custom Quiz
-                  </button>
                 </div>
               </div>
             </div>
           )}
-
           <div className="mb-5 rounded-3xl bg-[#0A1128] text-white p-5 md:p-7 relative overflow-hidden">
             <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-[#4A90D9]/20 blur-2xl" />
             <div className="absolute right-10 bottom-[-60px] w-32 h-32 rounded-full bg-[#F5C518]/10 blur-2xl" />
