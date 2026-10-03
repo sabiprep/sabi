@@ -43,28 +43,7 @@ export default function SabiOnboarding({ onFinish }: { onFinish: () => void }) {
   // Animated scale value for buttons & interactive elements
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Slide 3 live animated counter
-  const [scoreCount, setScoreCount] = useState(100);
-  const animatedScore = useRef(new Animated.Value(100)).current;
-
-  useEffect(() => {
-    if (currentSlide === 2) {
-      animatedScore.setValue(100);
-      setScoreCount(100);
-      const listener = animatedScore.addListener(({ value }) => {
-        setScoreCount(Math.floor(value));
-      });
-      Animated.timing(animatedScore, {
-        toValue: 287,
-        duration: 1500,
-        useNativeDriver: false,
-      }).start();
-      return () => {
-        animatedScore.removeListener(listener);
-      };
-    }
-  }, [currentSlide]);
-
+  // Score forecasting is backend-owned; onboarding does not fabricate a score.
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.95,
@@ -173,19 +152,19 @@ export default function SabiOnboarding({ onFinish }: { onFinish: () => void }) {
         <View style={[styles.slide, { backgroundColor: COLORS.bgIce }]}>
           <View style={styles.blueprintGrid} />
           <View style={styles.cardWrapper}>
-            <Text style={styles.slideMarker}>SCORE ALGORITHMS</Text>
-            <Text style={styles.title}>Watch Your Score Climb in Real Time.</Text>
+            <Text style={styles.slideMarker}>LEARNING INTELLIGENCE</Text>
+            <Text style={styles.title}>Build evidence. Get calibrated.</Text>
 
             <View style={styles.scoreContainer}>
               <View style={styles.glowingBackgroundCircle} />
               <View style={styles.scoreOuterRing}>
-                <Text style={styles.jetBrainsDigit}>{scoreCount}</Text>
-                <Text style={styles.scoreLabel}>Predicted Score</Text>
+                <Text style={styles.jetBrainsDigit}>—</Text>
+                <Text style={styles.scoreLabel}>Backend readiness</Text>
               </View>
             </View>
 
             <Text style={styles.subtext}>
-              We calibrate your predicted score with every practice question answered. Your targeted 280+ is within reach.
+              SABI will show readiness and score intelligence when the learning engine supplies enough verified evidence. This screen never invents a prediction.
             </Text>
           </View>
         </View>
@@ -1415,10 +1394,10 @@ export default function SabiDashboard({ onNav }: { onNav: (tab: string) => void 
         <View style={styles.heroTopRow}>
           <View>
             <Text style={styles.greetingText}>Welcome back, Aspirant!</Text>
-            <Text style={styles.targetMark}>Target: 290+ • LABC Squad</Text>
+            <Text style={styles.targetMark}>Target information • backend sync pending</Text>
           </View>
           <View style={styles.timelineBadge}>
-            <Text style={styles.timelineText}>25 DAYS TO UTME</Text>
+            <Text style={styles.timelineText}>EXAM TIMELINE • BACKEND DATA</Text>
           </View>
         </View>
 
@@ -1426,11 +1405,11 @@ export default function SabiDashboard({ onNav }: { onNav: (tab: string) => void 
         <View style={styles.scoreDialContainer}>
           <View style={styles.concentricOuterLine} />
           <View style={styles.dialValues}>
-            <Text style={styles.jetbrainsBigScore}>312</Text>
-            <Text style={styles.predictedScoreDesc}>SABI PROJECTED SCORE</Text>
+            <Text style={styles.jetbrainsBigScore}>—</Text>
+            <Text style={styles.predictedScoreDesc}>BACKEND SCORE</Text>
           </View>
           <View style={styles.ptsGainTag}>
-            <Text style={styles.ptsGainLabel}>+12 PTS TODAY ↑</Text>
+            <Text style={styles.ptsGainLabel}>LIVE TREND • BACKEND DATA</Text>
           </View>
         </View>
       </View>
@@ -3061,14 +3040,7 @@ import {
   StatusBar
 } from 'react-native';
 
-const MOCK_RANKING = [
-  { rank: 1, name: 'Grace Adebayo', score: 345, badge: '🥇' },
-  { rank: 2, name: 'Chinedu Joseph', score: 328, badge: '🥈' },
-  { rank: 3, name: 'Mustapha Kabir', score: 318, badge: '🥉' },
-  { rank: 4, name: 'Ibrahim Bala', score: 300, badge: '' },
-  { rank: 5, name: 'Aspirant (You)', score: 287, badge: '', isMe: true },
-  { rank: 6, name: 'Sarah Peters', score: 275, badge: '' }
-];
+const MOCK_RANKING: Array<{ rank: number; name: string; score: number; badge: string; isMe?: boolean }> = [];
 
 export default function SabiLeaderboard() {
   const [filter, setFilter] = useState<'weekly' | 'alltime'>('weekly');
@@ -3097,11 +3069,16 @@ export default function SabiLeaderboard() {
       {/* OPTIMIZED LIST RUNNING ON ICE BACKGROUND */}
       <ScrollView style={styles.rankScroll} contentContainerStyle={styles.rankScrollContent}>
         <View style={styles.podiumMockupBox}>
-          <Text style={styles.podiumHeading}>🏆 LABC LATEST TOP SCORERS</Text>
+          <Text style={styles.podiumHeading}>LEADERBOARD DATA • BACKEND SYNC PENDING</Text>
         </View>
 
         <View style={styles.listCard}>
-          {MOCK_RANKING.map((student) => {
+          {MOCK_RANKING.length === 0 ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={styles.studentName}>No verified standings available yet.</Text>
+              <Text style={[styles.studentName, { fontSize: 10, marginTop: 6, textAlign: 'center', color: '#64748B' }]}>The leaderboard service will supply names, ranks and scores.</Text>
+            </View>
+          ) : MOCK_RANKING.map((student) => {
             return (
               <View
                 key={student.rank}
@@ -3284,10 +3261,10 @@ export default function SabiSettings() {
       {/* HEADER WITH PROFILE AVATAR CONTAINER */}
       <View style={styles.profileHeaderBox}>
         <View style={styles.avatarMetallicContainer}>
-          <Text style={styles.avatarLetters}>JD</Text>
+          <Text style={styles.avatarLetters}>S</Text>
         </View>
-        <Text style={styles.aspirantName}>John Doe</Text>
-        <Text style={styles.aspirantMajor}>Target: University of Ibadan • medicine</Text>
+        <Text style={styles.aspirantName}>Student profile</Text>
+        <Text style={styles.aspirantMajor}>Profile and target • backend sync pending</Text>
       </View>
 
       <ScrollView style={styles.bodyContainer} contentContainerStyle={styles.bodyContent}>
