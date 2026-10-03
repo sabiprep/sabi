@@ -3328,14 +3328,14 @@ export default function App() {
                         <span className="text-slate-400 block text-[8px]">ASPIRANT LEVEL</span>
                         <span className="font-extrabold text-white text-[11px]">Labc Candidate</span>
                       </div>
-                      <span className="bg-yellow-400/10 border border-[#F5C518] text-[#F5C518] font-mono text-[9px] px-2 py-0.5 rounded font-black">25 DAYS TO EXAM</span>
+                      <span className="bg-yellow-400/10 border border-[#F5C518] text-[#F5C518] font-mono text-[9px] px-2 py-0.5 rounded font-black">EXAM COUNTDOWN — BACKEND DATA</span>
                     </div>
 
                     {/* Giant score dial vector */}
                     <div className="flex flex-col items-center justify-center pt-1 relative">
-                      <span className="text-3xl font-black font-mono text-[#F5C518]">312</span>
-                      <span className="text-[7px] text-slate-300 font-bold tracking-widest uppercase">ESTIMATED EXPERT SCORE</span>
-                      <span className="bg-[#1B3A7A] text-[#FFF3B0] text-[8px] font-black px-2 py-0.5 rounded-full absolute bottom--6 font-mono">+12 PTS THIS WEEK ↑</span>
+                      <span className="text-3xl font-black font-mono text-[#F5C518]">—</span>
+                      <span className="text-[7px] text-slate-300 font-bold tracking-widest uppercase">BACKEND SCORE — DESIGN PREVIEW</span>
+                      <span className="bg-[#1B3A7A] text-[#FFF3B0] text-[8px] font-black px-2 py-0.5 rounded-full absolute bottom--6 font-mono">LIVE TREND — BACKEND DATA</span>
                     </div>
                   </div>
 
@@ -3343,7 +3343,7 @@ export default function App() {
                   <div className="mx-3 -mt-3 bg-white p-2.5 rounded-xl border border-slate-200 z-10 shadow-sm space-y-1.5 flex gap-2 items-center">
                     <span className="text-xl shrink-0">🔥</span>
                     <div className="flex-1">
-                      <span className="text-[10px] font-black leading-none block text-[#0A1128]">7-Day Study Streak!</span>
+                      <span className="text-[10px] font-black leading-none block text-[#0A1128]">Study streak — backend data</span>
                       <span className="text-[8px] text-slate-500 block">Sabi memory calibrator is active</span>
                     </div>
                     {/* Tiny micro dots representing day columns */}
@@ -3600,7 +3600,7 @@ export default function App() {
                     <div className="w-24 h-14 border-4 border-dashed border-[#F5C518] rounded-t-full flex items-center justify-center pt-4 mt-1">
                       <span className="text-2xl font-black font-mono text-[#F5C518]">312</span>
                     </div>
-                    <span className="text-[8px] text-slate-400">92% CALIBRATION LEVEL ACCORDING TO TESTS</span>
+                    <span className="text-[8px] text-slate-400">CALIBRATION DATA — BACKEND REQUIRED</span>
                   </div>
 
                   <div className="p-3 space-y-3">
@@ -3611,10 +3611,10 @@ export default function App() {
                         <span>🎯</span><span>Strategic Score Prognosis</span>
                       </div>
                       <p className="text-[10px] text-slate-600 leading-normal">
-                        You need **+34 points** to secure medicine admission. Study these recommended topics:
+                        Score-gap and recommendation data will be supplied by the learning engine. This design preview does not calculate admission targets.
                       </p>
                       <div className="flex gap-1.5 pt-1">
-                        <span className="bg-[#D0E1F9] text-[9px] font-bold px-2 py-0.5 rounded text-[#0A1128]">Physics Concord (+15)</span>
+                        <span className="bg-[#D0E1F9] text-[9px] font-bold px-2 py-0.5 rounded text-[#0A1128]">Recommendation data pending</span>
                       </div>
                     </div>
 
