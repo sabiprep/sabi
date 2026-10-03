@@ -128,13 +128,13 @@ export default function SabiOnboarding({ onFinish }: { onFinish: () => void }) {
               <View style={styles.hairlineConnector} />
               <View style={styles.graphicRow}>
                 <View style={[styles.nodeCircle, { borderColor: COLORS.success, backgroundColor: '#E8F5E9' }]}>
-                  <Text style={[styles.nodeValue, { color: COLORS.success }]}>82%</Text>
+                  <Text style={[styles.nodeValue, { color: COLORS.success }]}>—</Text>
                 </View>
                 <View style={[styles.nodeCircle, { borderColor: COLORS.warning, backgroundColor: '#FFEBEE' }]}>
-                  <Text style={[styles.nodeValue, { color: COLORS.warning }]}>34%</Text>
+                  <Text style={[styles.nodeValue, { color: COLORS.warning }]}>—</Text>
                 </View>
                 <View style={[styles.nodeCircle, { borderColor: COLORS.navy, backgroundColor: COLORS.slateBlue }]}>
-                  <Text style={[styles.nodeValue, { color: COLORS.navy }]}>50%</Text>
+                  <Text style={[styles.nodeValue, { color: COLORS.navy }]}>—</Text>
                 </View>
               </View>
               <View style={styles.captionBox}>
@@ -143,7 +143,7 @@ export default function SabiOnboarding({ onFinish }: { onFinish: () => void }) {
             </View>
             
             <Text style={styles.subtext}>
-              No more blind studying. Our interactive knowledge graph tells you exactly what to learn next.
+              The learning engine will surface verified learning gaps when enough evidence is available.
             </Text>
           </View>
         </View>
@@ -2754,15 +2754,15 @@ export default function SabiScorePredictor() {
           <Text style={styles.pointGapHeading}>Target Gap Progress</Text>
           <View style={styles.gapBanner}>
             <Text style={styles.gapEmoji}>🎯</Text>
-            <Text style={styles.gapMessage}>You need +34 more points to lock in admission for Medicine at UI.</Text>
+            <Text style={styles.gapMessage}>Score-gap guidance will appear when the learning engine supplies verified readiness data.</Text>
           </View>
           <Text style={styles.recommendationDesc}>HIGH-VALUED SYLLABUS GAPS GIVING MAXIMUM POINTS INCREASES:</Text>
           <View style={styles.pillContainer}>
             <View style={styles.topicPillblue}>
-              <Text style={styles.pillLabel}>Concord Rules (+15 pts)</Text>
+              <Text style={styles.pillLabel}>Recommendation pending</Text>
             </View>
             <View style={styles.topicPillblue}>
-              <Text style={styles.pillLabel}>Electromagnetism (+12 pts)</Text>
+              <Text style={styles.pillLabel}>Recommendation pending</Text>
             </View>
           </View>
         </View>
@@ -2771,14 +2771,14 @@ export default function SabiScorePredictor() {
         <Text style={styles.sectionTitle}>Syllabus Contribution levels</Text>
         <View style={styles.contributionDeck}>
           {[
-            { subj: 'Mathematics', value: 81, color: '#2E7D32' },
-            { subj: 'English Language', value: 65, color: '#1B3A7A' },
-            { subj: 'Physics', value: 42, color: '#D32F2F' }
+            { subj: 'Mathematics', value: null, color: '#2E7D32' },
+            { subj: 'English Language', value: null, color: '#1B3A7A' },
+            { subj: 'Physics', value: null, color: '#D32F2F' }
           ].map((item) => (
             <View key={item.subj} style={styles.contributionCard}>
               <View style={styles.fieldLabelRow}>
                 <Text style={styles.subjTextName}>{item.subj}</Text>
-                <Text style={styles.subjAccuracyValue}>{item.value}% Accuracy</Text>
+                <Text style={styles.subjAccuracyValue}>{item.value === null ? '—' : `${item.value}% Accuracy`}</Text>
               </View>
               <View style={styles.progressBarBg}>
                 <View style={[styles.progressBarFill, { width: \`\${item.value}%\`, backgroundColor: item.color }]} />
@@ -2788,14 +2788,14 @@ export default function SabiScorePredictor() {
         </View>
 
         {/* 14-DAY CALIBRATED TIMELINE GRAPH */}
-        <Text style={styles.sectionTitle}>Calibrated score progression (14 Days)</Text>
+        <Text style={styles.sectionTitle}>Learning evidence timeline</Text>
         <View style={styles.chartMatrixCard}>
           <View style={styles.chartYGridRow} />
           <View style={styles.chartYGridRow} />
           <View style={styles.chartYGridRow} />
           
           {/* Simulated clean polyline vector */}
-          <View style={styles.simulatedChartLine} />
+          <View style={styles.backendTimelinePlaceholder}><Text style={styles.backendTimelineText}>Verified learning activity will appear here when supplied by the backend.</Text></View>
           <View style={styles.daysLabelsRow}>
             {['D1', 'D3', 'D5', 'D7', 'D9', 'D12', 'D14'].map((day) => (
               <Text key={day} style={styles.axisLabelText}>{day}</Text>
@@ -3275,7 +3275,7 @@ export default function SabiSettings() {
           <Text style={styles.calendarSubText}>ACTIVE STUDY CALENDAR DAY MATRIX</Text>
           <View style={styles.gridRowWrap}>
             {Array.from({ length: 28 }).map((_, idx) => {
-              const isActive = idx % 5 === 0 || idx % 7 === 1;
+              const isActive = false;
               return (
                 <View
                   key={idx}
@@ -3287,7 +3287,7 @@ export default function SabiSettings() {
               );
             })}
           </View>
-          <Text style={styles.calendarCaption}>Active session study days are illustrated as gold blocks</Text>
+          <Text style={styles.calendarCaption}>Verified study activity will be supplied by the backend.</Text>
         </View>
 
         {/* SETTINGS CARD OPTIONS LIST */}
@@ -3300,7 +3300,7 @@ export default function SabiSettings() {
               <Text style={styles.optionMainText}>Daily Practice Reminder</Text>
               <Text style={styles.optionSubText}>Push notifications at 8:00 AM daily</Text>
             </View>
-            <Switch value={true} trackColor={{ true: '#1B3A7A' }} />
+            <Switch value={false} disabled trackColor={{ true: '#1B3A7A' }} />
           </View>
 
           <View style={styles.dividerHairline} />
@@ -3311,7 +3311,7 @@ export default function SabiSettings() {
               <Text style={styles.optionMainText}>Adaptive AI Level</Text>
               <Text style={styles.optionSubText}>System recalibrates questions adaptively</Text>
             </View>
-            <Switch value={true} trackColor={{ true: '#1B3A7A' }} />
+            <Switch value={false} disabled trackColor={{ true: '#1B3A7A' }} />
           </View>
         </View>
 
