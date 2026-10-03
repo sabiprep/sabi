@@ -724,9 +724,57 @@ export default function App() {
   };
 
   const handleResetProfileSystem = () => {
+    // Reset the entire local preview session so a new learner never inherits
+    // answers, practice state, CBT state, tutor messages, or previous selections.
     setOnboardingStep(1);
-    setAppStage('SIGNUP');
+    setOnboardingAnswers({
+      name: '',
+      chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+      classAndAttempts: { classLevel: 'Senior Secondary 3 (SS3)', attempts: '0 sittings (First-time aspirant)', yearsOutOfSchool: '1 year' },
+      targets: { course: '', university: '' },
+      monthsUntilExam: String(getDynamicJAMBCountdown().months) + ' months',
+      subjectConfidence: { 'English Language': 3, 'Mathematics': 4, 'Physics': 2, 'Chemistry': 2 } as Record<SubjectName, number>,
+      prioritySubject: 'Physics',
+      struggleType: 'I make careless mistakes under time pressure',
+      selfIdentifiedWeakTopic: '',
+      studyHabits: 'Structured schedule (set times every day)',
+      dailyStudyHours: '2 to 3 hours per day',
+      studyEnvironment: 'Quiet private space (home/library)',
+      explanationPreference: 'Detailed step-by-step (with proofs and derivations)',
+      languagePreference: 'Mixed Nigerian English (Formal logic + supportive Pidgin vibes)',
+      motivation: ''
+    });
     setProfile(null);
+    setMasteryMap({});
+    setDiagnosticCurrentQuestions([]);
+    setDiagnosticActiveQuestion(null);
+    setDiagnosticAnswerSelected(null);
+    setDiagnosticHasSubmitted(false);
+    setQuizAnswerLog([]);
+    setDiagnosticCorrectCount(0);
+    setEvaluationProgress(0);
+    setPracticeSessionType(null);
+    setPracticeQuestions([]);
+    setPracticeIndex(0);
+    setPracticeSelectedAnswer(null);
+    setPracticeHasSubmitted(false);
+    setPracticeComplete(false);
+    setPracticeCorrectCount(0);
+    setAiExplainText('');
+    setTutorMessages([]);
+    setTutorChatActive(false);
+    setCbtPreviewConfig(null);
+    setCbtPreviewQuestions([]);
+    setCbtPreviewIndex(0);
+    setCbtPreviewAnswers({});
+    setCbtPreviewSubmitted(false);
+    setCbtPreviewStartedAt(null);
+    setCbtPreviewTimeLeft(0);
+    setCbtPreviewFlagged({});
+    setCbtPreviewConfirmSubmit(false);
+    setCustomPracticeModalVisible(false);
+    setActiveTab('home');
+    setAppStage('SIGNUP');
   };
 
   // Global Keyboard Shortcuts
