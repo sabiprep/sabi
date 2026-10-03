@@ -138,6 +138,8 @@ export default function App() {
 
   // Diagnostic processing state. Authoritative learning metrics come from the backend.
   const [evaluationProgress, setEvaluationProgress] = useState(0);
+  const diagnosticAdvanceTimeoutRef = useRef<number | null>(null);
+  const evaluationIntervalRef = useRef<number | null>(null);
 
   // Lifted AI Tutor state to prevent reset on tab transitions
   const [tutorMessages, setTutorMessages] = useState<any[]>([]);
@@ -403,9 +405,10 @@ export default function App() {
 
     // Auto-advance logic: if correct, 2-second auto-timer. For incorrect, let them read explanation first.
     if (isCorrect) {
-      setTimeout(() => {
-        // Double check they haven't manually clicked ahead
-        handleNextDiagnosticQuestion(newLog, nextDifficulty);
+      if (diagnosticAdvanceTimeoutRef.current !== null) window.clearTimeout(diagnosticAdvanceTimeoutRef.current);
+      diagnosticAdvanceTimeoutRef.current = window.setTimeout(() => {
+        diagnosticAdvanceTimeoutRef.current = null;
+        if (diagnosticHasSubmitted && diagnosticActiveQuestion?.id === logItem.questionId) handleNextDiagnosticQuestion(newLog, nextDifficulty);
       }, 2500);
     }
   };
@@ -460,108 +463,43 @@ export default function App() {
   };
 
   const handleTransitionToEvaluation = (fullLog = quizAnswerLog) => {
-    // The diagnostic has captured frontend evidence, but authoritative
-    // mastery, readiness, weak areas, blindspots and score ranges belong
-    // to the backend learning engine.
+    if (diagnosticAdvanceTimeoutRef.current !== null) { window.clearTimeout(diagnosticAdvanceTimeoutRef.current); diagnosticAdvanceTimeoutRef.current = null; }
+    if (evaluationIntervalRef.current !== null) { window.clearInterval(evaluationIntervalRef.current); evaluationIntervalRef.current = null; }
     setAppStage('PROFILE_EVALUATION');
     setEvaluationProgress(10);
-
     let step = 10;
-    const interval = setInterval(() => {
+    evaluationIntervalRef.current = window.setInterval(() => {
       step += 15;
-
       if (step >= 100) {
         step = 100;
-        clearInterval(interval);
-
+        if (evaluationIntervalRef.current !== null) { window.clearInterval(evaluationIntervalRef.current); evaluationIntervalRef.current = null; }
         const activeProfile: StudentProfile = {
           name: onboardingAnswers.name,
-          classLevel: onboardingAnswers.classAndAttempts.classLevel === "Out-of-school Candidate / Resitter"
-            ? `Out-of-school (${onboardingAnswers.classAndAttempts.yearsOutOfSchool || '1 year'} out)`
-            : (onboardingAnswers.classAndAttempts.classLevel || 'Senior Secondary 3 (SS3)'),
-          attempts: onboardingAnswers.classAndAttempts.attempts.includes('First-time') ? 0 : 1,
-          chosenSubjects: onboardingAnswers.chosenSubjects,
-          targetCourse: onboardingAnswers.targets.course.trim() || '',
-          targetUniversity: onboardingAnswers.targets.university.trim() || '',
-          monthsUntilExam: parseInt(onboardingAnswers.monthsUntilExam) || getDynamicJAMBCountdown().months,
-          subjectConfidence: onboardingAnswers.subjectConfidence,
-          struggleTypes: onboardingAnswers.chosenSubjects.reduce((acc: any, curr: any) => {
-            acc[curr] = onboardingAnswers.struggleType.includes('careless') ? 'careless' : 'method';
-            return acc;
-          }, {}),
+          classLevel: onboardingAnswers.classAndAttempts.classLevel === 'Out-of-school Candidate / Resitter' ? `Out-of-school (${onboardingAnswers.classAndAttempts.yearsOutOfSchool || '1 year'} out)` : (onboardingAnswers.classAndAttempts.classLevel || 'Senior Secondary 3 (SS3)'),
+          attempts: onboardingAnswers.classAndAttempts.attempts.includes('First-time') ? 0 : 1, chosenSubjects: onboardingAnswers.chosenSubjects,
+          targetCourse: onboardingAnswers.targets.course.trim() || '', targetUniversity: onboardingAnswers.targets.university.trim() || '',
+          monthsUntilExam: parseInt(onboardingAnswers.monthsUntilExam) || getDynamicJAMBCountdown().months, subjectConfidence: onboardingAnswers.subjectConfidence,
+          struggleTypes: onboardingAnswers.chosenSubjects.reduce((acc: any, curr: any) => { acc[curr] = onboardingAnswers.struggleType.includes('careless') ? 'careless' : 'method'; return acc; }, {}),
           studyHabits: onboardingAnswers.studyHabits.includes('Structured') ? 'scheduled' : onboardingAnswers.studyHabits.includes("don't study") ? 'none' : 'flexible',
-          dailyStudyHours: onboardingAnswers.dailyStudyHours,
-          studyEnvironment: onboardingAnswers.studyEnvironment.includes('Quiet') ? 'quiet' : 'noisy',
+          dailyStudyHours: onboardingAnswers.dailyStudyHours, studyEnvironment: onboardingAnswers.studyEnvironment.includes('Quiet') ? 'quiet' : 'noisy',
           explanationPreference: onboardingAnswers.explanationPreference.includes('Detailed') ? 'step-by-step' : 'short',
           languagePreference: onboardingAnswers.languagePreference.includes('Pidgin') ? 'pidgin' : onboardingAnswers.languagePreference.includes('Mixed') ? 'mixed' : 'english',
-          motivation: onboardingAnswers.motivation,
-          blindSpots: [],
-          // Account, entitlement and engagement values are backend-owned.
-          streakCount: 0,
-          xpPoints: 0,
-          unlockedSubjectsCount: 0,
-          isPremium: false,
-          aiCredits: 0,
-          topicMemories: {},
-          conversationHistory: []
+          motivation: onboardingAnswers.motivation, blindSpots: [], streakCount: 0, xpPoints: 0, unlockedSubjectsCount: 0, isPremium: false, aiCredits: 0, topicMemories: {}, conversationHistory: []
         };
-
-        setProfile(activeProfile);
-
-        // Keep diagnostic evidence in the session only. Do not convert it
-        // into client-authoritative mastery scores or review dates.
-        setTimeout(() => setEvaluationProgress(100), 300);
-      } else {
-        setEvaluationProgress(step);
-      }
+        setProfile(activeProfile); setEvaluationProgress(100);
+      } else setEvaluationProgress(step);
     }, 400);
   };
-
   const handleSkipToDashboard = () => {
-    // Populate mock profile
+    // Preview escape hatch: never invent learner identity, targets, mastery or engagement metrics.
     const activeProfile: StudentProfile = {
-      name: "Skipped User",
-      classLevel: "Senior Secondary 3 (SS3)",
-      attempts: 0,
-      chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
-      targetCourse: 'Computer Engineering',
-      targetUniversity: 'University of Lagos',
-      monthsUntilExam: 2,
-      subjectConfidence: { 'English Language': 3, 'Mathematics': 4, 'Physics': 2, 'Chemistry': 3 } as any,
-      struggleTypes: { 'English Language': 'careless', 'Mathematics': 'method' } as any,
-      studyHabits: 'flexible',
-      dailyStudyHours: "1-2 hours",
-      studyEnvironment: 'quiet',
-      explanationPreference: 'short',
-      languagePreference: 'english',
-      motivation: "Pass JAMB flawlessly",
-      blindSpots: [],
-      // Backend-owned account metrics remain neutral until the account/profile API is connected.
-      streakCount: 0,
-      xpPoints: 0,
-      unlockedSubjectsCount: 0,
-      isPremium: false,
-      aiCredits: 0,
-      topicMemories: {},
-      conversationHistory: []
+      name: '', classLevel: '', attempts: 0, chosenSubjects: onboardingAnswers.chosenSubjects || ['English Language'],
+      targetCourse: '', targetUniversity: '', monthsUntilExam: getDynamicJAMBCountdown().months, subjectConfidence: {} as Record<SubjectName, number>,
+      struggleTypes: {}, studyHabits: 'flexible', dailyStudyHours: '', studyEnvironment: 'quiet', explanationPreference: 'short', languagePreference: 'english',
+      motivation: '', blindSpots: [], streakCount: 0, xpPoints: 0, unlockedSubjectsCount: 0, isPremium: false, aiCredits: 0, topicMemories: {}, conversationHistory: []
     };
-
-    setProfile(activeProfile);
-
-    // Do not manufacture authoritative score, weak-area, or blindspot data in the client.
-    setCalculatedScoreRange({ min: 0, max: 0 });
-    setCalculatedWeakAreas([]);
-    setCalculatedBlindspots([]);
-
-    // No synthetic mastery records in the dashboard preview.
-    // The backend learning engine must supply authoritative mastery state.
-    setMasteryMap({});
-
-
-    setAppStage('DASHBOARD');
-    setActiveTab('home');
+    setProfile(activeProfile); setMasteryMap({}); setAppStage('DASHBOARD'); setActiveTab('home');
   };
-
   const handleEnterDashboard = () => {
     setAppStage('DASHBOARD');
     setActiveTab('home');
@@ -724,6 +662,8 @@ export default function App() {
   };
 
   const handleResetProfileSystem = () => {
+    if (diagnosticAdvanceTimeoutRef.current !== null) { window.clearTimeout(diagnosticAdvanceTimeoutRef.current); diagnosticAdvanceTimeoutRef.current = null; }
+    if (evaluationIntervalRef.current !== null) { window.clearInterval(evaluationIntervalRef.current); evaluationIntervalRef.current = null; }
     // Reset the entire local preview session so a new learner never inherits
     // answers, practice state, CBT state, tutor messages, or previous selections.
     setOnboardingStep(1);
