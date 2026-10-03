@@ -163,6 +163,14 @@ export default function App() {
   const [showExitQuizModal, setShowExitQuizModal] = useState(false);
   const [customPracticeModalVisible, setCustomPracticeModalVisible] = useState(false);
 
+  // CBT preview state. Production exam session/timer/scoring must come from the backend.
+  const [cbtPreviewConfig, setCbtPreviewConfig] = useState<{mode: 'full' | 'quick'; questionCount: number; durationMinutes: number} | null>(null);
+  const [cbtPreviewQuestions, setCbtPreviewQuestions] = useState<Question[]>([]);
+  const [cbtPreviewIndex, setCbtPreviewIndex] = useState(0);
+  const [cbtPreviewAnswers, setCbtPreviewAnswers] = useState<Record<string, 'A' | 'B' | 'C' | 'D'>>({});
+  const [cbtPreviewSubmitted, setCbtPreviewSubmitted] = useState(false);
+  const [cbtPreviewStartedAt, setCbtPreviewStartedAt] = useState<number | null>(null);
+
   // Leaderboard lists
   const [leaderboardFilter, setLeaderboardFilter] = useState<'weekly' | 'alltime'>('weekly');
   const [whatsappInviteMessage, setWhatsappInviteMessage] = useState('Hey buddy! Join Sabi JAMB today, we test our margins adaptively, chat with RAG Sabi AI systems, and watch our score climb! Let\'s pass together: https://sabi.jamb/register?ref=aspirant');
@@ -2162,6 +2170,91 @@ export default function App() {
   }
 
   function renderCBTTab() {
+    const currentQuestion = cbtPreviewQuestions[cbtPreviewIndex];
+
+    if (cbtPreviewConfig && !cbtPreviewSubmitted && cbtPreviewQuestions.length > 0) {
+      const selectedAnswer = currentQuestion ? cbtPreviewAnswers[currentQuestion.id] : undefined;
+      const answeredCount = Object.keys(cbtPreviewAnswers).length;
+
+      return (
+        <div className="space-y-4 animate-fade-in max-w-4xl mx-auto w-full">
+          <div className="sabi-surface p-4 md:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-[#4A90D9]">CBT preview</span>
+              <h2 className="text-lg md:text-xl font-black text-[#0A1128] mt-1">{cbtPreviewConfig.mode === 'full' ? 'Full Mock' : 'Quick Mock'}</h2>
+              <p className="text-xs text-slate-500 mt-1">Preview question {cbtPreviewIndex + 1} of {cbtPreviewQuestions.length} • {answeredCount} answered</p>
+            </div>
+            <button onClick={() => setCbtPreviewConfig(null)} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-black text-slate-600 hover:bg-slate-50">Exit Preview</button>
+          </div>
+
+          <div className="sabi-surface p-5 md:p-7">
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <span className="px-2.5 py-1 rounded-full bg-[#F4F7FB] border border-[#D6E4F0] text-[9px] font-black uppercase tracking-wider text-slate-500">{currentQuestion?.subject}</span>
+              <span className="text-[10px] font-black text-slate-400">No production timer active</span>
+            </div>
+            <div className="text-base md:text-lg font-bold text-[#0A1128] leading-relaxed">{currentQuestion?.question}</div>
+            <div className="grid gap-2.5 mt-6">
+              {(['A', 'B', 'C', 'D'] as const).map(option => (
+                <button
+                  key={option}
+                  disabled={Boolean(selectedAnswer)}
+                  onClick={() => currentQuestion && setCbtPreviewAnswers(prev => ({ ...prev, [currentQuestion.id]: option }))}
+                  className={selectedAnswer === option ? 'w-full text-left p-3.5 rounded-xl border-2 transition font-medium text-sm border-[#4A90D9] bg-[#EEF6FF] text-[#0A1128]' : 'w-full text-left p-3.5 rounded-xl border-2 transition font-medium text-sm border-slate-200 bg-white hover:border-[#4A90D9]/60'}
+                >
+                  <span className="font-black mr-2">{option}.</span>{currentQuestion?.options[option]}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap justify-between gap-2 mt-6 pt-4 border-t border-slate-100">
+              <button disabled={cbtPreviewIndex === 0} onClick={() => setCbtPreviewIndex(i => Math.max(0, i - 1))} className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-black disabled:opacity-40">Previous</button>
+              {cbtPreviewIndex < cbtPreviewQuestions.length - 1 ? (
+                <button onClick={() => setCbtPreviewIndex(i => i + 1)} className="px-5 py-2.5 rounded-xl bg-[#0A1128] text-white text-xs font-black">Next Question</button>
+              ) : (
+                <button onClick={() => setCbtPreviewSubmitted(true)} className="px-5 py-2.5 rounded-xl bg-[#F5C518] text-[#0A1128] text-xs font-black">Submit Preview</button>
+              )}
+            </div>
+          </div>
+
+          <div className="sabi-surface p-4 flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
+            <p className="text-xs text-slate-500 leading-relaxed"><strong className="text-[#0A1128]">Preview boundary:</strong> these answers are local to this screen. Production CBT must own question order, authoritative timer, autosave, expiry, submission, scoring and recovery.</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (cbtPreviewConfig && cbtPreviewSubmitted) {
+      const answeredQuestions = cbtPreviewQuestions.filter(q => cbtPreviewAnswers[q.id]);
+      const correctAnswers = answeredQuestions.filter(q => cbtPreviewAnswers[q.id] === q.answer).length;
+
+      return (
+        <div className="space-y-4 animate-fade-in max-w-2xl mx-auto w-full">
+          <div className="sabi-surface p-6 md:p-8 text-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#4A90D9]">Preview complete</span>
+            <h2 className="text-2xl font-black text-[#0A1128] mt-2">CBT Preview Submitted</h2>
+            <p className="text-sm text-slate-500 mt-2">This is a local UI result only. It is not an official JAMB score or backend exam result.</p>
+            <div className="grid grid-cols-2 gap-3 mt-6">
+              <div className="rounded-xl bg-[#F8FAFC] border border-slate-200 p-4"><span className="text-[9px] uppercase font-black text-slate-400">Answered</span><strong className="block text-xl font-black text-[#0A1128] mt-1">{answeredQuestions.length}/{cbtPreviewQuestions.length}</strong></div>
+              <div className="rounded-xl bg-[#F8FAFC] border border-slate-200 p-4"><span className="text-[9px] uppercase font-black text-slate-400">Preview accuracy</span><strong className="block text-xl font-black text-[#0A1128] mt-1">{answeredQuestions.length ? Math.round((correctAnswers / answeredQuestions.length) * 100) : 0}%</strong></div>
+            </div>
+            <button onClick={() => { setCbtPreviewConfig(null); setCbtPreviewQuestions([]); setCbtPreviewAnswers({}); setCbtPreviewSubmitted(false); setCbtPreviewIndex(0); setCbtPreviewStartedAt(null); }} className="mt-6 w-full py-3 rounded-xl bg-[#0A1128] text-white text-xs font-black uppercase tracking-wider">Back to CBT</button>
+          </div>
+        </div>
+      );
+    }
+
+    const startPreview = (mode: 'full' | 'quick') => {
+      const count = mode === 'full' ? 180 : 40;
+      const duration = mode === 'full' ? 120 : 30;
+      const questions = [...SEED_QUESTIONS].slice(0, Math.min(count, SEED_QUESTIONS.length));
+      setCbtPreviewConfig({ mode, questionCount: count, durationMinutes: duration });
+      setCbtPreviewQuestions(questions);
+      setCbtPreviewIndex(0);
+      setCbtPreviewAnswers({});
+      setCbtPreviewSubmitted(false);
+      setCbtPreviewStartedAt(Date.now());
+    };
+
     return (
       <div className="space-y-4 animate-fade-in max-w-3xl mx-auto w-full">
         <div className="sabi-surface p-5 md:p-6">
@@ -2170,23 +2263,25 @@ export default function App() {
           <p className="text-sm text-slate-500 mt-1">English Language plus your three selected subjects. AI assistance is unavailable during an active exam.</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
-          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => alert('CBT Full Mock will connect to startCBT(config) when the backend contract is available.')}>
+          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => startPreview('full')}>
             <span className="text-[10px] uppercase font-black tracking-widest text-[#4A90D9]">Full Mock</span>
             <h3 className="text-lg font-black text-[#0A1128] mt-1">180 questions</h3>
-            <p className="text-sm text-slate-500 mt-1">120 minutes • fixed question set</p>
+            <p className="text-sm text-slate-500 mt-1">120 minutes • production configuration</p>
+            <span className="inline-block mt-4 px-3 py-1.5 rounded-lg bg-[#0A1128] text-white text-[9px] font-black uppercase">Open UI Preview</span>
           </button>
-          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => alert('CBT Quick Mock will connect to startCBT(config) when the backend contract is available.')}>
+          <button className="sabi-surface p-5 text-left hover:border-[#4A90D9] transition" onClick={() => startPreview('quick')}>
             <span className="text-[10px] uppercase font-black tracking-widest text-[#4A90D9]">Quick Mock</span>
             <h3 className="text-lg font-black text-[#0A1128] mt-1">40 questions</h3>
-            <p className="text-sm text-slate-500 mt-1">30 minutes • fixed question set</p>
+            <p className="text-sm text-slate-500 mt-1">30 minutes • production configuration</p>
+            <span className="inline-block mt-4 px-3 py-1.5 rounded-lg bg-[#0A1128] text-white text-[9px] font-black uppercase">Open UI Preview</span>
           </button>
         </div>
         <div className="sabi-surface p-5">
           <div className="flex items-start gap-3">
             <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
             <div>
-              <h3 className="font-black text-sm text-[#0A1128]">Backend contract required for launch</h3>
-              <p className="text-sm text-slate-500 mt-1">The frontend must not fabricate exam sessions, timer authority, scoring or submission state.</p>
+              <h3 className="font-black text-sm text-[#0A1128]">Production CBT contract still required</h3>
+              <p className="text-sm text-slate-500 mt-1">The preview lets us validate the interface without pretending that local questions, the local clock or local scoring are the real exam service.</p>
             </div>
           </div>
         </div>
