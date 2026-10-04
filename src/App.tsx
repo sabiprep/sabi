@@ -83,6 +83,7 @@ export default function App() {
 
   // Onboarding Step state (Exactly 15 questions)
   const [onboardingStep, setOnboardingStep] = useState(1);
+  const [onboardingValidationError, setOnboardingValidationError] = useState('');
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, any>>({
     name: '',
     chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
@@ -258,36 +259,44 @@ export default function App() {
 
   // Onboarding Question validation and navigation
   const handleNextOnboarding = () => {
-    // Validation
-    if (onboardingStep === 1) {
-      if (!onboardingAnswers.name.trim()) return;
-    }
-    if (onboardingStep === 2) {
-      // Must have compulsory English + exactly 3 other subjects
-      const selection = onboardingAnswers.chosenSubjects || [];
-      if (!selection.includes('English Language')) {
-        setOnboardingAnswers(prev => ({ ...prev, chosenSubjects: ['English Language', ...selection] }));
-      }
-      if ((onboardingAnswers.chosenSubjects || []).length !== 4) return;
-    }
-    if (onboardingStep === 4) {
-      if (!onboardingAnswers.targets.course.trim() || !onboardingAnswers.targets.university.trim()) return;
+    setOnboardingValidationError('');
+
+    if (onboardingStep === 1 && !onboardingAnswers.name.trim()) {
+      setOnboardingValidationError('Enter your name to continue.');
+      return;
     }
 
-    if (onboardingStep < 15) {
+    if (onboardingStep === 2) {
+      // Normalize the compulsory subject before validating the final selection.
+      const selection = onboardingAnswers.chosenSubjects || [];
+      const normalizedSelection = selection.includes('English Language')
+        ? selection
+        : ['English Language', ...selection];
+      if (normalizedSelection.length !== 4) {
+        setOnboardingValidationError('Select exactly 4 JAMB subjects: English Language plus 3 others.');
+        return;
+      }
+      if (normalizedSelection.length !== selection.length) {
+        setOnboardingAnswers(prev => ({ ...prev, chosenSubjects: normalizedSelection }));
+      }
+    }
+
+    if (onboardingStep === 4 && (!onboardingAnswers.targets.course.trim() || !onboardingAnswers.targets.university.trim())) {
+      setOnboardingValidationError('Enter both your dream course and goal university to continue.');
+      return;
+    }
+
+    if (onboardingStep < ONBOARDING_QUESTIONS.length) {
       setOnboardingStep(prev => prev + 1);
     } else {
-      // Completed onboarding journey! Proceed into diagnostic overview.
       setAppStage('DIAGNOSTIC_INTRO');
     }
   };
 
   const handleBackOnboarding = () => {
-    if (onboardingStep > 1) {
-      setOnboardingStep(prev => prev - 1);
-    } else {
-      setAppStage('WELCOME_SETUP');
-    }
+    setOnboardingValidationError('');
+    if (onboardingStep > 1) setOnboardingStep(prev => prev - 1);
+    else setAppStage('WELCOME_SETUP');
   };
 
   const handleSubjectSelectToggle = (subj: SubjectName) => {
@@ -307,7 +316,7 @@ export default function App() {
     }
   };
 
-  const currentOnbQuestion: OnboardingQuestion = ONBOARDING_QUESTIONS[onboardingStep - 1];
+  const currentOnbQuestion: OnboardingQuestion = ONBOARDING_QUESTIONS[Math.min(Math.max(onboardingStep, 1), ONBOARDING_QUESTIONS.length) - 1];
 
   // Diagnostic Quiz initialization Stage
   const handleStartDiagnostic = () => {
@@ -1153,6 +1162,12 @@ export default function App() {
             />
           </div>
         </div>
+
+        {onboardingValidationError && (
+          <div role="alert" aria-live="polite" className="mx-0 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[10px] font-bold text-amber-800">
+            {onboardingValidationError}
+          </div>
+        )}
 
         {/* Dynamic Question Stage Content */}
         <div className="flex-1 overflow-y-auto py-5 space-y-4">
