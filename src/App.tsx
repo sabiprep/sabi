@@ -233,6 +233,7 @@ export default function App() {
     if (!signupForm.email || !signupForm.password) return;
     // Authentication is not connected to the backend yet.
     // Keep the OTP surface as a UI preview without claiming a real verification.
+    setOtpDigits(['', '', '', '', '', '']);
     setShowOtpModal(true);
     setOtpError('');
     // Focus first input box
@@ -998,8 +999,13 @@ export default function App() {
 
         <div className="pt-4 mt-4 border-t border-slate-100 text-center space-y-1 z-10">
           <p className="text-[11px] text-slate-400">
-            Already sitting? <span className="font-bold text-[#0A1128] hover:underline cursor-pointer">Login</span>
+            Already have an account? <button type="button" onClick={() => {
+              setOtpError('Login is not connected yet. This frontend preview currently supports the signup pathway only.');
+            }} className="font-bold text-[#0A1128] hover:underline">Login</button>
           </p>
+          {otpError && !showOtpModal && (
+            <p role="status" className="text-[10px] font-bold text-amber-700">{otpError}</p>
+          )}
         </div>
       </div>
     );
@@ -1100,7 +1106,7 @@ export default function App() {
                 Nigeria Aspirants Classroom
               </span>
               <span className="text-[9px] text-slate-400 block font-medium">
-                Auto-assigned active workspace
+                Nigeria JAMB learning workspace
               </span>
             </div>
           </div>
@@ -1110,7 +1116,7 @@ export default function App() {
               Crack JAMB. Own Your Future.
             </h3>
             <p className="text-xs text-[#4A5568] leading-relaxed">
-              We are going to ask you <span className="font-bold text-[#0A1128]">exactly 15 quick questions</span> to build your personalized <span className="font-bold text-[#0A1128]">Mastery Map</span>. No empty profiles, only high morale!
+              We are going to ask you <span className="font-bold text-[#0A1128]">exactly 15 quick questions</span> to build your personalized learning profile and prepare your diagnostic. Your authoritative mastery state will be supplied by the learning engine.
             </p>
           </div>
         </div>
