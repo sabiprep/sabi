@@ -1833,7 +1833,7 @@ export default function App() {
             <div className="p-4 bg-white/5 rounded-2xl border border-white/10 space-y-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#F5C518] to-yellow-300 text-[#0A1128] flex items-center justify-center font-black text-sm uppercase shadow shrink-0">
-                  {profile.name[0]}
+                  {profile.name.trim() ? profile.name.trim()[0] : '?'}
                 </div>
                 <div className="truncate">
                   <h4 className="text-xs font-black truncate text-white">{profile.name}</h4>
@@ -1848,7 +1848,7 @@ export default function App() {
                 <p className="text-[9px] font-bold text-slate-300 truncate leading-tight mt-0.5">
                   at {profile.targetUniversity}
                 </p>
-                <p className="text-[10px] font-bold text-sky-300 mt-1">{getDynamicJAMBCountdown().diffDays} Days to Exam</p>
+                <p className="text-[10px] font-bold text-sky-300 mt-1">Exam schedule pending sync</p>
               </div>
               <div className="flex justify-between items-center text-[10px] bg-white/10 px-2 py-1 rounded-lg">
                 <span className="text-slate-300">Account sync:</span>
@@ -1912,7 +1912,7 @@ export default function App() {
                   <div className="truncate flex flex-col justify-center">
                     <h4 className="text-xs font-extrabold truncate max-w-[120px] text-white">{profile.name}</h4>
                     <p className="text-[8px] text-sky-100/95 leading-none mt-1">Goal: {profile.targetCourse}</p>
-                    <p className="text-[8px] font-bold text-sky-300 mt-1">{getDynamicJAMBCountdown().diffDays} Days to Exam</p>
+                    <p className="text-[8px] font-bold text-sky-300 mt-1">Exam schedule pending</p>
                   </div>
                 </div>
 
@@ -1923,10 +1923,8 @@ export default function App() {
                     Home Dashboard
                   </span>
                   <div className="h-4 w-px bg-slate-200" />
-                  <span className="text-xs text-slate-500">Exam countdown:</span>
-                  <span className="text-xs font-black text-[#4A90D9]">
-                    {getDynamicJAMBCountdown().text}
-                  </span>
+                  <span className="text-xs text-slate-500">Exam schedule:</span>
+                  <span className="text-xs font-black text-[#4A90D9]">Awaiting backend sync</span>
                 </div>
 
                 {/* Right Header Side Badge */}
@@ -2026,7 +2024,7 @@ export default function App() {
 
         {/* Subject progress modules */}
         <div className="space-y-2">
-          <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Your Syllabus Progress:</span>
+          <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Subject learning evidence:</span>
           <div className="grid grid-cols-1 gap-2">
             {profile.chosenSubjects.map((subName) => {
               const observedEvidence = (Object.values(masteryMap) as MasteryMapItem[])
@@ -2049,7 +2047,7 @@ export default function App() {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-[#0A1128] truncate max-w-[170px]">{subName}</p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">{observedEvidence} observed question{observedEvidence === 1 ? '' : 's'} • self-report {selfReportedConfidence}/5</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">{observedEvidence} observed question{observedEvidence === 1 ? '' : 's'} • self-report confidence {selfReportedConfidence}/5</p>
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
