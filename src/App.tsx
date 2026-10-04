@@ -565,8 +565,13 @@ export default function App() {
 
     const subjectNorm = topicOrSubject as SubjectName;
     const questions = quizInitializationRouter('smart', subjectNorm);
-    setPracticeQuestions(questions);
+    if (questions.length === 0) {
+      setPracticeSessionType(null);
+      setPracticeQuestions([]);
+      return;
+    }
     setActiveTab('practice');
+    setPracticeQuestions(questions);
   };
 
   const handleLaunchCustomPractice = () => {
@@ -598,6 +603,13 @@ export default function App() {
     setShowExitQuizModal(false);
     setPracticeSessionType(null);
     setPracticeQuestions([]);
+    setPracticeIndex(0);
+    setPracticeSelectedAnswer(null);
+    setPracticeHasSubmitted(false);
+    setPracticeComplete(false);
+    setPracticeCorrectCount(0);
+    setAiExplainText('');
+    setAiExplainLoading(false);
     // No authoritative progress or XP is written here.
     // The backend session-result contract will own persistence.
   };
