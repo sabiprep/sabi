@@ -59,7 +59,6 @@ function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen)
     <div className="px-4">
       <div className="mb-4 rounded-2xl bg-[#0A1128] p-4 text-white"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold text-blue-200">JAMB 2027</span><span className="rounded-full bg-white/10 px-2 py-1 text-[10px]">ON TRACK</span></div><p className="font-display text-lg font-extrabold">Keep building.</p><p className="mt-1 text-xs text-slate-300">Your consistency is stronger than last week.</p><div className="mt-4"><ProgressBar value={68} className="[&>div]:bg-[#F5C518] bg-white/10" /></div></div>
       </div>
-    </div>
     <nav className="flex-1 space-y-1 px-3">
       {nav.map(([id, label, Icon]) => <button key={id} onClick={() => setActive(id)} className={'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ' + (active === id ? 'bg-blue-50 text-[#0A1128]' : 'text-slate-500 hover:bg-slate-50')}><Icon size={18} />{label}{id === 'blitz' && <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700">NEW</span>}</button>)}
       <div className="my-4 border-t border-slate-100" />
