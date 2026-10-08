@@ -9,7 +9,7 @@ import {
 
 type Screen =
   | 'home' | 'practice' | 'smart' | 'question' | 'results' | 'progress'
-  | 'blitz' | 'blitzSetup' | 'cbt' | 'cbtActive' | 'cbtResult' | 'tutor'
+  | 'blitz' | 'blitzSetup' | 'blitzActive' | 'cbt' | 'cbtActive' | 'cbtResult' | 'tutor'
   | 'profile' | 'settings';
 
 type Theme = 'light' | 'dark';
@@ -84,7 +84,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
 }
 
 function AtomArt() {
-  return <div className="relative h-32 w-36 shrink-0 overflow-hidden">
+  return <div className="relative h-24 w-24 shrink-0 overflow-hidden sm:h-32 sm:w-36">
     <div className="absolute right-3 top-7 h-16 w-16 rounded-full bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 shadow-[0_0_30px_rgba(245,197,24,.45)]" />
     <div className="absolute right-0 top-2 h-28 w-32 rotate-[25deg] rounded-[50%] border-2 border-blue-400/60" />
     <div className="absolute right-0 top-2 h-28 w-32 -rotate-[35deg] rounded-[50%] border-2 border-cyan-300/50" />
@@ -108,13 +108,13 @@ function TopHeader({ onMenu, onProfile, onBell }: { onMenu?: () => void; onProfi
 
 function BottomNav({ active, go }: { active: Screen; go: (s: Screen) => void }) {
   const items = [
-    ['home', 'Home', Home], ['practice', 'Practice', SlidersHorizontal], ['blitz', 'Blitz', Zap], ['cbt', 'CBT', BookOpen], ['settings', 'More', MoreHorizontal]
+    ['home', 'Home', Home], ['practice', 'Practice', SlidersHorizontal], ['blitz', 'Blitz', Zap], ['cbt', 'CBT', BookOpen], ['profile', 'More', MoreHorizontal]
   ] as const;
   return <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200/90 bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl dark:border-white/[.08] dark:bg-[#081225]/95 lg:hidden">
     <div className="mx-auto flex max-w-lg items-center justify-around">
       {items.map(([id,label,Icon]) => <button key={id} onClick={() => go(id)} className={cx(
         'flex min-w-[58px] flex-col items-center gap-1 rounded-xl px-3 py-1.5 text-[10px] font-bold transition',
-        active === id || (id === 'settings' && ['profile','tutor','progress'].includes(active))
+        active === id || (id === 'profile' && ['profile','settings','tutor','progress'].includes(active))
           ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'
       )}><Icon size={19}/><span>{label}</span></button>)}
     </div>
@@ -181,7 +181,7 @@ function Home({ go }: { go: (s: Screen) => void }) {
     <section>
       <SectionTitle title="Your progress" action="See details" onClick={()=>go('progress')}/>
       <Card className="p-5 sm:p-6">
-        <div className="grid grid-cols-[135px_1fr] items-center gap-5 sm:grid-cols-[170px_1fr]">
+        <div className="grid grid-cols-[110px_minmax(0,1fr)] items-center gap-4 sm:grid-cols-[170px_minmax(0,1fr)] sm:gap-5">
           <div className="relative grid aspect-square place-items-center rounded-full bg-[conic-gradient(#5ee1a1_0_65%,#e7edf5_65%_100%)] p-2 dark:bg-[conic-gradient(#22e6b5_0_65%,#1b2a42_65%_100%)]">
             <div className="grid h-full w-full place-items-center rounded-full bg-white dark:bg-[#0e192b]"><div className="text-center"><p className="font-display text-2xl font-extrabold">65%</p><p className="text-[10px] font-semibold text-slate-400">Overall Mastery</p></div></div>
           </div>
@@ -261,7 +261,13 @@ function Progress({go}:{go:(s:Screen)=>void}) {
 
 function BlitzSetup({go}:{go:(s:Screen)=>void}) {
   const [subject,setSubject]=useState('Mathematics'); const [difficulty,setDifficulty]=useState('Easy');
-  return <div className="mx-auto max-w-3xl space-y-6"><Back onClick={()=>go('blitz')}/><PageHead eyebrow="Fast practice" title="Blitz Mode" subtitle="Quick practice to keep your momentum. Short, timed sessions across key topics."/><Card className="p-5"><FieldTitle title="Choose a subject"/><div className="grid grid-cols-2 gap-3">{['Mathematics','English','Physics','Chemistry'].map(s=><button key={s} onClick={()=>setSubject(s)} className={cx('rounded-xl border p-3 text-left text-xs font-extrabold',subject===s?'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300':'border-slate-200 dark:border-white/[.08]')}><span className="block text-base">{s==='Mathematics'?'𝕄':s==='English'?'▣':s==='Physics'?'⚛':'◉'}</span><span className="mt-2 block">{s}</span><span className="mt-1 block text-[9px] font-normal text-slate-400">10 questions</span></button>)}</div><FieldTitle title="Choose difficulty" className="mt-7"/><div className="grid grid-cols-3 gap-2">{['Easy','Medium','Hard'].map(d=><button key={d} onClick={()=>setDifficulty(d)} className={cx('rounded-xl border py-3 text-xs font-bold',difficulty===d?'border-blue-500 text-blue-600':'border-slate-200 text-slate-500 dark:border-white/[.08]')}>{d}</button>)}</div><p className="mt-5 flex items-center gap-2 text-xs text-slate-400"><Clock3 size={15}/>Estimated time: ~8 mins</p><Button onClick={()=>go('blitzSetup')} className="mt-5 w-full">Start Blitz <ArrowRight size={16}/></Button></Card></div>;
+  return <div className="mx-auto max-w-3xl space-y-6"><Back onClick={()=>go('blitz')}/><PageHead eyebrow="Fast practice" title="Blitz Mode" subtitle="Quick practice to keep your momentum. Short, timed sessions across key topics."/><Card className="p-5"><FieldTitle title="Choose a subject"/><div className="grid grid-cols-2 gap-3">{['Mathematics','English','Physics','Chemistry'].map(s=><button key={s} onClick={()=>setSubject(s)} className={cx('rounded-xl border p-3 text-left text-xs font-extrabold',subject===s?'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300':'border-slate-200 dark:border-white/[.08]')}><span className="block text-base">{s==='Mathematics'?'𝕄':s==='English'?'▣':s==='Physics'?'⚛':'◉'}</span><span className="mt-2 block">{s}</span><span className="mt-1 block text-[9px] font-normal text-slate-400">10 questions</span></button>)}</div><FieldTitle title="Choose difficulty" className="mt-7"/><div className="grid grid-cols-3 gap-2">{['Easy','Medium','Hard'].map(d=><button key={d} onClick={()=>setDifficulty(d)} className={cx('rounded-xl border py-3 text-xs font-bold',difficulty===d?'border-blue-500 text-blue-600':'border-slate-200 text-slate-500 dark:border-white/[.08]')}>{d}</button>)}</div><p className="mt-5 flex items-center gap-2 text-xs text-slate-400"><Clock3 size={15}/>Estimated time: ~8 mins</p><Button onClick={()=>go('blitzActive')} className="mt-5 w-full">Start Blitz <ArrowRight size={16}/></Button></Card></div>;
+}
+
+function BlitzActive({go}:{go:(s:Screen)=>void}) {
+  const [selected,setSelected]=useState<string|null>(null); const [submitted,setSubmitted]=useState(false);
+  const options=['Careless','Thorough','Immediate','Ordinary'];
+  return <div className="mx-auto max-w-3xl space-y-5"><div className="flex items-center justify-between"><button onClick={()=>go('blitzSetup')} className="flex items-center gap-1 text-sm font-bold text-slate-500"><ArrowLeft size={16}/>Exit Blitz</button><span className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-extrabold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">00:45</span></div><Card className="p-5 sm:p-7"><div className="flex items-center justify-between"><div><p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600">Blitz · Question 4 / 10</p><p className="mt-2 text-xs font-bold text-slate-400">Streak 3 🔥</p></div><Zap className="text-amber-500"/></div><ProgressBar value={40} fill="bg-amber-400" className="mt-4"/><p className="mt-8 font-display text-xl font-extrabold leading-8">Choose the word nearest in meaning to “meticulous”.</p><div className="mt-6 grid gap-3 sm:grid-cols-2">{options.map((x,i)=><button key={x} disabled={submitted} onClick={()=>setSelected(x)} className={cx('rounded-xl border p-4 text-left text-sm font-bold transition',submitted&&x==='Thorough'?'border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10':selected===x?'border-blue-500 bg-blue-50 dark:bg-blue-500/10':'border-slate-200 dark:border-white/[.08]')}><span className="mr-3 text-slate-400">{String.fromCharCode(65+i)}</span>{x}</button>)}</div>{submitted&&<div className="mt-5 rounded-xl bg-emerald-50 p-4 dark:bg-emerald-500/10"><p className="text-sm font-extrabold text-emerald-700 dark:text-emerald-300">Correct. Meticulous means very careful and thorough.</p></div>}<div className="mt-6 flex justify-end">{submitted?<Button onClick={()=>go('results')}>Finish Blitz <ArrowRight size={16}/></Button>:<Button disabled={!selected} onClick={()=>setSubmitted(true)}>Check <Check size={16}/></Button>}</div></Card></div>;
 }
 
 function Blitz({go}:{go:(s:Screen)=>void}) {
@@ -285,8 +291,8 @@ function Profile({go}:{go:(s:Screen)=>void}) {
   return <div className="space-y-5"><PageHead eyebrow="Account" title="Profile & Settings" subtitle="Manage your account and learning preferences."/><Card className="p-4"><div className="flex items-center gap-3"><div className="grid h-14 w-14 place-items-center rounded-full bg-blue-100 font-extrabold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">AO</div><div className="min-w-0"><p className="font-display font-extrabold">David Ekong</p><p className="text-xs text-slate-400">UTME Candidate</p><p className="mt-1 truncate text-[10px] text-slate-400">davidekong@gmail.com</p></div><ChevronRight className="ml-auto text-slate-400" size={18}/></div></Card><Card className="divide-y divide-slate-100 dark:divide-white/[.06]">{rows.map(([a,b,Icon])=><button key={a} onClick={()=>a==='Appearance'?go('settings'):undefined} className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50 dark:hover:bg-white/5"><div className="grid h-9 w-9 place-items-center rounded-lg bg-slate-50 text-blue-600 dark:bg-white/5"><Icon size={17}/></div><div className="min-w-0 flex-1"><p className="text-xs font-extrabold">{a}</p><p className="mt-1 text-[10px] text-slate-400">{b}</p></div><ChevronRight size={15} className="text-slate-300"/></button>)}</Card><Button variant="outline" className="w-full text-red-600"><LogOut size={16}/>Log Out</Button></div>;
 }
 
-function SettingsScreen({theme,setTheme}:{theme:Theme;setTheme:(t:Theme)=>void}) {
-  return <div className="space-y-5"><Back onClick={()=>{}}/><PageHead eyebrow="Appearance" title="Make SABI yours" subtitle="Choose the environment that feels right for your study."/><Card className="p-5"><p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Theme</p><div className="mt-4 grid grid-cols-2 gap-3">{([['light','Light mode',Sun],['dark','Dark mode',Moon]] as const).map(([id,label,Icon])=><button key={id} onClick={()=>setTheme(id)} className={cx('rounded-xl border p-4 text-left',theme===id?'border-blue-500 bg-blue-50 dark:bg-blue-500/10':'border-slate-200 dark:border-white/[.08]')}><Icon size={20} className={theme===id?'text-blue-600':'text-slate-400'}/><p className="mt-4 text-sm font-extrabold">{label}</p><p className="mt-1 text-[10px] text-slate-400">{id==='light'?'Bright and readable':'Focused and immersive'}</p></button>)}</div></Card><Card className="p-5"><div className="flex gap-3"><ShieldCheck className="text-blue-600"/><div><p className="text-sm font-extrabold">Designed for both environments</p><p className="mt-1 text-xs leading-5 text-slate-400">SABI keeps the same structure and learning flow in both themes. The choice changes the visual environment, not the experience.</p></div></div></Card></div>;
+function SettingsScreen({theme,setTheme,go}:{theme:Theme;setTheme:(t:Theme)=>void;go:(s:Screen)=>void}) {
+  return <div className="space-y-5"><Back onClick={()=>go('profile')}/><PageHead eyebrow="Appearance" title="Make SABI yours" subtitle="Choose the environment that feels right for your study."/><Card className="p-5"><p className="text-xs font-extrabold uppercase tracking-wider text-slate-400">Theme</p><div className="mt-4 grid grid-cols-2 gap-3">{([['light','Light mode',Sun],['dark','Dark mode',Moon]] as const).map(([id,label,Icon])=><button key={id} onClick={()=>setTheme(id)} className={cx('rounded-xl border p-4 text-left',theme===id?'border-blue-500 bg-blue-50 dark:bg-blue-500/10':'border-slate-200 dark:border-white/[.08]')}><Icon size={20} className={theme===id?'text-blue-600':'text-slate-400'}/><p className="mt-4 text-sm font-extrabold">{label}</p><p className="mt-1 text-[10px] text-slate-400">{id==='light'?'Bright and readable':'Focused and immersive'}</p></button>)}</div></Card><Card className="p-5"><div className="flex gap-3"><ShieldCheck className="text-blue-600"/><div><p className="text-sm font-extrabold">Designed for both environments</p><p className="mt-1 text-xs leading-5 text-slate-400">SABI keeps the same structure and learning flow in both themes. The choice changes the visual environment, not the experience.</p></div></div></Card></div>;
 }
 
 function PageHead({eyebrow,title,subtitle}:{eyebrow:string;title:string;subtitle:string}) {
@@ -315,13 +321,14 @@ export default function SabiMobileApp() {
       case 'results': return <Results go={go}/>;
       case 'progress': return <Progress go={go}/>;
       case 'blitz': return <Blitz go={go}/>;
+      case 'blitzActive': return <BlitzActive go={go}/>;
       case 'blitzSetup': return <BlitzSetup go={go}/>;
       case 'cbt': return <CBTSetup go={go}/>;
       case 'cbtActive': return <Question go={go} cbt/>;
       case 'cbtResult': return <CBTResult go={go}/>;
       case 'tutor': return <Tutor/>;
       case 'profile': return <Profile go={go}/>;
-      case 'settings': return <SettingsScreen theme={theme} setTheme={setTheme}/>;
+      case 'settings': return <SettingsScreen theme={theme} setTheme={setTheme} go={go}/>;
       default: return <Home go={go}/>;
     }
   }, [screen, theme]);
