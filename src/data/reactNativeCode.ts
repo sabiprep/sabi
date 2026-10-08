@@ -2778,7 +2778,7 @@ export default function SabiScorePredictor() {
             <View key={item.subj} style={styles.contributionCard}>
               <View style={styles.fieldLabelRow}>
                 <Text style={styles.subjTextName}>{item.subj}</Text>
-                <Text style={styles.subjAccuracyValue}>{item.value === null ? '—' : `${item.value}% Accuracy`}</Text>
+                <Text style={styles.subjAccuracyValue}>{item.value === null ? '—' : \`\${item.value}% Accuracy\`}</Text>
               </View>
               <View style={styles.progressBarBg}>
                 <View style={[styles.progressBarFill, { width: \`\${item.value}%\`, backgroundColor: item.color }]} />

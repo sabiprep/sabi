@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700;800&display=swap');
 @import "tailwindcss";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -8,10 +9,14 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+/* Custom fade transitions and animations for a premium app feel */
 @layer utilities {
-  .animate-pulse-slow { animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+  .animate-pulse-slow {
+    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
 }
 
+/* Ensure smooth scrolling and full height */
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -21,26 +26,65 @@ html, body, #root {
   color: #101828;
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
 
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+
+/* SABI frontend foundation
+ * Visual treatment is implementation-level; learning-state authority remains server-side.
+ */
 :root {
   --sabi-ink: #0A1128;
-  --sabi-blue: #4A90D9;
-  --sabi-gold: #F5C518;
+  --sabi-blue: #2563EB;
+  --sabi-emerald: #10B981;
+  --sabi-gold: #F59E0B;
   --sabi-surface: #FFFFFF;
   --sabi-page: #F8FAFC;
-  --sabi-border: #D6E4F0;
+  --sabi-border: #E2E8F0;
   --sabi-muted: #64748B;
-  --sabi-success: #15803D;
-  --sabi-danger: #B91C1C;
-  --sabi-radius-sm: 10px;
-  --sabi-radius-md: 14px;
-  --sabi-radius-lg: 18px;
-  --sabi-shadow-sm: 0 1px 3px rgb(15 23 42 / 0.06);
-  --sabi-shadow-md: 0 10px 30px rgb(15 23 42 / 0.08);
+  --sabi-success: #10B981;
+  --sabi-danger: #EF4444;
+}
+
+.dark {
+  --sabi-ink: #F8FAFC;
+  --sabi-surface: #111827;
+  --sabi-page: #0B0F19;
+  --sabi-border: #1F2937;
+  --sabi-muted: #94A3B8;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Safe area padding utilities for mobile */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 body {
@@ -50,17 +94,33 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button, input, select, textarea { font: inherit; }
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
 
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid rgb(74 144 217 / 0.45);
   outline-offset: 2px;
 }
 
-button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -68,7 +128,11 @@ button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: no
   }
 }
 
-@media (max-width: 640px) { html { font-size: 15px; } }
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+}
 
 .sabi-surface {
   background: var(--sabi-surface);

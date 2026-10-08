@@ -82,6 +82,7 @@ export interface StudentProfile {
   chosenSubjects: SubjectName[];
   targetCourse: string;
   targetUniversity: string;
+  stateOfOrigin?: string;
   monthsUntilExam: number;
   priorScoreBaseline?: number;
   

@@ -147,13 +147,6 @@ export default function MasteryMap({
             const { evidenceCount, statusText, colorClass } = getSubjectMetric(subj);
             const isSelected = selectedSubject === subj;
 
-            // Circular SVG calculations
-            const size = 36;
-            const strokeWidth = 3.5;
-            const radius = (size - strokeWidth) / 2;
-            const circumference = radius * 2 * Math.PI;
-            const strokeDashoffset = circumference - (avg / 100) * circumference;
-
             return (
               <button
                 key={subj}

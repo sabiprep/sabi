@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0A1128"/>
+      <stop offset="100%" stop-color="#050814"/>
+    </linearGradient>
+    <linearGradient id="accent192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="gold192" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#bg192)"/>
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#accent192)" stroke-width="8" opacity="0.4"/>
+  <polygon points="256,110 390,175 390,320 256,410 122,320 122,175" fill="#0E1B38" stroke="url(#accent192)" stroke-width="12"/>
+  <polygon points="256,160 350,205 256,250 162,205" fill="url(#accent192)"/>
+  <polygon points="256,250 330,225 330,265 256,300 182,265 182,225" fill="#047857"/>
+  <circle cx="256" cy="180" r="10" fill="url(#gold192)"/>
+  <path d="M 330 205 L 340 245 L 344 245 L 334 205 Z" fill="url(#gold192)"/>
+  <polygon points="266,280 230,340 256,340 246,380 286,325 260,325" fill="url(#gold192)"/>
+</svg>

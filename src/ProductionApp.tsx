@@ -1,180 +1,453 @@
-import React, { useMemo, useState } from 'react';
-import {
-  Activity, ArrowRight, BarChart3, Bell, BookOpen, Brain, Check, CheckCircle2,
-  ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Flame, Gauge,
-  GraduationCap, LayoutDashboard, Menu, MoreHorizontal, Play, Plus, RotateCcw,
-  Search, Settings, ShieldCheck, Sparkles, Target, Trophy, UserRound, X,
-  Zap, SlidersHorizontal, ListChecks, TimerReset, LockKeyhole
-} from 'lucide-react';
-
-type Screen =
-  | 'home' | 'practice' | 'smart' | 'custom' | 'question' | 'results'
-  | 'progress' | 'cbt' | 'profile' | 'settings' | 'blitz';
-
-const subjects = [
-  { name: 'English Language', short: 'ENG', color: 'bg-blue-600', progress: 72, questions: 184 },
-  { name: 'Mathematics', short: 'MTH', color: 'bg-indigo-600', progress: 61, questions: 143 },
-  { name: 'Physics', short: 'PHY', color: 'bg-violet-600', progress: 48, questions: 96 },
-  { name: 'Chemistry', short: 'CHE', color: 'bg-amber-500', progress: 55, questions: 112 },
-];
-
-const weakTopics = [
-  { topic: 'Proximity Concord', subject: 'English Language', score: 42, trend: 'Needs attention' },
-  { topic: 'Kinematics', subject: 'Physics', score: 51, trend: 'Improving' },
-  { topic: 'Organic Chemistry', subject: 'Chemistry', score: 57, trend: 'Improving' },
-];
-
-const recentSessions = [
-  { title: 'English • Concord', type: 'Smart Practice', score: '78%', meta: '20 questions · 18 min', date: 'Today' },
-  { title: 'Physics • Motion', type: 'Custom Practice', score: '65%', meta: '15 questions · 14 min', date: 'Yesterday' },
-  { title: 'Chemistry • Organic', type: 'Smart Practice', score: '82%', meta: '20 questions · 21 min', date: 'Mon' },
-];
-
-function ProgressBar({ value, className = '' }: { value: number; className?: string }) {
-  return <div className={'h-2 overflow-hidden rounded-full bg-slate-100 ' + className}><div className="h-full rounded-full bg-[#4A90D9]" style={{ width: value + '%' }} /></div>;
-}
-
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={'rounded-2xl border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,0.05)] ' + className}>{children}</div>;
-}
-
-function PrimaryButton({ children, onClick, variant = 'primary', className = '' }: { children: React.ReactNode; onClick?: () => void; variant?: 'primary' | 'secondary' | 'ghost'; className?: string }) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] disabled:opacity-50';
-  const styles = variant === 'primary'
-    ? 'bg-[#0A1128] text-white hover:bg-[#182343]'
-    : variant === 'secondary'
-      ? 'border border-slate-200 bg-white text-[#0A1128] hover:bg-slate-50'
-      : 'text-slate-600 hover:bg-slate-100';
-  return <button onClick={onClick} className={base + ' ' + styles + ' ' + className}>{children}</button>;
-}
-
-function Sidebar({ active, setActive }: { active: Screen; setActive: (s: Screen) => void }) {
-  const nav = [
-    ['home', 'Overview', LayoutDashboard], ['practice', 'Practice', BookOpen],
-    ['blitz', 'Blitz', Zap], ['cbt', 'CBT Exam', TimerReset],
-    ['progress', 'Progress', BarChart3],
-  ] as const;
-  return <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col">
-    <div className="flex h-20 items-center px-6"><div className="flex items-center gap-2"><div className="grid h-9 w-9 place-items-center rounded-xl bg-[#0A1128] text-white font-black">S</div><span className="font-display text-xl font-extrabold tracking-tight">SABI</span></div></div>
-    <div className="px-4">
-      <div className="mb-4 rounded-2xl bg-[#0A1128] p-4 text-white"><div className="mb-3 flex items-center justify-between"><span className="text-xs font-bold text-blue-200">JAMB 2027</span><span className="rounded-full bg-white/10 px-2 py-1 text-[10px]">ON TRACK</span></div><p className="font-display text-lg font-extrabold">Keep building.</p><p className="mt-1 text-xs text-slate-300">Your consistency is stronger than last week.</p><div className="mt-4"><ProgressBar value={68} className="[&>div]:bg-[#F5C518] bg-white/10" /></div></div>
-      </div>
-    <nav className="flex-1 space-y-1 px-3">
-      {nav.map(([id, label, Icon]) => <button key={id} onClick={() => setActive(id)} className={'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ' + (active === id ? 'bg-blue-50 text-[#0A1128]' : 'text-slate-500 hover:bg-slate-50')}><Icon size={18} />{label}{id === 'blitz' && <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-[10px] text-amber-700">NEW</span>}</button>)}
-      <div className="my-4 border-t border-slate-100" />
-      {[
-        ['profile', 'Profile', UserRound],
-        ['settings', 'Settings', Settings],
-      ].map(([id, label, Icon]) => <button key={id} onClick={() => setActive(id as Screen)} className={'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ' + (active === id ? 'bg-blue-50 text-[#0A1128]' : 'text-slate-500 hover:bg-slate-50')}><Icon size={18} />{label}</button>)}
-    </nav>
-    <div className="border-t border-slate-100 p-4"><div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3"><div className="grid h-9 w-9 place-items-center rounded-full bg-blue-100 text-sm font-extrabold text-blue-700">AO</div><div className="min-w-0"><p className="truncate text-sm font-bold">Aspirant</p><p className="truncate text-xs text-slate-400">SS3 · JAMB 2027</p></div><MoreHorizontal size={17} className="ml-auto text-slate-400" /></div></div>
-  </aside>;
-}
-
-function Topbar({ onMenu }: { onMenu: () => void }) {
-  return <header className="flex h-20 items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 lg:px-8">
-    <button onClick={onMenu} className="rounded-xl p-2 hover:bg-slate-100 lg:hidden"><Menu size={21} /></button>
-    <div className="hidden max-w-md flex-1 lg:block"><div className="relative"><Search size={17} className="absolute left-3 top-3 text-slate-400" /><input placeholder="Search subjects, topics or questions..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-300 focus:bg-white" /></div></div>
-    <div className="ml-auto flex items-center gap-2"><button className="rounded-xl p-2.5 text-slate-500 hover:bg-slate-100"><Bell size={19} /></button><div className="mx-1 h-6 w-px bg-slate-200" /><div className="grid h-9 w-9 place-items-center rounded-full bg-blue-100 text-xs font-extrabold text-blue-700">AO</div></div>
-  </header>;
-}
-
-function Overview({ go }: { go: (s: Screen) => void }) {
-  return <div className="space-y-6">
-    <section className="grid gap-5 xl:grid-cols-[1.55fr_1fr]">
-      <Card className="overflow-hidden border-0 bg-[#0A1128] p-6 text-white sm:p-8">
-        <div className="flex items-start justify-between"><div><span className="rounded-full bg-blue-400/15 px-3 py-1 text-[11px] font-bold tracking-wide text-blue-200">YOUR NEXT BEST ACTION</span><h1 className="mt-5 max-w-xl font-display text-3xl font-extrabold leading-tight sm:text-4xl">Strengthen your weak spots before they become exam-day problems.</h1><p className="mt-3 max-w-lg text-sm leading-6 text-slate-300">SABI has identified Proximity Concord as your highest-priority topic. A short smart session is ready.</p></div><Brain className="hidden text-blue-300 sm:block" size={42} /></div>
-        <div className="mt-7 flex flex-wrap gap-3"><PrimaryButton onClick={() => go('smart')} className="bg-white text-[#0A1128] hover:bg-slate-100">Start Smart Practice <ArrowRight size={16} /></PrimaryButton><PrimaryButton onClick={() => go('progress')} variant="ghost" className="text-white hover:bg-white/10">View analysis</PrimaryButton></div>
-      </Card>
-      <Card className="p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Readiness</p><p className="mt-2 font-display text-4xl font-extrabold">68<span className="text-lg text-slate-400">/100</span></p></div><div className="grid h-14 w-14 place-items-center rounded-full bg-blue-50 text-blue-700"><Gauge size={28} /></div></div><ProgressBar value={68} className="mt-5" /><div className="mt-4 grid grid-cols-2 gap-4 text-sm"><div><p className="text-slate-400">This week</p><p className="font-bold text-emerald-600">+6 points</p></div><div><p className="text-slate-400">Study streak</p><p className="font-bold">7 days 🔥</p></div></div></Card>
-    </section>
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      {subjects.map(s => <Card key={s.name} className="p-5"><div className="flex items-center gap-3"><div className={'grid h-10 w-10 place-items-center rounded-xl text-xs font-black text-white ' + s.color}>{s.short}</div><div className="min-w-0"><p className="truncate text-sm font-bold">{s.name}</p><p className="text-xs text-slate-400">{s.questions} questions</p></div></div><div className="mt-5 flex items-center justify-between text-xs"><span className="font-semibold text-slate-500">Mastery</span><span className="font-bold">{s.progress}%</span></div><ProgressBar value={s.progress} className="mt-2" /></Card>)}
-    </section>
-    <section className="grid gap-6 xl:grid-cols-[1.3fr_0.7fr]">
-      <Card className="p-6"><div className="flex items-center justify-between"><div><h2 className="font-display text-lg font-extrabold">Continue learning</h2><p className="mt-1 text-sm text-slate-400">Pick up where you left off.</p></div><PrimaryButton variant="ghost" onClick={() => go('practice')}>See all <ArrowRight size={15} /></PrimaryButton></div><div className="mt-5 space-y-3">{recentSessions.map((s, i) => <button key={i} onClick={() => go('results')} className="flex w-full items-center gap-4 rounded-xl border border-slate-100 p-4 text-left hover:border-blue-200 hover:bg-blue-50/30"><div className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-600"><BookOpen size={18} /></div><div className="min-w-0 flex-1"><p className="text-sm font-bold">{s.title}</p><p className="mt-1 text-xs text-slate-400">{s.type} · {s.meta}</p></div><div className="text-right"><p className="text-sm font-extrabold">{s.score}</p><p className="text-[11px] text-slate-400">{s.date}</p></div><ChevronRight size={16} className="text-slate-300" /></button>)}</div></Card>
-      <Card className="p-6"><div className="flex items-center justify-between"><h2 className="font-display text-lg font-extrabold">Focus areas</h2><Target size={18} className="text-blue-500" /></div><div className="mt-5 space-y-5">{weakTopics.map(w => <div key={w.topic}><div className="flex items-center justify-between text-sm"><div><p className="font-bold">{w.topic}</p><p className="text-xs text-slate-400">{w.subject}</p></div><span className="font-extrabold">{w.score}%</span></div><ProgressBar value={w.score} className="mt-2" /><p className="mt-1 text-[11px] text-slate-400">{w.trend}</p></div>)}</div></Card>
-    </section>
-  </div>;
-}
-
-function PracticeHub({ go }: { go: (s: Screen) => void }) {
-  return <div className="space-y-6">
-    <div><p className="text-sm font-semibold text-blue-600">Practice</p><h1 className="mt-1 font-display text-3xl font-extrabold">Choose how you want to practice.</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">SABI gives you three ways to turn questions into measurable progress. Start guided, build your own session, or jump straight into the question flow.</p></div>
-    <div className="grid gap-5 lg:grid-cols-3">
-      {[
-        {id:'smart', icon:Sparkles, title:'Smart Practice', tag:'RECOMMENDED', text:'Let SABI choose the right questions from your mastery profile.', bullets:['Targets weak topics automatically','Difficulty adapts as you answer','Short, focused sessions']},
-        {id:'custom', icon:SlidersHorizontal, title:'Custom Practice', tag:'YOUR CONTROL', text:'Choose the subject, topic, year and number of questions yourself.', bullets:['Subject + topic filters','JAMB past-question style','Set your own session length']},
-        {id:'question', icon:Play, title:'Quick Practice', tag:'START NOW', text:'Open a focused question session with no setup.', bullets:['Instant question experience','Immediate feedback','Pause and resume']},
-      ].map(({id,icon:Icon,title,tag,text,bullets}) => <Card key={id} className="flex flex-col p-6"><div className="flex items-center justify-between"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Icon size={23}/></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-extrabold tracking-wide text-slate-500">{tag}</span></div><h2 className="mt-6 font-display text-xl font-extrabold">{title}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{text}</p><ul className="mt-5 space-y-2 text-sm text-slate-600">{bullets.map(b=><li key={b} className="flex gap-2"><Check size={16} className="mt-0.5 text-emerald-600"/>{b}</li>)}</ul><PrimaryButton onClick={()=>go(id as Screen)} className="mt-7 w-full">{id==='question'?'Start session':'Open '+title}<ArrowRight size={15}/></PrimaryButton></Card>)}
-    </div>
-    <Card className="p-6"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Recent performance</p><h2 className="mt-1 font-display text-xl font-extrabold">You average 74% in practice</h2><p className="mt-1 text-sm text-slate-500">Your last five sessions show a steady upward trend.</p></div><PrimaryButton variant="secondary" onClick={()=>go('progress')}>Open Progress <BarChart3 size={16}/></PrimaryButton></div></Card>
-  </div>;
-}
-
-function SmartPractice({ go }: { go: (s: Screen) => void }) {
-  return <div className="mx-auto max-w-5xl space-y-6">
-    <button onClick={()=>go('practice')} className="flex items-center gap-1 text-sm font-bold text-slate-500 hover:text-[#0A1128]"><ChevronLeft size={16}/>Back to Practice</button>
-    <div className="grid gap-6 lg:grid-cols-[1fr_330px]">
-      <Card className="p-6 sm:p-8"><div className="flex items-center gap-3"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-700"><Sparkles size={23}/></div><div><p className="text-xs font-bold uppercase tracking-wider text-blue-600">Adaptive session</p><h1 className="font-display text-2xl font-extrabold">Smart Practice</h1></div></div><div className="mt-8 rounded-2xl bg-slate-50 p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">SABI recommends</p><h2 className="mt-2 text-xl font-extrabold">English Language · Proximity Concord</h2><p className="mt-2 text-sm leading-6 text-slate-500">Your recent answers suggest this topic will give you the highest immediate learning value.</p><div className="mt-5 grid grid-cols-3 gap-3"><div><p className="text-xs text-slate-400">Questions</p><p className="mt-1 font-extrabold">15</p></div><div><p className="text-xs text-slate-400">Difficulty</p><p className="mt-1 font-extrabold">Adaptive</p></div><div><p className="text-xs text-slate-400">Target</p><p className="mt-1 font-extrabold">42% → 65%</p></div></div></div><div className="mt-6 flex gap-3"><PrimaryButton onClick={()=>go('question')}>Start smart session <ArrowRight size={16}/></PrimaryButton><PrimaryButton variant="secondary" onClick={()=>go('custom')}>Change setup</PrimaryButton></div></Card>
-      <Card className="p-6"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">What happens next</p><div className="mt-5 space-y-5">{[['1','Start focused','Questions begin at a comfortable level.'],['2','Adapt','Difficulty changes from your answers.'],['3','Learn','Feedback highlights what to review.'],['4','Measure','Your mastery updates after the session.']].map(([n,t,d])=><div key={n} className="flex gap-3"><div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#0A1128] text-xs font-bold text-white">{n}</div><div><p className="text-sm font-bold">{t}</p><p className="mt-1 text-xs leading-5 text-slate-400">{d}</p></div></div>)}</div></Card>
-    </div>
-  </div>;
-}
-
-function CustomPractice({ go }: { go: (s: Screen) => void }) {
-  const [subject,setSubject]=useState('English Language'); const [topic,setTopic]=useState('All topics'); const [count,setCount]=useState('20');
-  return <div className="mx-auto max-w-4xl space-y-6"><button onClick={()=>go('practice')} className="flex items-center gap-1 text-sm font-bold text-slate-500"><ChevronLeft size={16}/>Back to Practice</button><Card className="p-6 sm:p-8"><div><p className="text-xs font-bold uppercase tracking-wider text-blue-600">Build a session</p><h1 className="mt-1 font-display text-2xl font-extrabold">Custom Practice</h1><p className="mt-2 text-sm text-slate-500">You decide exactly what you want to work on.</p></div><div className="mt-8 grid gap-5 sm:grid-cols-2"><label className="text-sm font-bold">Subject<select value={subject} onChange={e=>setSubject(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium outline-none focus:border-blue-400">{subjects.map(s=><option key={s.name}>{s.name}</option>)}</select></label><label className="text-sm font-bold">Topic<select value={topic} onChange={e=>setTopic(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium outline-none focus:border-blue-400"><option>All topics</option><option>Proximity Concord</option><option>Comprehension</option><option>Lexis & Structure</option></select></label><label className="text-sm font-bold">Past-question year<select className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium outline-none"><option>Mixed years</option><option>2025</option><option>2024</option><option>2023</option><option>2022</option></select></label><label className="text-sm font-bold">Number of questions<select value={count} onChange={e=>setCount(e.target.value)} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-medium outline-none"><option>10</option><option>15</option><option>20</option><option>30</option><option>40</option></select></label></div><div className="mt-7 rounded-xl border border-blue-100 bg-blue-50/50 p-4"><div className="flex gap-3"><ShieldCheck className="mt-0.5 text-blue-600" size={18}/><div><p className="text-sm font-bold">Session preview</p><p className="mt-1 text-xs text-slate-500">{subject} · {topic} · {count} questions · Instant feedback</p></div></div></div><PrimaryButton onClick={()=>go('question')} className="mt-7">Start custom practice <ArrowRight size={16}/></PrimaryButton></Card></div>;
-}
-
-function QuestionExperience({ go }: { go: (s: Screen) => void }) {
-  const [selected,setSelected]=useState<string|null>(null); const [submitted,setSubmitted]=useState(false);
-  const options=[['A','have'],['B','has'],['C','having'],['D','had']];
-  return <div className="mx-auto max-w-5xl space-y-5"><div className="flex items-center justify-between"><button onClick={()=>go('practice')} className="flex items-center gap-1 text-sm font-bold text-slate-500"><ChevronLeft size={16}/>Exit session</button><div className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-xs font-bold shadow-sm ring-1 ring-slate-200"><Clock3 size={15} className="text-blue-600"/> 12:48</div></div><Card className="overflow-hidden"><div className="flex items-center justify-between border-b border-slate-100 px-5 py-4"><div><p className="text-xs font-bold text-blue-600">ENGLISH LANGUAGE · PROXIMITY CONCORD</p><p className="mt-1 text-sm font-bold">Question 6 of 15</p></div><span className="text-xs font-bold text-slate-400">40%</span></div><ProgressBar value={40} className="h-1 rounded-none" /><div className="p-6 sm:p-10"><div className="mx-auto max-w-3xl"><p className="font-display text-xl font-extrabold leading-8 sm:text-2xl">Neither the teacher nor the students ___ aware of the change in schedule.</p><div className="mt-8 space-y-3">{options.map(([letter,text])=><button key={letter} onClick={()=>!submitted&&setSelected(letter)} className={'flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition ' + (submitted&&letter==='A'?'border-emerald-300 bg-emerald-50':selected===letter?'border-blue-400 bg-blue-50':'border-slate-200 hover:border-slate-300')}><span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-sm font-extrabold">{letter}</span><span className="font-semibold">{text}</span>{submitted&&letter==='A'&&<CheckCircle2 className="ml-auto text-emerald-600" size={19}/>}</button>)}</div>{submitted&&<div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="font-bold text-emerald-800">Correct. The verb agrees with the nearer subject “students”.</p><p className="mt-2 text-sm leading-6 text-emerald-700">This is proximity concord. Keep watching the noun closest to the verb when the subjects are joined by “neither…nor”.</p></div>}<div className="mt-8 flex items-center justify-between"><PrimaryButton variant="ghost"><CircleHelp size={16}/>Need a hint</PrimaryButton>{!submitted?<PrimaryButton disabled={!selected} onClick={()=>setSubmitted(true)}>Check answer <Check size={16}/></PrimaryButton>:<PrimaryButton onClick={()=>go('results')}>Next question <ArrowRight size={16}/></PrimaryButton>}</div></div></div></Card></div>;
-}
-
-function Results({ go }: { go: (s: Screen) => void }) {
-  return <div className="mx-auto max-w-5xl space-y-6"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-600">Session complete</p><h1 className="mt-1 font-display text-3xl font-extrabold">Good work. Here’s what changed.</h1><p className="mt-2 text-sm text-slate-500">Your session results are a learning signal, not just a score.</p></div><div className="grid gap-5 lg:grid-cols-[1fr_1fr]"><Card className="p-7"><div className="flex items-center gap-6"><div className="grid h-28 w-28 place-items-center rounded-full border-[10px] border-blue-100 bg-blue-50 text-center"><div><p className="font-display text-3xl font-extrabold">78%</p><p className="text-[10px] font-bold text-slate-400">SCORE</p></div></div><div><p className="text-sm text-slate-400">English Language</p><p className="mt-1 font-display text-xl font-extrabold">Proximity Concord</p><p className="mt-2 text-sm font-semibold text-emerald-600">+8% from your last session</p></div></div><div className="mt-8 grid grid-cols-3 gap-3">{[['12','Correct'],['3','Missed'],['18m','Time']].map(([a,b])=><div key={b} className="rounded-xl bg-slate-50 p-4"><p className="font-display text-xl font-extrabold">{a}</p><p className="mt-1 text-xs text-slate-400">{b}</p></div>)}</div></Card><Card className="p-7"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">What SABI learned</p><div className="mt-5 space-y-4">{[['Mastery improved','Proximity Concord','42% → 58%'],['Next focus','Collective nouns','Recommended'],['Strength','Error recognition','Strong']].map(([a,b,c])=><div key={a} className="flex items-center justify-between border-b border-slate-100 pb-4 last:border-0"><div><p className="text-sm font-bold">{a}</p><p className="mt-1 text-xs text-slate-400">{b}</p></div><span className="text-xs font-extrabold text-blue-600">{c}</span></div>)}</div></Card></div><div className="flex flex-wrap gap-3"><PrimaryButton onClick={()=>go('smart')}>Practice next focus <ArrowRight size={16}/></PrimaryButton><PrimaryButton variant="secondary" onClick={()=>go('progress')}>View Progress</PrimaryButton></div></div>;
-}
-
-function ProgressScreen({ go }: { go: (s: Screen) => void }) {
-  return <div className="space-y-6"><div><p className="text-sm font-semibold text-blue-600">Your learning data</p><h1 className="mt-1 font-display text-3xl font-extrabold">Progress & Mastery</h1><p className="mt-2 text-sm text-slate-500">See where your effort is converting into exam readiness.</p></div><div className="grid gap-5 md:grid-cols-3"><Card className="p-5"><p className="text-xs font-bold uppercase text-slate-400">Readiness</p><p className="mt-2 font-display text-3xl font-extrabold">68/100</p><p className="mt-1 text-xs font-semibold text-emerald-600">+6 this week</p></Card><Card className="p-5"><p className="text-xs font-bold uppercase text-slate-400">Questions answered</p><p className="mt-2 font-display text-3xl font-extrabold">535</p><p className="mt-1 text-xs text-slate-400">Across 4 subjects</p></Card><Card className="p-5"><p className="text-xs font-bold uppercase text-slate-400">Study streak</p><p className="mt-2 font-display text-3xl font-extrabold">7 days</p><p className="mt-1 text-xs text-slate-400">Best: 12 days</p></Card></div><Card className="p-6"><div className="flex items-center justify-between"><div><h2 className="font-display text-xl font-extrabold">Subject mastery</h2><p className="mt-1 text-sm text-slate-400">Current estimated mastery by subject.</p></div><PrimaryButton variant="secondary">Last 30 days <ChevronDown size={15}/></PrimaryButton></div><div className="mt-7 space-y-6">{subjects.map(s=><div key={s.name}><div className="flex justify-between text-sm"><span className="font-bold">{s.name}</span><span className="font-extrabold">{s.progress}%</span></div><ProgressBar value={s.progress} className="mt-2"/><div className="mt-2 flex justify-between text-[11px] text-slate-400"><span>{s.questions} questions answered</span><span>{s.progress>=60?'On track':'Needs attention'}</span></div></div>)}</div></Card><div className="grid gap-6 lg:grid-cols-2"><Card className="p-6"><h2 className="font-display text-lg font-extrabold">Priority topics</h2><div className="mt-5 space-y-4">{weakTopics.map(w=><div key={w.topic} className="rounded-xl bg-slate-50 p-4"><div className="flex justify-between"><div><p className="text-sm font-bold">{w.topic}</p><p className="mt-1 text-xs text-slate-400">{w.subject}</p></div><span className="font-extrabold">{w.score}%</span></div><ProgressBar value={w.score} className="mt-3"/></div>)}</div><PrimaryButton onClick={()=>go('smart')} className="mt-5">Work on priority topics <ArrowRight size={15}/></PrimaryButton></Card><Card className="p-6"><h2 className="font-display text-lg font-extrabold">Weekly activity</h2><div className="mt-6 flex h-40 items-end justify-between gap-2">{[35,52,45,72,58,88,64].map((v,i)=><div key={i} className="flex h-full flex-1 flex-col justify-end"><div className="rounded-t-lg bg-blue-500/80" style={{height:v+'%'}}/><p className="mt-2 text-center text-[10px] font-bold text-slate-400">{['M','T','W','T','F','S','S'][i]}</p></div>)}</div><p className="mt-5 text-sm text-slate-500">You were most consistent on Saturday. Aim for a small session every day.</p></Card></div></div>;
-}
-
-function CBT({ go }: { go: (s: Screen) => void }) {
-  return <div className="space-y-6"><div><p className="text-sm font-semibold text-blue-600">Exam simulation</p><h1 className="mt-1 font-display text-3xl font-extrabold">CBT Exam</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Practice the pressure of the real thing with a structured computer-based test experience.</p></div><Card className="overflow-hidden"><div className="bg-[#0A1128] p-7 text-white sm:p-9"><div className="flex items-start justify-between"><div><span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold">JAMB-STYLE SIMULATION</span><h2 className="mt-5 font-display text-3xl font-extrabold">Full mock examination</h2><p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">Four subjects, timed sections, question navigation and a complete post-exam analysis.</p></div><GraduationCap className="hidden text-blue-300 sm:block" size={42}/></div><div className="mt-7 grid grid-cols-2 gap-4 sm:grid-cols-4">{[['4','Subjects'],['180','Questions'],['2h','Duration'],['400','Max score']].map(([a,b])=><div key={b} className="rounded-xl bg-white/5 p-4"><p className="font-display text-xl font-extrabold">{a}</p><p className="mt-1 text-xs text-slate-400">{b}</p></div>)}</div></div><div className="grid gap-6 p-7 lg:grid-cols-2"><div><h3 className="font-bold">Before you start</h3><ul className="mt-4 space-y-3 text-sm text-slate-500">{['Your exam timer starts immediately.','Answers are saved as you move between questions.','You can review and change answers before submission.','Results appear after the session is submitted.'].map(x=><li key={x} className="flex gap-2"><Check size={16} className="mt-0.5 text-emerald-600"/>{x}</li>)}</ul></div><div className="rounded-2xl border border-slate-200 p-5"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Readiness check</p><p className="mt-2 text-lg font-extrabold">You are ready for a full mock.</p><p className="mt-2 text-sm leading-6 text-slate-500">Your recent practice volume is enough to make this simulation useful.</p><PrimaryButton onClick={()=>go('question')} className="mt-5 w-full">Start mock exam <Play size={15}/></PrimaryButton></div></div></Card></div>;
-}
-
-function Blitz({ go }: { go: (s: Screen) => void }) {
-  const [running,setRunning]=useState(false);
-  return <div className="mx-auto max-w-6xl space-y-6"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold text-amber-600">Fast practice mode</p><h1 className="mt-1 font-display text-3xl font-extrabold">Blitz</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Train speed, recognition and decision-making with short bursts of questions.</p></div><div className="flex gap-2"><PrimaryButton variant="secondary"><CircleHelp size={16}/>How it works</PrimaryButton><PrimaryButton onClick={()=>setRunning(!running)}>{running?'Pause':'Start Blitz'} <Zap size={16}/></PrimaryButton></div></div><div className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr]"><Card className="overflow-hidden"><div className="border-b border-slate-100 p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Session</p><p className="mt-1 font-extrabold">English Language · Mixed</p></div><div className="rounded-xl bg-amber-50 px-3 py-2 text-sm font-extrabold text-amber-700">00:45</div></div></div><div className="p-7 sm:p-10"><div className="mx-auto max-w-2xl"><div className="flex justify-between text-xs font-bold text-slate-400"><span>Question 4 / 10</span><span>Streak 3 🔥</span></div><ProgressBar value={40} className="mt-2"/><p className="mt-9 font-display text-xl font-extrabold leading-8">Choose the word nearest in meaning to “meticulous”.</p><div className="mt-7 grid gap-3 sm:grid-cols-2">{['Careless','Thorough','Immediate','Ordinary'].map((x,i)=><button key={x} className="rounded-xl border border-slate-200 p-4 text-left text-sm font-bold hover:border-blue-300 hover:bg-blue-50"><span className="mr-3 text-slate-400">{String.fromCharCode(65+i)}</span>{x}</button>)}</div></div></div></Card><Card className="p-6"><p className="text-xs font-bold uppercase tracking-wider text-slate-400">Blitz stats</p><div className="mt-6 space-y-5">{[['Best streak','12'],['Avg. response','18s'],['Best score','91%'],['Sessions','24']].map(([a,b])=><div key={a} className="flex items-center justify-between border-b border-slate-100 pb-4 last:border-0"><span className="text-sm text-slate-500">{a}</span><span className="font-display text-lg font-extrabold">{b}</span></div>)}</div><div className="mt-5 rounded-xl bg-slate-50 p-4"><p className="text-sm font-bold">Speed is improving.</p><p className="mt-1 text-xs leading-5 text-slate-400">Your average response time is 11% faster than last week.</p></div></Card></div></div>;
-}
-
-function Profile({ go }: { go: (s: Screen) => void }) {
-  return <div className="max-w-4xl space-y-6"><div><p className="text-sm font-semibold text-blue-600">Account</p><h1 className="mt-1 font-display text-3xl font-extrabold">Profile</h1></div><Card className="p-6 sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-center"><div className="grid h-20 w-20 place-items-center rounded-3xl bg-blue-100 text-xl font-extrabold text-blue-700">AO</div><div><h2 className="font-display text-2xl font-extrabold">Aspirant</h2><p className="mt-1 text-sm text-slate-400">SS3 · JAMB 2027</p><p className="mt-2 text-xs font-bold text-emerald-600">Profile 82% complete</p></div></div><div className="mt-8 grid gap-5 sm:grid-cols-2"><label className="text-sm font-bold">Name<input value="Aspirant" readOnly className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"/></label><label className="text-sm font-bold">Email<input value="aspirant@example.com" readOnly className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"/></label><label className="text-sm font-bold">Target course<input value="Computer Science" readOnly className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"/></label><label className="text-sm font-bold">Target university<input value="University of Uyo" readOnly className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm"/></label></div><div className="mt-6 flex gap-3"><PrimaryButton>Edit profile</PrimaryButton><PrimaryButton variant="secondary" onClick={()=>go('settings')}>Account settings</PrimaryButton></div></Card></div>;
-}
-
-function SettingsScreen() {
-  const rows=[['Study reminders','Get a reminder when your planned study window begins.',true],['Daily progress summary','See a compact summary after your study day.',true],['Sound effects','Use subtle sounds during question sessions.',false],['Public leaderboard','Show your name on community rankings.',false]];
-  const [states,setStates]=useState(rows.map(r=>r[2] as boolean));
-  return <div className="max-w-3xl space-y-6"><div><p className="text-sm font-semibold text-blue-600">Preferences</p><h1 className="mt-1 font-display text-3xl font-extrabold">Settings</h1></div><Card className="divide-y divide-slate-100">{rows.map(([title,desc],i)=><div key={title as string} className="flex items-center justify-between gap-6 p-6"><div><p className="text-sm font-bold">{title as string}</p><p className="mt-1 max-w-lg text-xs leading-5 text-slate-400">{desc as string}</p></div><button onClick={()=>setStates(s=>s.map((v,j)=>j===i?!v:v))} className={'relative h-7 w-12 rounded-full transition ' + (states[i]?'bg-[#0A1128]':'bg-slate-200')}><span className={'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ' + (states[i]?'left-6':'left-1')} /></button></div>)}</Card><Card className="p-6"><div className="flex items-center gap-3"><LockKeyhole size={19} className="text-slate-500"/><div><p className="text-sm font-bold">Learning data</p><p className="mt-1 text-xs text-slate-400">Your learning profile is used to personalize practice. Account and learning-state authority belongs to the connected backend.</p></div></div></Card></div>;
-}
+import React, { useState, useEffect } from 'react';
+import MobileFrame from './components/mobile/MobileFrame';
+import MobileHeader from './components/mobile/MobileHeader';
+import MobileBottomNav, { MobileTab } from './components/mobile/MobileBottomNav';
+import HomeDashboard from './components/mobile/HomeDashboard';
+import PracticeHubScreen from './components/mobile/PracticeHubScreen';
+import SpeedBlitzScreen from './components/mobile/SpeedBlitzScreen';
+import MasteryAnalyticsScreen from './components/mobile/MasteryAnalyticsScreen';
+import ProfileSettingsScreen from './components/mobile/ProfileSettingsScreen';
+import FullMockExamModal from './components/mobile/FullMockExamModal';
+import MobileAITutorModal from './components/mobile/MobileAITutorModal';
+import NotificationsSheet from './components/mobile/NotificationsSheet';
+import GoalCustomizerModal from './components/mobile/GoalCustomizerModal';
+import FormulaCheatSheetModal from './components/mobile/FormulaCheatSheetModal';
+import JAMBCalculatorModal from './components/mobile/JAMBCalculatorModal';
+import MistakeNotebookModal from './components/mobile/MistakeNotebookModal';
+import JAMBResultSlipModal from './components/mobile/JAMBResultSlipModal';
+import NovelMasterGuideModal from './components/mobile/NovelMasterGuideModal';
+import OralEnglishModal from './components/mobile/OralEnglishModal';
+import OfflineIndicator from './components/mobile/OfflineIndicator';
+import LeaderboardModal from './components/mobile/LeaderboardModal';
+import JAMBBrochureCheckerModal from './components/mobile/JAMBBrochureCheckerModal';
+import SyllabusFrequencyHeatmapModal from './components/mobile/SyllabusFrequencyHeatmapModal';
+import DailyUTMEChallengeModal from './components/mobile/DailyUTMEChallengeModal';
+import { SubjectName, StudentProfile, Question } from './types';
+import { sound } from './utils/soundEffects';
 
 export default function ProductionApp() {
-  const [screen,setScreen]=useState<Screen>('home'); const [mobileOpen,setMobileOpen]=useState(false);
-  const [history,setHistory]=useState<Screen[]>([]);
-  const go=(next:Screen)=>{setHistory(h=>[...h,screen]);setScreen(next);setMobileOpen(false);};
-  const content=useMemo(()=>({
-    home:<Overview go={go}/>, practice:<PracticeHub go={go}/>, smart:<SmartPractice go={go}/>,
-    custom:<CustomPractice go={go}/>, question:<QuestionExperience go={go}/>, results:<Results go={go}/>,
-    progress:<ProgressScreen go={go}/>, cbt:<CBT go={go}/>, blitz:<Blitz go={go}/>,
-    profile:<Profile go={go}/>, settings:<SettingsScreen/>
-  }[screen]),[screen]);
-  return <div className="min-h-screen bg-[#F8FAFC] text-[#0A1128]">
-    <div className="flex min-h-screen">
-      <Sidebar active={screen} setActive={go}/>
-      {mobileOpen && <div className="fixed inset-0 z-50 flex lg:hidden"><button className="absolute inset-0 bg-slate-950/40" onClick={()=>setMobileOpen(false)}/><div className="relative w-72 bg-white"><div className="flex h-20 items-center justify-between px-6"><span className="font-display text-xl font-extrabold">SABI</span><button onClick={()=>setMobileOpen(false)}><X/></button></div><nav className="space-y-1 px-3">{[['home','Overview'],['practice','Practice'],['blitz','Blitz'],['cbt','CBT Exam'],['progress','Progress'],['profile','Profile'],['settings','Settings']].map(([id,label])=><button key={id} onClick={()=>go(id as Screen)} className={'w-full rounded-xl px-4 py-3 text-left text-sm font-bold '+(screen===id?'bg-blue-50':'hover:bg-slate-50')}>{label}</button>)}</nav></div></div>}
-      <main className="min-w-0 flex-1"><Topbar onMenu={()=>setMobileOpen(true)}/><div className="mx-auto max-w-[1500px] p-4 sm:p-6 lg:p-8">{history.length>0 && screen!=='home' && <button onClick={()=>{const prev=history[history.length-1];setHistory(h=>h.slice(0,-1));setScreen(prev)}} className="mb-4 hidden items-center gap-1 text-xs font-bold text-slate-400 hover:text-slate-700 sm:flex"><ChevronLeft size={14}/>Back</button>}{content}</div></main>
-    </div>
-  </div>;
+  const [currentTab, setCurrentTab] = useState<MobileTab>('home');
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sabi_theme');
+      if (saved === 'dark') return true;
+      if (saved === 'light') return false;
+    }
+    return false; // Default to clean, modern Light Mode
+  });
+  const [fullWidthMode, setFullWidthMode] = useState<boolean>(false);
+
+  // Student Profile State
+  const [profile, setProfile] = useState<StudentProfile>({
+    name: 'David Chukwu',
+    classLevel: 'SS3',
+    attempts: 1,
+    chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+    targetCourse: 'Medicine & Surgery',
+    targetUniversity: 'University of Lagos (UNILAG)',
+    monthsUntilExam: 4,
+    priorScoreBaseline: 320,
+    subjectConfidence: {
+      'English Language': 4,
+      'Mathematics': 4,
+      'Physics': 3,
+      'Chemistry': 3,
+      'Biology': 3,
+      'Agricultural Science': 3,
+      'Geography': 3,
+      'Economics': 3,
+      'Government': 3,
+      'History': 3,
+      'Commerce': 3,
+      'Financial Accounting': 3,
+      'Christian Religious Studies': 3,
+      'Islamic Religious Studies': 3,
+      'Literature-in-English': 3,
+      'Music': 3,
+      'Fine Art': 3,
+      'French': 3,
+      'Arabic': 3,
+      'Yoruba': 3,
+      'Igbo': 3,
+      'Hausa': 3,
+      'Home Economics': 3,
+    },
+    struggleTypes: {
+      'English Language': 'none',
+      'Mathematics': 'time',
+      'Physics': 'method',
+      'Chemistry': 'careless',
+      'Biology': 'none',
+      'Agricultural Science': 'none',
+      'Geography': 'none',
+      'Economics': 'none',
+      'Government': 'none',
+      'History': 'none',
+      'Commerce': 'none',
+      'Financial Accounting': 'none',
+      'Christian Religious Studies': 'none',
+      'Islamic Religious Studies': 'none',
+      'Literature-in-English': 'none',
+      'Music': 'none',
+      'Fine Art': 'none',
+      'French': 'none',
+      'Arabic': 'none',
+      'Yoruba': 'none',
+      'Igbo': 'none',
+      'Hausa': 'none',
+      'Home Economics': 'none',
+    },
+    studyHabits: 'scheduled',
+    dailyStudyHours: '2-3 hours',
+    studyEnvironment: 'quiet',
+    explanationPreference: 'step-by-step',
+    languagePreference: 'english',
+    motivation: 'To gain admission to UNILAG for Medicine & Surgery on first attempt.',
+    blindSpots: ['Proximity Concord', 'Refraction & Critical Angle'],
+    streakCount: 14,
+    xpPoints: 1450,
+    unlockedSubjectsCount: 4,
+    isPremium: true,
+    aiCredits: 50,
+    topicMemories: {},
+    conversationHistory: [],
+  });
+
+  // Gamification Counters
+  const [streakCount, setStreakCount] = useState<number>(14);
+  const [xpPoints, setXpPoints] = useState<number>(1450);
+
+  // Active Target Subject for Practice Drill
+  const [activePracticeSubject, setActivePracticeSubject] = useState<SubjectName>('English Language');
+
+  // Modals & Sheets State
+  const [isMockExamOpen, setIsMockExamOpen] = useState<boolean>(false);
+  const [isAITutorOpen, setIsAITutorOpen] = useState<boolean>(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const [isGoalCustomizerOpen, setIsGoalCustomizerOpen] = useState<boolean>(false);
+  const [isCheatSheetOpen, setIsCheatSheetOpen] = useState<boolean>(false);
+  const [isMistakeNotebookOpen, setIsMistakeNotebookOpen] = useState<boolean>(false);
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState<boolean>(false);
+  const [isResultSlipOpen, setIsResultSlipOpen] = useState<boolean>(false);
+  const [isNovelGuideOpen, setIsNovelGuideOpen] = useState<boolean>(false);
+  const [isOralEnglishOpen, setIsOralEnglishOpen] = useState<boolean>(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState<boolean>(false);
+  const [isBrochureCheckerOpen, setIsBrochureCheckerOpen] = useState<boolean>(false);
+  const [isSyllabusHeatmapOpen, setIsSyllabusHeatmapOpen] = useState<boolean>(false);
+  const [isDailyChallengeArenaOpen, setIsDailyChallengeArenaOpen] = useState<boolean>(false);
+  const [mockExamResult, setMockExamResult] = useState<{
+    totalScore: number;
+    subjects: { name: string; score: number; maxScore: number }[];
+  } | undefined>(undefined);
+
+  const [aiTutorSubject, setAiTutorSubject] = useState<SubjectName>('Physics');
+  const [aiTutorTopic, setAiTutorTopic] = useState<string>('Waves & Optics');
+
+  // Sync dark mode class on document element and persist preference
+  useEffect(() => {
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('sabi_theme', 'dark');
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#0B0F19');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('sabi_theme', 'light');
+      if (metaThemeColor) metaThemeColor.setAttribute('content', '#FFFFFF');
+    }
+  }, [darkMode]);
+
+  const handleAddXP = (amount: number) => {
+    setXpPoints(prev => prev + amount);
+  };
+
+  const handleStartSubjectPractice = (subject: SubjectName) => {
+    sound.playTap();
+    setActivePracticeSubject(subject);
+    setCurrentTab('practice');
+  };
+
+  const handleOpenAITutor = (subject?: SubjectName, topic?: string) => {
+    sound.playTap();
+    if (subject) setAiTutorSubject(subject);
+    if (topic) setAiTutorTopic(topic);
+    setIsAITutorOpen(true);
+  };
+
+  const handleSaveProfile = (updated: Partial<StudentProfile>) => {
+    sound.playCorrect();
+    setProfile(prev => ({
+      ...prev,
+      ...updated,
+    }));
+  };
+
+  const handleResetData = () => {
+    sound.playTap();
+    setXpPoints(100);
+    setStreakCount(1);
+    setCurrentTab('home');
+  };
+
+  const handleTabChange = (tab: MobileTab) => {
+    sound.playTap();
+    setCurrentTab(tab);
+  };
+
+  return (
+    <MobileFrame
+      darkMode={darkMode}
+      setDarkMode={setDarkMode}
+      fullWidthMode={fullWidthMode}
+      setFullWidthMode={setFullWidthMode}
+      onOpenAIModal={() => handleOpenAITutor()}
+    >
+      {/* Mobile Top Header (Present across tabs) */}
+      <MobileHeader
+        profile={profile}
+        streakCount={streakCount}
+        xpPoints={xpPoints}
+        darkMode={darkMode}
+        onToggleDarkMode={() => setDarkMode(d => !d)}
+        onOpenNotifications={() => setIsNotificationsOpen(true)}
+        onOpenProfile={() => setCurrentTab('profile')}
+        onOpenLeaderboard={() => {
+          sound.playTap();
+          setIsLeaderboardOpen(true);
+        }}
+      />
+
+      {/* Screen Views based on Active Mobile Tab */}
+      <div className="flex-1 flex flex-col">
+        {currentTab === 'home' && (
+          <HomeDashboard
+            profile={profile}
+            onNavigateToTab={handleTabChange}
+            onStartSubjectPractice={handleStartSubjectPractice}
+            onStartMockExam={() => {
+              sound.playTap();
+              setIsMockExamOpen(true);
+            }}
+            onOpenAITutor={handleOpenAITutor}
+            onAddXP={handleAddXP}
+            onOpenPastQuestions={() => handleTabChange('practice')}
+            onOpenCheatSheet={() => {
+              sound.playTap();
+              setIsCheatSheetOpen(true);
+            }}
+            onOpenMistakeNotebook={() => {
+              sound.playTap();
+              setIsMistakeNotebookOpen(true);
+            }}
+            onOpenCalculator={() => {
+              sound.playTap();
+              setIsCalculatorOpen(true);
+            }}
+            onOpenNovelGuide={() => {
+              sound.playTap();
+              setIsNovelGuideOpen(true);
+            }}
+            onOpenResultSlip={() => {
+              sound.playTap();
+              setIsResultSlipOpen(true);
+            }}
+            onOpenOralEnglish={() => {
+              sound.playTap();
+              setIsOralEnglishOpen(true);
+            }}
+            onOpenBrochureChecker={() => {
+              sound.playTap();
+              setIsBrochureCheckerOpen(true);
+            }}
+            onOpenSyllabusHeatmap={() => {
+              sound.playTap();
+              setIsSyllabusHeatmapOpen(true);
+            }}
+            onOpenDailyChallengeArena={() => {
+              sound.playTap();
+              setIsDailyChallengeArenaOpen(true);
+            }}
+            onOpenLeaderboard={() => {
+              sound.playTap();
+              setIsLeaderboardOpen(true);
+            }}
+          />
+        )}
+
+        {currentTab === 'practice' && (
+          <PracticeHubScreen
+            initialSubject={activePracticeSubject}
+            onOpenAITutor={(subj, topic) => handleOpenAITutor(subj, topic)}
+            onAddXP={handleAddXP}
+          />
+        )}
+
+        {currentTab === 'blitz' && (
+          <SpeedBlitzScreen onAddXP={handleAddXP} />
+        )}
+
+        {currentTab === 'mastery' && (
+          <MasteryAnalyticsScreen
+            onStartTopicPractice={(subj, topic) => {
+              sound.playTap();
+              setActivePracticeSubject(subj);
+              setCurrentTab('practice');
+            }}
+          />
+        )}
+
+        {currentTab === 'profile' && (
+          <ProfileSettingsScreen
+            profile={profile}
+            darkMode={darkMode}
+            onToggleDarkMode={() => setDarkMode(d => !d)}
+            onResetData={handleResetData}
+            onOpenGoalCustomizer={() => {
+              sound.playTap();
+              setIsGoalCustomizerOpen(true);
+            }}
+          />
+        )}
+      </div>
+
+      {/* Bottom Navigation Bar */}
+      <MobileBottomNav
+        currentTab={currentTab}
+        onChangeTab={handleTabChange}
+      />
+
+      {/* Full Mock CBT Exam Simulator Modal */}
+      <FullMockExamModal
+        isOpen={isMockExamOpen}
+        onClose={() => setIsMockExamOpen(false)}
+        onAddXP={handleAddXP}
+        onOpenResultSlip={(res) => {
+          setMockExamResult(res);
+          setIsResultSlipOpen(true);
+        }}
+      />
+
+      {/* Sabi AI Tutor Doubt Solver Drawer/Modal */}
+      <MobileAITutorModal
+        isOpen={isAITutorOpen}
+        onClose={() => setIsAITutorOpen(false)}
+        initialSubject={aiTutorSubject}
+        initialTopic={aiTutorTopic}
+      />
+
+      {/* Notifications Drawer */}
+      <NotificationsSheet
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onActionClick={action => {
+          if (action === 'practice' || action === 'mastery') {
+            handleTabChange(action as MobileTab);
+          }
+        }}
+      />
+
+      {/* Academic Goal Customizer */}
+      <GoalCustomizerModal
+        isOpen={isGoalCustomizerOpen}
+        onClose={() => setIsGoalCustomizerOpen(false)}
+        profile={profile}
+        onSaveProfile={handleSaveProfile}
+      />
+
+      {/* Formula & Rules Cheat Sheet Modal */}
+      <FormulaCheatSheetModal
+        isOpen={isCheatSheetOpen}
+        onClose={() => setIsCheatSheetOpen(false)}
+      />
+
+      {/* Official JAMB CBT 8-Digit Basic Calculator */}
+      <JAMBCalculatorModal
+        isOpen={isCalculatorOpen}
+        onClose={() => setIsCalculatorOpen(false)}
+      />
+
+      {/* Mistake Notebook / Review Queue Modal */}
+      <MistakeNotebookModal
+        isOpen={isMistakeNotebookOpen}
+        onClose={() => setIsMistakeNotebookOpen(false)}
+        onStartRetest={(questions: Question[]) => {
+          if (questions.length > 0) {
+            setActivePracticeSubject(questions[0].subject);
+            setCurrentTab('practice');
+          }
+        }}
+        onOpenAITutor={(subj, topic) => handleOpenAITutor(subj, topic)}
+      />
+
+      {/* Official JAMB Mock Result Slip & Certificate */}
+      <JAMBResultSlipModal
+        isOpen={isResultSlipOpen}
+        onClose={() => setIsResultSlipOpen(false)}
+        profile={profile}
+        mockResult={mockExamResult}
+      />
+
+      {/* JAMB Compulsory Novel Master Guide: The Life Changer */}
+      <NovelMasterGuideModal
+        isOpen={isNovelGuideOpen}
+        onClose={() => setIsNovelGuideOpen(false)}
+        onAddXP={handleAddXP}
+      />
+
+      {/* Oral English & Phonetics Drill */}
+      <OralEnglishModal
+        isOpen={isOralEnglishOpen}
+        onClose={() => setIsOralEnglishOpen(false)}
+        onAddXP={handleAddXP}
+      />
+
+      {/* Peer Leaderboard & Standings Modal */}
+      <LeaderboardModal
+        isOpen={isLeaderboardOpen}
+        onClose={() => setIsLeaderboardOpen(false)}
+        currentUserXP={xpPoints}
+        currentUserStreak={streakCount}
+      />
+
+      {/* JAMB CAPS Brochure Advisor & Subject Combination Validator */}
+      <JAMBBrochureCheckerModal
+        isOpen={isBrochureCheckerOpen}
+        onClose={() => setIsBrochureCheckerOpen(false)}
+        profile={profile}
+        onUpdateProfileSubjects={(subjects, course, university) => {
+          setProfile(prev => ({
+            ...prev,
+            chosenSubjects: subjects,
+            ...(course ? { targetCourse: course } : {}),
+            ...(university ? { targetUniversity: university } : {}),
+          }));
+        }}
+      />
+
+      {/* Syllabus Frequency Heatmap & Weightings Modal */}
+      <SyllabusFrequencyHeatmapModal
+        isOpen={isSyllabusHeatmapOpen}
+        onClose={() => setIsSyllabusHeatmapOpen(false)}
+        onStartTopicPractice={(subj, topic) => {
+          setActivePracticeSubject(subj);
+          setCurrentTab('practice');
+        }}
+      />
+
+      {/* Daily 5-Min UTME Challenge Arena Sprint */}
+      <DailyUTMEChallengeModal
+        isOpen={isDailyChallengeArenaOpen}
+        onClose={() => setIsDailyChallengeArenaOpen(false)}
+        profile={profile}
+        onAddXP={handleAddXP}
+        onOpenLeaderboard={() => {
+          sound.playTap();
+          setIsLeaderboardOpen(true);
+        }}
+      />
+
+      {/* Network Connectivity Offline Toast */}
+      <OfflineIndicator />
+    </MobileFrame>
+  );
 }
