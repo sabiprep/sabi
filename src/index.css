@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700;800&display=swap');
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -7,14 +8,10 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Custom fade transitions and animations for a premium app feel */
 @layer utilities {
-  .animate-pulse-slow {
-    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
+  .animate-pulse-slow { animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 }
 
-/* Ensure smooth scrolling and full height */
 html, body, #root {
   height: 100%;
   margin: 0;
@@ -24,28 +21,11 @@ html, body, #root {
   color: #101828;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-
-/* SABI frontend foundation
- * Visual treatment is implementation-level; learning-state authority remains server-side.
- */
 :root {
   --sabi-ink: #0A1128;
   --sabi-blue: #4A90D9;
@@ -70,33 +50,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
+button, input, select, textarea { font: inherit; }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid rgb(74 144 217 / 0.45);
   outline-offset: 2px;
 }
 
-button:disabled,
-input:disabled,
-select:disabled,
-textarea:disabled {
-  cursor: not-allowed;
-}
+button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
@@ -104,11 +68,7 @@ textarea:disabled {
   }
 }
 
-@media (max-width: 640px) {
-  html {
-    font-size: 15px;
-  }
-}
+@media (max-width: 640px) { html { font-size: 15px; } }
 
 .sabi-surface {
   background: var(--sabi-surface);
