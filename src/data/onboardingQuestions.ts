@@ -28,7 +28,12 @@ export const SUBJECTS_POOL: { name: SubjectName; category: string }[] = [
   { name: 'History', category: 'Arts' },
   { name: 'Yoruba', category: 'Languages' },
   { name: 'Igbo', category: 'Languages' },
-  { name: 'Hausa', category: 'Languages' }
+  { name: 'Hausa', category: 'Languages' },
+  { name: 'Music', category: 'Arts' },
+  { name: 'Fine Art', category: 'Arts' },
+  { name: 'French', category: 'Languages' },
+  { name: 'Arabic', category: 'Languages' },
+  { name: 'Home Economics', category: 'General' }
 ];
 
 export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
