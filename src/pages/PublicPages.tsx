@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, BookOpenCheck, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
-import sabiArtwork from '../../sabi.svg';
 
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -84,14 +83,8 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
   return (
     <main className="auth-page">
       <div className="auth-aside">
-        <div className="auth-aside-art" aria-hidden="true"><img src={sabiArtwork} alt="" /></div>
+        <div className="auth-aside-art" aria-hidden="true"><img src="/sabi-transparent.svg" alt="" /></div>
         <Brand />
-        <div className="auth-aside-copy">
-          <span className="eyebrow eyebrow--yellow">Your next step starts here</span>
-          <h1>Prepare with purpose.</h1>
-          <p>SABI helps turn what you practise into a clearer picture of what to work on next.</p>
-        </div>
-        <span className="auth-aside-foot">A focused JAMB preparation experience</span>
       </div>
       <section className="auth-main">
         <Link className="back-link" to="/welcome">← Back to welcome</Link>

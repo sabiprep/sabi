@@ -3,7 +3,6 @@ import { ArrowLeft, ArrowRight, Check, LockKeyhole } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ONBOARDING_QUESTIONS, SUBJECTS_POOL } from '../data/onboardingQuestions';
 import type { SubjectName } from '../types';
-import sabiArtwork from '../../sabi.svg';
 
 const STORAGE_KEY = 'sabi_onboarding_preview_v1';
 const CLASS_OPTIONS = ['SS2', 'SS3', 'Out-of-school candidate / resitter'];
@@ -91,7 +90,6 @@ export function OnboardingPage() {
 
   return (
     <main className="onboarding-page">
-      <div className="onboarding-artwork" aria-hidden="true"><img src={sabiArtwork} alt="" /></div>
       <header className="flow-header">
         <Link className="brand-lockup brand-lockup--compact" to="/welcome"><img src="/icon.svg" alt="" /><span>SABI</span></Link>
         <span className="preview-pill">Frontend preview</span>

@@ -14,6 +14,7 @@
   --sabi-danger: #b42318;
   --sabi-success: #137a4b;
   --sabi-shadow: 0 16px 45px rgb(11 31 75 / 9%);
+  --sabi-wallpaper-opacity: .035;
 }
 
 .dark {
@@ -32,6 +33,7 @@
   --sabi-danger: #fda29b;
   --sabi-success: #6ce9a6;
   --sabi-shadow: 0 16px 45px rgb(0 0 0 / 24%);
+  --sabi-wallpaper-opacity: .055;
 }
 
 body {
@@ -159,6 +161,8 @@ textarea:focus-visible {
 
 .public-page {
   min-height: 100%;
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   padding: 0 clamp(22px, 6vw, 88px);
@@ -166,6 +170,31 @@ textarea:focus-visible {
   background:
     radial-gradient(ellipse at 88% 48%, color-mix(in srgb, var(--sabi-yellow) 11%, transparent), transparent 35%),
     var(--sabi-page);
+}
+
+.public-page::before,
+.auth-page::before,
+.onboarding-page::before,
+.diagnostic-page::before,
+.student-app::before {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background-image: url("/sabi-transparent.svg");
+  background-repeat: repeat;
+  background-position: 8px 8px;
+  background-size: 390px auto;
+  content: "";
+  opacity: var(--sabi-wallpaper-opacity);
+  pointer-events: none;
+}
+
+.public-page > *,
+.onboarding-page > *,
+.diagnostic-page > *,
+.student-app > * {
+  position: relative;
+  z-index: 1;
 }
 
 .public-header {
@@ -420,6 +449,8 @@ textarea:focus-visible {
 
 .auth-page {
   min-height: 100%;
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(310px, .85fr) 1.15fr;
   background: var(--sabi-page);
@@ -428,64 +459,25 @@ textarea:focus-visible {
 .auth-aside {
   min-height: 100%;
   position: relative;
-  isolation: isolate;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 42px clamp(28px, 6vw, 82px);
-  color: #fff;
-  background: radial-gradient(ellipse at 30% 75%, #17366e 0%, #0b1f4b 52%, #07152f 100%);
+  display: grid;
+  place-items: center;
+  padding: 30px;
+  background: var(--sabi-blue-strong);
 }
 
 .auth-aside-art {
-  position: absolute;
-  z-index: 0;
-  inset: 18% -23% 8% 0;
-  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
 }
 
 .auth-aside-art img {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: center right;
-  filter: grayscale(1) invert(1);
-  mix-blend-mode: screen;
-  opacity: .14;
-}
-
-.auth-aside > :not(.auth-aside-art) {
-  position: relative;
-  z-index: 1;
-}
-
-.auth-aside .brand-lockup {
-  color: #fff;
-}
-
-.auth-aside-copy {
-  max-width: 430px;
-  padding: 70px 0;
-}
-
-.auth-aside-copy h1 {
-  margin: 17px 0;
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 5vw, 4rem);
-  letter-spacing: -.06em;
-  line-height: 1.05;
-}
-
-.auth-aside-copy p,
-.auth-aside-foot {
-  color: #d4deef;
-  font-size: .9rem;
-  line-height: 1.7;
-}
-
-.auth-aside-foot {
-  font-size: .74rem;
+  object-position: center;
 }
 
 .auth-main {
@@ -703,38 +695,14 @@ textarea:focus-visible {
   min-height: 100%;
   position: relative;
   isolation: isolate;
-  overflow: hidden;
   background: var(--sabi-page);
 }
 
 .diagnostic-page {
   min-height: 100%;
-  background: var(--sabi-page);
-}
-
-.onboarding-artwork {
-  width: clamp(240px, 34vw, 430px);
-  height: clamp(190px, 27vw, 330px);
-  position: absolute;
-  z-index: 0;
-  top: 72px;
-  right: max(0px, calc((100vw - 1180px) / 2));
-  pointer-events: none;
-  opacity: .1;
-}
-
-.onboarding-artwork img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center right;
-  filter: grayscale(1);
-  mix-blend-mode: multiply;
-}
-
-.onboarding-page > :not(.onboarding-artwork) {
   position: relative;
-  z-index: 1;
+  isolation: isolate;
+  background: var(--sabi-page);
 }
 
 .onboarding-content {
@@ -1914,26 +1882,30 @@ textarea:focus-visible {
   }
 
   .auth-aside {
-    min-height: 142px;
-    padding: 18px 22px;
+    min-height: 74px;
+    padding: 10px 22px;
+    background: transparent;
   }
 
   .auth-aside-art {
-    inset: 0 -24% -28% 24%;
-  }
-
-  .auth-aside-art img {
-    opacity: .1;
-  }
-
-  .auth-aside-copy,
-  .auth-aside-foot {
     display: none;
+  }
+
+  .auth-aside .brand-lockup {
+    color: var(--sabi-text);
   }
 
   .auth-main {
     justify-content: flex-start;
     padding: 27px 23px;
+  }
+
+  .auth-card {
+    padding: 24px;
+    border: 1px solid var(--sabi-border);
+    border-radius: 20px;
+    background: color-mix(in srgb, var(--sabi-surface) 96%, transparent);
+    box-shadow: var(--sabi-shadow);
   }
 
   .auth-main > .back-link {
@@ -2067,14 +2039,6 @@ textarea:focus-visible {
 
   .onboarding-content {
     padding-top: 30px;
-  }
-
-  .onboarding-artwork {
-    width: 210px;
-    height: 160px;
-    top: 59px;
-    right: -50px;
-    opacity: .055;
   }
 
   .onboarding-progress-head {
