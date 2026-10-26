@@ -14,6 +14,7 @@ const CbtPage = lazy(() => import('./pages/StudentPages').then(module => ({ defa
 const ProgressPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProgressPage })));
 const ProfilePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProfilePage })));
 const NotificationsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.NotificationsPage })));
+const ProductionApp = lazy(() => import('./ProductionApp'));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -52,6 +53,8 @@ export default function App() {
               <Route path="/session/:sessionId/explanation" element={<MainPage page="Explanation" />} />
               <Route path="/session/:sessionId/results" element={<MainPage page="Session Results" />} />
             </Route>
+            <Route path="/interactive" element={<ProductionApp />} />
+            <Route path="/app" element={<ProductionApp />} />
             <Route path="*" element={<Navigate to="/welcome" replace />} />
           </Routes>
         </Suspense>

@@ -53,20 +53,20 @@ export default function MobileAITutorModal({
     setLoading(true);
 
     try {
-      const res = await fetch('/api/explain', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          questionId: 'DAILY-CHALLENGE-1',
-          preference: 'step-by-step',
-          userCustomPrompt: textToSend,
+          messages: [...messages, userMsg],
+          currentTopic: initialTopic,
+          currentSubject: initialSubject,
         }),
       });
       const data = await res.json();
       const aiReply: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'ai',
-        text: data.explanation || 'Critical angle occurs when the angle of incidence produces an angle of refraction of 90 degrees. Remember: $\\sin(\\theta_c) = 1/n$.',
+        text: data.reply || data.explanation || `For **${initialTopic}** (${initialSubject}), remember to master the basic definitions and working equations. What specific part can I clarify?`,
       };
       setMessages(prev => [...prev, aiReply]);
     } catch (err) {

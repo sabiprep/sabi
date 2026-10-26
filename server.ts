@@ -32,6 +32,15 @@ if (apiKey) {
   console.warn('Warning: GEMINI_API_KEY is not defined in the environment. AI Tutor features will run in mock mode.');
 }
 
+// Helper to invoke AI with a safe timeout
+async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('AI response timed out')), timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 // -------------------------------------------------------------
 // API Endpoints
 // -------------------------------------------------------------
@@ -43,22 +52,24 @@ app.get('/api/questions', (req, res) => {
 
 // 2. Explain a question on-demand (API proxy to protect key)
 app.post('/api/explain', async (req, res) => {
-  const { questionId, preference, language } = req.body;
+  const { questionId, preference, language, userCustomPrompt, subject, topic } = req.body;
   const question = SEED_QUESTIONS.find(q => q.id === questionId);
   
-  if (!question) {
+  if (!question && !userCustomPrompt) {
     return res.status(404).json({ error: 'Question not found' });
   }
 
   // Choose the best pre-written explanation if it matches preference, otherwise ask AI
   if (!ai) {
-    // Mock mode fallback
-    const mockExp = language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation);
+    const mockExp = question
+      ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
+      : `Here is the key breakdown for ${topic || subject || 'this topic'}: Focus on the core definitions, formulas, and common exam traps in the JAMB syllabus.`;
     return res.json({ explanation: mockExp, isMock: true });
   }
 
   try {
-    const prompt = `
+    const prompt = question
+      ? `
       You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
       Explain this question in detail:
       Question: ${question.question}
@@ -70,21 +81,35 @@ app.post('/api/explain', async (req, res) => {
       - Explanation length/detail: ${preference === 'short' ? 'Concise/Short summary' : 'Step-by-step detailed breakdown'}
       - Language: ${language === 'pidgin' ? 'West African Pidgin English (e.g. "for this question, you go find...")' : language === 'mixed' ? 'Nigerian English mixed with light Pidgin vibes' : 'Plain formal English'}
       
-      Generate a warm, encouraging, and accurate study explanation reflecting these precise stylistic guidelines.
+      Generate a warm, encouraging, and accurate study explanation reflecting these precise stylistic guidelines. Format equations as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$).
+    `
+      : `
+      You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
+      The student asks: "${userCustomPrompt}"
+      Subject: ${subject || 'JAMB Prep'}
+      Topic: ${topic || 'General Practice'}
+      
+      Provide a clear, pedagogical, step-by-step explanation suitable for a Nigerian UTME candidate. Format equations in LaTeX using single $ delimiters.
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-      }
-    });
+    const response = await callAiWithTimeout(
+      ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: prompt,
+        config: {
+          temperature: 0.7,
+        }
+      }),
+      8000
+    );
 
-    res.json({ explanation: response.text || question.explanation });
+    res.json({ explanation: response.text || (question ? question.explanation : 'Review the core definitions and formulas for this topic.') });
   } catch (error: any) {
-    console.error('Error generating explanation:', error);
-    res.json({ explanation: question.explanation, error: error.message });
+    console.warn('Fallback: Error generating explanation:', error?.message || error);
+    const fallbackExp = question
+      ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
+      : `Here is the key concept to remember for ${topic || subject || 'your JAMB exam'}: Focus on the fundamental definitions and standard UTME question patterns. Practice with step-by-step calculations and verify each option systematically.`;
+    res.json({ explanation: fallbackExp });
   }
 });
 
@@ -92,24 +117,26 @@ app.post('/api/explain', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
   const { messages, currentTopic, currentSubject, studentProfile, topicMemory } = req.body;
 
-  if (!ai) {
-    // Mock Mode fallback
-    return res.json({
-      reply: `Sabi Tutor (Mock Mode): You are asking about "${currentTopic || 'your studies'}". (To unlock the live, RAG-grounded AI Tutor, please add your GEMINI_API_KEY in Settings > Secrets!)`,
-      topicMemoryUpdate: `User is practicing ${currentTopic || 'this subject'}. They are working hard and setting up local study patterns.`,
-      isMock: true
-    });
+  // Simple RAG implementation: search locally mapped concept notes or seed questions
+  let retrievedContext = '';
+  if (currentSubject) {
+    const relatedQuestions = SEED_QUESTIONS.filter(
+      q => q.subject.toLowerCase() === currentSubject.toLowerCase() &&
+           (!currentTopic || q.topic.toLowerCase().includes(currentTopic.toLowerCase()))
+    ).slice(0, 2);
+    if (relatedQuestions.length > 0) {
+      retrievedContext = `Syllabus Exemplars: ` + relatedQuestions.map(q => `[${q.topic} - ${q.subtopic}]: ${q.question} (Key concept: ${q.concepts.join(', ')})`).join('; ');
+    }
   }
 
-  // Simple RAG implementation: search locally mapped concept notes in the Knowledge Base
-  let retrievedContext = '';
-  if (currentSubject && KNOWLEDGE_BASE[currentSubject as SubjectName]) {
-    const relevantKB = KNOWLEDGE_BASE[currentSubject as SubjectName].find(
-      kb => kb.topic.toLowerCase() === (currentTopic || '').toLowerCase()
-    );
-    if (relevantKB) {
-      retrievedContext = `Syllabus Grounding Note: [Topic: ${relevantKB.topic}, Subtopic: ${relevantKB.subtopic}]: ${relevantKB.content}`;
-    }
+  const lastUserMsg = (messages || []).slice().reverse().find((m: any) => m.sender === 'user' || m.role === 'user')?.text || '';
+
+  if (!ai) {
+    return res.json({
+      reply: `Sabi Tutor: You are asking about "${currentTopic || currentSubject || 'your studies'}". Key syllabus takeaway: Ensure you master the underlying definitions, formulas, and past questions for ${currentTopic || 'this topic'}. Keep up the great practice!`,
+      topicMemoryUpdate: `User practiced ${currentTopic || currentSubject || 'JAMB topics'}.`,
+      isMock: true
+    });
   }
 
   const systemInstruction = `
@@ -121,72 +148,92 @@ app.post('/api/chat', async (req, res) => {
        - Name: ${studentProfile?.name || 'Student'}
        - Class Level: ${studentProfile?.classLevel || 'Senior Candidate'}
        - 4 Chosen Subjects: ${studentProfile?.chosenSubjects?.join(', ') || 'JAMB Subjects'}
-       - Target Course & University: ${studentProfile?.targetCourse} at ${studentProfile?.targetUniversity}
+       - Target Course & University: ${studentProfile?.targetCourse || 'Medicine'} at ${studentProfile?.targetUniversity || 'University'}
        - Explanation preference: ${studentProfile?.explanationPreference === 'short' ? 'Brief and straight to the point' : 'Detailed step-by-step'}
-       - Language preference: ${studentProfile?.languagePreference || 'english'} (If 'pidgin', code-switch naturally into West African Pidgin English; if 'mixed', use Nigerian English laced with light pidgin expressions; if 'english', speak formally and supportive).
+       - Language preference: ${studentProfile?.languagePreference || 'english'}
        - Motivation: ${studentProfile?.motivation || 'General excellence'}
        
     2. Topic Summary Memory (Tier 2):
        - Existing rolling memory about the topic "${currentTopic || 'General studies'}": "${topicMemory || 'No prior conversation summary has been recorded for this topic yet.'}"
        
     3. Grounding Knowledge Base (RAG context):
-       - ${retrievedContext || 'No specific textbook alignment found, rely on core Nigerian syllabus logic.'}
+       - ${retrievedContext || 'Rely on official JAMB syllabus principles.'}
        
     Behavioral Directives:
     - Never give answers immediately on a platter of gold. Ask scaffolding, thought-provoking questions if they seem stuck.
-    - Reference their target course/university or mock performance to nudge and motivate them.
-    - CRITICAL: You are aware of the student's target institution (e.g., UNILAG) to understand their competitive baseline, but you must NOT continuously mention or repeat the university's name in your regular academic explanations. Only reference their target school naturally during initial session greetings or milestone achievements. Never use it as a repetitive conversational filler when explaining academic concepts.
+    - Reference their target course/university or mock performance naturally.
     - Be warm, extremely knowledgeable about the JAMB syllabus, and maintain steady, high-morale guidance.
     
     Return your outputs strictly as a JSON object adhering to this schema:
     {
       "reply": "tutor's message supporting the user, with helpful hints/feedback or explanations, structured in markdown with equations formatted as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$)",
-      "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic (incorporating both the old summary and this new dialogue)."
+      "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic."
     }
   `;
 
   try {
-    const formattedHistory = messages.slice(-5).map((m: any) => ({
-      role: m.sender === 'user' ? 'user' : 'model',
-      parts: [{ text: m.text }]
-    }));
+    // Format conversation history and ensure it begins with a user message
+    let rawHistory = (messages || [])
+      .filter((m: any) => m && (m.text || m.content))
+      .slice(-6)
+      .map((m: any) => ({
+        role: ((m.sender === 'user' || m.role === 'user') ? 'user' : 'model') as 'user' | 'model',
+        parts: [{ text: String(m.text || m.content) }]
+      }));
 
-    // Generate output with required JSON scheme
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: formattedHistory,
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            reply: { 
-              type: Type.STRING, 
-              description: 'The supportive conversational reply to the student.' 
+    // CRITICAL: Gemini requires the first turn in contents to have role: 'user'
+    while (rawHistory.length > 0 && rawHistory[0].role !== 'user') {
+      rawHistory.shift();
+    }
+
+    if (rawHistory.length === 0) {
+      rawHistory = [{
+        role: 'user',
+        parts: [{ text: lastUserMsg || `Explain the core concepts for ${currentTopic || currentSubject || 'this topic'}.` }]
+      }];
+    }
+
+    const response = await callAiWithTimeout(
+      ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: rawHistory,
+        config: {
+          systemInstruction: systemInstruction,
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              reply: { 
+                type: Type.STRING, 
+                description: 'The supportive conversational reply to the student.' 
+              },
+              topicMemoryUpdate: { 
+                type: Type.STRING, 
+                description: 'The updated rolling summary of what the student understands or struggles with in this topic, to be stored for subsequent turns.' 
+              }
             },
-            topicMemoryUpdate: { 
-              type: Type.STRING, 
-              description: 'The updated rolling summary of what the student understands or struggles with in this topic, to be stored for subsequent turns.' 
-            }
+            required: ['reply', 'topicMemoryUpdate']
           },
-          required: ['reply', 'topicMemoryUpdate']
-        },
-        temperature: 0.7,
-      }
-    });
+          temperature: 0.7,
+        }
+      }),
+      8000
+    );
 
     const parsed = JSON.parse(response.text?.trim() || '{}');
     res.json({
-      reply: parsed.reply || "I didn't capture that query perfectly, but I am right here with you! Let us keep practicing.",
+      reply: parsed.reply || "Let's keep our momentum going! Ask me anything about your syllabus or practice questions.",
       topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory
     });
   } catch (error: any) {
-    console.error('Error in AI Tutor chat endpoint:', error);
+    console.warn('Fallback: Error in AI Tutor chat endpoint:', error?.message || error);
+    // Graceful pedagogical fallback so user never gets stuck or sees an error
+    const friendlyReply = currentTopic
+      ? `Under **${currentTopic}** (${currentSubject || 'JAMB'}), key rules to always remember include knowing the fundamental definitions, the working formulas, and identifying the trap options JAMB frequently sets. What specific sub-question or calculation are you currently tackling?`
+      : `I am right here with you! Let us keep our focus sharp on mastering your 4 JAMB subjects. What topic or concept would you like us to break down next?`;
     res.json({
-      reply: `My friend, I encountered a slight connection hiccup, but let us keep our focus high! Under "${currentTopic || 'your studies'}", let's ensure we grasp the fundamental logic. Ask me another question!`,
-      topicMemoryUpdate: topicMemory,
-      error: error.message
+      reply: friendlyReply,
+      topicMemoryUpdate: topicMemory || `Practiced ${currentTopic || 'JAMB concepts'}.`,
     });
   }
 });

@@ -43,6 +43,9 @@ export function AppShell() {
             <span className="breadcrumb-title">{title}</span>
           </div>
           <div className="topbar-actions">
+            <Link to="/interactive" className="button button--yellow" style={{ padding: '6px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '8px' }}>
+              Launch Full CBT App 🚀
+            </Link>
             <span className="preview-pill top-preview-pill">Preview mode</span>
             <Link className="icon-button notification-button" to="/notifications" aria-label="Notifications"><Bell size={19} /></Link>
             <Link className="avatar avatar-link" to="/profile" aria-label="Open profile">S</Link>
@@ -59,6 +62,11 @@ export function AppShell() {
             <div className="drawer-heading"><AppBrand /><button className="icon-button" aria-label="Close menu" onClick={() => setMenuOpen(false)}><X size={20} /></button></div>
             <span className="sidebar-label">MORE FROM SABI</span>
             <nav className="drawer-nav">
+              <NavLink to="/interactive" onClick={() => setMenuOpen(false)} className="drawer-item" style={{ background: '#FEF3C7', borderColor: '#F59E0B' }}>
+                <Zap size={19} className="text-amber-600" />
+                <span><strong>Launch Full CBT & AI App 🚀</strong><small>Interactive 180-Q mock, blitz & tutor</small></span>
+                <ArrowRight size={15} />
+              </NavLink>
               {MENU_ITEMS.map(({ to, label, Icon, description }) => <NavLink key={to} to={to} onClick={() => setMenuOpen(false)} className="drawer-item"><Icon size={19} /><span><strong>{label}</strong><small>{description}</small></span><ArrowRight size={15} /></NavLink>)}
             </nav>
             <div className="drawer-divider" />
@@ -75,7 +83,15 @@ export function HomePage() {
   return (
     <div className="page-stack">
       <section className="home-hero">
-        <div className="hero-copy"><span className="eyebrow eyebrow--yellow">YOUR JAMB JOURNEY</span><h1>Welcome to SABI.</h1><p>A clearer way to prepare: practise with purpose, learn from every answer, and build confidence across your subjects.</p><Link className="button button--yellow" to="/practice">Explore practice <ArrowRight size={17} /></Link></div>
+        <div className="hero-copy">
+          <span className="eyebrow eyebrow--yellow">YOUR JAMB JOURNEY</span>
+          <h1>Welcome to SABI.</h1>
+          <p>A clearer way to prepare: practise with purpose, learn from every answer, and build confidence across your subjects.</p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <Link className="button button--yellow" to="/interactive">Launch Full CBT App & AI Tutor <ArrowRight size={17} /></Link>
+            <Link className="button button--secondary" to="/practice">Explore practice modes</Link>
+          </div>
+        </div>
         <div className="hero-emblem" aria-hidden="true"><BookOpenCheck size={52} /><span>LEARN<br />WITH PURPOSE</span></div>
       </section>
       <section className="section-block">
@@ -99,13 +115,21 @@ export function HomePage() {
 export function PracticePage() {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="PRACTICE HUB" title="Choose how you want to practise" description="Each practice mode has a distinct purpose. Your results will connect to one learning profile after backend integration." />
-      <div className="practice-grid">
-        <ModeCard to="/practice/smart" number="01" title="Smart Practice" label="SABI-guided" icon={<Target size={23} />} text="A guided practice mode that will adapt to the learning evidence recorded for you." />
-        <ModeCard to="/practice/blitz" number="02" title="Blitz" label="Rapid reinforcement" icon={<Zap size={23} />} text="One question at a time, with no speed-based scoring or fixed session timer." />
-        <ModeCard to="/practice/custom" number="03" title="Custom Practice" label="You choose" icon={<BookOpen size={23} />} text="Set your subjects, topics, question source, and practice preferences." />
+      <PageHeading eyebrow="PRACTICE HUB" title="Choose how you want to practise" description="Each practice mode has a distinct purpose. Take full subject drills, quick Blitz sessions, or custom practice." />
+      <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '16px 20px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <strong style={{ color: '#1E40AF', display: 'block', fontSize: '15px' }}>🚀 Launch Interactive Smart Practice & Speed Blitz</strong>
+          <span style={{ color: '#3B82F6', fontSize: '13px' }}>Jump directly into real JAMB past questions with instant math rendering, streak counters, and audio feedback.</span>
+        </div>
+        <Link to="/interactive" className="button button--primary" style={{ whiteSpace: 'nowrap' }}>
+          Launch Live Practice <ArrowRight size={16} />
+        </Link>
       </div>
-      <PreviewNotice>Practice sessions are interface previews until questions, session APIs, and learning-event storage are connected.</PreviewNotice>
+      <div className="practice-grid">
+        <ModeCard to="/interactive" number="01" title="Smart Practice" label="SABI-guided" icon={<Target size={23} />} text="A guided practice mode that adapts to your subject mastery." />
+        <ModeCard to="/interactive" number="02" title="Blitz" label="Rapid reinforcement" icon={<Zap size={23} />} text="One question at a time, 60-second speed blitz with streak scoring." />
+        <ModeCard to="/interactive" number="03" title="Custom Practice" label="You choose" icon={<BookOpen size={23} />} text="Set your subjects, topics, question source, and practice preferences." />
+      </div>
     </div>
   );
 }
@@ -113,13 +137,21 @@ export function PracticePage() {
 export function CbtPage() {
   return (
     <div className="page-stack">
-      <PageHeading eyebrow="JAMB CBT" title="Prepare under exam conditions" description="The CBT simulator is a separate exam experience. During an active exam, no hints, AI coaching, or explanations are shown." />
-      <div className="exam-grid">
-        <ExamCard to="/cbt/full-mock" label="FULL MOCK" count="180 questions" duration="120 minutes" description="A complete JAMB-style mock exam." />
-        <ExamCard to="/cbt/quick-mock" label="QUICK MOCK" count="40 questions" duration="30 minutes" description="A shorter exam simulation for focused practice." />
+      <PageHeading eyebrow="JAMB CBT" title="Prepare under exam conditions" description="The CBT simulator is a separate exam experience. During an active exam, no hints or explanations are shown until completion." />
+      <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', padding: '16px 20px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+        <div>
+          <strong style={{ color: '#92400E', display: 'block', fontSize: '15px' }}>🎯 Official JAMB UTME CBT Simulator</strong>
+          <span style={{ color: '#B45309', fontSize: '13px' }}>Simulate a complete 180-question exam with a 120-minute countdown, 8-digit onscreen calculator, question grid, and printable UTME result slip!</span>
+        </div>
+        <Link to="/interactive" className="button button--yellow" style={{ whiteSpace: 'nowrap' }}>
+          Start 180-Q Mock Exam <ArrowRight size={16} />
+        </Link>
       </div>
-      <PreviewNotice>Exam sessions and scoring are not connected yet. Subject combination should come from your approved JAMB profile.</PreviewNotice>
-      <section className="section-block"><div className="section-heading"><div><span className="eyebrow">EXAM HISTORY</span><h2>Your completed mocks</h2></div></div><div className="empty-learning-card"><div className="empty-icon"><ClipboardList size={22} /></div><div><strong>No completed mock exams yet</strong><p>Completed exam results will appear here after CBT is connected.</p></div></div></section>
+      <div className="exam-grid">
+        <ExamCard to="/interactive" label="FULL MOCK" count="180 questions" duration="120 minutes" description="A complete JAMB-style mock exam with accurate 8-digit calculator." />
+        <ExamCard to="/interactive" label="QUICK MOCK" count="40 questions" duration="30 minutes" description="A shorter exam simulation for focused practice." />
+      </div>
+      <section className="section-block"><div className="section-heading"><div><span className="eyebrow">EXAM HISTORY</span><h2>Your completed mocks</h2></div></div><div className="empty-learning-card"><div className="empty-icon"><ClipboardList size={22} /></div><div><strong>No completed mock exams in this session yet</strong><p>Completed exam results and your official JAMB Result Slip will be generated when you finish a mock in the CBT Simulator.</p></div></div></section>
     </div>
   );
 }
