@@ -14,7 +14,7 @@
   --sabi-danger: #b42318;
   --sabi-success: #137a4b;
   --sabi-shadow: 0 16px 45px rgb(11 31 75 / 9%);
-  --sabi-wallpaper-opacity: .035;
+  --sabi-wallpaper-opacity: .028;
 }
 
 .dark {
@@ -33,7 +33,7 @@
   --sabi-danger: #fda29b;
   --sabi-success: #6ce9a6;
   --sabi-shadow: 0 16px 45px rgb(0 0 0 / 24%);
-  --sabi-wallpaper-opacity: .055;
+  --sabi-wallpaper-opacity: .032;
 }
 
 body {
@@ -61,6 +61,9 @@ textarea:focus-visible {
 
 .splash-screen {
   min-height: 100%;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -173,6 +176,7 @@ textarea:focus-visible {
 }
 
 .public-page::before,
+.splash-screen::before,
 .auth-page::before,
 .onboarding-page::before,
 .diagnostic-page::before,
@@ -183,13 +187,14 @@ textarea:focus-visible {
   background-image: url("/sabi-transparent.svg");
   background-repeat: repeat;
   background-position: 8px 8px;
-  background-size: 390px auto;
+  background-size: 280px auto;
   content: "";
   opacity: var(--sabi-wallpaper-opacity);
   pointer-events: none;
 }
 
 .public-page > *,
+.splash-screen > *,
 .onboarding-page > *,
 .diagnostic-page > *,
 .student-app > * {
@@ -480,6 +485,10 @@ textarea:focus-visible {
   object-position: center;
 }
 
+.auth-aside > .brand-lockup {
+  display: none;
+}
+
 .auth-main {
   display: flex;
   flex-direction: column;
@@ -504,6 +513,11 @@ textarea:focus-visible {
 .auth-card {
   width: min(440px, 100%);
   margin: 0 auto;
+  padding: 30px;
+  border: 1px solid var(--sabi-border);
+  border-radius: 20px;
+  background: var(--sabi-surface);
+  box-shadow: var(--sabi-shadow);
 }
 
 .auth-card h2 {
@@ -1887,6 +1901,10 @@ textarea:focus-visible {
     background: transparent;
   }
 
+  .auth-aside > .brand-lockup {
+    display: inline-flex;
+  }
+
   .auth-aside-art {
     display: none;
   }
@@ -1902,10 +1920,6 @@ textarea:focus-visible {
 
   .auth-card {
     padding: 24px;
-    border: 1px solid var(--sabi-border);
-    border-radius: 20px;
-    background: color-mix(in srgb, var(--sabi-surface) 96%, transparent);
-    box-shadow: var(--sabi-shadow);
   }
 
   .auth-main > .back-link {

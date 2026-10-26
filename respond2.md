@@ -77,7 +77,9 @@ The agreed brand direction is **deep blue and rich yellow**, with white used spa
 - Blue: `#1E3A8A`
 - Rich yellow: `#D4A900` / `#F2C94C`
 
-The artwork treatment is approved: use the supplied SABI illustration as subdued, blue-toned decorative art on authentication and onboarding—not as a busy image behind form fields. `sabi.svg` wraps an embedded JPEG rather than being pure vector artwork; the app uses it with CSS grayscale/blend treatment and keeps the original files unchanged. The exact color hex values remain proposed pending final visual confirmation. Yellow should be used selectively; small yellow text on white is not sufficiently legible. Use deep blue for text/icons on yellow fills, and check contrast and focus states in both themes.
+The blue/yellow/white palette applies to interface elements such as cards, buttons, headers, and interaction states—not to the wallpaper. The approved `sabi-transparent.svg` is a transparent vector and is used as a full illustration in the desktop auth panel and as a small, very low-opacity repeating wallpaper behind splash, welcome, auth, onboarding, diagnostic, and student app pages. The auth description that competed with the art has been removed. On mobile, the full auth illustration is hidden; a solid auth card and onboarding question panel preserve form readability over the subtle wallpaper. Wallpaper opacity is theme-aware and static; it does not animate. The original `sabi.svg` and `sabi-1.png` remain untouched.
+
+The exact interface color hex values remain proposed pending final visual confirmation. Yellow should be used selectively; small yellow text on white is not sufficiently legible. Use deep blue for text/icons on yellow fills, and check contrast and focus states in both themes.
 
 ### Frontend framework decision
 
