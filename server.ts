@@ -74,7 +74,7 @@ app.post('/api/explain', async (req, res) => {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
         temperature: 0.7,
@@ -153,7 +153,7 @@ app.post('/api/chat', async (req, res) => {
 
     // Generate output with required JSON scheme
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.8-flash',
       contents: formattedHistory,
       config: {
         systemInstruction: systemInstruction,
@@ -275,7 +275,7 @@ app.post('/api/generate-question', async (req, res) => {
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
+      model: 'gemini-3.8-flash',
       contents: instructionPrompt,
       config: {
         responseMimeType: 'application/json',
