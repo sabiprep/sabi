@@ -1,5 +1,65 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 128" role="img" aria-labelledby="title">
-  <title id="title">SABI</title>
-  <image href="/icon.svg" x="0" y="0" width="128" height="128"/>
-  <text x="150" y="86" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="76" font-weight="800" letter-spacing="8">SABI</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 360" width="100%" height="100%">
+  <defs>
+    <!-- Ribbon Top Outer Curve Gradient -->
+    <linearGradient id="ribbonTop" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0062FF"/>
+      <stop offset="40%" stop-color="#0084FF"/>
+      <stop offset="100%" stop-color="#00D2FF"/>
+    </linearGradient>
+
+    <!-- Ribbon Deep 3D Fold Interior Shadow -->
+    <linearGradient id="ribbonShadow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#022B8E"/>
+      <stop offset="50%" stop-color="#063EB6"/>
+      <stop offset="100%" stop-color="#0A2268"/>
+    </linearGradient>
+
+    <!-- Ribbon Mid Swoop Gradient -->
+    <linearGradient id="ribbonMid" x1="0%" y1="0%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#0080FF"/>
+      <stop offset="60%" stop-color="#004BE0"/>
+      <stop offset="100%" stop-color="#002DB3"/>
+    </linearGradient>
+
+    <!-- Book Pages Base Gradient -->
+    <linearGradient id="bookBottom" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0066FF"/>
+      <stop offset="100%" stop-color="#0033CC"/>
+    </linearGradient>
+
+    <!-- Yellow Sun Dot Gradient -->
+    <linearGradient id="sunDot" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="35%" stop-color="#FFC000"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+
+    <!-- Soft Ambient Glow / Shadow -->
+    <filter id="logoGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#022B8E" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <g id="sabi_brand" filter="url(#logoGlow)">
+    <!-- ==================== THE 3D BOOK-RIBBON 'S' ==================== -->
+    <g id="letter_S">
+      <path d="M375 42 C335 44, 280 85, 252 145 C235 180, 248 200, 290 220 C320 235, 345 250, 355 272 C370 305, 350 338, 305 344 C275 348, 250 342, 230 326 C228 320, 235 295, 275 285 C310 276, 320 250, 295 235 C260 215, 230 185, 235 130 C242 75, 295 32, 360 25 Z" fill="url(#ribbonMid)"/>
+      <path d="M360 25 C375 24, 385 30, 380 44 C370 70, 315 130, 290 155 C275 140, 285 100, 325 55 C340 38, 352 28, 360 25 Z" fill="url(#ribbonTop)"/>
+      <path d="M290 155 C275 170, 260 190, 290 220 C320 235, 345 250, 355 272 C325 245, 290 225, 270 200 C255 180, 265 165, 290 155 Z" fill="url(#ribbonShadow)"/>
+      <path d="M230 326 C220 345, 240 354, 275 352 C320 350, 362 315, 360 270 C358 245, 335 235, 305 225 C260 240, 230 275, 230 326 Z" fill="url(#bookBottom)"/>
+      <path d="M255 265 Q285 285 325 315 Q290 295 248 280 Z" fill="#FFFFFF" opacity="0.95"/>
+      <path d="M242 290 Q275 310 315 335 Q280 320 236 305 Z" fill="#FFFFFF" opacity="0.95"/>
+      <path d="M232 315 Q262 332 298 348 Q268 338 228 326 Z" fill="#FFFFFF" opacity="0.95"/>
+    </g>
+
+    <!-- ==================== THE BOLD LETTERS 'abi' ==================== -->
+    <g id="letters_abi" fill="#071333">
+      <path d="M472 165 C430 165, 396 195, 396 242 C396 290, 430 325, 475 325 C496 325, 514 314, 526 298 L526 320 L566 320 L566 172 L526 172 L526 193 C514 176, 495 165, 472 165 Z M484 204 C508 204, 526 222, 526 245 C526 268, 508 286, 484 286 C460 286, 442 268, 442 245 C442 222, 460 204, 442 204 C454 204, 472 204, 484 204 Z" fill-rule="evenodd"/>
+      <path d="M592 108 L592 320 L632 320 L632 298 C644 314, 664 325, 686 325 C732 325, 768 290, 768 244 C768 198, 732 165, 686 165 C664 165, 644 176, 632 192 L632 108 Z M678 204 C704 204, 724 222, 724 245 C724 268, 704 286, 678 286 C652 286, 632 268, 632 245 C632 222, 652 204, 678 204 Z" fill-rule="evenodd"/>
+      <rect x="794" y="172" width="42" height="148" rx="8" fill="#071333"/>
+    </g>
+
+    <!-- ==================== BRIGHT GOLDEN-YELLOW SUN DOT ==================== -->
+    <circle cx="815" cy="122" r="26" fill="url(#sunDot)" filter="drop-shadow(0px 3px 6px rgba(245,158,11,0.4))"/>
+  </g>
 </svg>

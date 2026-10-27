@@ -103,6 +103,64 @@ class SoundEffects {
     } catch (e) {}
   }
 
+  // Mechanical gate push effort sound
+  public playGatePush() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(90, now);
+      osc.frequency.linearRampToValueAtTime(140, now + 0.25);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.28);
+    } catch (e) {}
+  }
+
+  // Grand Gate Unlocked Fanfare
+  public playGateUnlock() {
+    if (!this.enabled) return;
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      const notes = [392.00, 523.25, 659.25, 783.99, 1046.50]; // G4, C5, E5, G5, C6
+      notes.forEach((freq, idx) => {
+        const time = ctx.currentTime + idx * 0.08;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, time);
+        gain.gain.setValueAtTime(0.16, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(time);
+        osc.stop(time + 0.35);
+      });
+    } catch (e) {}
+  }
+
+  // Welcome voice using SpeechSynthesis
+  public speakWelcomeVoice(studentName = 'Scholar') {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(
+        `Welcome to SABI, ${studentName}! Your gateway is unlocked. Prepare with purpose!`
+      );
+      utterance.rate = 1.0;
+      utterance.pitch = 1.1;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {}
+  }
+
   // Celebratory fan-fare chime
   public playCelebration() {
     if (!this.enabled) return;
@@ -124,6 +182,22 @@ class SoundEffects {
         osc.stop(time + 0.22);
       });
     } catch (e) {}
+  }
+
+  public playStreak() {
+    this.playCelebration();
+  }
+
+  public playLevelUp() {
+    this.playGateUnlock();
+  }
+
+  public playSuccess() {
+    this.playCelebration();
+  }
+
+  public playIncorrect() {
+    this.playWrong();
   }
 }
 

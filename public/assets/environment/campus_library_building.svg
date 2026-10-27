@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="roofGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="wallBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <filter id="bldgShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="8" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="256" cy="465" rx="200" ry="24" fill="#000000" opacity="0.2"/>
+
+  <g filter="url(#bldgShadow)">
+    <!-- Base Foundation Steps -->
+    <rect x="56" y="420" width="400" height="24" rx="4" fill="#CBD5E1"/>
+    <rect x="76" y="400" width="360" height="20" rx="4" fill="#94A3B8"/>
+
+    <!-- Main Hall Building -->
+    <rect x="96" y="200" width="320" height="200" rx="10" fill="url(#wallBlue)"/>
+
+    <!-- Classical Grand Columns (Front) -->
+    <rect x="120" y="200" width="30" height="200" fill="#F8FAFC"/>
+    <rect x="180" y="200" width="30" height="200" fill="#F8FAFC"/>
+    <rect x="302" y="200" width="30" height="200" fill="#F8FAFC"/>
+    <rect x="362" y="200" width="30" height="200" fill="#F8FAFC"/>
+
+    <!-- Grand Arch Entrance Center -->
+    <path d="M226 400 L226 290 Q256 260 286 290 L286 400 Z" fill="#0F172A"/>
+    <path d="M226 290 Q256 260 286 290" fill="none" stroke="url(#roofGold)" stroke-width="6"/>
+
+    <!-- Windows with Warm Study Light -->
+    <rect x="126" y="230" width="18" height="40" rx="9" fill="#FEF08A"/>
+    <rect x="186" y="230" width="18" height="40" rx="9" fill="#FEF08A"/>
+    <rect x="308" y="230" width="18" height="40" rx="9" fill="#FEF08A"/>
+    <rect x="368" y="230" width="18" height="40" rx="9" fill="#FEF08A"/>
+
+    <!-- Triangular Pediment / Roof -->
+    <polygon points="76,200 256,90 436,200" fill="url(#roofGold)"/>
+    <polygon points="106,192 256,104 406,192" fill="#B45309" opacity="0.3"/>
+
+    <!-- Clock / Crest in Pediment Center -->
+    <circle cx="256" cy="155" r="24" fill="#FFFFFF" stroke="#B45309" stroke-width="4"/>
+    <circle cx="256" cy="155" r="3" fill="#0F172A"/>
+    <line x1="256" y1="155" x2="256" y2="142" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="256" y1="155" x2="265" y2="155" stroke="#0F172A" stroke-width="2.5" stroke-linecap="round"/>
+
+    <!-- University Banner -->
+    <rect x="166" y="190" width="180" height="22" rx="4" fill="#0F172A"/>
+    <text x="256" y="206" fill="#FDE047" font-family="system-ui, sans-serif" font-size="11" font-weight="900" text-anchor="middle" letter-spacing="2">SABI CENTRAL LIBRARY</text>
+  </g>
+</svg>

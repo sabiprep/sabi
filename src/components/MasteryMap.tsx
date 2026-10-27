@@ -303,8 +303,8 @@ export default function MasteryMap({
                 SABI displays the learning evidence supplied for this topic. Mastery status, recommendations and review scheduling are determined by the learning engine rather than inferred by this screen.
               </p>
               <div className="pt-2 grid grid-cols-2 gap-3">
-                <button onClick={() => { onStartPractice(selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-white bg-[#0A1128] hover:bg-[#040814] rounded-xl transition shadow-lg text-center">Start Practice</button>
-                <button onClick={() => { if (onStartTutor) onStartTutor(selectedTopicDetail.subject as any, selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition text-center">Ask Sabi AI</button>
+                <button onClick={() => { onStartPractice(selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition shadow-lg text-center">Start Practice</button>
+                <button onClick={() => { onStartPractice(selectedTopicDetail.topic); setSelectedTopicDetail(null); }} className="py-2.5 px-3 text-[10px] font-black uppercase text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition text-center">Smart Practice Drill</button>
               </div>
             </div>
 
