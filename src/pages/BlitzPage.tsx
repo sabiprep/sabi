@@ -117,8 +117,14 @@ export function BlitzPage() {
     if (!isSimulatorOpen || isAnswerSubmitted || isLevelCleared) return;
 
     if (secondsRemaining <= 0) {
-      // Auto-submit time-out
-      handleOptionSubmit(null);
+      if (selectedOption) {
+        handleCheckAnswer();
+      } else {
+        setSelectedOption('TIMEOUT');
+        setIsAnswerSubmitted(true);
+        sound.playIncorrect();
+        setStreakCount(0);
+      }
       return;
     }
 
@@ -127,7 +133,7 @@ export function BlitzPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isSimulatorOpen, isAnswerSubmitted, secondsRemaining, isLevelCleared]);
+  }, [isSimulatorOpen, isAnswerSubmitted, secondsRemaining, isLevelCleared, selectedOption]);
 
   const handleStartLevel = (level: BlitzLevel) => {
     if (!level.unlocked) return;
@@ -153,13 +159,17 @@ export function BlitzPage() {
     setIsSimulatorOpen(true);
   };
 
-  const handleOptionSubmit = (choice: string | null) => {
-    if (isAnswerSubmitted || !currentQuestion) return;
-
+  const handleSelectOption = (choice: string) => {
+    if (isAnswerSubmitted) return;
+    sound.playTap();
     setSelectedOption(choice);
-    setIsAnswerSubmitted(true);
+  };
 
-    const isCorrect = choice === currentQuestion.answer;
+  const handleCheckAnswer = () => {
+    if (isAnswerSubmitted || !currentQuestion || !selectedOption) return;
+
+    setIsAnswerSubmitted(true);
+    const isCorrect = selectedOption === currentQuestion.answer;
     if (isCorrect) {
       sound.playCorrect();
       setCorrectCount(prev => prev + 1);
@@ -204,18 +214,27 @@ export function BlitzPage() {
     }
   };
 
-  // Keyboard navigation for A, B, C, D
+  // Keyboard navigation for Duolingo: A, B, C, D to pick, Enter to Check, Space/Enter to Continue
   useEffect(() => {
-    if (!isSimulatorOpen || isAnswerSubmitted) return;
+    if (!isSimulatorOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key.toUpperCase();
-      if (['A', 'B', 'C', 'D'].includes(key) && currentQuestion?.options?.[key as 'A' | 'B' | 'C' | 'D']) {
-        handleOptionSubmit(key);
+      if (!isAnswerSubmitted) {
+        if (['A', 'B', 'C', 'D'].includes(key) && currentQuestion?.options?.[key as 'A' | 'B' | 'C' | 'D']) {
+          handleSelectOption(key);
+        } else if (e.key === 'Enter' && selectedOption) {
+          handleCheckAnswer();
+        }
+      } else {
+        if (e.key === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          handleNextQuestion();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSimulatorOpen, isAnswerSubmitted, currentQuestion]);
+  }, [isSimulatorOpen, isAnswerSubmitted, currentQuestion, selectedOption]);
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'} transition-colors duration-200 flex flex-col`}>
@@ -416,58 +435,58 @@ export function BlitzPage() {
       </main>
 
       {/* ======================================================== */}
-      {/* FULL BLITZ CBT SIMULATOR ("ANOTHER WORLD") */}
+      {/* IMMERSIVE FULL-PAGE DUOLINGO-STYLE BLITZ DRILL */}
       {/* ======================================================== */}
       {isSimulatorOpen && currentQuestion && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col justify-between overflow-y-auto">
-          {/* Top Simulator Control Bar */}
-          <div className="w-full bg-[#0D1527] border-b border-slate-800 px-4 sm:px-8 py-3 flex items-center justify-between text-white">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsSimulatorOpen(false)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-                title="End or Pause Level"
-              >
-                <X size={18} />
-              </button>
-              <div>
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
-                  {activeSubject} · Level {activeLevel?.id}
-                </span>
-                <span className="text-sm font-extrabold text-white">
-                  Question {currentQuestionIndex + 1} of {activeQuestionList.length}
-                </span>
-              </div>
+        <div className="fixed inset-0 z-50 bg-[#080D1A] flex flex-col justify-between overflow-hidden select-none text-white">
+          {/* Top Duolingo Navigation & Progress Bar */}
+          <div className="w-full bg-[#080D1A] border-b border-slate-800/80 px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3">
+            {/* Exit 'X' Button */}
+            <button
+              onClick={() => setIsSimulatorOpen(false)}
+              className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 transition cursor-pointer"
+              title="Exit Blitz Drill"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Continuous Animated Progress Bar */}
+            <div className="flex-1 mx-2 sm:mx-6 h-3.5 bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-700/60">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 via-amber-400 to-amber-500 rounded-full transition-all duration-300 shadow-sm"
+                style={{ 
+                  width: `${Math.max(5, ((currentQuestionIndex + (isAnswerSubmitted ? 1 : 0)) / activeQuestionList.length) * 100)}%` 
+                }}
+              />
             </div>
 
-            {/* Middle: 60s Question Countdown Timer */}
-            <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-900 border border-amber-400/30">
-              <Clock size={16} className={secondsRemaining <= 10 ? 'text-red-500 animate-spin' : 'text-amber-400'} />
-              <span className={`text-base font-mono font-black ${secondsRemaining <= 10 ? 'text-red-400' : 'text-white'}`}>
+            {/* Countdown Timer */}
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800">
+              <Clock size={15} className={secondsRemaining <= 10 ? 'text-red-500 animate-spin' : 'text-amber-400'} />
+              <span className={`text-xs sm:text-sm font-mono font-black ${secondsRemaining <= 10 ? 'text-red-400' : 'text-slate-200'}`}>
                 {secondsRemaining}s
               </span>
             </div>
 
-            {/* Right: Calculator Popout & Streak Counter */}
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">
-                <Flame size={14} className="animate-bounce" />
-                <span>Streak: {streakCount}x</span>
-              </div>
-
-              <button
-                onClick={() => setIsCalculatorOpen(true)}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 transition shadow-sm"
-              >
-                <Calculator size={14} />
-                <span className="hidden sm:inline">Calculator</span>
-              </button>
+            {/* Streak Counter */}
+            <div className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black">
+              <Flame size={14} className={streakCount > 0 ? "animate-bounce text-amber-400" : "text-amber-400/60"} />
+              <span>{streakCount}x</span>
             </div>
+
+            {/* Calculator Button */}
+            <button
+              onClick={() => setIsCalculatorOpen(true)}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+              title="Open JAMB Calculator"
+            >
+              <Calculator size={16} />
+            </button>
           </div>
 
           {/* Eagle Streak Flyover Notification */}
           {showStreakFlyover && (
-            <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
+            <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-bounce">
               <img
                 src="/assets/mascots/blitz/eagle_flying_speed.svg"
                 alt="Eagle Flying"
@@ -477,151 +496,193 @@ export function BlitzPage() {
             </div>
           )}
 
-          {/* Question Arena Box */}
-          <div className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center">
-            <div className="bg-[#10192E] border-2 border-slate-800 rounded-3xl p-6 sm:p-8 text-white shadow-2xl relative">
-              {/* Question Meta */}
-              <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-4 pb-3 border-b border-slate-800">
-                <span className="px-2.5 py-1 rounded-md bg-blue-900/60 text-blue-300">
-                  {currentQuestion.topic || 'General Topic'}
-                </span>
-                <span className="text-amber-400">JAMB UTME {currentQuestion.year || 'Standard'}</span>
-              </div>
-
-              {/* Question Text (Large and Readable) */}
-              <h3 className="text-lg sm:text-2xl font-bold leading-relaxed mb-6 whitespace-pre-line text-slate-100">
-                {currentQuestion.question}
-              </h3>
-
-              {/* Option Buttons (A, B, C, D) */}
-              {currentQuestion.options && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                  {(Object.keys(currentQuestion.options) as Array<'A' | 'B' | 'C' | 'D'>).map(optKey => {
-                    const optText = currentQuestion.options?.[optKey];
-                    const isSelected = selectedOption === optKey;
-                    const isCorrect = isAnswerSubmitted && optKey === currentQuestion.answer;
-                    const isWrong = isAnswerSubmitted && isSelected && optKey !== currentQuestion.answer;
-
-                    return (
-                      <button
-                        key={optKey}
-                        onClick={() => handleOptionSubmit(optKey)}
-                        disabled={isAnswerSubmitted}
-                        className={`p-4 rounded-2xl border-2 text-left font-bold text-sm sm:text-base flex items-start gap-3 transition-all ${
-                          isCorrect
-                            ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300'
-                            : isWrong
-                            ? 'bg-red-600/20 border-red-500 text-red-300'
-                            : isSelected
-                            ? 'bg-amber-500 text-slate-950 border-amber-500'
-                            : 'bg-slate-900/80 border-slate-800 hover:border-amber-400/60 text-slate-200'
-                        }`}
-                      >
-                        <span className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center font-black text-sm ${
-                          isCorrect
-                            ? 'bg-emerald-500 text-slate-950'
-                            : isWrong
-                            ? 'bg-red-500 text-white'
-                            : isSelected
-                            ? 'bg-slate-950 text-white'
-                            : 'bg-slate-800 text-slate-300'
-                        }`}>
-                          {optKey}
-                        </span>
-                        <span className="flex-1 mt-1 leading-snug">{optText}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Theory / Direct Answer Inbox & Image Upload */}
-              <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-400">
-                    Direct Answer / Workings Inbox:
-                  </span>
-                  <label className="cursor-pointer text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5">
-                    <Upload size={13} />
-                    <span>Upload Worked Answer</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleSimulatedImageUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={theoryAnswer}
-                    placeholder="Type worked value or key formula..."
-                    onChange={e => setTheoryAnswer(e.target.value)}
-                    disabled={isAnswerSubmitted}
-                    className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-bold text-white focus:outline-hidden focus:border-amber-400"
+          {/* Main Full-Screen Question Canvas */}
+          <div className="flex-1 w-full max-w-3xl mx-auto px-4 py-4 sm:py-8 flex flex-col justify-center overflow-y-auto">
+            {/* Mascot reaction & Question Meta */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shrink-0">
+                  <img
+                    src={
+                      isAnswerSubmitted
+                        ? (selectedOption === currentQuestion.answer
+                            ? '/assets/mascots/blitz/eagle_cheering_stars.svg'
+                            : '/assets/mascots/blitz/eagle_idle.svg')
+                        : streakCount >= 3
+                        ? '/assets/mascots/blitz/eagle_flying_speed.svg'
+                        : '/assets/mascots/blitz/eagle_idle.svg'
+                    }
+                    alt="Blitz Eagle"
+                    className="w-full h-full object-contain filter drop-shadow-md"
                   />
-                  {!isAnswerSubmitted && (
-                    <button
-                      onClick={() => handleOptionSubmit('A')}
-                      className="px-5 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider"
-                    >
-                      Submit
-                    </button>
-                  )}
                 </div>
-
-                {uploadedImageName && (
-                  <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
-                    <CheckCircle2 size={13} /> Worked solution attached: {uploadedImageName}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-600/30 text-blue-300 text-[11px] font-bold border border-blue-500/30 uppercase tracking-wider">
+                      {currentQuestion.topic || activeSubject}
+                    </span>
+                    <span className="text-xs text-amber-400 font-bold">
+                      JAMB {currentQuestion.year || '2026'}
+                    </span>
                   </div>
-                )}
+                  <span className="text-xs text-slate-400 font-medium">
+                    Question {currentQuestionIndex + 1} of {activeQuestionList.length}
+                  </span>
+                </div>
               </div>
 
-              {/* Immediate Review & Full Explanation Section */}
-              {isAnswerSubmitted && (
-                <div className={`mt-6 p-5 rounded-2xl border-2 animate-fade-in ${
-                  selectedOption === currentQuestion.answer
-                    ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-100'
-                    : 'bg-amber-950/40 border-amber-500/60 text-amber-100'
-                }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 font-black text-sm uppercase tracking-wider">
-                      {selectedOption === currentQuestion.answer ? (
-                        <>
-                          <CheckCircle2 size={18} className="text-emerald-400" />
-                          <span className="text-emerald-400">Correct! +20 Points</span>
-                        </>
-                      ) : (
-                        <>
-                          <XCircle size={18} className="text-red-400" />
-                          <span className="text-red-400">Incorrect · Correct is {currentQuestion.answer}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
+              {/* Direct workings image upload toggle */}
+              <label className="cursor-pointer text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 p-2 rounded-xl hover:bg-slate-900/60 transition">
+                <Upload size={14} />
+                <span className="hidden sm:inline">Upload Workings</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSimulatedImageUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
 
-                  <p className="text-sm leading-relaxed text-slate-200 mt-2">
-                    {currentQuestion.explanation}
-                  </p>
+            {uploadedImageName && (
+              <div className="mb-3 px-3 py-1.5 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 font-bold flex items-center gap-1.5">
+                <CheckCircle2 size={13} /> Worked solution attached: {uploadedImageName}
+              </div>
+            )}
 
-                  {currentQuestion.explanation_pidgin && (
-                    <div className="mt-3 p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs text-amber-300">
-                      <strong>Sabi Pidgin Breakdown:</strong> {currentQuestion.explanation_pidgin}
-                    </div>
-                  )}
+            {/* Question Stem (Large, Prominent Typography) */}
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white leading-relaxed mb-6 sm:mb-8 whitespace-pre-line tracking-tight">
+              {currentQuestion.question}
+            </h2>
 
-                  {/* Immediate Next Question Button for Addictive Flow */}
-                  <div className="mt-5 flex justify-end">
+            {/* Duolingo Option Tiles (A, B, C, D) */}
+            {currentQuestion.options && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+                {(Object.keys(currentQuestion.options) as Array<'A' | 'B' | 'C' | 'D'>).map(optKey => {
+                  const optText = currentQuestion.options?.[optKey];
+                  const isSelected = selectedOption === optKey;
+                  const isCorrect = isAnswerSubmitted && optKey === currentQuestion.answer;
+                  const isWrong = isAnswerSubmitted && isSelected && optKey !== currentQuestion.answer;
+                  const isOther = isAnswerSubmitted && !isSelected && !isCorrect;
+
+                  return (
                     <button
-                      onClick={handleNextQuestion}
-                      className="px-8 py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 shadow-lg shadow-amber-500/30 hover:brightness-105 transition flex items-center gap-2"
+                      key={optKey}
+                      onClick={() => handleSelectOption(optKey)}
+                      disabled={isAnswerSubmitted}
+                      className={`p-4 sm:p-5 rounded-2xl border-2 border-b-4 text-left font-bold text-sm sm:text-base flex items-start gap-3.5 transition-all cursor-pointer ${
+                        isCorrect
+                          ? 'bg-emerald-950/60 border-emerald-500 border-b-emerald-600 text-emerald-200'
+                          : isWrong
+                          ? 'bg-red-950/60 border-red-500 border-b-red-600 text-red-200'
+                          : isSelected
+                          ? 'bg-blue-600/20 border-blue-500 border-b-blue-600 text-white ring-2 ring-blue-500/30'
+                          : isOther
+                          ? 'opacity-35 bg-slate-900/50 border-slate-800 border-b-slate-800 text-slate-400'
+                          : 'bg-slate-900/80 border-slate-800 border-b-slate-900 text-slate-200 hover:border-amber-400 hover:bg-amber-400/10 hover:text-amber-200 hover:border-b-amber-500'
+                      }`}
                     >
-                      <span>Next Question →</span>
+                      <span className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl shrink-0 flex items-center justify-center font-black text-sm border transition-colors ${
+                        isCorrect
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                          : isWrong
+                          ? 'bg-red-500 text-white border-red-400'
+                          : isSelected
+                          ? 'bg-blue-600 text-white border-blue-400'
+                          : 'bg-slate-800 text-slate-300 border-slate-700'
+                      }`}>
+                        {optKey}
+                      </span>
+                      <span className="flex-1 mt-1 leading-snug">{optText}</span>
                     </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* DUOLINGO FIXED BOTTOM ACTION DOCK */}
+          <div className={`w-full border-t transition-all duration-300 px-4 sm:px-8 py-4 sm:py-5 ${
+            !isAnswerSubmitted
+              ? 'bg-[#0B1222] border-slate-800 text-white'
+              : selectedOption === currentQuestion.answer
+              ? 'bg-[#052E16] border-t-2 border-emerald-500 text-white'
+              : 'bg-[#2D0A11] border-t-2 border-red-500 text-white'
+          }`}>
+            <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              {!isAnswerSubmitted ? (
+                <>
+                  <button
+                    onClick={() => {
+                      sound.playTap();
+                      handleNextQuestion();
+                    }}
+                    className="text-xs font-bold uppercase tracking-wider text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    Skip Question
+                  </button>
+
+                  <button
+                    onClick={handleCheckAnswer}
+                    disabled={!selectedOption}
+                    className={`px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-wider transition-all ${
+                      selectedOption
+                        ? 'bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-xl shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95'
+                        : 'bg-slate-800 text-slate-500 border border-slate-700/60 shadow-none cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    Check Answer
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex-1">
+                    {selectedOption === currentQuestion.answer ? (
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-xl shrink-0">
+                          ✓
+                        </div>
+                        <div>
+                          <h4 className="text-base font-black text-emerald-300">Excellent! +20 XP</h4>
+                          <p className="text-xs text-emerald-100 font-medium">
+                            Streak: {streakCount}x · {currentQuestion.explanation}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-red-500 text-white flex items-center justify-center font-black text-xl shrink-0">
+                          ✕
+                        </div>
+                        <div>
+                          <h4 className="text-base font-black text-red-300">
+                            Correct Answer: Option {currentQuestion.answer}
+                          </h4>
+                          <p className="text-xs text-slate-200 font-medium leading-relaxed mt-0.5">
+                            {currentQuestion.explanation}
+                          </p>
+                          {currentQuestion.explanation_pidgin && (
+                            <p className="text-[11px] text-amber-300 font-semibold mt-1">
+                              <strong>Pidgin tip:</strong> {currentQuestion.explanation_pidgin}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+
+                  <button
+                    onClick={handleNextQuestion}
+                    autoFocus
+                    className={`px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-wider cursor-pointer transform hover:scale-[1.02] active:scale-95 shadow-xl transition-all ${
+                      selectedOption === currentQuestion.answer
+                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/30'
+                        : 'bg-red-500 hover:bg-red-400 text-white shadow-red-500/30'
+                    }`}
+                  >
+                    Continue →
+                  </button>
+                </>
               )}
             </div>
           </div>

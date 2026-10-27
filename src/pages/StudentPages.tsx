@@ -104,14 +104,6 @@ export function AppShell() {
               </div>
             </div>
 
-            {/* Mascot Gallery Shortcut */}
-            <Link
-              to="/mascots"
-              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-500 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition"
-              title="Inspect 15 Custom Mascot SVGs"
-            >
-              <span>🎨 Mascots</span>
-            </Link>
 
             {/* Theme Toggle */}
             <button
@@ -400,7 +392,7 @@ export function HomePage() {
               </div>
               <Link
                 to="/blitz"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 hover:brightness-110 transition flex items-center justify-center gap-2.5 shadow-lg shadow-amber-500/25"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
                 <span>Enter Blitz Arena ⚡</span>
                 <ArrowRight size={16} />
@@ -438,7 +430,7 @@ export function HomePage() {
               </div>
               <Link
                 to="/smart"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white hover:brightness-110 transition flex items-center justify-center gap-2.5 shadow-lg shadow-blue-500/25"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
                 <span>Enter Smart Campus 🎓</span>
                 <ArrowRight size={16} />

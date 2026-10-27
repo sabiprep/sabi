@@ -422,14 +422,14 @@ export function SmartPracticePage() {
                           key={optKey}
                           onClick={() => handleOptionSubmit(optKey)}
                           disabled={isAnswerSubmitted}
-                          className={`p-4 rounded-2xl border-2 text-left font-bold text-sm sm:text-base flex items-start gap-3 transition-all ${
+                          className={`p-4 rounded-2xl border-2 text-left font-bold text-sm sm:text-base flex items-start gap-3 transition-all cursor-pointer ${
                             isCorrect
                               ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300'
                               : isWrong
                               ? 'bg-red-600/20 border-red-500 text-red-300'
                               : isSelected
-                              ? 'bg-amber-500 text-slate-950 border-amber-500'
-                              : 'bg-slate-900/80 border-slate-800 hover:border-blue-400/60 text-slate-200'
+                              ? 'bg-blue-600 text-white border-blue-500 shadow-md'
+                              : 'bg-slate-900/80 border-slate-800 hover:border-amber-400 hover:bg-amber-400/10 hover:text-amber-300 text-slate-200'
                           }`}
                         >
                           <span className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center font-black text-sm ${
@@ -438,7 +438,7 @@ export function SmartPracticePage() {
                               : isWrong
                               ? 'bg-red-500 text-white'
                               : isSelected
-                              ? 'bg-slate-950 text-white'
+                              ? 'bg-white text-blue-900'
                               : 'bg-slate-800 text-slate-300'
                           }`}>
                             {optKey}
@@ -530,7 +530,7 @@ export function SmartPracticePage() {
                     <div className="mt-5 flex justify-end">
                       <button
                         onClick={handleNextQuestion}
-                        className="px-8 py-3.5 rounded-xl font-black text-sm bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:brightness-105 transition flex items-center gap-2"
+                        className="px-8 py-3.5 rounded-xl font-black text-sm bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 transition flex items-center gap-2 cursor-pointer transform hover:scale-[1.02] active:scale-95"
                       >
                         <span>Continue Practice →</span>
                       </button>

@@ -131,22 +131,14 @@ export function WelcomePage() {
           <BrandLockup />
 
           <div className="flex items-center gap-3">
-            <Link
-              to="/mascots"
-              className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/30 transition-all flex items-center gap-1.5"
-            >
-              <Layers size={14} />
-              <span>🎨 Inspect Mascots (15)</span>
-            </Link>
-
             <button
               onClick={toggleTheme}
-              className={`p-2 rounded-xl border transition-colors ${
-                isDark ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-slate-700'
+              className={`p-2.5 rounded-xl border transition-all ${
+                isDark ? 'bg-slate-800/80 border-slate-700 text-amber-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
               }`}
-              title="Toggle Light/Dark Theme"
+              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
             >
-              {isDark ? <Sun size={16} /> : <Moon size={16} />}
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           </div>
         </div>
@@ -200,16 +192,16 @@ export function WelcomePage() {
               Endless past and recent questions tailored to your 4 subjects. Experience high-speed 60-second Blitz, smart topic mastery, and real-time step-by-step corrections.
             </p>
 
-            {/* Feature Pills */}
+            {/* Feature Highlights */}
             <div className="grid grid-cols-2 gap-3 w-full">
-              <div className={`p-3 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center gap-2.5`}>
+              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center gap-2.5`}>
                 <div className="p-2 rounded-xl bg-amber-500 text-slate-950 font-black"><BookOpenCheck size={16} /></div>
                 <div>
                   <h4 className="text-xs font-extrabold">Endless Blitz</h4>
                   <p className="text-[11px] text-slate-400">Past & recent questions</p>
                 </div>
               </div>
-              <div className={`p-3 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center gap-2.5`}>
+              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center gap-2.5`}>
                 <div className="p-2 rounded-xl bg-blue-600 text-white font-black"><ShieldCheck size={16} /></div>
                 <div>
                   <h4 className="text-xs font-extrabold">Smart Practice</h4>
@@ -218,11 +210,11 @@ export function WelcomePage() {
               </div>
             </div>
 
-            {/* THE BOLD "GET STARTED" BUTTON */}
+            {/* CTA Buttons */}
             <div className="w-full space-y-3 pt-2">
               <button
                 onClick={() => navigate('/auth/choice')}
-                className="w-full py-4 px-6 rounded-2xl font-black text-lg bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 hover:from-amber-300 hover:to-amber-500 text-slate-950 shadow-xl shadow-amber-500/25 transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-3 group"
+                className="w-full py-4 px-6 rounded-2xl font-black text-lg bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-xl shadow-blue-600/25 hover:shadow-amber-400/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-3 group cursor-pointer"
               >
                 <span>Get Started</span>
                 <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
@@ -230,8 +222,10 @@ export function WelcomePage() {
 
               <button
                 onClick={() => navigate('/auth/sign-in')}
-                className={`w-full py-3 px-6 rounded-2xl font-bold text-sm border transition-all ${
-                  isDark ? 'bg-slate-900/80 border-slate-800 hover:bg-slate-800 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-100 text-slate-700'
+                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm border-2 transition-all cursor-pointer ${
+                  isDark 
+                    ? 'border-slate-800 bg-slate-900/80 text-slate-300 hover:border-amber-400 hover:bg-amber-400/10 hover:text-amber-400' 
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700'
                 } flex items-center justify-center gap-2`}
               >
                 <span>Already have an account? Sign in</span>
@@ -243,13 +237,9 @@ export function WelcomePage() {
       </main>
 
       {/* Footer */}
-      <footer className={`px-6 py-4 border-t text-center text-xs ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>SABI · Nigerian Joint Admissions and Matriculation Board CBT Simulator</span>
-          <div className="flex items-center gap-4 font-mono text-[11px]">
-            <Link to="/mascots" className="text-amber-500 hover:underline">Mascot SVGs</Link>
-            <Link to="/onboarding/1" className="text-blue-500 hover:underline">Onboarding Gateway</Link>
-          </div>
+      <footer className={`px-6 py-4 border-t text-center text-xs ${isDark ? 'border-slate-800/80 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
+        <div className="max-w-7xl mx-auto flex items-center justify-center">
+          <span>SABI © 2026 · Nigeria's Joint Admissions and Matriculation Board UTME CBT Platform</span>
         </div>
       </footer>
     </div>
@@ -280,268 +270,296 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
       {/* Header */}
-      <header className={`px-6 py-4 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md`}>
+      <header className={`px-6 py-4 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <BrandLockup />
           <div className="flex items-center gap-3">
-            <Link
-              to="/mascots"
-              className="px-3 py-1.5 rounded-xl text-xs font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20"
-            >
-              🎨 Mascots Hub
-            </Link>
             <button
               onClick={toggleTheme}
-              className={`p-2 rounded-xl border ${isDark ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-slate-700'}`}
+              className={`p-2.5 rounded-xl border transition-all ${
+                isDark ? 'bg-slate-800/80 border-slate-700 text-amber-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
+              }`}
+              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
             >
-              {isDark ? <Sun size={15} /> : <Moon size={15} />}
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Auth Content */}
-      <main className="max-w-4xl mx-auto px-6 py-10 flex-1 flex items-center justify-center w-full">
-        <div className="w-full max-w-xl">
+      {/* Main Full-Screen Auth Content */}
+      <main className="w-full flex-1 flex flex-col justify-center px-3 sm:px-6 lg:px-12 py-3 sm:py-6">
+        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-10 items-stretch justify-center">
           
-          {/* BACK BUTTON */}
-          <button
-            onClick={() => {
-              if (currentMode !== 'choice') setCurrentMode('choice');
-              else navigate('/welcome');
-            }}
-            className="mb-6 text-xs font-bold text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition-colors"
-          >
-            ← {currentMode === 'choice' ? 'Back to Welcome' : 'Back to Choice'}
-          </button>
-
-          {/* CARD CONTAINER */}
-          <div className={`rounded-3xl border p-8 shadow-2xl relative overflow-hidden ${
-            isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+          {/* Left Hero Column on Large Screens (Citadel Identity Showcase) */}
+          <div className={`hidden lg:flex lg:col-span-6 flex-col justify-between p-8 xl:p-12 rounded-3xl border shadow-2xl relative overflow-hidden ${
+            isDark 
+              ? 'bg-gradient-to-br from-[#0F1E3D] via-[#0A1428] to-[#060B16] border-blue-900/60 text-white' 
+              : 'bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-950 border-blue-800 text-white'
           }`}>
-            {/* Top Logo / Slogan */}
-            <div className="text-center mb-8">
-              <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-500/20 text-amber-500 border border-amber-500/30">
-                SABI Access Gateway
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-3">
-                {currentMode === 'choice' && 'Choose Your Journey'}
-                {currentMode === 'sign-up' && 'Start Your JAMB Journey'}
-                {currentMode === 'sign-in' && 'Welcome Back to SABI'}
-                {currentMode === 'verify' && 'Verify Your Phone'}
-                {currentMode === 'forgot-password' && 'Reset Password'}
-              </h2>
-              <p className={`text-xs sm:text-sm mt-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                {currentMode === 'choice' && 'Join thousands of Nigerian scholars mastering CBT with high scores.'}
-                {currentMode === 'sign-up' && 'Setup your 4 subjects in our gamified Gateway Onboarding.'}
-                {currentMode === 'sign-in' && 'Enter your credentials to continue to your study dashboard.'}
+            {/* Ambient Background Grid */}
+            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
+            
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-sm mb-6">
+                <span>Citadel Access · Official JAMB 2027</span>
+              </div>
+              <h1 className="text-3xl xl:text-4xl font-black tracking-tight leading-tight mb-4">
+                Enter the Arena of Nigerian Champions.
+              </h1>
+              <p className="text-sm xl:text-base text-blue-100 font-medium leading-relaxed max-w-md">
+                Experience high-speed 60-second Blitz, 4-subject past question rotation, and instant step-by-step corrections built to secure 320+ in JAMB.
               </p>
             </div>
 
-            {/* OPTION 1: THE TWO BIG ANIMATED BUTTONS (CHOICE MODE) */}
-            {currentMode === 'choice' && (
-              <div className="space-y-4 animate-fade-in">
-                {/* 1. CREATE ACCOUNT BUTTON -> ONBOARDING */}
-                <button
-                  onClick={() => navigate('/onboarding/1')}
-                  className="w-full p-5 rounded-2xl border-2 border-amber-500 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black shadow-lg shadow-amber-500/20 flex items-center justify-between group transition-all transform hover:-translate-y-0.5"
-                >
-                  <div className="flex items-center gap-4 text-left">
-                    <div className="p-3 rounded-xl bg-slate-950/20 text-slate-950">
-                      <UserPlus size={24} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black leading-tight">Create Account</h3>
-                      <p className="text-xs text-slate-900 font-semibold opacity-90">
-                        First time? Enter the Gamified Gateway to set up your 4 subjects
-                      </p>
-                    </div>
-                  </div>
-                  <ArrowRight size={22} className="group-hover:translate-x-1.5 transition-transform" />
-                </button>
-
-                {/* 2. ALREADY HAVE ACCOUNT BUTTON -> OPENS SIGN IN */}
-                <button
-                  onClick={() => setCurrentMode('sign-in')}
-                  className={`w-full p-5 rounded-2xl border-2 transition-all flex items-center justify-between group ${
-                    isDark 
-                      ? 'border-blue-600/40 bg-blue-950/20 hover:border-blue-500 text-white' 
-                      : 'border-blue-200 bg-blue-50/50 hover:border-blue-400 text-slate-900'
-                  }`}
-                >
-                  <div className="flex items-center gap-4 text-left">
-                    <div className="p-3 rounded-xl bg-blue-600 text-white font-bold">
-                      <LogIn size={24} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-black leading-tight">Already Have an Account</h3>
-                      <p className={`text-xs font-semibold ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Log in with phone or email & password directly to your Dashboard
-                      </p>
-                    </div>
-                  </div>
-                  <ChevronRight size={22} className="group-hover:translate-x-1.5 transition-transform text-blue-500" />
-                </button>
-
-                {/* Direct Onboarding Test Route */}
-                <div className="pt-4 text-center">
-                  <p className="text-xs text-slate-500">
-                    Ready to test the Sabi Scholar pushing gates?{' '}
-                    <Link to="/onboarding/1" className="text-amber-500 font-bold hover:underline">
-                      Launch Gateway Level 1 →
-                    </Link>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* OPTION 2: SIGN-IN FORM */}
-            {currentMode === 'sign-in' && (
-              <form onSubmit={handleSignInSubmit} className="space-y-4 animate-fade-in">
-                {/* Method Switch: Email or Phone */}
-                <div className="flex rounded-xl p-1 bg-slate-800/40 border border-slate-700/50">
-                  <button
-                    type="button"
-                    onClick={() => setAuthMethod('email')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                      authMethod === 'email' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Email Address
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAuthMethod('phone')}
-                    className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                      authMethod === 'phone' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Phone (+234)
-                  </button>
-                </div>
-
-                {authMethod === 'email' ? (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                      Email Address
-                    </label>
-                    <div className="relative">
-                      <Mail size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
-                      <input
-                        type="email"
-                        value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
-                        placeholder="scholar@example.com"
-                        required
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 focus:border-blue-500' : 'bg-slate-50 border-slate-300 focus:border-blue-500'
-                        } outline-none`}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
-                      Nigerian Phone Number
-                    </label>
-                    <div className="relative">
-                      <Phone size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
-                      <input
-                        type="tel"
-                        value={phoneInput}
-                        onChange={(e) => setPhoneInput(e.target.value)}
-                        placeholder="080 1234 5678"
-                        required
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 focus:border-blue-500' : 'bg-slate-50 border-slate-300 focus:border-blue-500'
-                        } outline-none`}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setCurrentMode('forgot-password')}
-                      className="text-xs text-blue-500 hover:underline font-semibold"
-                    >
-                      Forgot?
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <LockKeyhole size={16} className="absolute left-3.5 top-3.5 text-slate-500" />
-                    <input
-                      type="password"
-                      value={passwordInput}
-                      onChange={(e) => setPasswordInput(e.target.value)}
-                      placeholder="••••••••"
-                      required
-                      className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-medium transition-all ${
-                        isDark ? 'bg-slate-950 border-slate-800 focus:border-blue-500' : 'bg-slate-50 border-slate-300 focus:border-blue-500'
-                      } outline-none`}
-                    />
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 flex items-center gap-2">
-                  <ShieldCheck size={16} className="shrink-0" />
-                  <span>Automatic signed-in token active on connection. Instant preview to Dashboard.</span>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-4 rounded-2xl font-black text-base bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2"
-                >
-                  <span>Sign In to Dashboard</span>
-                  <ArrowRight size={18} />
-                </button>
-
-                <div className="text-center pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setCurrentMode('choice')}
-                    className="text-xs font-bold text-slate-400 hover:text-white"
-                  >
-                    Need an account? Go to Create Account
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* FORGOT PASSWORD MODE */}
-            {currentMode === 'forgot-password' && (
-              <div className="space-y-4 animate-fade-in">
-                <p className="text-xs text-slate-400">
-                  Enter your email address or phone number and we will send you an OTP reset link.
-                </p>
-                <input
-                  type="email"
-                  placeholder="scholar@example.com"
-                  className={`w-full px-4 py-3 rounded-xl border text-sm ${
-                    isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-300'
-                  }`}
+            {/* Sabi Scholar Mascot Artwork */}
+            <div className="relative z-10 my-4 flex items-center justify-center">
+              <div className="w-full max-w-xs h-48 xl:h-56 flex items-center justify-center">
+                <img
+                  src="/assets/mascots/onboarding/scholar_welcome_salute.svg"
+                  alt="Sabi Scholar"
+                  className="w-full h-full object-contain filter drop-shadow-2xl"
                 />
+              </div>
+            </div>
+
+            {/* Live Platform Proof Bullets */}
+            <div className="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/10 text-xs">
+              <div className="p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                <div className="font-black text-amber-400 text-sm mb-0.5">⚡ Endless Blitz</div>
+                <div className="text-blue-100/80 text-[11px]">60s questions with Eagle speed streak</div>
+              </div>
+              <div className="p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+                <div className="font-black text-amber-400 text-sm mb-0.5">🎯 Smart Practice</div>
+                <div className="text-blue-100/80 text-[11px]">4-subject rotation with instant solutions</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Auth Interaction Column (Expansive, Full-Bleed) */}
+          <div className={`lg:col-span-6 w-full flex flex-col justify-center p-6 sm:p-10 xl:p-12 rounded-3xl border shadow-xl transition-all ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <div className="w-full max-w-md mx-auto">
+              {/* Back Navigation */}
+              {currentMode !== 'choice' && (
                 <button
                   type="button"
-                  onClick={() => setCurrentMode('sign-in')}
-                  className="w-full py-3 rounded-xl bg-amber-500 font-bold text-slate-950 text-sm"
+                  onClick={() => setCurrentMode('choice')}
+                  className="mb-4 text-xs font-black uppercase tracking-wider text-blue-500 hover:text-amber-500 flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
-                  Send Recovery Link
+                  ← Back to Options
                 </button>
+              )}
+
+              {/* Header Titles */}
+              <div className="text-center sm:text-left mb-6 sm:mb-8">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+                  {currentMode === 'choice' && 'Choose Your Journey'}
+                  {currentMode === 'sign-in' && 'Welcome Back'}
+                  {currentMode === 'forgot-password' && 'Reset Password'}
+                </h2>
+                <p className={`text-xs sm:text-sm mt-2 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                  {currentMode === 'choice' && 'Join thousands of Nigerian scholars mastering CBT with high scores.'}
+                  {currentMode === 'sign-in' && 'Enter your credentials to continue your study streak.'}
+                  {currentMode === 'forgot-password' && 'Enter your email or phone to reset your password.'}
+                </p>
               </div>
-            )}
+
+              {/* CHOICE MODE */}
+              {currentMode === 'choice' && (
+                <div className="space-y-4 animate-fade-in">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigate('/onboarding/1');
+                    }}
+                    className="w-full p-5 sm:p-6 rounded-2xl bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white font-black shadow-lg shadow-blue-600/25 hover:shadow-amber-400/30 flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 active:ring-4 active:ring-amber-400/40 cursor-pointer border-2 border-blue-500 hover:border-amber-400"
+                  >
+                    <div className="flex items-center gap-4 text-left">
+                      <div className="p-3 rounded-xl bg-white/20 group-hover:bg-slate-950/20 text-white group-hover:text-slate-950 transition-colors">
+                        <UserPlus size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-black leading-tight">Create Account</h3>
+                        <p className="text-xs text-blue-100 group-hover:text-slate-900 font-semibold opacity-90 transition-colors mt-0.5">
+                          First time? Enter the Gateway to set up your 4 subjects
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight size={22} className="group-hover:translate-x-2 transition-transform shrink-0" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCurrentMode('sign-in');
+                    }}
+                    className="w-full p-5 sm:p-6 rounded-2xl bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white font-black shadow-lg shadow-blue-600/25 hover:shadow-amber-400/30 flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 active:ring-4 active:ring-amber-400/40 cursor-pointer border-2 border-blue-500 hover:border-amber-400"
+                  >
+                    <div className="flex items-center gap-4 text-left">
+                      <div className="p-3 rounded-xl bg-white/20 group-hover:bg-slate-950/20 text-white group-hover:text-slate-950 transition-colors font-bold">
+                        <LogIn size={24} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-black leading-tight">Already Have an Account</h3>
+                        <p className="text-xs text-blue-100 group-hover:text-slate-900 font-semibold opacity-90 transition-colors mt-0.5">
+                          Log in directly to your Sabi Student Dashboard
+                        </p>
+                      </div>
+                    </div>
+                    <ChevronRight size={22} className="group-hover:translate-x-2 transition-transform shrink-0" />
+                  </button>
+                </div>
+              )}
+
+              {/* SIGN-IN FORM */}
+              {currentMode === 'sign-in' && (
+                <form onSubmit={handleSignInSubmit} className="space-y-4 animate-fade-in">
+                  {/* Method Switch: Email or Phone */}
+                  <div className={`flex rounded-xl p-1 border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMethod('email')}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
+                        authMethod === 'email' 
+                          ? 'bg-blue-600 text-white shadow-sm' 
+                          : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Email Address
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMethod('phone')}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
+                        authMethod === 'phone' 
+                          ? 'bg-blue-600 text-white shadow-sm' 
+                          : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Phone (+234)
+                    </button>
+                  </div>
+
+                  {authMethod === 'email' ? (
+                    <div>
+                      <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                        Email Address
+                      </label>
+                      <div className="relative">
+                        <Mail size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                        <input
+                          type="email"
+                          value={emailInput}
+                          onChange={(e) => setEmailInput(e.target.value)}
+                          placeholder="candidate@example.com"
+                          required
+                          className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${
+                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
+                          } outline-none`}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                        Nigerian Phone Number
+                      </label>
+                      <div className="relative">
+                        <Phone size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                        <input
+                          type="tel"
+                          value={phoneInput}
+                          onChange={(e) => setPhoneInput(e.target.value)}
+                          placeholder="080 1234 5678"
+                          required
+                          className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${
+                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
+                          } outline-none`}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className={`block text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentMode('forgot-password')}
+                        className="text-xs text-blue-500 hover:text-amber-500 hover:underline font-bold"
+                      >
+                        Forgot?
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <LockKeyhole size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+                      <input
+                        type="password"
+                        value={passwordInput}
+                        onChange={(e) => setPasswordInput(e.target.value)}
+                        placeholder="••••••••"
+                        required
+                        className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${
+                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
+                        } outline-none`}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-4 rounded-2xl font-black text-base bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-lg shadow-blue-600/25 hover:shadow-amber-400/30 transition-all duration-200 active:scale-95 active:ring-4 active:ring-amber-400/40 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                  >
+                    <span>Sign In to Dashboard</span>
+                    <ArrowRight size={18} />
+                  </button>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCurrentMode('choice')}
+                      className={`text-xs font-bold ${isDark ? 'text-slate-400 hover:text-amber-400' : 'text-slate-600 hover:text-amber-600'} transition-colors cursor-pointer`}
+                    >
+                      Don't have an account? Create one
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* FORGOT PASSWORD MODE */}
+              {currentMode === 'forgot-password' && (
+                <div className="space-y-4 animate-fade-in">
+                  <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
+                    Enter your email address or phone number and we will send you an OTP recovery link.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="candidate@example.com"
+                    className={`w-full px-4 py-3.5 rounded-xl border text-sm font-medium ${
+                      isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
+                    } outline-none`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCurrentMode('sign-in')}
+                    className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-amber-400 hover:text-slate-950 font-black text-white text-sm transition-all cursor-pointer shadow-lg shadow-blue-600/20 hover:shadow-amber-400/30 active:scale-95"
+                  >
+                    Send Recovery Link
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className={`px-6 py-4 border-t text-center text-xs ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
-        SABI CBT Platform · Secure Student Authentication Flow
+      <footer className={`px-6 py-3 border-t text-center text-xs ${isDark ? 'border-slate-800/80 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
+        <span>SABI © 2026 · Nigeria's Joint Admissions and Matriculation Board UTME CBT Platform</span>
       </footer>
     </div>
   );
