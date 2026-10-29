@@ -20,6 +20,7 @@ const MAIN_NAV = [
 ];
 
 const MENU_ITEMS = [
+  { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests, streak flames & gem rewards' },
   { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review questions to revisit' },
   { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet and syllabus' },
   { to: '/menu/help', label: 'Help & Support', Icon: HelpCircle, description: 'Get help using SABI' },
@@ -95,10 +96,14 @@ export function AppShell() {
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Gamified HUD Badges */}
             <div className="hidden sm:flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-black text-amber-500">
+              <Link
+                to="/missions"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-xs font-black text-amber-500 transition"
+                title="View Daily UTME Missions & Streaks"
+              >
                 <Flame size={15} className="animate-bounce" />
                 <span>7d</span>
-              </div>
+              </Link>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs font-black text-blue-500">
                 <Coins size={15} />
                 <span>1,450</span>
@@ -533,20 +538,93 @@ export function HomePage() {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
 
-      {/* DAILY MISSIONS & EXAM TOOLS */}
+// ==========================================
+// DAILY UTME MISSIONS PAGE (/missions)
+// ==========================================
+export function DailyMissionsPage() {
+  const [completedQuest, setCompletedQuest] = useState(false);
+  const { isDark } = useTheme();
+
+  return (
+    <div className="space-y-8 pb-16 lg:pb-0 max-w-5xl mx-auto">
+      <div>
+        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+          Daily Missions & Streaks
+        </span>
+        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+          Daily UTME Missions & Rewards
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Complete your daily high-speed drills to maintain your streak flame and earn Sabi Gems for admission resources.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className={`p-5 rounded-3xl border-2 flex items-center gap-4 ${
+          isDark ? 'bg-slate-900/80 border-amber-500/30' : 'bg-white border-amber-200'
+        }`}>
+          <div className="p-3.5 rounded-2xl bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20">
+            <Flame size={26} className="animate-bounce" />
+          </div>
+          <div>
+            <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+              Streak Flame
+            </span>
+            <span className="text-xl font-black text-slate-900 dark:text-white">
+              7 Days Active 🔥
+            </span>
+          </div>
+        </div>
+
+        <div className={`p-5 rounded-3xl border-2 flex items-center gap-4 ${
+          isDark ? 'bg-slate-900/80 border-blue-500/30' : 'bg-white border-blue-200'
+        }`}>
+          <div className="p-3.5 rounded-2xl bg-blue-600 text-white font-black shadow-md shadow-blue-600/20">
+            <Coins size={26} />
+          </div>
+          <div>
+            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
+              Sabi Gems
+            </span>
+            <span className="text-xl font-black text-slate-900 dark:text-white">
+              1,450 💎
+            </span>
+          </div>
+        </div>
+
+        <div className={`p-5 rounded-3xl border-2 flex items-center gap-4 ${
+          isDark ? 'bg-slate-900/80 border-emerald-500/30' : 'bg-white border-emerald-200'
+        }`}>
+          <div className="p-3.5 rounded-2xl bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20">
+            <Zap size={26} />
+          </div>
+          <div>
+            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+              Stamina Refill
+            </span>
+            <span className="text-xl font-black text-slate-900 dark:text-white">
+              Full (25/25)
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quests Container */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Daily Quests (7 cols) */}
-        <div className={`lg:col-span-7 p-6 sm:p-7 rounded-3xl border-2 space-y-4 ${
+        <div className={`lg:col-span-7 p-6 sm:p-8 rounded-3xl border-2 space-y-5 ${
           isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
         } shadow-sm`}>
           <div className="flex items-center justify-between">
             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Award size={20} className="text-amber-500" />
-              <span>Daily UTME Missions</span>
+              <Award size={22} className="text-amber-500" />
+              <span>Today's Available Missions</span>
             </h3>
             <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
-              +100 Gems Today
+              +150 Gems Available
             </span>
           </div>
 
@@ -555,7 +633,7 @@ export function HomePage() {
               isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center gap-3">
-                <CheckCircle size={20} className="text-emerald-500" />
+                <CheckCircle size={22} className="text-emerald-500" />
                 <div>
                   <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
                     Solve 15 Blitz Speed Questions
@@ -600,11 +678,34 @@ export function HomePage() {
                 <ChevronRight size={14} />
               </Link>
             </div>
+
+            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
+              isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
+            }`}>
+              <div className="flex items-center gap-3">
+                <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
+                <div>
+                  <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
+                    Complete 1 Diagnostic on Weak Topics
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    Reward: +100 Sabi Gems
+                  </span>
+                </div>
+              </div>
+              <Link
+                to="/diagnostic"
+                className="text-xs font-black text-blue-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+              >
+                <span>Start Diagnostic</span>
+                <ChevronRight size={14} />
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* Official CBT Exam Simulator Card (5 cols) */}
-        <div className="lg:col-span-5 p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/20 flex flex-col justify-between">
+        {/* 180-Q Mock Exam Quick Launch */}
+        <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/20 flex flex-col justify-between">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950 text-amber-400 font-black text-[10px] uppercase tracking-wider mb-3">
               <FileQuestion size={12} /> Official JAMB UTME Simulator

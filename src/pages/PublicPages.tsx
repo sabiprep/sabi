@@ -39,7 +39,12 @@ export function SplashPage() {
   const navigate = useNavigate();
 
   const handleComplete = () => {
-    navigate('/welcome');
+    const isSigned = typeof window !== 'undefined' && localStorage.getItem('sabi_user_signed_in') === 'true';
+    if (isSigned) {
+      navigate('/home');
+    } else {
+      navigate('/welcome');
+    }
   };
 
   return (
@@ -215,11 +220,17 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   const [passwordInput, setPasswordInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
 
-  // Handle direct sign in into dashboard
+  // Handle direct sign in into dashboard or requested redirect directory
   const handleSignInSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Direct preview sign-in to dashboard; when backend is ready, this will be automatic session authentication
-    navigate('/home');
+    localStorage.setItem('sabi_user_signed_in', 'true');
+    const params = new URLSearchParams(window.location.search);
+    const redirectUrl = params.get('redirect');
+    if (redirectUrl && redirectUrl.startsWith('/')) {
+      navigate(redirectUrl);
+    } else {
+      navigate('/home');
+    }
   };
 
   return (

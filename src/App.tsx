@@ -17,6 +17,7 @@ const CbtPage = lazy(() => import('./pages/StudentPages').then(module => ({ defa
 const ProgressPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProgressPage })));
 const ProfilePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProfilePage })));
 const NotificationsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.NotificationsPage })));
+const DailyMissionsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.DailyMissionsPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 
 function PageLoading() {
@@ -55,6 +56,7 @@ export default function App() {
               <Route path="/cbt/:examId" element={<MainPage page="CBT Simulator" />} />
               <Route path="/cbt/:examId/results" element={<MainPage page="CBT Results" />} />
               <Route path="/progress" element={<ProgressPage />} />
+              <Route path="/missions" element={<DailyMissionsPage />} />
               <Route path="/recommendations" element={<MainPage page="Recommendations" />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
