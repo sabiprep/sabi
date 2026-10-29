@@ -54,12 +54,27 @@ Open your terminal in the project folder and run:
 npm install
 ```
 
-### Step 2: Check Your `.env` File Before Building
-Make sure your `.env` file in the root directory has your live keys:
+### Step 2: Create Your `.env` File from `.env.example`
+Because Git hides secret `.env` files for security, you will only see **`.env.example`** when you first open the folder in VS Code.
+
+1. In your VS Code terminal, copy `.env.example` into a new file named **`.env`**:
+   - **Windows (PowerShell / CMD)**:
+     ```powershell
+     copy .env.example .env
+     ```
+   - **Mac / Linux / Git Bash**:
+     ```bash
+     cp .env.example .env
+     ```
+   *(Or right-click `.env.example` in the VS Code sidebar → **Copy**, paste it in the root folder, and rename the copy to **`.env`**).*
+
+2. Open your newly created **`.env`** file in VS Code and paste your real keys:
 ```env
+GEMINI_API_KEY=your-gemini-api-key
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-VITE_API_BASE_URL=https://your-deployed-backend-url.run.app
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-or-secret-key
+VITE_API_BASE_URL=https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app
 ```
 
 ### Step 3: Build Web Assets & Sync with Capacitor Android
