@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowRight, 
   LockKeyhole, 
@@ -6,14 +6,11 @@ import {
   Phone, 
   ShieldCheck, 
   BookOpenCheck, 
-  Layers, 
   UserPlus, 
   LogIn, 
   Sun, 
   Moon,
-  ChevronRight,
-  Flame,
-  Award
+  ChevronRight
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';

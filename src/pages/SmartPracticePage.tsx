@@ -1,24 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ArrowLeft, 
   Flame, 
   Star, 
-  Target, 
   Calculator, 
-  Settings, 
   X, 
   CheckCircle2, 
   XCircle, 
   Upload, 
-  Volume2, 
-  VolumeX, 
   Compass, 
-  BookOpen, 
-  HelpCircle,
-  Building,
   GraduationCap
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTheme } from '../app/ThemeProvider';
 import { SEED_QUESTIONS } from '../data/questions';
@@ -51,7 +44,6 @@ const ROAD_LEVELS: SmartBranchLevel[] = [
 ];
 
 export function SmartPracticePage() {
-  const navigate = useNavigate();
   const { isDark } = useTheme();
 
   // Selected level & study room state
@@ -226,7 +218,7 @@ export function SmartPracticePage() {
             <div className="w-full h-full opacity-10 bg-[radial-gradient(#F59E0B_2px,transparent_2px)] [background-size:20px_20px]" />
           </div>
 
-          {visibleLevels.map((lvl, index) => {
+          {visibleLevels.map((lvl) => {
             const isLeft = lvl.branch === 'left';
             const isRight = lvl.branch === 'right';
             const isStraight = lvl.branch === 'straight';
@@ -539,6 +531,51 @@ export function SmartPracticePage() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* LEVEL CLEARED VICTORY OVERLAY */}
+      {/* ======================================================== */}
+      {isLevelCleared && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl bg-gradient-to-b from-blue-950 to-slate-900 border-2 border-amber-400 p-8 text-center text-white shadow-2xl space-y-6">
+            <div className="w-32 h-32 mx-auto">
+              <img
+                src="/assets/mascots/smart/student_desk_celebrating.svg"
+                alt="Study Room Victory"
+                className="w-full h-full object-contain animate-bounce"
+              />
+            </div>
+
+            <div>
+              <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest">
+                Study Room Cleared
+              </span>
+              <h2 className="text-3xl font-black mt-3">
+                {activeLevel?.title || 'Checkpoint Mastered!'}
+              </h2>
+              <p className="text-sm text-slate-300 mt-1">
+                You scored <strong className="text-amber-400">{score} / {roomQuestions.length}</strong> in this Smart Practice checkpoint!
+              </p>
+            </div>
+
+            <div className="flex justify-center gap-3 py-2">
+              {[1, 2, 3].map(s => (
+                <Star key={s} size={32} className="fill-amber-400 text-amber-400 animate-pulse" />
+              ))}
+            </div>
+
+            <button
+              onClick={() => {
+                setIsLevelCleared(false);
+                setIsStudyRoomOpen(false);
+              }}
+              className="w-full py-4 rounded-2xl font-black text-base bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-lg transition cursor-pointer"
+            >
+              Return to Smart Practice Road →
+            </button>
           </div>
         </div>
       )}

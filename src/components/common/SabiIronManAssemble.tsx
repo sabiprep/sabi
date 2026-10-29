@@ -66,60 +66,60 @@ export function SabiIronManAssemble({ onComplete, autoCompleteDelay = 4200 }: Sa
           <defs>
             {/* Ribbon Top Outer Curve Gradient (High Saturation Cyan to Electric Blue) */}
             <linearGradient id="ironRibbonTop" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#0055FF"/>
-              <stop offset="45%" stop-color="#0099FF"/>
-              <stop offset="100%" stop-color="#00E5FF"/>
+              <stop offset="0%" stopColor="#0055FF"/>
+              <stop offset="45%" stopColor="#0099FF"/>
+              <stop offset="100%" stopColor="#00E5FF"/>
             </linearGradient>
 
             {/* Origami 3D Shadow Fold (Deep High-Tech Indigo Navy) */}
             <linearGradient id="ironRibbonShadow" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#021E68"/>
-              <stop offset="50%" stop-color="#05339E"/>
-              <stop offset="100%" stop-color="#0A1E52"/>
+              <stop offset="0%" stopColor="#021E68"/>
+              <stop offset="50%" stopColor="#05339E"/>
+              <stop offset="100%" stopColor="#0A1E52"/>
             </linearGradient>
 
             {/* Mid Swoop Gradient (Vivid Royal Blue) */}
             <linearGradient id="ironRibbonMid" x1="0%" y1="0%" x2="100%" y2="80%">
-              <stop offset="0%" stop-color="#0077FF"/>
-              <stop offset="60%" stop-color="#0044DD"/>
-              <stop offset="100%" stop-color="#0028A8"/>
+              <stop offset="0%" stopColor="#0077FF"/>
+              <stop offset="60%" stopColor="#0044DD"/>
+              <stop offset="100%" stopColor="#0028A8"/>
             </linearGradient>
 
             {/* Book Pages Base Gradient */}
             <linearGradient id="ironBookBottom" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#0066FF"/>
-              <stop offset="100%" stop-color="#002DB3"/>
+              <stop offset="0%" stopColor="#0066FF"/>
+              <stop offset="100%" stopColor="#002DB3"/>
             </linearGradient>
 
             {/* High-Contrast Titanium Armor Gradient for 'abi' (Crisp, High-Tech, Brilliant) */}
             <linearGradient id="ironSilverArmour" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#FFFFFF"/>
-              <stop offset="35%" stop-color="#F1F5F9"/>
-              <stop offset="75%" stop-color="#E2E8F0"/>
-              <stop offset="100%" stop-color="#CBD5E1"/>
+              <stop offset="0%" stopColor="#FFFFFF"/>
+              <stop offset="35%" stopColor="#F1F5F9"/>
+              <stop offset="75%" stopColor="#E2E8F0"/>
+              <stop offset="100%" stopColor="#CBD5E1"/>
             </linearGradient>
 
             {/* Golden Arc Reactor Sun Dot Gradient */}
             <linearGradient id="ironSunDot" x1="20%" y1="0%" x2="80%" y2="100%">
-              <stop offset="0%" stop-color="#FFFBEB"/>
-              <stop offset="30%" stop-color="#FFD000"/>
-              <stop offset="80%" stop-color="#FF9900"/>
-              <stop offset="100%" stop-color="#EA580C"/>
+              <stop offset="0%" stopColor="#FFFBEB"/>
+              <stop offset="30%" stopColor="#FFD000"/>
+              <stop offset="80%" stopColor="#FF9900"/>
+              <stop offset="100%" stopColor="#EA580C"/>
             </linearGradient>
 
             {/* Thruster Glow Filter */}
             <filter id="ironThrusterGlow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="0" stdDeviation="12" flood-color="#00C8FF" flood-opacity="0.8"/>
+              <feDropShadow dx="0" dy="0" stdDeviation="12" floodColor="#00C8FF" floodOpacity="0.8"/>
             </filter>
 
             {/* Reactor Solar Flare Filter */}
             <filter id="ironReactorFlare" x="-60%" y="-60%" width="220%" height="220%">
-              <feDropShadow dx="0" dy="0" stdDeviation="16" flood-color="#FFB800" flood-opacity="0.95"/>
+              <feDropShadow dx="0" dy="0" stdDeviation="16" floodColor="#FFB800" floodOpacity="0.95"/>
             </filter>
 
             {/* Metallic Drop Shadow for the entire mark */}
             <filter id="ironMarkShadow" x="-10%" y="-10%" width="120%" height="120%">
-              <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#001F5C" flood-opacity="0.5"/>
+              <feDropShadow dx="0" dy="8" stdDeviation="10" floodColor="#001F5C" floodOpacity="0.5"/>
             </filter>
           </defs>
 

@@ -1,12 +1,12 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import {
   Activity, ArrowRight, Bell, BookMarked, BookOpen, BookOpenCheck,
-  Calculator, CheckCircle, ChevronRight, ClipboardList, Coins,
+  CheckCircle, ChevronRight, ClipboardList, Coins,
   Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
-  Menu, Moon, Settings, Shield, ShieldCheck, Sliders, Star, Sun, Target,
-  TrendingUp, UserRound, X, Zap, Award
+  Menu, Moon, Settings, Sliders, Sun, Target,
+  X, Zap, Award
 } from 'lucide-react';
-import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 
 const MAIN_NAV = [
@@ -31,7 +31,6 @@ const MENU_ITEMS = [
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
 
   return (
@@ -230,7 +229,14 @@ export function AppShell() {
             <div className="pt-4 border-t border-slate-800">
               <Link
                 to="/welcome"
-                onClick={() => setMenuOpen(false)}
+                onClick={() => {
+                  try {
+                    localStorage.removeItem('sabi_user_signed_in');
+                  } catch {
+                    // ignore storage errors
+                  }
+                  setMenuOpen(false);
+                }}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition"
               >
                 <LogOut size={17} />
@@ -248,7 +254,6 @@ export function AppShell() {
 // MAIN STUDENT DASHBOARD (HOMEPAGE)
 // ==========================================
 export function HomePage() {
-  const [completedQuest, setCompletedQuest] = useState(false);
   const { isDark } = useTheme();
 
   return (

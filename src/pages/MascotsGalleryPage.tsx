@@ -5,13 +5,11 @@ import {
   CheckCircle2, 
   Sparkles, 
   Maximize2, 
-  Download, 
   Flame, 
   Layers, 
   BookOpen, 
   Compass, 
-  Check, 
-  HelpCircle 
+  Check 
 } from 'lucide-react';
 import { useTheme } from '../app/ThemeProvider';
 

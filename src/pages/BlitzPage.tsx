@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ArrowLeft, 
   Flame, 
@@ -7,20 +7,13 @@ import {
   Clock, 
   Calculator, 
   Settings, 
-  ChevronRight, 
   X, 
-  RotateCcw, 
   CheckCircle2, 
-  XCircle, 
   Upload, 
   Volume2, 
-  VolumeX, 
-  Trophy, 
-  HelpCircle,
-  Play,
-  Award
+  VolumeX
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTheme } from '../app/ThemeProvider';
 import { SEED_QUESTIONS } from '../data/questions';
@@ -62,7 +55,6 @@ const INITIAL_LEVELS: BlitzLevel[] = [
 ];
 
 export function BlitzPage() {
-  const navigate = useNavigate();
   const { isDark } = useTheme();
 
   // Navigation & State
@@ -82,7 +74,6 @@ export function BlitzPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [secondsRemaining, setSecondsRemaining] = useState(60);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [theoryAnswer, setTheoryAnswer] = useState('');
   const [uploadedImageName, setUploadedImageName] = useState<string | null>(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [streakCount, setStreakCount] = useState(0);
@@ -149,7 +140,6 @@ export function BlitzPage() {
     setCurrentQuestionIndex(0);
     setSecondsRemaining(timerSecondsPerQuestion);
     setSelectedOption(null);
-    setTheoryAnswer('');
     setUploadedImageName(null);
     setIsAnswerSubmitted(false);
     setStreakCount(0);
@@ -196,7 +186,6 @@ export function BlitzPage() {
       setCurrentQuestionIndex(prev => prev + 1);
       setSecondsRemaining(timerSecondsPerQuestion);
       setSelectedOption(null);
-      setTheoryAnswer('');
       setUploadedImageName(null);
       setIsAnswerSubmitted(false);
     } else {

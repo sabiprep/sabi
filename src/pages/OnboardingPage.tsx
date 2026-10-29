@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Shield, Flame, Star, Volume2, VolumeX, Sun, Moon } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Flame, Star, Volume2, VolumeX, Sun, Moon } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { ONBOARDING_QUESTIONS, SUBJECTS_POOL } from '../data/onboardingQuestions';

@@ -5,14 +5,7 @@ import {
   Sparkles, 
   Clock, 
   Layers, 
-  BookOpen, 
-  CheckCircle2, 
-  Cpu, 
-  Compass, 
-  Zap, 
-  PlusCircle,
-  HelpCircle,
-  FolderKanban
+  Cpu
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
