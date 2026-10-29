@@ -1,0 +1,51 @@
+name: Build SABI Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Compile SABI JAMB CBT Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout SABI Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set up JDK 21 (Required for Capacitor 8 / Android Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install NPM Dependencies
+        run: npm install
+
+      - name: Build Production Web Bundle & Sync Capacitor Android
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        run: npm run android:sync
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x android/gradlew
+
+      - name: Assemble Installable Android Debug APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug
+
+      - name: Upload SABI Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SABI-JAMB-CBT-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

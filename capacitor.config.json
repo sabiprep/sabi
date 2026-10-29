@@ -1,0 +1,39 @@
+{
+  "appId": "ng.sabi.jambcbt",
+  "appName": "SABI JAMB CBT",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true,
+    "backgroundColor": "#080D1A"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1400,
+      "launchAutoHide": true,
+      "backgroundColor": "#080D1A",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#080D1A",
+      "overlaysWebView": false
+    },
+    "Keyboard": {
+      "resize": "body",
+      "style": "DARK",
+      "resizeOnFullScreen": true
+    }
+  }
+}

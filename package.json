@@ -8,9 +8,20 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "android:sync": "vite build && cap sync android",
+    "android:open": "cap open android",
+    "android:apk:debug": "vite build && cap sync android && cd android && ./gradlew assembleDebug",
+    "android:apk:release": "vite build && cap sync android && cd android && ./gradlew assembleRelease"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/keyboard": "^8.0.6",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4",
     "@google/genai": "^2.4.0",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/vite": "^4.1.14",

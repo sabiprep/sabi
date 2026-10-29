@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="labBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="labDome" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="labGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="8" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="256" cy="460" rx="190" ry="24" fill="#000000" opacity="0.25"/>
+
+  <g filter="url(#shadow)">
+    <!-- Main Science Building Complex -->
+    <rect x="76" y="240" width="360" height="180" rx="12" fill="url(#labBlue)"/>
+
+    <!-- Left Wing & Right Wing Roof Parapets -->
+    <rect x="66" y="230" width="380" height="16" rx="4" fill="url(#labGold)"/>
+
+    <!-- Central Observatory / Chemistry Dome -->
+    <path d="M196 230 C196 130, 316 130, 316 230 Z" fill="url(#labDome)" stroke="#0369A1" stroke-width="4"/>
+    <ellipse cx="256" cy="180" rx="55" ry="12" fill="#E0F2FE" opacity="0.6"/>
+
+    <!-- Dome Telescope / Antenna Spire -->
+    <line x1="256" y1="130" x2="256" y2="70" stroke="url(#labGold)" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="256" cy="65" r="8" fill="#F59E0B"/>
+
+    <!-- Modern Glass Lab Windows Grid -->
+    <!-- Row 1 -->
+    <rect x="106" y="265" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+    <rect x="176" y="265" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+    <rect x="291" y="265" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+    <rect x="361" y="265" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+
+    <!-- Row 2 -->
+    <rect x="106" y="325" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+    <rect x="176" y="325" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+    <rect x="291" y="325" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+    <rect x="361" y="325" width="45" height="40" rx="6" fill="#BAE6FD" stroke="#0284C7" stroke-width="2"/>
+
+    <!-- Grand Entrance Center with Chemistry Beaker Emblem -->
+    <path d="M231 420 L231 340 Q256 320 281 340 L281 420 Z" fill="#0F172A"/>
+    <rect x="241" y="360" width="30" height="60" fill="#38BDF8" opacity="0.4"/>
+
+    <!-- Chemistry Flask / Science Crest Overhead -->
+    <circle cx="256" cy="275" r="22" fill="#0F172A" stroke="url(#labGold)" stroke-width="3"/>
+    <!-- Flask Shape -->
+    <polygon points="250,265 262,265 268,285 244,285" fill="#38BDF8"/>
+    <rect x="253" y="260" width="6" height="7" fill="#F8FAFC"/>
+    <circle cx="256" cy="278" r="2" fill="#FFFFFF"/>
+
+    <!-- Building Label Banner -->
+    <rect x="166" y="222" width="180" height="20" rx="4" fill="#0F172A"/>
+    <text x="256" y="236" fill="#FDE047" font-family="system-ui, sans-serif" font-size="10" font-weight="900" text-anchor="middle" letter-spacing="2">SABI STEM LABS</text>
+  </g>
+</svg>

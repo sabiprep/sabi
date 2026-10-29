@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220" fill="none">
+  <defs>
+    <linearGradient id="vaultBg" x1="0" y1="0" x2="360" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="55%" stop-color="#1E3A8A" />
+      <stop offset="100%" stop-color="#090D16" />
+    </linearGradient>
+    <linearGradient id="goldRim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#B45309" />
+    </linearGradient>
+    <linearGradient id="diamondCyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67E8F9" />
+      <stop offset="50%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#0284C7" />
+    </linearGradient>
+    <linearGradient id="streakFlame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#EA580C" />
+      <stop offset="60%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#FEF08A" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Vault Card Frame -->
+  <rect x="8" y="8" width="344" height="204" rx="28" fill="url(#vaultBg)" stroke="url(#goldRim)" stroke-width="4" />
+  
+  <!-- Decorative Glow Circles -->
+  <circle cx="275" cy="95" r="68" fill="#38BDF8" fill-opacity="0.14" />
+  <circle cx="110" cy="120" r="55" fill="#F59E0B" fill-opacity="0.15" />
+
+  <!-- Naira 10K Golden Emblem Badge -->
+  <g transform="translate(26, 24)">
+    <rect x="0" y="0" width="128" height="36" rx="18" fill="url(#goldRim)" />
+    <text x="64" y="23" text-anchor="middle" fill="#090D16" font-family="system-ui, sans-serif" font-weight="900" font-size="14" letter-spacing="0.5">₦10,000 PASS</text>
+  </g>
+
+  <!-- 4 Split Diamond Sections Pedestal -->
+  <g transform="translate(26, 74)">
+    <rect x="0" y="0" width="150" height="52" rx="12" fill="#0F172A" fill-opacity="0.85" stroke="#38BDF8" stroke-width="1.5" />
+    <text x="14" y="20" fill="#94A3B8" font-family="system-ui, sans-serif" font-weight="800" font-size="9" letter-spacing="0.8">TOTAL VAULT ALLOCATION</text>
+    <text x="14" y="40" fill="#F8FAFC" font-family="system-ui, sans-serif" font-weight="900" font-size="19">5,000 💎</text>
+  </g>
+
+  <!-- Streak Shield Bonus Pillar -->
+  <g transform="translate(26, 138)">
+    <rect x="0" y="0" width="174" height="52" rx="12" fill="#0F172A" fill-opacity="0.9" stroke="#F59E0B" stroke-width="1.5" />
+    <path d="M22 14 C27 20, 30 26, 26 34 C24 38, 17 38, 15 34 C11 26, 15 20, 22 14 Z" fill="url(#streakFlame)" />
+    <text x="38" y="22" fill="#FDE047" font-family="system-ui, sans-serif" font-weight="900" font-size="10">STREAK SHIELD BONUS</text>
+    <text x="38" y="38" fill="#E2E8F0" font-family="system-ui, sans-serif" font-weight="700" font-size="10">Used First Before Main 5K 💎</text>
+  </g>
+
+  <!-- Giant 3D Cut Diamond Illustration on Right -->
+  <g transform="translate(215, 36)">
+    <!-- Crown Halo -->
+    <ellipse cx="60" cy="138" rx="48" ry="12" fill="#38BDF8" fill-opacity="0.25" />
+    <!-- Main Gem Facets -->
+    <polygon points="32,28 88,28 112,62 60,132 8,62" fill="url(#diamondCyan)" stroke="#E0F2FE" stroke-width="2.5" stroke-linejoin="round" />
+    <polygon points="32,28 88,28 74,62 46,62" fill="#BAE6FD" fill-opacity="0.65" />
+    <polygon points="8,62 46,62 60,132" fill="#0284C7" fill-opacity="0.55" />
+    <polygon points="112,62 74,62 60,132" fill="#0369A1" fill-opacity="0.7" />
+    <polygon points="46,62 74,62 60,132" fill="#7DD3FC" fill-opacity="0.5" />
+    <line x1="8" y1="62" x2="112" y2="62" stroke="#E0F2FE" stroke-width="2" />
+    <line x1="32" y1="28" x2="46" y2="62" stroke="#E0F2FE" stroke-width="1.5" />
+    <line x1="88" y1="28" x2="74" y2="62" stroke="#E0F2FE" stroke-width="1.5" />
+
+    <!-- Floating Mini Streak Flame Badge on Gem -->
+    <circle cx="98" cy="28" r="18" fill="#0F172A" stroke="#F59E0B" stroke-width="2.5" />
+    <path d="M98 15 C104 22, 107 28, 103 35 C100 39, 95 39, 92 35 C88 28, 92 22, 98 15 Z" fill="url(#streakFlame)" />
+  </g>
+</svg>

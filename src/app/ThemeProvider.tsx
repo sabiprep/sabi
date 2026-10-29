@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { syncAndroidStatusBar } from '../utils/capacitorBridge';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
@@ -59,6 +60,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const dark = computeIsDark();
     setIsDark(dark);
+    syncAndroidStatusBar(dark);
 
     // Apply class to html tag for Tailwind dark: variants and CSS variables
     if (dark) {

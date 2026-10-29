@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SABI JAMB CBT</string>
+    <string name="title_activity_main">SABI JAMB CBT</string>
+    <string name="package_name">ng.sabi.jambcbt</string>
+    <string name="custom_url_scheme">ng.sabi.jambcbt</string>
+</resources>
