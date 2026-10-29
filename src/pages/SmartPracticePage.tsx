@@ -1,149 +1,203 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  ArrowLeft, 
-  Flame, 
-  Star, 
-  Calculator, 
-  X, 
-  CheckCircle2, 
-  XCircle, 
-  Upload, 
-  Compass, 
-  GraduationCap
+import {
+  ArrowLeft,
+  Flame,
+  Star,
+  Calculator,
+  Compass,
+  GraduationCap,
+  Layers,
+  BookOpen,
+  Lock,
+  Coins,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import confetti from 'canvas-confetti';
 import { useTheme } from '../app/ThemeProvider';
 import { SEED_QUESTIONS } from '../data/questions';
 import type { Question, SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
+import { getRealUserProgress } from '../utils/userProgressStore';
 import JAMBCalculatorModal from '../components/mobile/JAMBCalculatorModal';
+import LevelSimulatorWorkspace from '../components/LevelSimulatorWorkspace';
 
-// Road Branches Structure
+const SMART_SUBJECTS: SubjectName[] = [
+  'English Language',
+  'Mathematics',
+  'Physics',
+  'Chemistry',
+];
+
 interface SmartBranchLevel {
   id: number;
+  setNumber: 1 | 2;
   branch: 'straight' | 'left' | 'right';
   title: string;
   subjectTag: SubjectName;
   topic: string;
+  questionCount: 10 | 15;
+  isGeneralTest?: boolean;
   unlocked: boolean;
   completed: boolean;
   stars: number;
-  buildingType?: 'library' | 'lab';
+  buildingType: 'library' | 'lab' | 'archway' | 'signpost';
+  xPercent: number; // Position on the visual branching road canvas
+  yPx: number;
 }
 
-const ROAD_LEVELS: SmartBranchLevel[] = [
-  { id: 1, branch: 'straight', title: 'Citadel Gate Milestone', subjectTag: 'English Language', topic: 'Lexis & Concord', unlocked: true, completed: true, stars: 3, buildingType: 'library' },
-  { id: 2, branch: 'left', title: 'West Quad: Quantitative Branch', subjectTag: 'Mathematics', topic: 'Calculus & Quadratics', unlocked: true, completed: true, stars: 2, buildingType: 'lab' },
-  { id: 3, branch: 'straight', title: 'Central Hall: Mechanics Nexus', subjectTag: 'Physics', topic: 'Waves & Projectiles', unlocked: true, completed: false, stars: 0, buildingType: 'lab' },
-  { id: 4, branch: 'right', title: 'East Quad: Chemical Foundations', subjectTag: 'Chemistry', topic: 'Organic Reactions', unlocked: false, completed: false, stars: 0, buildingType: 'library' },
-  { id: 5, branch: 'straight', title: 'Main Campus: Comprehension Passage', subjectTag: 'English Language', topic: 'Structure & Registers', unlocked: false, completed: false, stars: 0, buildingType: 'library' },
-  { id: 6, branch: 'left', title: 'Engineering Wing: Trigonometry', subjectTag: 'Mathematics', topic: 'Geometry & Bearing', unlocked: false, completed: false, stars: 0, buildingType: 'lab' },
-  { id: 7, branch: 'right', title: 'Science Laboratory: Optics & Heat', subjectTag: 'Physics', topic: 'Thermal Dynamics', unlocked: false, completed: false, stars: 0, buildingType: 'lab' },
-  { id: 8, branch: 'straight', title: 'Grand Senate Checkpoint', subjectTag: 'Chemistry', topic: 'Equilibrium & Acids', unlocked: false, completed: false, stars: 0, buildingType: 'library' },
+const BASE_ROAD_LEVELS: Omit<SmartBranchLevel, 'unlocked' | 'completed' | 'stars'>[] = [
+  {
+    id: 1,
+    setNumber: 1,
+    branch: 'straight',
+    title: 'Citadel Main Highway Gate',
+    subjectTag: 'English Language',
+    topic: 'Lexis, Structure & Concord',
+    questionCount: 10,
+    buildingType: 'signpost',
+    xPercent: 50,
+    yPx: 65,
+  },
+  {
+    id: 2,
+    setNumber: 1,
+    branch: 'left',
+    title: 'West Quad Forward Branch',
+    subjectTag: 'Mathematics',
+    topic: 'Calculus, Surds & Quadratics',
+    questionCount: 10,
+    buildingType: 'lab',
+    xPercent: 22,
+    yPx: 205,
+  },
+  {
+    id: 3,
+    setNumber: 1,
+    branch: 'right',
+    title: 'East Faculty Forward Branch',
+    subjectTag: 'Physics',
+    topic: 'Mechanics, Waves & Optics',
+    questionCount: 15,
+    buildingType: 'lab',
+    xPercent: 78,
+    yPx: 335,
+  },
+  {
+    id: 4,
+    setNumber: 1,
+    branch: 'straight',
+    title: 'Central Campus Roundabout',
+    subjectTag: 'Chemistry',
+    topic: 'Stoichiometry & Organic',
+    questionCount: 10,
+    buildingType: 'library',
+    xPercent: 50,
+    yPx: 465,
+  },
+  {
+    id: 5,
+    setNumber: 1,
+    branch: 'left',
+    title: 'Senate Library Spur Road',
+    subjectTag: 'English Language',
+    topic: 'Comprehension & Registers',
+    questionCount: 15,
+    buildingType: 'library',
+    xPercent: 24,
+    yPx: 595,
+  },
+  {
+    id: 6,
+    setNumber: 1,
+    branch: 'straight',
+    title: 'Set 1 Road General Test',
+    subjectTag: 'Mathematics',
+    topic: 'Comprehensive Road Checkpoint',
+    questionCount: 15,
+    isGeneralTest: true,
+    buildingType: 'archway',
+    xPercent: 50,
+    yPx: 735,
+  },
 ];
 
 export function SmartPracticePage() {
   const { isDark } = useTheme();
+  const [userProgress, setUserProgress] = useState(() => getRealUserProgress());
 
-  // Selected level & study room state
+  // TOP MODE CONTROLS: Merge all 4 subjects OR Unmerge (handle 1 subject at a time)
+  const [subjectMode, setSubjectMode] = useState<'merged' | 'unmerged'>('merged');
+  const [activeSingleSubject, setActiveSingleSubject] = useState<SubjectName>('Mathematics');
+
   const [activeLevel, setActiveLevel] = useState<SmartBranchLevel | null>(null);
-  const [isStudyRoomOpen, setIsStudyRoomOpen] = useState(false);
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
-  const [selectedBranchFilter, setSelectedBranchFilter] = useState<'all' | 'straight' | 'left' | 'right'>('all');
 
-  // Study Room Question & Mascot State
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [theoryAnswer, setTheoryAnswer] = useState('');
-  const [uploadedImageName, setUploadedImageName] = useState<string | null>(null);
-  const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
-  const [mascotMood, setMascotMood] = useState<'studying' | 'celebrating' | 'scratching'>('studying');
-  const [score, setScore] = useState(0);
-  const [isLevelCleared, setIsLevelCleared] = useState(false);
+  const roadLevels: SmartBranchLevel[] = useMemo(() => {
+    return BASE_ROAD_LEVELS.map(lvl => {
+      const stars = userProgress.smartStarsByLevel[lvl.id] || 0;
+      const unlocked = lvl.id <= userProgress.smartUnlockedLevel;
+      const completed = lvl.id < userProgress.smartUnlockedLevel || stars > 0;
+      // When unmerged, adapt the level's subjectTag to the single subject chosen by the student
+      const effectiveSubject =
+        subjectMode === 'unmerged' ? activeSingleSubject : lvl.subjectTag;
+      return {
+        ...lvl,
+        subjectTag: effectiveSubject,
+        unlocked,
+        completed,
+        stars,
+      };
+    });
+  }, [userProgress, subjectMode, activeSingleSubject]);
 
-  // Road levels filtered by branch if user chooses
-  const visibleLevels = useMemo(() => {
-    if (selectedBranchFilter === 'all') return ROAD_LEVELS;
-    return ROAD_LEVELS.filter(lvl => lvl.branch === selectedBranchFilter);
-  }, [selectedBranchFilter]);
-
-  // Mixed 4-subject question pool for the selected level
-  const roomQuestions: Question[] = useMemo(() => {
+  // Build questions for the selected level based on Merged (all 4 subjects) vs Unmerged (single subject)
+  const levelQuestions: Question[] = useMemo(() => {
     if (!activeLevel) return [];
-    // Prioritize active level's subject + blend in other default subjects
-    const primary = SEED_QUESTIONS.filter(q => q.subject === activeLevel.subjectTag);
-    const others = SEED_QUESTIONS.filter(q => q.subject !== activeLevel.subjectTag);
-    const combined = [...primary.slice(0, 7), ...others.slice(0, 3)];
-    return combined.length > 0 ? combined : SEED_QUESTIONS.slice(0, 10);
-  }, [activeLevel]);
+    const count = activeLevel.questionCount;
 
-  const currentQuestion: Question | undefined = roomQuestions[currentQuestionIndex];
+    if (subjectMode === 'unmerged') {
+      const singlePool = SEED_QUESTIONS.filter(q => q.subject === activeSingleSubject);
+      const pool = singlePool.length > 0 ? singlePool : SEED_QUESTIONS;
+      const list: Question[] = [];
+      for (let i = 0; i < count; i++) {
+        list.push(pool[(i + (activeLevel.id - 1) * 2) % pool.length]);
+      }
+      return list;
+    }
 
-  const handleOpenLevel = (level: SmartBranchLevel) => {
-    if (!level.unlocked) return;
+    // Merged Mode: Balanced rotation across all 4 registered UTME subjects
+    const mergedPool = SEED_QUESTIONS.filter(q =>
+      SMART_SUBJECTS.includes(q.subject as SubjectName)
+    );
+    const pool = mergedPool.length > 0 ? mergedPool : SEED_QUESTIONS;
+    const list: Question[] = [];
+    for (let i = 0; i < count; i++) {
+      list.push(pool[(i + (activeLevel.id - 1) * 3) % pool.length]);
+    }
+    return list;
+  }, [activeLevel, subjectMode, activeSingleSubject]);
+
+  const handleOpenLevel = (lvl: SmartBranchLevel) => {
+    if (!lvl.unlocked) return;
     sound.playTap();
-    setActiveLevel(level);
-    setCurrentQuestionIndex(0);
-    setSelectedOption(null);
-    setTheoryAnswer('');
-    setUploadedImageName(null);
-    setIsAnswerSubmitted(false);
-    setMascotMood('studying');
-    setScore(0);
-    setIsLevelCleared(false);
-    setIsStudyRoomOpen(true);
-  };
-
-  const handleOptionSubmit = (choice: string | null) => {
-    if (isAnswerSubmitted || !currentQuestion) return;
-
-    setSelectedOption(choice);
-    setIsAnswerSubmitted(true);
-
-    const isCorrect = choice === currentQuestion.answer;
-    if (isCorrect) {
-      sound.playCorrect();
-      setScore(prev => prev + 1);
-      setMascotMood('celebrating');
-      confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
-    } else {
-      sound.playIncorrect();
-      setMascotMood('scratching');
-    }
-  };
-
-  const handleNextQuestion = () => {
-    sound.playTap();
-    if (currentQuestionIndex + 1 < roomQuestions.length) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setSelectedOption(null);
-      setTheoryAnswer('');
-      setUploadedImageName(null);
-      setIsAnswerSubmitted(false);
-      setMascotMood('studying');
-    } else {
-      setIsLevelCleared(true);
-      sound.playLevelUp();
-      confetti({ particleCount: 100, spread: 80, origin: { y: 0.5 } });
-    }
-  };
-
-  const handleSimulatedImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploadedImageName(e.target.files[0].name);
-      sound.playTap();
-    }
+    setActiveLevel(lvl);
+    setIsSimulatorOpen(true);
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'} transition-colors duration-200 flex flex-col`}>
+    <div
+      className={`min-h-screen ${
+        isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'
+      } transition-colors duration-200 flex flex-col`}
+    >
       {/* ======================================================== */}
-      {/* TOPBAR: SMART ROAD DASHBOARD */}
+      {/* TOPBAR: SMART PRACTICE ROAD */}
       {/* ======================================================== */}
-      <header className={`sticky top-0 z-30 px-4 sm:px-8 py-3.5 border-b backdrop-blur-md ${
-        isDark ? 'bg-[#080D1A]/90 border-slate-800' : 'bg-white/95 border-slate-200'
-      } flex items-center justify-between`}>
+      <header
+        className={`sticky top-0 z-30 px-4 sm:px-8 py-3.5 border-b backdrop-blur-md ${
+          isDark ? 'bg-[#080D1A]/90 border-slate-800' : 'bg-white/95 border-slate-200'
+        } flex items-center justify-between gap-3`}
+      >
         <div className="flex items-center gap-3">
           <Link
             to="/home"
@@ -152,435 +206,415 @@ export function SmartPracticePage() {
           >
             <ArrowLeft size={18} />
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse inline-block" />
-            <h1 className="text-lg sm:text-xl font-black tracking-tight text-blue-900 dark:text-white">
-              SMART PRACTICE ROAD
-            </h1>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse inline-block" />
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-blue-900 dark:text-white">
+                SMART PRACTICE ROAD
+              </h1>
+            </div>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">
+              {subjectMode === 'merged'
+                ? 'All 4 UTME Subjects Merged on Forward Branching Road'
+                : `Unmerged Single-Subject Track: ${activeSingleSubject}`}
+            </span>
           </div>
         </div>
 
-        {/* Gamified Header Stats */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-500 text-xs font-bold">
-            <Compass size={14} className="text-blue-500" />
-            <span>4 Subjects Merged</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            to="/subscription"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-500 dark:text-amber-300 text-xs font-black"
+          >
+            <Coins size={14} />
+            <span>{userProgress.diamonds} 💎</span>
+          </Link>
+
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-black">
+            <Flame size={14} />
+            <span>Level {userProgress.smartUnlockedLevel}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-black">
-            <Flame size={14} className="text-amber-500" />
-            <span>LEVEL 3 ACTIVE</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setIsCalculatorOpen(true)}
+            className="p-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 transition cursor-pointer"
+            title="Open Moveable Scientific Calculator"
+          >
+            <Calculator size={17} />
+          </button>
         </div>
       </header>
 
       {/* ======================================================== */}
-      {/* ROAD INTRO & FORWARD BRANCH CONTROLS */}
+      {/* TOP SUBJECT MERGE / UNMERGE CONTROLS (AS REQUESTED) */}
       {/* ======================================================== */}
-      <div className={`px-4 py-4 border-b ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-white border-slate-200'}`}>
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400">
-              Interactive Branching Roadmap
-            </span>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Follow the road as it branches straight, left, and right past campus faculties. Click any level to enter the Study Room.
-            </p>
-          </div>
+      <section
+        className={`px-4 py-4 border-b ${
+          isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200'
+        }`}
+      >
+        <div className="max-w-4xl mx-auto space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 block">
+                Subject Road Structure
+              </span>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Choose whether to merge all 4 UTME subjects together or unmerge to master one subject at a time along the branching road.
+              </p>
+            </div>
 
-          {/* Branch Navigation Pills */}
-          <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            {(['all', 'straight', 'left', 'right'] as const).map(b => (
+            {/* Merge vs Unmerge Top Buttons */}
+            <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shrink-0">
               <button
-                key={b}
-                onClick={() => setSelectedBranchFilter(b)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition ${
-                  selectedBranchFilter === b
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                type="button"
+                onClick={() => {
+                  sound.playTap();
+                  setSubjectMode('merged');
+                }}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+                  subjectMode === 'merged'
+                    ? 'bg-blue-700 text-white shadow-md'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
-                {b === 'all' ? 'All Roads' : `${b} Branch`}
+                <Layers size={14} />
+                <span>Merge 4 Subjects</span>
               </button>
-            ))}
+
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playTap();
+                  setSubjectMode('unmerged');
+                }}
+                className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+                  subjectMode === 'unmerged'
+                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <BookOpen size={14} />
+                <span>Unmerge (1 Subject at a Time)</span>
+              </button>
+            </div>
           </div>
+
+          {/* When Unmerged is active, show the 4 Subject Selector Buttons */}
+          {subjectMode === 'unmerged' && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 animate-fade-in">
+              {SMART_SUBJECTS.map(sub => {
+                const isSelected = activeSingleSubject === sub;
+                const rating = userProgress.subjectStats[sub]?.rating || 0;
+                return (
+                  <button
+                    key={sub}
+                    type="button"
+                    onClick={() => {
+                      sound.playTap();
+                      setActiveSingleSubject(sub);
+                    }}
+                    className={`py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-between border-2 transition cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-700 text-white border-amber-400 shadow-md'
+                        : isDark
+                        ? 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-300'
+                    }`}
+                  >
+                    <span className="truncate">{sub}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        isSelected
+                          ? 'bg-amber-400 text-slate-950'
+                          : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                      }`}
+                    >
+                      {rating}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      </div>
+      </section>
 
       {/* ======================================================== */}
-      {/* THE CAMPUS ROAD WITH BRANCHES & ANIMATED BUILDINGS */}
+      {/* TRUE VISUAL HIGHWAY ROAD WITH FORWARD LEFT & RIGHT BRANCHES */}
       {/* ======================================================== */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 relative">
-        <div className="relative flex flex-col items-center space-y-16 py-6">
-          
-          {/* Animated Road Pavement Surface SVG */}
-          <div className="absolute inset-y-0 w-32 sm:w-44 bg-slate-200 dark:bg-slate-800/60 rounded-3xl -z-10 border-x-4 border-dashed border-amber-400/30 overflow-hidden">
-            <div className="w-full h-full opacity-10 bg-[radial-gradient(#F59E0B_2px,transparent_2px)] [background-size:20px_20px]" />
+      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 flex flex-col items-center space-y-10">
+        {/* Yellow + Blue Standard Intro Card */}
+        <div className="w-full rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 flex items-center justify-between gap-4 shadow-xl">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[11px] font-black uppercase tracking-wider">
+              <Compass size={13} />
+              <span>
+                {subjectMode === 'merged'
+                  ? 'Merged 4-Subject Campus Highway'
+                  : `Single-Subject Road: ${activeSingleSubject}`}
+              </span>
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+              Follow the Forward-Branching Campus Road
+            </h2>
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 max-w-xl">
+              The highway splits forward into West Quad and East Faculty branches before rejoining at the Central Roundabout and Set 1 General Test Archway.
+            </p>
           </div>
+          <img
+            src="/assets/mascots/smart/student_desk_studying.svg"
+            alt="Smart Practice Mascot"
+            className="w-24 h-24 sm:w-28 sm:h-28 object-contain shrink-0 drop-shadow-xl"
+          />
+        </div>
 
-          {visibleLevels.map((lvl) => {
-            const isLeft = lvl.branch === 'left';
-            const isRight = lvl.branch === 'right';
-            const isStraight = lvl.branch === 'straight';
+        {/* VISUAL ASPHALT ROAD CANVAS WITH FORWARD SVG BRANCHES */}
+        <div className="relative w-full max-w-[680px] h-[840px] mx-auto select-none">
+          <svg
+            className="absolute inset-0 w-full h-full pointer-events-none z-0"
+            viewBox="0 0 680 840"
+            fill="none"
+            preserveAspectRatio="none"
+          >
+            {/* Outer Road Curb / Shoulder */}
+            {/* Main Central Spine */}
+            <path
+              d="M 340 30 L 340 760"
+              stroke="#334155"
+              strokeWidth="62"
+              strokeLinecap="round"
+            />
+            {/* Forward Left Branch (Splits from y=70 to West Quad at x=150, y=205, then rejoins at y=465) */}
+            <path
+              d="M 340 70 C 260 110, 150 135, 150 205 C 150 310, 260 390, 340 465"
+              stroke="#334155"
+              strokeWidth="54"
+              strokeLinecap="round"
+            />
+            {/* Forward Right Branch (Splits from y=160 to East Faculty at x=530, y=335, then rejoins at y=465) */}
+            <path
+              d="M 340 160 C 430 210, 530 250, 530 335 C 530 400, 430 435, 340 465"
+              stroke="#334155"
+              strokeWidth="54"
+              strokeLinecap="round"
+            />
+            {/* Second Forward Left Spur (Splits from y=465 to x=165, y=595, then rejoins General Test at y=735) */}
+            <path
+              d="M 340 465 C 250 505, 165 535, 165 595 C 165 655, 250 695, 340 735"
+              stroke="#334155"
+              strokeWidth="54"
+              strokeLinecap="round"
+            />
 
-            // Branch offset placement
-            const placementClass = isLeft
-              ? '-translate-x-24 sm:-translate-x-36'
-              : isRight
-              ? 'translate-x-24 sm:translate-x-36'
-              : 'translate-x-0';
+            {/* Inner Dark Asphalt Surface */}
+            <path
+              d="M 340 30 L 340 760"
+              stroke="#0F172A"
+              strokeWidth="48"
+              strokeLinecap="round"
+            />
+            <path
+              d="M 340 70 C 260 110, 150 135, 150 205 C 150 310, 260 390, 340 465"
+              stroke="#0F172A"
+              strokeWidth="42"
+              strokeLinecap="round"
+            />
+            <path
+              d="M 340 160 C 430 210, 530 250, 530 335 C 530 400, 430 435, 340 465"
+              stroke="#0F172A"
+              strokeWidth="42"
+              strokeLinecap="round"
+            />
+            <path
+              d="M 340 465 C 250 505, 165 535, 165 595 C 165 655, 250 695, 340 735"
+              stroke="#0F172A"
+              strokeWidth="42"
+              strokeLinecap="round"
+            />
 
+            {/* Golden Yellow Dashed Highway Lane Markings */}
+            <path
+              d="M 340 30 L 340 760"
+              stroke="#F59E0B"
+              strokeWidth="4"
+              strokeDasharray="14 12"
+            />
+            <path
+              d="M 340 70 C 260 110, 150 135, 150 205 C 150 310, 260 390, 340 465"
+              stroke="#FACC15"
+              strokeWidth="3.5"
+              strokeDasharray="12 10"
+            />
+            <path
+              d="M 340 160 C 430 210, 530 250, 530 335 C 530 400, 430 435, 340 465"
+              stroke="#38BDF8"
+              strokeWidth="3.5"
+              strokeDasharray="12 10"
+            />
+            <path
+              d="M 340 465 C 250 505, 165 535, 165 595 C 165 655, 250 695, 340 735"
+              stroke="#FACC15"
+              strokeWidth="3.5"
+              strokeDasharray="12 10"
+            />
+          </svg>
+
+          {/* Render Road Checkpoints & Campus Faculty SVG Props Along the Branches */}
+          {roadLevels.map(lvl => {
             const isCurrent = lvl.unlocked && !lvl.completed;
+            const buildingSvg =
+              lvl.buildingType === 'archway'
+                ? '/assets/environment/general_test_archway.svg'
+                : lvl.buildingType === 'signpost'
+                ? '/assets/environment/road_signpost_branch.svg'
+                : lvl.buildingType === 'lab'
+                ? '/assets/environment/campus_lab_building.svg'
+                : '/assets/environment/campus_library_building.svg';
 
             return (
               <div
                 key={lvl.id}
-                className={`relative w-full max-w-lg flex items-center justify-between ${placementClass} transition-transform duration-300`}
+                style={{ left: `${lvl.xPercent}%`, top: `${lvl.yPx}px` }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-10 flex items-center gap-3"
               >
-                {/* Left Side Building: Library or Science Lab */}
-                {isLeft && (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 mr-4 animate-pulse-slow">
-                    <img
-                      src={lvl.buildingType === 'lab' ? '/assets/environment/campus_lab_building.svg' : '/assets/environment/campus_library_building.svg'}
-                      alt="Campus Faculty"
-                      className="w-full h-full object-contain filter drop-shadow-md"
-                    />
-                  </div>
+                {/* Left-side Campus Building / Prop */}
+                {lvl.branch !== 'right' && (
+                  <img
+                    src={buildingSvg}
+                    alt={lvl.title}
+                    className="hidden sm:block w-16 h-16 object-contain drop-shadow-lg"
+                  />
                 )}
 
-                {/* Road Level Checkpoint Card */}
-                <div className="flex-1 flex flex-col items-center">
-                  {/* Current Active Indicator with Student Icon */}
+                <div className="flex flex-col items-center">
                   {isCurrent && (
-                    <div className="mb-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] tracking-wider uppercase animate-bounce flex items-center gap-1 shadow-md">
-                      <GraduationCap size={12} /> CURRENT CHECKPOINT
+                    <div className="mb-1.5 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-md animate-bounce">
+                      <GraduationCap size={11} />
+                      <span>ACTIVE STOP</span>
                     </div>
                   )}
 
                   <button
+                    type="button"
                     onClick={() => handleOpenLevel(lvl)}
                     disabled={!lvl.unlocked}
-                    className={`w-20 h-20 rounded-3xl flex flex-col items-center justify-center transition-all duration-300 transform ${
+                    className={`w-20 h-20 rounded-3xl flex flex-col items-center justify-center border-4 transition-all duration-300 transform cursor-pointer ${
                       !lvl.unlocked
-                        ? 'bg-slate-300 dark:bg-slate-800 text-slate-400 cursor-not-allowed opacity-75'
+                        ? 'bg-slate-900 border-slate-700 text-slate-500 cursor-not-allowed'
                         : lvl.completed
-                        ? 'bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 shadow-[0_6px_0_#B45309] hover:-translate-y-1'
+                        ? 'bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 border-white shadow-[0_6px_0_#B45309] hover:-translate-y-1'
                         : isCurrent
-                        ? 'bg-gradient-to-tr from-blue-600 to-blue-700 text-white shadow-[0_8px_0_#1E3A8A] scale-110 ring-4 ring-amber-400 animate-pulse hover:-translate-y-1'
-                        : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border-2 border-blue-400 shadow-[0_6px_0_#CBD5E1]'
+                        ? 'bg-gradient-to-tr from-blue-600 to-blue-500 text-white border-amber-400 shadow-[0_8px_0_#1E3A8A] scale-110 ring-4 ring-amber-400/40 hover:-translate-y-1'
+                        : 'bg-blue-700 text-white border-blue-300 shadow-[0_6px_0_#1E3A8A]'
                     }`}
                   >
-                    <span className="font-display font-black text-2xl">{lvl.id}</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest">{lvl.branch}</span>
+                    {lvl.isGeneralTest ? (
+                      <img
+                        src="/assets/environment/general_test_archway.svg"
+                        alt="General Test"
+                        className="w-12 h-12 object-contain"
+                      />
+                    ) : (
+                      <>
+                        <span className="font-display font-black text-2xl leading-none">
+                          {lvl.id}
+                        </span>
+                        <span className="text-[8px] font-black uppercase tracking-widest mt-0.5">
+                          {lvl.questionCount}Q
+                        </span>
+                      </>
+                    )}
                   </button>
 
-                  {/* Level Details Tag */}
-                  <div className="mt-2 text-center">
-                    <span className="text-xs font-black block text-slate-800 dark:text-slate-200">
+                  {/* Road Checkpoint Signplate */}
+                  <div className="mt-1.5 px-3 py-1 rounded-xl bg-slate-950/95 border border-slate-800 text-center shadow-lg max-w-[190px]">
+                    {lvl.completed && (
+                      <div className="flex items-center justify-center gap-0.5 mb-0.5">
+                        {[1, 2, 3].map(s => (
+                          <Star
+                            key={s}
+                            size={10}
+                            className={
+                              s <= lvl.stars ? 'text-amber-400 fill-amber-400' : 'text-slate-600'
+                            }
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <span className="text-[10px] font-black text-white block truncate">
                       {lvl.title}
                     </span>
-                    <span className="text-[10px] font-bold text-blue-600 dark:text-amber-400">
-                      {lvl.subjectTag} · {lvl.topic}
+                    <span className="text-[9px] font-bold text-amber-400 block truncate">
+                      {subjectMode === 'merged' ? '4 Subjects Merged' : lvl.subjectTag}
                     </span>
                   </div>
                 </div>
 
-                {/* Right Side Building: Library or Science Lab */}
-                {(isRight || isStraight) && (
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 ml-4 animate-pulse-slow">
-                    <img
-                      src={lvl.buildingType === 'lab' ? '/assets/environment/campus_lab_building.svg' : '/assets/environment/campus_library_building.svg'}
-                      alt="Campus Faculty"
-                      className="w-full h-full object-contain filter drop-shadow-md"
-                    />
-                  </div>
+                {/* Right-side Campus Building / Prop */}
+                {lvl.branch === 'right' && (
+                  <img
+                    src={buildingSvg}
+                    alt={lvl.title}
+                    className="hidden sm:block w-16 h-16 object-contain drop-shadow-lg"
+                  />
                 )}
               </div>
             );
           })}
         </div>
+
+        {/* Locked Set 2 Campus Road Notice */}
+        <div className="w-full max-w-xl rounded-3xl p-6 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-950 border-2 border-amber-500/70 text-white shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <img
+              src="/assets/environment/locked_gatekeeper.svg"
+              alt="Locked Road Set 2"
+              className="w-20 h-20 object-contain shrink-0"
+            />
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase">
+                <Lock size={11} />
+                <span>SET 2 CAMPUS HIGHWAY LOCKED</span>
+              </div>
+              <h3 className="text-base sm:text-lg font-black">
+                Pass Set 1 General Test or Unlock 5,000 💎 Vault
+              </h3>
+              <p className="text-xs text-slate-300">
+                Complete all 6 stops on Set 1 Highway and activate your ₦10,000 One-Time Pass to open Set 2 Senate Laboratories.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/subscription"
+            className="px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider shrink-0 shadow-md"
+          >
+            5,000 💎 Vault →
+          </Link>
+        </div>
       </main>
 
       {/* ======================================================== */}
-      {/* THE SMART STUDY ROOM: ROOM-LIKE PAGE WITH STUDENT MASCOT */}
+      {/* SHARED FULL-SCREEN LEVEL SIMULATOR + SOLUTION DASHBOARD + AI */}
       {/* ======================================================== */}
-      {isStudyRoomOpen && currentQuestion && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col justify-between overflow-y-auto">
-          {/* Study Room Top Navigation */}
-          <div className="w-full bg-[#0E1526] border-b border-slate-800 px-4 sm:px-8 py-3 flex items-center justify-between text-white">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setIsStudyRoomOpen(false)}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition"
-                title="Exit Study Room"
-              >
-                <X size={18} />
-              </button>
-              <div>
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
-                  Study Room · Level {activeLevel?.id} ({activeLevel?.branch} Branch)
-                </span>
-                <span className="text-sm font-extrabold text-white">
-                  Question {currentQuestionIndex + 1} of {roomQuestions.length}
-                </span>
-              </div>
-            </div>
-
-            {/* Popout Calculator Button */}
-            <button
-              onClick={() => setIsCalculatorOpen(true)}
-              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black flex items-center gap-2 transition shadow-md"
-            >
-              <Calculator size={15} />
-              <span>Desk Calculator</span>
-            </button>
-          </div>
-
-          {/* Study Room Canvas */}
-          <div className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-            
-            {/* Left Column: Animated Student Mascot at Study Desk */}
-            <div className="lg:col-span-5 flex flex-col items-center justify-center">
-              <div className="relative w-full max-w-sm rounded-3xl bg-gradient-to-b from-blue-900/60 to-slate-900 border-2 border-blue-500/30 p-6 flex flex-col items-center justify-center shadow-2xl">
-                {/* Desk Mascot SVG based on answer state */}
-                <div className="w-48 h-48 sm:w-56 sm:h-56 relative">
-                  <img
-                    src={
-                      mascotMood === 'celebrating'
-                        ? '/assets/mascots/smart/student_desk_celebrating.svg'
-                        : mascotMood === 'scratching'
-                        ? '/assets/mascots/smart/student_desk_scratching_head.svg'
-                        : '/assets/mascots/smart/student_desk_studying.svg'
-                    }
-                    alt="Student Mascot Studying"
-                    className="w-full h-full object-contain filter drop-shadow-xl animate-pulse-slow"
-                  />
-
-                  {/* Interactive Calculator sitting on the desk! */}
-                  <button
-                    onClick={() => setIsCalculatorOpen(true)}
-                    className="absolute -bottom-2 right-4 w-12 h-12 rounded-xl bg-slate-900 border-2 border-amber-400 p-1 shadow-lg hover:scale-110 transition-transform"
-                    title="Click Table Calculator"
-                  >
-                    <img
-                      src="/assets/mascots/smart/desk_calculator_prop.svg"
-                      alt="Calculator Prop"
-                      className="w-full h-full object-contain"
-                    />
-                  </button>
-                </div>
-
-                <div className="mt-4 text-center">
-                  <span className="text-xs font-black uppercase tracking-wider text-amber-300">
-                    Sabi Study Room Simulator
-                  </span>
-                  <p className="text-xs text-slate-300 mt-1">
-                    {mascotMood === 'celebrating'
-                      ? '🎉 "Brilliant! You mastered this question!"'
-                      : mascotMood === 'scratching'
-                      ? '🤔 "Tricky one! Let us break down the formula together."'
-                      : '📖 "Take your time. Inspect the workings carefully."'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column: Enlarged Question & Interactive Response */}
-            <div className="lg:col-span-7 flex flex-col justify-center">
-              <div className="bg-[#10192E] border-2 border-slate-800 rounded-3xl p-6 sm:p-8 text-white shadow-2xl">
-                <div className="flex items-center justify-between text-xs font-bold text-slate-400 mb-4 pb-3 border-b border-slate-800">
-                  <span className="px-2.5 py-1 rounded-md bg-blue-900/60 text-blue-300">
-                    {currentQuestion.subject} · {currentQuestion.topic}
-                  </span>
-                  <span className="text-amber-400 font-mono">UTME Mastery Drill</span>
-                </div>
-
-                {/* Enlarged Question Text */}
-                <h3 className="text-xl sm:text-2xl font-black leading-relaxed mb-6 text-slate-100 whitespace-pre-line">
-                  {currentQuestion.question}
-                </h3>
-
-                {/* Option Buttons (A, B, C, D) */}
-                {currentQuestion.options && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
-                    {(Object.keys(currentQuestion.options) as Array<'A' | 'B' | 'C' | 'D'>).map(optKey => {
-                      const optText = currentQuestion.options?.[optKey];
-                      const isSelected = selectedOption === optKey;
-                      const isCorrect = isAnswerSubmitted && optKey === currentQuestion.answer;
-                      const isWrong = isAnswerSubmitted && isSelected && optKey !== currentQuestion.answer;
-
-                      return (
-                        <button
-                          key={optKey}
-                          onClick={() => handleOptionSubmit(optKey)}
-                          disabled={isAnswerSubmitted}
-                          className={`p-4 rounded-2xl border-2 text-left font-bold text-sm sm:text-base flex items-start gap-3 transition-all cursor-pointer ${
-                            isCorrect
-                              ? 'bg-emerald-600/20 border-emerald-500 text-emerald-300'
-                              : isWrong
-                              ? 'bg-red-600/20 border-red-500 text-red-300'
-                              : isSelected
-                              ? 'bg-blue-600 text-white border-blue-500 shadow-md'
-                              : 'bg-slate-900/80 border-slate-800 hover:border-amber-400 hover:bg-amber-400/10 hover:text-amber-300 text-slate-200'
-                          }`}
-                        >
-                          <span className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center font-black text-sm ${
-                            isCorrect
-                              ? 'bg-emerald-500 text-slate-950'
-                              : isWrong
-                              ? 'bg-red-500 text-white'
-                              : isSelected
-                              ? 'bg-white text-blue-900'
-                              : 'bg-slate-800 text-slate-300'
-                          }`}>
-                            {optKey}
-                          </span>
-                          <span className="flex-1 mt-1 leading-snug">{optText}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Theory Answer Inbox & Upload Box */}
-                <div className="mt-4 pt-4 border-t border-slate-800/80 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-400">
-                      Workings & Formula Inbox:
-                    </span>
-                    <label className="cursor-pointer text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5">
-                      <Upload size={13} />
-                      <span>Upload Paper Workings</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleSimulatedImageUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={theoryAnswer}
-                      placeholder="Type step-by-step formula or solution..."
-                      onChange={e => setTheoryAnswer(e.target.value)}
-                      disabled={isAnswerSubmitted}
-                      className="flex-1 px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-sm font-bold text-white focus:outline-hidden focus:border-amber-400"
-                    />
-                    {!isAnswerSubmitted && (
-                      <button
-                        onClick={() => handleOptionSubmit('A')}
-                        className="px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider"
-                      >
-                        Submit
-                      </button>
-                    )}
-                  </div>
-
-                  {uploadedImageName && (
-                    <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5">
-                      <CheckCircle2 size={13} /> Paper workings attached: {uploadedImageName}
-                    </div>
-                  )}
-                </div>
-
-                {/* Pedagogical Step-by-Step Breakdown */}
-                {isAnswerSubmitted && (
-                  <div className={`mt-6 p-5 rounded-2xl border-2 animate-fade-in ${
-                    selectedOption === currentQuestion.answer
-                      ? 'bg-emerald-950/40 border-emerald-500/60 text-emerald-100'
-                      : 'bg-amber-950/40 border-amber-500/60 text-amber-100'
-                  }`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 font-black text-sm uppercase tracking-wider">
-                        {selectedOption === currentQuestion.answer ? (
-                          <>
-                            <CheckCircle2 size={18} className="text-emerald-400" />
-                            <span className="text-emerald-400">Correct Answer!</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle size={18} className="text-red-400" />
-                            <span className="text-red-400">Answer Correction: Option {currentQuestion.answer}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="text-sm leading-relaxed text-slate-200 mt-2">
-                      {currentQuestion.explanation}
-                    </p>
-
-                    {currentQuestion.explanation_pidgin && (
-                      <div className="mt-3 p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs text-amber-300">
-                        <strong>Student Pidgin Breakdown:</strong> {currentQuestion.explanation_pidgin}
-                      </div>
-                    )}
-
-                    <div className="mt-5 flex justify-end">
-                      <button
-                        onClick={handleNextQuestion}
-                        className="px-8 py-3.5 rounded-xl font-black text-sm bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 transition flex items-center gap-2 cursor-pointer transform hover:scale-[1.02] active:scale-95"
-                      >
-                        <span>Continue Practice →</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+      {isSimulatorOpen && activeLevel && (
+        <LevelSimulatorWorkspace
+          mode="smart"
+          levelId={activeLevel.id}
+          levelTitle={activeLevel.title}
+          subjectLabel={
+            subjectMode === 'unmerged' ? activeSingleSubject : activeLevel.subjectTag
+          }
+          questions={levelQuestions}
+          secondsPerQuestion={75}
+          isGeneralTest={Boolean(activeLevel.isGeneralTest)}
+          onClose={() => setIsSimulatorOpen(false)}
+          onProgressUpdated={next => setUserProgress(next)}
+        />
       )}
 
-      {/* ======================================================== */}
-      {/* LEVEL CLEARED VICTORY OVERLAY */}
-      {/* ======================================================== */}
-      {isLevelCleared && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl bg-gradient-to-b from-blue-950 to-slate-900 border-2 border-amber-400 p-8 text-center text-white shadow-2xl space-y-6">
-            <div className="w-32 h-32 mx-auto">
-              <img
-                src="/assets/mascots/smart/student_desk_celebrating.svg"
-                alt="Study Room Victory"
-                className="w-full h-full object-contain animate-bounce"
-              />
-            </div>
-
-            <div>
-              <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-widest">
-                Study Room Cleared
-              </span>
-              <h2 className="text-3xl font-black mt-3">
-                {activeLevel?.title || 'Checkpoint Mastered!'}
-              </h2>
-              <p className="text-sm text-slate-300 mt-1">
-                You scored <strong className="text-amber-400">{score} / {roomQuestions.length}</strong> in this Smart Practice checkpoint!
-              </p>
-            </div>
-
-            <div className="flex justify-center gap-3 py-2">
-              {[1, 2, 3].map(s => (
-                <Star key={s} size={32} className="fill-amber-400 text-amber-400 animate-pulse" />
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                setIsLevelCleared(false);
-                setIsStudyRoomOpen(false);
-              }}
-              className="w-full py-4 rounded-2xl font-black text-base bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-lg transition cursor-pointer"
-            >
-              Return to Smart Practice Road →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Pop-Out Calculator Modal */}
       <JAMBCalculatorModal
         isOpen={isCalculatorOpen}
         onClose={() => setIsCalculatorOpen(false)}

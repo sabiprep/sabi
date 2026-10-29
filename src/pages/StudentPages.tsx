@@ -1,13 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Activity, ArrowRight, Bell, BookMarked, BookOpen, BookOpenCheck,
   CheckCircle, ChevronRight, ClipboardList, Coins, Copy, Check, Download,
   Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
   Menu, Moon, Settings, ShieldCheck, Sliders, Sun, Target,
-  X, Zap, Award
+  X, Zap, Award, Trash2, CheckCircle2
 } from 'lucide-react';
-import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
+import { getRealUserProgress, UserRealProgress } from '../utils/userProgressStore';
+import {
+  getMistakeRecords,
+  markMistakeMastered,
+  removeMistakeRecord,
+  MistakeRecord,
+} from '../utils/mistakeStore';
+import MathText from '../components/MathText';
+import FullMockExamModal from '../components/mobile/FullMockExamModal';
+import FormulaCheatSheetModal from '../components/mobile/FormulaCheatSheetModal';
+import JAMBBrochureCheckerModal from '../components/mobile/JAMBBrochureCheckerModal';
+import SyllabusFrequencyHeatmapModal from '../components/mobile/SyllabusFrequencyHeatmapModal';
 
 const MAIN_NAV = [
   { to: '/home', label: 'Dashboard', Icon: Home },
@@ -20,19 +32,78 @@ const MAIN_NAV = [
 ];
 
 const MENU_ITEMS = [
-  { to: '/subject-rates', label: 'Subject Rates', Icon: Activity, description: 'Full-screen mastery rates for your 4 JAMB subjects' },
-  { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests, streak flames & gem rewards' },
-  { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review questions to revisit' },
-  { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet and syllabus' },
-  { to: '/menu/help', label: 'Help & Support', Icon: HelpCircle, description: 'Get help using SABI' },
-  { to: '/menu/about', label: 'About SABI', Icon: Info, description: 'About the learning platform' },
-  { to: '/profile', label: 'Profile & Settings', Icon: Settings, description: 'Preferences and account controls' },
+  { to: '/subscription', label: 'Subscription & 5,000 💎 Vault', Icon: Coins, description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus' },
+  { to: '/subject-rates', label: 'Subject Rates (100% Rule)', Icon: Activity, description: 'Full-screen mastery ratings earned from 100% flawless levels' },
+  { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests & Streak Bonus Diamonds' },
+  { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review missed questions with step-by-step solutions' },
+  { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet, brochure & syllabus heatmap' },
+  { to: '/menu/help', label: 'Help & Support', Icon: HelpCircle, description: 'Get help using SABI & Unique ID recovery' },
+  { to: '/menu/about', label: 'About SABI', Icon: Info, description: 'About the UTME CBT learning platform' },
+  { to: '/profile', label: 'Profile & Settings', Icon: Settings, description: 'Preferences, Unique SABI ID & subscription' },
 ];
+
+function useLiveUserProgress(): UserRealProgress {
+  const [progress, setProgress] = useState<UserRealProgress>(() => getRealUserProgress());
+
+  useEffect(() => {
+    const sync = () => setProgress(getRealUserProgress());
+    window.addEventListener('sabi-progress-updated', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('sabi-progress-updated', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
+  return progress;
+}
+
+function getCandidateOnboardingMeta() {
+  if (typeof window === 'undefined') {
+    return {
+      chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+      targetCourse: 'Medicine & Surgery',
+      targetUniversity: 'UNILAG',
+      targetScore: 320,
+    };
+  }
+  try {
+    const raw = localStorage.getItem('sabi_onboarding_v2_answers');
+    if (!raw) {
+      return {
+        chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+        targetCourse: 'Medicine & Surgery',
+        targetUniversity: 'UNILAG',
+        targetScore: 320,
+      };
+    }
+    const parsed = JSON.parse(raw);
+    return {
+      chosenSubjects:
+        Array.isArray(parsed.chosenSubjects) && parsed.chosenSubjects.length === 4
+          ? parsed.chosenSubjects
+          : ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+      targetCourse: parsed.targetCourse || 'Medicine & Surgery',
+      targetUniversity: parsed.targetUniversity || 'UNILAG',
+      targetScore: Number(parsed.targetScore) || 320,
+    };
+  } catch {
+    return {
+      chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+      targetCourse: 'Medicine & Surgery',
+      targetUniversity: 'UNILAG',
+      targetScore: 320,
+    };
+  }
+}
 
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, setMode, toggleTheme, dimnessLevel, setDimnessLevel } = useTheme();
+  const progress = useLiveUserProgress();
+  const userName =
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col`}>
@@ -41,13 +112,18 @@ export function AppShell() {
         isDark ? 'bg-[#080D1A]/90 border-slate-800' : 'bg-white/90 border-slate-200'
       }`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          
-          {/* Left Brand Lockup */}
+          {/* Left Brand Lockup + 3-Dash Menu Button (Always Visible) */}
           <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => setMenuOpen(true)}
-              className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition"
-              aria-label="Open menu"
+              className={`p-2 rounded-xl border transition cursor-pointer ${
+                isDark
+                  ? 'border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800'
+                  : 'border-slate-200 bg-slate-100 text-blue-700 hover:bg-slate-200'
+              }`}
+              aria-label="Open 3-dash menu"
+              title="Open 3-Dash Menu (Subscription, Theme & Dimness)"
             >
               <Menu size={22} />
             </button>
@@ -94,22 +170,25 @@ export function AppShell() {
 
           {/* Right Action Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Gamified HUD Badges */}
+            {/* Real Streak & Verified Diamond Balance (0 until subscribed/earned) */}
             <div className="hidden sm:flex items-center gap-2">
               <Link
                 to="/missions"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-xs font-black text-amber-500 transition"
-                title="View Daily UTME Missions & Streaks"
+                title="View Daily UTME Missions & Real Streaks"
               >
-                <Flame size={15} className="animate-bounce" />
-                <span>7d</span>
+                <Flame size={15} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
+                <span>{progress.streakDays}d</span>
               </Link>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs font-black text-blue-500">
+              <Link
+                to="/subscription"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-xs font-black text-blue-500 dark:text-amber-400 transition"
+                title={`Streak Bonus: ${progress.streakBonusDiamonds} 💎 (Used First) | Main Vault: ${progress.mainDiamonds} 💎`}
+              >
                 <Coins size={15} />
-                <span>1,450</span>
-              </div>
+                <span>{progress.diamonds} 💎</span>
+              </Link>
             </div>
-
 
             {/* Theme Toggle */}
             <button
@@ -130,9 +209,11 @@ export function AppShell() {
               }`}
             >
               <div className="w-6 h-6 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
-                D
+                {userName.charAt(0).toUpperCase()}
               </div>
-              <span className="text-xs font-bold hidden sm:inline">David</span>
+              <span className="text-xs font-bold hidden sm:inline">
+                {userName.split(' ')[0]}
+              </span>
             </Link>
           </div>
         </div>
@@ -166,30 +247,147 @@ export function AppShell() {
         })}
       </nav>
 
-      {/* Drawer Menu for Mobile / Extras */}
+      {/* 3-Dash Drawer Menu (Subscription, Theme Normal/Night + Number-Line Dimness, Toolkit) */}
       {menuOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex"
+          className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex"
           role="presentation"
           onClick={() => setMenuOpen(false)}
         >
           <aside
-            className={`w-72 max-w-[80vw] h-full p-6 shadow-2xl flex flex-col justify-between ${
-              isDark ? 'bg-slate-900 border-r border-slate-800 text-white' : 'bg-white border-r border-slate-200 text-slate-900'
+            className={`w-80 sm:w-96 max-w-[88vw] h-full p-6 shadow-2xl flex flex-col justify-between overflow-y-auto ${
+              isDark ? 'bg-[#090F1E] border-r border-slate-800 text-white' : 'bg-white border-r border-slate-200 text-slate-900'
             }`}
             onClick={e => e.stopPropagation()}
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center font-black text-slate-950 text-sm">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-sm">
                     S
                   </div>
-                  <span className="font-black text-lg">SABI CBT</span>
+                  <div>
+                    <span className="font-black text-base block leading-none">SABI JAMB CBT</span>
+                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                      Command Drawer
+                    </span>
+                  </div>
                 </div>
-                <button onClick={() => setMenuOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-white">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                >
                   <X size={20} />
                 </button>
+              </div>
+
+              {/* Dedicated Subscription & 5,000 Diamonds Button Inside 3-Dash Menu */}
+              <Link
+                to="/subscription"
+                onClick={() => setMenuOpen(false)}
+                className="block p-4 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-300 text-slate-950 shadow-lg hover:brightness-105 transition"
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full bg-blue-950 text-amber-400 font-black text-[10px] uppercase tracking-wider">
+                    ₦10,000 One-Time Pass
+                  </span>
+                  <span className="font-mono font-black text-xs text-blue-950">
+                    {progress.diamonds} 💎 Active
+                  </span>
+                </div>
+                <h4 className="font-black text-sm text-slate-950">
+                  Subscription & 5,000 💎 Vault →
+                </h4>
+                <p className="text-[11px] font-bold text-slate-900/85 mt-0.5">
+                  Streak Bonus ({progress.streakBonusDiamonds} 💎) used first before Main 5K 💎!
+                </p>
+              </Link>
+
+              {/* THEME & EYE-COMFORT DIMNESS NUMBER-LINE CONTROLLER */}
+              <div
+                className={`p-4 rounded-2xl border space-y-3.5 ${
+                  isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-500">
+                    Theme & Eye Dimness
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {isDark ? 'Night Mode' : 'Normal Mode'} · Dim {dimnessLevel}/10
+                  </span>
+                </div>
+
+                {/* Normal vs Night Mode Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode('light')}
+                    className={`py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
+                      !isDark
+                        ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-sm'
+                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <Sun size={14} />
+                    <span>Normal (Light)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('dark')}
+                    className={`py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
+                      isDark
+                        ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                        : 'bg-white text-slate-600 border-slate-200 hover:text-slate-950'
+                    }`}
+                  >
+                    <Moon size={14} />
+                    <span>Night (Dark)</span>
+                  </button>
+                </div>
+
+                {/* Number-Line Dimness Control (0 to 10) Overpowering Header & Background */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between text-[10px] font-bold">
+                    <span className="text-slate-400">
+                      Dimness Number-Line (Overpowers Header & Screen):
+                    </span>
+                    {dimnessLevel > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDimnessLevel(0)}
+                        className="text-amber-400 hover:underline font-black cursor-pointer"
+                      >
+                        Reset (0)
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Interactive 0–10 Number Line */}
+                  <div className="grid grid-cols-11 gap-1 pt-1">
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
+                      const active = dimnessLevel === num;
+                      return (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setDimnessLevel(num)}
+                          className={`py-1.5 rounded-lg text-[10px] font-mono font-black border transition cursor-pointer ${
+                            active
+                              ? 'bg-amber-400 text-slate-950 border-amber-300 scale-105 shadow-sm'
+                              : isDark
+                              ? 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600'
+                              : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400'
+                          }`}
+                          title={`Set screen dimness to ${num} / 10`}
+                        >
+                          {num}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -211,7 +409,7 @@ export function AppShell() {
 
               <div className="pt-4 border-t border-slate-800 space-y-1">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block px-3 mb-2">
-                  Study Toolkit
+                  Study Toolkit & Vault
                 </span>
                 {MENU_ITEMS.map(({ to, label, Icon }) => (
                   <NavLink
@@ -252,57 +450,109 @@ export function AppShell() {
 }
 
 // ==========================================
-// MAIN STUDENT DASHBOARD (HOMEPAGE)
+// DYNAMIC SUBJECT METADATA & REAL RATES
 // ==========================================
-const REGISTERED_SUBJECTS_DATA = [
-  {
-    name: 'English Language',
-    accuracy: '84%',
-    numericRate: 84,
-    questions: '210 Solved',
-    locked: true,
-    badge: 'Compulsory Crest',
+const SUBJECT_TOPIC_META: Record<
+  string,
+  { badge: string; strongTopics: string[]; focusTopics: string[] }
+> = {
+  'English Language': {
+    badge: 'Compulsory Use of English',
     strongTopics: ['Comprehension Passages', 'Registers & Idioms'],
-    focusTopics: ['Concord & Agreement', 'Stress & Emphatic Stress'],
-    projectedScore: '76 / 100',
+    focusTopics: ['Concord & Agreement', 'Oral English & Stress'],
   },
-  {
-    name: 'Mathematics',
-    accuracy: '78%',
-    numericRate: 78,
-    questions: '185 Solved',
-    locked: false,
+  Mathematics: {
     badge: 'Calculus & Algebra',
     strongTopics: ['Quadratic Equations', 'Indices & Logarithms'],
     focusTopics: ['Differentiation & Integration', 'Circle Theorems'],
-    projectedScore: '78 / 100',
   },
-  {
-    name: 'Physics',
-    accuracy: '65%',
-    numericRate: 65,
-    questions: '142 Solved',
-    locked: false,
-    badge: 'Waves & Optics',
+  Physics: {
+    badge: 'Waves & Mechanics',
     strongTopics: ['Kinematics & Projectiles', 'Work, Energy & Power'],
     focusTopics: ['Waves & Sound Optics', 'Alternating Current (AC)'],
-    projectedScore: '68 / 100',
   },
-  {
-    name: 'Chemistry',
-    accuracy: '72%',
-    numericRate: 72,
-    questions: '160 Solved',
-    locked: false,
-    badge: 'Organic & Redox',
+  Chemistry: {
+    badge: 'Organic & Stoichiometry',
     strongTopics: ['Stoichiometry & Gas Laws', 'Periodic Table'],
     focusTopics: ['IUPAC Organic Nomenclature', 'Electrolysis & Redox'],
-    projectedScore: '74 / 100',
   },
-];
+  Biology: {
+    badge: 'Genetics & Ecology',
+    strongTopics: ['Cell Structure & Organization', 'Ecological Management'],
+    focusTopics: ['Mendelian Genetics', 'Plant & Animal Physiology'],
+  },
+  Economics: {
+    badge: 'Macro & Micro Theory',
+    strongTopics: ['Demand & Supply Elasticity', 'Market Structures'],
+    focusTopics: ['National Income Accounting', 'Fiscal & Monetary Policy'],
+  },
+  Government: {
+    badge: 'Constitutional History',
+    strongTopics: ['Organs of Government', 'Nigerian Federalism'],
+    focusTopics: ['Pre-Independence Constitutions', 'International Organizations'],
+  },
+  'Literature in English': {
+    badge: 'Drama, Prose & Poetry',
+    strongTopics: ['Figures of Speech', 'Unseen Prose & Poetry'],
+    focusTopics: ['African & Non-African Drama', 'Prescribed JAMB Texts'],
+  },
+};
 
 function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
   const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+  const meta = getCandidateOnboardingMeta();
+
+  const subjectCards = useMemo(() => {
+    return meta.chosenSubjects.map((name: string) => {
+      const stat = progress.subjectStats[name] || {
+        solved: 0,
+        correct: 0,
+        levelsAttempted: 0,
+        flawlessLevels: 0,
+        rating: 0,
+      };
+      // Strict Subject Rating Rule: Only increases when completing a level 100% right without failing any question
+      const strictRating = stat.rating || 0;
+      const rawAccuracy = stat.solved > 0 ? Math.round((stat.correct / stat.solved) * 100) : 0;
+      const projected = strictRating > 0 ? Math.min(98, Math.max(45, strictRating)) : 0;
+      const details = SUBJECT_TOPIC_META[name] || {
+        badge: 'Registered UTME Subject',
+        strongTopics: ['Core Definitions', 'Past Questions'],
+        focusTopics: ['Speed Accuracy', 'Syllabus Application'],
+      };
+      return {
+        name,
+        locked: name === 'English Language',
+        solvedCount: stat.solved,
+        correctCount: stat.correct,
+        levelsAttempted: stat.levelsAttempted || 0,
+        flawlessLevels: stat.flawlessLevels || 0,
+        rateNum: strictRating,
+        rawAccuracy,
+        accuracy: `${strictRating}%`,
+        questions: `${stat.solved} Practiced · ${stat.flawlessLevels || 0} Flawless Levels`,
+        projectedScore:
+          strictRating > 0
+            ? `${projected} / 100 (Raw Acc: ${rawAccuracy}%)`
+            : `0% Rating (${stat.solved} practiced, clear a level 100% flawless to boost)`,
+        badge: details.badge,
+        strongTopics: details.strongTopics,
+        focusTopics: details.focusTopics,
+      };
+    });
+  }, [meta.chosenSubjects, progress.subjectStats]);
+
+  const avgMastery = useMemo(() => {
+    if (subjectCards.length === 0) return 0;
+    const sum = subjectCards.reduce((acc, s) => acc + s.rateNum, 0);
+    return Math.round(sum / subjectCards.length);
+  }, [subjectCards]);
+
+  const projectedAggregate = useMemo(() => {
+    if (avgMastery === 0) return 0;
+    return Math.round((avgMastery / 100) * 400);
+  }, [avgMastery]);
 
   return (
     <div
@@ -355,14 +605,13 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
 
         <div className="flex items-center gap-2">
           <div className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-black">
-            Avg Mastery: 75%
+            Avg Mastery: {avgMastery}%
           </div>
         </div>
       </header>
 
       {/* Main Full-Screen Subject Rates Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
-        {/* Overall Aggregate Projection Banner */}
         <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900 via-blue-950 to-slate-950 border-2 border-blue-500/40 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="space-y-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
@@ -372,23 +621,25 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
               Your Live Subject Mastery & Score Projection
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/90 max-w-2xl">
-              Track your real-time mastery rate across each of your 4 registered JAMB subjects. Drill weak topics directly in Blitz or Smart Practice to push every subject above 85%.
+              Every percentage below is calculated from your real answered questions in Blitz, Smart Practice, and CBT Mocks. Solve questions in each subject to build your live UTME score projection.
             </p>
           </div>
           <div className="px-5 py-4 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm text-center shrink-0 w-full sm:w-auto">
             <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
               PROJECTED UTME AGGREGATE
             </span>
-            <span className="text-3xl sm:text-4xl font-black text-white">296 / 400</span>
+            <span className="text-3xl sm:text-4xl font-black text-white">
+              {projectedAggregate > 0 ? `${projectedAggregate} / 400` : '0 / 400'}
+            </span>
             <span className="text-[11px] font-bold text-emerald-300 block mt-0.5">
-              Target: 320+ (+24 pts needed)
+              Target: {meta.targetScore}+ ({meta.targetUniversity})
             </span>
           </div>
         </section>
 
         {/* 4 Subject Rate Cards Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {REGISTERED_SUBJECTS_DATA.map(sub => (
+          {subjectCards.map(sub => (
             <div
               key={sub.name}
               className={`p-6 rounded-3xl border-2 transition-all flex flex-col justify-between gap-5 ${
@@ -436,7 +687,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                 <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-amber-400 rounded-full transition-all duration-500"
-                    style={{ width: sub.accuracy }}
+                    style={{ width: `${Math.max(sub.rateNum, 2)}%` }}
                   />
                 </div>
 
@@ -448,7 +699,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                     }`}
                   >
                     <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 block mb-1">
-                      ✓ Strongest Topics
+                      ✓ Core Syllabus Topics
                     </span>
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
                       {sub.strongTopics.join(' · ')}
@@ -473,7 +724,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                 <Link
                   to="/blitz"
                   onClick={onClose}
-                  className="flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white text-center transition shadow-md"
+                  className="flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 text-white text-center transition shadow-md"
                 >
                   Blitz {sub.name.split(' ')[0]} ⚡
                 </Link>
@@ -507,47 +758,68 @@ export function SubjectRatesPage() {
 export function HomePage() {
   const { isDark } = useTheme();
   const [showSubjectRates, setShowSubjectRates] = useState(false);
+  const progress = useLiveUserProgress();
+  const meta = getCandidateOnboardingMeta();
+  const userName =
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
+
+  const totalSolved = useMemo(() => {
+    return Object.values(progress.subjectStats).reduce((sum, s) => sum + (s?.solved || 0), 0);
+  }, [progress.subjectStats]);
+
+  const overallAccuracy = useMemo(() => {
+    const totalCorrect = Object.values(progress.subjectStats).reduce(
+      (sum, s) => sum + (s?.correct || 0),
+      0
+    );
+    return totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+  }, [progress.subjectStats, totalSolved]);
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
-      {/* Full-Screen Popout for 4 Registered Subjects (Subject Rates Dashboard) */}
       {showSubjectRates && (
         <SubjectRatesFullScreenView onClose={() => setShowSubjectRates(false)} />
       )}
 
-      {/* Top Gamified HUD Bar */}
+      {/* Top Gamified HUD Bar (Real Values Only — Zero Fake Diamonds) */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
           isDark ? 'bg-slate-900/80 border-amber-500/30' : 'bg-white border-amber-200'
         }`}>
           <div className="p-3 rounded-2xl bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20">
-            <Flame size={22} className="animate-bounce" />
+            <Flame size={22} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
           </div>
           <div>
             <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
               Streak Flame
             </span>
             <span className="text-lg font-black text-slate-900 dark:text-white">
-              7 Days Active
+              {progress.streakDays} {progress.streakDays === 1 ? 'Day' : 'Days'} Active
             </span>
           </div>
         </div>
 
-        <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
-          isDark ? 'bg-slate-900/80 border-blue-500/30' : 'bg-white border-blue-200'
-        }`}>
+        <Link
+          to="/subscription"
+          className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
+            isDark ? 'bg-slate-900/80 border-blue-500/30 hover:border-blue-400' : 'bg-white border-blue-200 hover:border-blue-400'
+          }`}
+        >
           <div className="p-3 rounded-2xl bg-blue-600 text-white font-black shadow-md shadow-blue-600/20">
             <Coins size={22} />
           </div>
           <div>
             <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-              Sabi Gems
+              Sabi Diamonds
             </span>
             <span className="text-lg font-black text-slate-900 dark:text-white">
-              1,450 💎
+              {progress.diamonds} 💎
+            </span>
+            <span className="text-[9px] font-bold text-amber-500 block">
+              Bonus: {progress.streakBonusDiamonds} 💎 (Used 1st)
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
           isDark ? 'bg-slate-900/80 border-emerald-500/30' : 'bg-white border-emerald-200'
@@ -557,10 +829,10 @@ export function HomePage() {
           </div>
           <div>
             <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-              UTME Stamina
+              Questions Solved
             </span>
             <span className="text-lg font-black text-slate-900 dark:text-white">
-              25 / 25 Max
+              {totalSolved} Solved
             </span>
           </div>
         </div>
@@ -575,8 +847,8 @@ export function HomePage() {
             <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
               Target Score
             </span>
-            <span className="text-lg font-black text-slate-900 dark:text-white">
-              320+ (UNILAG)
+            <span className="text-lg font-black text-slate-900 dark:text-white truncate">
+              {meta.targetScore}+ ({meta.targetUniversity})
             </span>
           </div>
         </div>
@@ -590,11 +862,11 @@ export function HomePage() {
           </div>
           
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-slate-950">
-            Welcome to your Dashboard, {typeof window !== 'undefined' && localStorage.getItem('sabi_user_name') ? localStorage.getItem('sabi_user_name') : 'David'}!
+            Welcome to your Dashboard, {userName}!
           </h1>
           
           <p className="text-sm sm:text-base text-slate-900 font-semibold max-w-xl leading-relaxed">
-            Your target is <strong>320+ in JAMB UTME</strong> for <strong>Medicine & Surgery at UNILAG</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
+            Your target is <strong>{meta.targetScore}+ in JAMB UTME</strong> for <strong>{meta.targetCourse} at {meta.targetUniversity}</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -606,7 +878,9 @@ export function HomePage() {
               <Activity size={15} />
               <span>See Subject Rates (4 Subjects) →</span>
             </button>
-            <span className="text-xs font-black text-blue-950">UTME Readiness: 84%</span>
+            <span className="text-xs font-black text-blue-950">
+              Live Accuracy: {overallAccuracy}% ({totalSolved} Solved)
+            </span>
           </div>
         </div>
 
@@ -664,7 +938,7 @@ export function HomePage() {
 
             <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs font-mono font-black text-blue-950">
-                Level 3 · 15Q Active
+                Level {progress.blitzUnlockedLevel} Active
               </div>
               <Link
                 to="/blitz"
@@ -701,7 +975,7 @@ export function HomePage() {
 
             <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs font-mono font-black text-blue-950">
-                West Quad · Level 2
+                Campus Level {progress.smartUnlockedLevel}
               </div>
               <Link
                 to="/smart"
@@ -761,13 +1035,13 @@ export function HomePage() {
                 SUBJECT RATES
               </h3>
               <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
-                Inspect your live mastery rates across English (84%), Maths (78%), Physics (65%), and Chemistry (72%) in a full-screen dashboard.
+                Inspect your live mastery rates across {meta.chosenSubjects.join(', ')} in a full-screen analytical dashboard.
               </p>
             </div>
 
             <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="text-xs font-mono font-black text-blue-950">
-                4 Subjects · 75% Avg Rate
+                4 Subjects · {overallAccuracy}% Avg Rate
               </div>
               <button
                 type="button"
@@ -781,28 +1055,69 @@ export function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* NIGERIAN ₦10,000 ONE-TIME PASS & 5,000 DIAMONDS + STREAK BONUS BANNER WITH CUSTOM SVG */}
+      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 border-2 border-amber-400 text-white shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div className="space-y-3 flex-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
+            <Coins size={13} />
+            <span>₦10,000 One-Time UTME Pass = 5,000 💎 Vault</span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            5,000 Diamonds Split Across All Study Sections + Free Streak Bonus Shield
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+            Just like Duolingo, serious candidates with a strong daily streak earn free <strong>Streak Bonus Diamonds ({progress.streakBonusDiamonds} 💎 earned)</strong> that are <strong>always used up first before your main 5,000 💎 vault is ever touched</strong>!
+          </p>
+          <div className="pt-2 flex flex-wrap items-center gap-3">
+            <Link
+              to="/subscription"
+              className="px-6 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg"
+            >
+              <span>Open ₦10,000 Subscription & 5,000 💎 Vault</span>
+              <ArrowRight size={15} />
+            </Link>
+            <span className="text-xs font-bold text-amber-300">
+              Also accessible anytime inside the top-left 3-dash menu
+            </span>
+          </div>
+        </div>
+
+        <div className="w-full max-w-[320px] shrink-0">
+          <img
+            src="/assets/environment/subscription_banner.svg"
+            alt="SABI ₦10,000 = 5,000 Diamonds Subscription Vault"
+            className="w-full h-auto object-contain drop-shadow-2xl"
+          />
+        </div>
+      </section>
     </div>
   );
 }
 
 // ==========================================
-// DAILY UTME MISSIONS PAGE (/missions)
+// DAILY UTME MISSIONS PAGE (/missions) — REAL PROGRESS, NO FAKE DIAMONDS
 // ==========================================
 export function DailyMissionsPage() {
-  const [completedQuest, setCompletedQuest] = useState(false);
   const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+
+  const blitzGoal = 15;
+  const blitzDone = Math.min(blitzGoal, progress.dailyBlitzSolved);
+  const smartDone = Math.min(1, progress.dailySmartLevelsCleared);
+  const diagDone = Math.min(1, progress.dailyDiagnosticsCompleted);
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0 max-w-5xl mx-auto">
       <div>
         <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
-          Daily Missions & Streaks
+          Daily Missions & Study Consistency
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Daily UTME Missions & Rewards
+          Daily UTME Missions
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Complete your daily high-speed drills to maintain your streak flame and earn Sabi Gems for admission resources.
+          Track your real daily study targets across Blitz, Smart Practice, and Weak Topic Diagnostics.
         </p>
       </div>
 
@@ -811,14 +1126,14 @@ export function DailyMissionsPage() {
           isDark ? 'bg-slate-900/80 border-amber-500/30' : 'bg-white border-amber-200'
         }`}>
           <div className="p-3.5 rounded-2xl bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20">
-            <Flame size={26} className="animate-bounce" />
+            <Flame size={26} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
           </div>
           <div>
             <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
               Streak Flame
             </span>
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              7 Days Active 🔥
+              {progress.streakDays} {progress.streakDays === 1 ? 'Day' : 'Days'} Active 🔥
             </span>
           </div>
         </div>
@@ -831,10 +1146,10 @@ export function DailyMissionsPage() {
           </div>
           <div>
             <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-              Sabi Gems
+              Verified Diamonds
             </span>
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              1,450 💎
+              {progress.diamonds} 💎
             </span>
           </div>
         </div>
@@ -847,16 +1162,16 @@ export function DailyMissionsPage() {
           </div>
           <div>
             <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-              Stamina Refill
+              Today's Blitz Count
             </span>
             <span className="text-xl font-black text-slate-900 dark:text-white">
-              Full (25/25)
+              {progress.dailyBlitzSolved} Solved Today
             </span>
           </div>
         </div>
       </div>
 
-      {/* Quests Container */}
+      {/* Real Daily Quests Container */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className={`lg:col-span-7 p-6 sm:p-8 rounded-3xl border-2 space-y-5 ${
           isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
@@ -864,52 +1179,57 @@ export function DailyMissionsPage() {
           <div className="flex items-center justify-between">
             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Award size={22} className="text-amber-500" />
-              <span>Today's Available Missions</span>
+              <span>Today's Live Missions</span>
             </h3>
             <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
-              +150 Gems Available
+              Real-Time Tracking
             </span>
           </div>
 
           <div className="space-y-3">
+            {/* Mission 1 */}
             <div className={`p-4 rounded-2xl border flex items-center justify-between ${
               isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center gap-3">
-                <CheckCircle size={22} className="text-emerald-500" />
+                {blitzDone >= blitzGoal ? (
+                  <CheckCircle size={22} className="text-emerald-500" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full border-2 border-amber-400 inline-block" />
+                )}
                 <div>
                   <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
-                    Solve 15 Blitz Speed Questions
+                    Solve 15 Blitz Speed Questions Today
                   </span>
                   <span className="text-[11px] text-slate-400 font-medium">
-                    15 / 15 Completed today
+                    {blitzDone} / {blitzGoal} Completed today
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => setCompletedQuest(true)}
-                disabled={completedQuest}
-                className={`px-4 py-2 rounded-xl text-xs font-black transition ${
-                  completedQuest
-                    ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-                    : 'bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-md shadow-amber-400/20'
-                }`}
+              <Link
+                to="/blitz"
+                className="px-4 py-2 rounded-xl text-xs font-black bg-blue-700 hover:bg-blue-800 text-white transition"
               >
-                {completedQuest ? 'Claimed ✓' : 'Claim 50 💎'}
-              </button>
+                {blitzDone >= blitzGoal ? 'Completed ✓' : 'Drill Blitz →'}
+              </Link>
             </div>
 
+            {/* Mission 2 */}
             <div className={`p-4 rounded-2xl border flex items-center justify-between ${
               isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
+                {smartDone >= 1 ? (
+                  <CheckCircle size={22} className="text-emerald-500" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
+                )}
                 <div>
                   <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
                     Clear 1 Campus Level in Smart Practice
                   </span>
                   <span className="text-[11px] text-slate-400 font-medium">
-                    Progress: 0 / 1 Level
+                    Progress: {smartDone} / 1 Level today
                   </span>
                 </div>
               </div>
@@ -917,22 +1237,27 @@ export function DailyMissionsPage() {
                 to="/smart"
                 className="text-xs font-black text-blue-600 dark:text-amber-400 hover:underline flex items-center gap-1"
               >
-                <span>Go to Campus</span>
+                <span>{smartDone >= 1 ? 'Completed ✓' : 'Go to Campus'}</span>
                 <ChevronRight size={14} />
               </Link>
             </div>
 
+            {/* Mission 3 */}
             <div className={`p-4 rounded-2xl border flex items-center justify-between ${
               isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
             }`}>
               <div className="flex items-center gap-3">
-                <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
+                {diagDone >= 1 ? (
+                  <CheckCircle size={22} className="text-emerald-500" />
+                ) : (
+                  <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
+                )}
                 <div>
                   <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
                     Complete 1 Diagnostic on Weak Topics
                   </span>
                   <span className="text-[11px] text-slate-400 font-medium">
-                    Reward: +100 Sabi Gems
+                    Progress: {diagDone} / 1 Completed today
                   </span>
                 </div>
               </div>
@@ -948,15 +1273,15 @@ export function DailyMissionsPage() {
         </div>
 
         {/* 180-Q Mock Exam Quick Launch */}
-        <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/20 flex flex-col justify-between">
+        <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 shadow-xl flex flex-col justify-between border-2 border-amber-500">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950 text-amber-400 font-black text-[10px] uppercase tracking-wider mb-3">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[10px] uppercase tracking-wider mb-3">
               <FileQuestion size={12} /> Official JAMB UTME Simulator
             </div>
             <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-tight">
               180-Question Timed Mock Exam
             </h3>
-            <p className="text-xs text-slate-900 font-semibold mt-2 leading-relaxed opacity-90">
+            <p className="text-xs text-slate-900 font-semibold mt-2 leading-relaxed">
               Simulate full UTME exam conditions with 120-minute countdown, 8-digit onscreen calculator, and instant official JAMB result slip.
             </p>
           </div>
@@ -964,7 +1289,7 @@ export function DailyMissionsPage() {
           <div className="pt-6">
             <Link
               to="/cbt"
-              className="w-full py-4 rounded-2xl font-black text-sm bg-slate-950 text-white hover:bg-slate-900 transition flex items-center justify-center gap-2 shadow-lg"
+              className="w-full py-4 rounded-2xl font-black text-sm bg-blue-700 hover:bg-blue-800 text-white transition flex items-center justify-center gap-2 shadow-lg"
             >
               <span>Launch Official CBT Exam</span>
               <ArrowRight size={16} />
@@ -1107,7 +1432,7 @@ export function PracticePage() {
                 Custom JAMB Simulator Dashboard
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Build custom question selections, configure custom time limits, and target weak syllabus topics
+                Dedicated simulator workspace directory
               </p>
             </div>
           </div>
@@ -1119,10 +1444,11 @@ export function PracticePage() {
 }
 
 // ==========================================
-// CBT SIMULATOR PAGE
+// CBT SIMULATOR PAGE (REAL INTERACTIVE EXAM LAUNCHER)
 // ==========================================
 export function CbtPage() {
   const { isDark } = useTheme();
+  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
@@ -1134,105 +1460,435 @@ export function CbtPage() {
           Prepare Under Strict Exam Conditions
         </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          The CBT simulator simulates the official JAMB environment. No hints or explanations are shown until after submission.
+          Simulate the official JAMB UTME environment with 4-subject switching, question navigation grid, and onscreen calculator.
         </p>
       </div>
 
-      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full bg-slate-950 text-amber-400 font-black text-[10px] uppercase">
+          <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[10px] uppercase">
             Official UTME Mock
           </span>
-          <h2 className="text-2xl font-black">180 Questions · 4 Subjects · 120 Minutes</h2>
-          <p className="text-xs font-medium max-w-xl text-slate-900 opacity-90">
-            English (60 questions) + 3 Chosen Subjects (40 questions each). Features accurate 8-digit onscreen calculator and instant JAMB score sheet.
+          <h2 className="text-2xl font-black">Full 4-Subject UTME Mock · 120 Minutes</h2>
+          <p className="text-xs font-semibold max-w-xl text-slate-900">
+            English Language + 3 Chosen Subjects. Features accurate 8-digit onscreen calculator, question flagging, and instant JAMB score breakdown out of 400.
           </p>
         </div>
-        <Link
-          to="/cbt/live"
-          className="px-7 py-4 rounded-2xl font-black text-sm bg-slate-950 text-white hover:bg-slate-900 transition flex items-center gap-2 shrink-0 shadow-lg"
+        <button
+          type="button"
+          onClick={() => setIsExamModalOpen(true)}
+          className="px-7 py-4 rounded-2xl font-black text-sm bg-blue-700 hover:bg-blue-800 text-white transition flex items-center gap-2 shrink-0 shadow-lg cursor-pointer"
         >
           <span>Start Full Exam Now</span>
           <ArrowRight size={18} />
-        </Link>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className={`p-6 rounded-3xl border-2 ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
+        <button
+          type="button"
+          onClick={() => setIsExamModalOpen(true)}
+          className={`p-6 rounded-3xl border-2 text-left transition cursor-pointer ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-amber-400' : 'bg-white border-slate-200 hover:border-blue-600'
+          }`}
+        >
           <span className="text-xs font-black text-amber-500 uppercase">Quick Mock</span>
-          <h3 className="text-xl font-black mt-1">40 Questions · 30 Mins</h3>
-          <p className="text-xs text-slate-400 mt-1">Fast sprint test for focused revision.</p>
-        </div>
+          <h3 className="text-xl font-black mt-1">Rapid 4-Subject CBT Sprint</h3>
+          <p className="text-xs text-slate-400 mt-1">Launch the interactive CBT simulator for a focused timed session.</p>
+        </button>
 
-        <div className={`p-6 rounded-3xl border-2 ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <span className="text-xs font-black text-blue-500 uppercase">Subject Drill</span>
-          <h3 className="text-xl font-black mt-1">Single Subject · 40 Mins</h3>
-          <p className="text-xs text-slate-400 mt-1">Deep drill in Mathematics, Physics, or Chemistry.</p>
-        </div>
+        <Link
+          to="/blitz"
+          className={`p-6 rounded-3xl border-2 text-left transition ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-amber-400' : 'bg-white border-slate-200 hover:border-blue-600'
+          }`}
+        >
+          <span className="text-xs font-black text-blue-500 uppercase">Subject Speed Drill</span>
+          <h3 className="text-xl font-black mt-1">Single Subject · 60s Blitz</h3>
+          <p className="text-xs text-slate-400 mt-1">Deep drill in English, Mathematics, Physics, or Chemistry.</p>
+        </Link>
       </div>
+
+      <FullMockExamModal
+        isOpen={isExamModalOpen}
+        onClose={() => setIsExamModalOpen(false)}
+        onAddXP={() => {}}
+      />
     </div>
   );
 }
 
 // ==========================================
-// PROGRESS PAGE
+// PROGRESS PAGE (DAILY ACTIVITY TRACKER & STRICT 100%-FLAWLESS SUBJECT RATINGS)
 // ==========================================
 export function ProgressPage() {
   const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+  const meta = getCandidateOnboardingMeta();
+
+  const totalSolved = Object.values(progress.subjectStats).reduce((acc, s) => acc + (s?.solved || 0), 0);
+  const totalCorrect = Object.values(progress.subjectStats).reduce((acc, s) => acc + (s?.correct || 0), 0);
+  const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+
+  const avgStrictRating = useMemo(() => {
+    const subs = meta.chosenSubjects;
+    if (subs.length === 0) return 0;
+    const sum = subs.reduce((acc: number, name: string) => acc + (progress.subjectStats[name]?.rating || 0), 0);
+    return Math.round(sum / subs.length);
+  }, [meta.chosenSubjects, progress.subjectStats]);
+
+  const dailyEntries = useMemo(() => {
+    return Object.values(progress.dailyActivityLog || {}).sort((a, b) =>
+      b.date.localeCompare(a.date)
+    );
+  }, [progress.dailyActivityLog]);
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
-      <div>
-        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
-          Mastery Analytics
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Your UTME Progress & Readiness
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Evidence-based learning analytics tracked across your 4 registered subjects.
-        </p>
-      </div>
-
-      <div className={`p-6 sm:p-8 rounded-3xl border-2 ${
-        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-      } flex flex-col md:flex-row items-center gap-6`}>
-        <div className="w-20 h-20 rounded-2xl bg-blue-600/10 text-blue-500 border border-blue-500/20 flex items-center justify-center shrink-0">
-          <Activity size={36} />
-        </div>
-        <div className="space-y-2 flex-1">
-          <span className="text-xs font-black uppercase text-amber-500">Live Readiness</span>
-          <h2 className="text-xl font-black">Estimated UTME Benchmark: 324 / 400</h2>
-          <p className="text-xs text-slate-400 max-w-xl">
-            Based on your Blitz speed accuracy, Smart Practice completion, and streak consistency. Keep drilling to maintain admission security at UNILAG.
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+            Daily Activity & Strict Subject Ratings
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            Your UTME Daily Activity & Flawless Subject Ratings
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Every practice attempt is logged below. Official <strong>Subject Ratings (%)</strong> only increase when you clear a level <strong>100% right without failing a single question</strong>.
           </p>
         </div>
+
         <Link
-          to="/blitz"
-          className="px-6 py-3.5 rounded-2xl font-black text-xs uppercase bg-amber-400 text-slate-950 hover:bg-amber-300 transition"
+          to="/subject-rates"
+          className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
         >
-          Boost Score in Blitz →
+          Full-Screen Subject Rates →
         </Link>
       </div>
+
+      {/* 4 Registered Subjects Strict Rating Cards */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {meta.chosenSubjects.map((subName: string) => {
+          const stat = progress.subjectStats[subName] || {
+            solved: 0,
+            correct: 0,
+            levelsAttempted: 0,
+            flawlessLevels: 0,
+            rating: 0,
+          };
+          const rating = stat.rating || 0;
+          const rawAcc = stat.solved > 0 ? Math.round((stat.correct / stat.solved) * 100) : 0;
+
+          return (
+            <div
+              key={subName}
+              className={`p-5 rounded-3xl border-2 space-y-3 ${
+                isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-amber-500 uppercase truncate">
+                  {subName}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-mono text-[10px] font-black">
+                  {stat.flawlessLevels || 0} Flawless
+                </span>
+              </div>
+
+              <div>
+                <span className="text-3xl font-black text-blue-600 dark:text-amber-400">
+                  {rating}%
+                </span>
+                <span className="text-[10px] font-bold text-slate-400 block">
+                  Official Subject Rating (100% Level Rule)
+                </span>
+              </div>
+
+              <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-600 to-amber-400 rounded-full transition-all"
+                  style={{ width: `${Math.max(3, rating)}%` }}
+                />
+              </div>
+
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-400">
+                <span>{stat.solved} Practiced</span>
+                <span>Raw Acc: {rawAcc}%</span>
+              </div>
+            </div>
+          );
+        })}
+      </section>
+
+      {/* Daily Activity Log Section */}
+      <section
+        className={`p-6 sm:p-8 rounded-3xl border-2 space-y-5 ${
+          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        }`}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+              Tracked Daily Study Activities
+            </h2>
+            <p className="text-xs text-slate-400">
+              Total Practiced: {totalSolved} questions ({accuracy}% raw accuracy) · Average Strict Rating: {avgStrictRating}%
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 text-xs font-black">
+            {progress.streakDays} Day Active Streak 🔥
+          </span>
+        </div>
+
+        {dailyEntries.length === 0 ? (
+          <div className="p-6 rounded-2xl border border-dashed border-slate-700 text-center space-y-2">
+            <p className="text-sm font-bold text-slate-300">
+              No daily study sessions logged yet today.
+            </p>
+            <p className="text-xs text-slate-400">
+              Complete your first level in Blitz or Smart Practice to start tracking your daily activity and flawless subject ratings!
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {dailyEntries.map(entry => {
+              const dayAcc =
+                entry.questionsPracticed > 0
+                  ? Math.round((entry.correctCount / entry.questionsPracticed) * 100)
+                  : 0;
+              return (
+                <div
+                  key={entry.date}
+                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                    isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-black text-sm text-amber-500">
+                        {entry.date}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-black">
+                        {entry.questionsPracticed} Questions Practiced ({dayAcc}% Correct)
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-semibold">
+                      Subjects Drilled: {(entry.subjectsPracticed || []).join(', ') || 'General UTME'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-300">
+                      Levels Attempted: <strong>{entry.levelsAttempted || 0}</strong>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs font-black text-emerald-400">
+                      100% Flawless Clears: {entry.flawlessLevelsCleared || 0}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
 
 // ==========================================
-// PROFILE PAGE (With Unique SABI ID & Recovery Doc Download)
+// SUBSCRIPTION & 5,000 DIAMONDS VAULT PAGE (/subscription)
+// ==========================================
+export function SubscriptionPage() {
+  const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+
+  const DIAMOND_SECTIONS = [
+    {
+      title: 'Blitz Speed Z-Path Sets & General Tests',
+      allocation: '1,500 💎',
+      desc: 'Unlocks all advanced Blitz sets, Set 2+ Z-Path levels, and comprehensive end-of-set General Tests.',
+    },
+    {
+      title: 'Smart Practice Branching Campus Road',
+      allocation: '1,500 💎',
+      desc: 'Unlocks all merged & unmerged 4-subject campus road sets, faculty laboratories, and road checkpoints.',
+    },
+    {
+      title: 'Official 180-Q CBT Mocks & Custom Simulator',
+      allocation: '1,000 💎',
+      desc: 'Unlimited full-length 120-minute UTME CBT mock exams and custom simulator configurations.',
+    },
+    {
+      title: 'Sabi AI Solution Verifications & Explanations',
+      allocation: '1,000 💎',
+      desc: 'On-demand step-by-step KaTeX & Pidgin AI verifications on every question in Blitz and Smart levels.',
+    },
+  ];
+
+  return (
+    <div className="space-y-8 pb-16 lg:pb-0 max-w-5xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+            Official Nigerian UTME Pass · ₦10,000 One-Time Payment
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            SABI Subscription & 5,000 💎 Diamond Vault
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            One-time payment of <strong>₦10,000</strong> credits <strong>5,000 Diamonds (5,000 💎)</strong> split across all study sections, protected by your Duolingo-style <strong>Streak Bonus Shield</strong>.
+          </p>
+        </div>
+
+        <Link
+          to="/home"
+          className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-black uppercase tracking-wider self-start"
+        >
+          ← Back to Dashboard
+        </Link>
+      </div>
+
+      {/* Hero Banner with Custom SVG (/assets/environment/subscription_banner.svg) */}
+      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 border-2 border-amber-400 text-white shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <div className="lg:col-span-7 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider">
+            <Coins size={14} />
+            <span>One-Time UTME Access · ₦10,000 = 5,000 💎</span>
+          </div>
+
+          <h2 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
+            Unlock All Study Sets & Protect Your Vault with Daily Streaks
+          </h2>
+
+          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            No recurring monthly charges. A single <strong>₦10,000</strong> payment allocates <strong>5,000 💎</strong> across Blitz, Smart Practice, CBT Mocks, and AI Verifications. Even better: serious candidates with an active daily streak earn free <strong>Streak Bonus Diamonds</strong> that are <strong>always spent first before your main 5,000 💎 balance is ever touched</strong>!
+          </p>
+
+          {/* Live User Diamond Balances */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-amber-400/50">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+                Streak Bonus Shield (Used 1st)
+              </span>
+              <span className="text-2xl font-mono font-black text-white">
+                {progress.streakBonusDiamonds} 💎
+              </span>
+              <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">
+                Earned free via {progress.streakDays}d streak
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-blue-400/50">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-300 block">
+                Main Purchased Vault
+              </span>
+              <span className="text-2xl font-mono font-black text-white">
+                {progress.mainDiamonds} 💎
+              </span>
+              <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
+                {progress.subscriptionPlan === 'free' ? '0 / 5,000 💎 (Unpaid)' : 'Active Pass'}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-amber-400 text-slate-950">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-950 block">
+                Total Available Diamonds
+              </span>
+              <span className="text-2xl font-mono font-black text-slate-950">
+                {progress.diamonds} 💎
+              </span>
+              <span className="text-[10px] font-black text-blue-950 block mt-0.5">
+                Zero Fake Diamonds Policy
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-5 flex justify-center">
+          <img
+            src="/assets/environment/subscription_banner.svg"
+            alt="₦10,000 = 5,000 Diamonds Subscription Vault Banner"
+            className="w-full max-w-[360px] h-auto object-contain drop-shadow-2xl"
+          />
+        </div>
+      </section>
+
+      {/* How the 5,000 Diamonds Are Split Across Sections */}
+      <section className="space-y-4">
+        <h3 className="text-xl font-black text-slate-900 dark:text-white">
+          How Your 5,000 💎 Vault Is Split Across SABI Sections
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {DIAMOND_SECTIONS.map(sec => (
+            <div
+              key={sec.title}
+              className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between gap-3"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-xs uppercase">
+                  Section Allocation
+                </span>
+                <span className="text-xl font-mono font-black text-blue-950">
+                  {sec.allocation}
+                </span>
+              </div>
+              <h4 className="text-lg font-black text-slate-950">{sec.title}</h4>
+              <p className="text-xs font-semibold text-slate-900 leading-relaxed">
+                {sec.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Duolingo-Style Streak Bonus Explanation & Payment Gateway Readiness */}
+      <section
+        className={`p-6 sm:p-8 rounded-3xl border-2 flex flex-col md:flex-row items-center justify-between gap-6 ${
+          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        }`}
+      >
+        <div className="space-y-2 max-w-2xl">
+          <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-500">
+            <Flame size={15} />
+            <span>Duolingo-Style Serious Streak Protection</span>
+          </div>
+          <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+            Keep Your Daily Streak Alive & Spend Free Bonus Diamonds First
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            Every consecutive day you practice (+15 💎) and every level you clear 100% flawlessly (+10 💎) adds free <strong>Streak Bonus Diamonds</strong> to your account. Whenever diamonds are required, SABI automatically deducts from your Streak Bonus bucket first—preserving your main 5,000 💎 vault!
+          </p>
+        </div>
+
+        <div className="w-full md:w-auto shrink-0 text-center space-y-2">
+          <button
+            type="button"
+            disabled
+            className="w-full md:w-auto px-7 py-4 rounded-2xl bg-blue-700/80 text-white font-black text-xs sm:text-sm uppercase tracking-wider opacity-90 cursor-not-allowed shadow-lg"
+          >
+            ₦10,000 Payment Gateway (Integrating Soon)
+          </button>
+          <span className="text-[11px] font-bold text-amber-500 block">
+            Standard Subscription Vault Ready for Live Naira Checkout
+          </span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ==========================================
+// PROFILE PAGE (With Unique SABI ID, Recovery Doc Download & Real 0-Diamond Balance)
 // ==========================================
 export function ProfilePage() {
   const { isDark, toggleTheme } = useTheme();
   const [copiedId, setCopiedId] = useState(false);
+  const progress = useLiveUserProgress();
 
-  const userName = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'David Chukwu';
-  const userEmail = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) || 'david.chukwu@student.ng';
-  const userPhone = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_phone')) || '+234 803 000 0000';
-  const userState = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_state')) || 'Lagos State';
+  const userName = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
+  const userEmail = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) || 'scholar@sabi.ng';
+  const userPhone = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_phone')) || '+234';
+  const userState = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_state')) || 'Lagos';
   const uniqueId = (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) || '4829K';
 
   const handleCopyId = () => {
@@ -1329,19 +1985,35 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* Candidate Details & Preferences */}
+      {/* Candidate Details, Verified Diamond Balance & Preferences */}
       <div className={`p-6 sm:p-8 rounded-3xl border-2 space-y-6 ${
         isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
       }`}>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-blue-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
-            {userName.charAt(0).toUpperCase()}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-blue-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+              {userName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-xl font-black">{userName}</h2>
+              <p className="text-xs text-slate-400">{userEmail} · {userPhone} · {userState}</p>
+              <span className="inline-block text-xs font-bold text-blue-600 dark:text-amber-400 mt-1">
+                Active Candidate (2026/2027 UTME) · ID: {uniqueId}
+              </span>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-black">{userName}</h2>
-            <p className="text-xs text-slate-400">{userEmail} · {userPhone} · {userState}</p>
-            <span className="inline-block text-xs font-bold text-blue-600 dark:text-amber-400 mt-1">
-              Active Candidate (2026/2027 UTME) · ID: {uniqueId}
+
+          <div className={`px-4 py-3 rounded-2xl border text-right ${
+            isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
+          }`}>
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+              Verified Diamond Balance
+            </span>
+            <span className="text-xl font-black text-blue-600 dark:text-amber-400">
+              {progress.diamonds} 💎
+            </span>
+            <span className="text-[10px] font-bold text-slate-400 block">
+              Plan: {progress.subscriptionPlan === 'free' ? 'Free Tier' : progress.subscriptionPlan}
             </span>
           </div>
         </div>
@@ -1393,42 +2065,293 @@ export function NotificationsPage() {
 }
 
 // ==========================================
-// GENERIC SUB-PAGE RENDERER
+// REAL INTERACTIVE TOOLKIT SUB-PAGES (/menu/:section)
 // ==========================================
 export function MainPage({ page }: { page: string }) {
   const { section } = useParams();
-  const sectionPage: Record<string, { title: string; description: string }> = {
-    mistakes: { title: 'Mistake Notebook', description: 'Revisit missed questions from Blitz and Smart Practice until you achieve 100% mastery.' },
-    resources: { title: 'Study Resources & Syllabus', description: 'Formula sheets, reading text guides, and official JAMB UTME syllabus.' },
-    help: { title: 'Help & Support', description: 'Guides on how to navigate Blitz level paths and campus roads.' },
-    about: { title: 'About SABI', description: 'SABI is Nigeria’s CBT exam preparation engine engineered for 300+ scores.' },
-    settings: { title: 'Settings', description: 'Account settings and study preferences.' },
-  };
+  const { isDark } = useTheme();
+  const navigate = useNavigate();
 
-  const title = section ? sectionPage[section]?.title || section : page;
-  const description = section ? sectionPage[section]?.description || 'SABI study module' : 'SABI platform section';
+  // Mistake Notebook State
+  const [mistakes, setMistakes] = useState<MistakeRecord[]>(() => getMistakeRecords());
+  const [mistakeSubjectFilter, setMistakeSubjectFilter] = useState<string>('All');
 
+  // Study Resources Modals State
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
+  const [showBrochureModal, setShowBrochureModal] = useState(false);
+  const [showHeatmapModal, setShowHeatmapModal] = useState(false);
+
+  useEffect(() => {
+    setMistakes(getMistakeRecords());
+  }, [section]);
+
+  // 1. REAL MISTAKE NOTEBOOK (/menu/mistakes)
+  if (section === 'mistakes') {
+    const filteredMistakes =
+      mistakeSubjectFilter === 'All'
+        ? mistakes
+        : mistakes.filter(m => m.question.subject === mistakeSubjectFilter);
+
+    return (
+      <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+              Error Correction Engine
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+              Mistake Notebook ({mistakes.length})
+            </h1>
+            <p className="text-sm text-slate-400 mt-1">
+              Every question you miss in Blitz, Smart Practice, or CBT is automatically logged here with its worked solution.
+            </p>
+          </div>
+          <Link
+            to="/blitz"
+            className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
+          >
+            Practice in Blitz →
+          </Link>
+        </div>
+
+        {/* Subject Filter Tabs */}
+        <div className="flex flex-wrap gap-2">
+          {['All', 'English Language', 'Mathematics', 'Physics', 'Chemistry'].map(sub => (
+            <button
+              key={sub}
+              onClick={() => setMistakeSubjectFilter(sub)}
+              className={`px-4 py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
+                mistakeSubjectFilter === sub
+                  ? 'bg-amber-400 text-slate-950 border-amber-500'
+                  : isDark
+                  ? 'bg-slate-900 border-slate-800 text-slate-300'
+                  : 'bg-white border-slate-200 text-slate-700'
+              }`}
+            >
+              {sub}
+            </button>
+          ))}
+        </div>
+
+        {filteredMistakes.length === 0 ? (
+          <div className={`p-8 rounded-3xl border-2 text-center space-y-3 ${
+            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
+            <CheckCircle2 size={36} className="mx-auto text-emerald-500" />
+            <h3 className="text-lg font-black">No Unresolved Mistakes in {mistakeSubjectFilter}</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              As soon as you miss a question in Blitz, Smart Practice, or CBT Mock, it will appear here with step-by-step corrections.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredMistakes.map(item => (
+              <div
+                key={item.question.id}
+                className={`p-6 rounded-3xl border-2 space-y-4 ${
+                  isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-500 text-xs font-black">
+                    {item.question.subject} · {item.question.topic}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        markMistakeMastered(item.question.id);
+                        setMistakes(getMistakeRecords());
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 cursor-pointer"
+                    >
+                      {item.mastered ? 'Mastered ✓' : 'Mark Mastered'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        removeMistakeRecord(item.question.id);
+                        setMistakes(getMistakeRecords());
+                      }}
+                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 cursor-pointer"
+                      title="Remove from Notebook"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-sm sm:text-base font-bold leading-relaxed">
+                  <MathText text={item.question.question} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold">
+                    Your Answer: Option {item.selectedAnswer}
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
+                    Correct Answer: Option {item.question.answer} (
+                    <MathText text={item.question.options[item.question.answer]} />)
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
+                  isDark ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+                }`}>
+                  <strong className="font-black text-amber-500 block mb-1">Worked Step-by-Step Solution:</strong>
+                  <MathText text={item.question.explanation} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 2. REAL STUDY RESOURCES (/menu/resources)
+  if (section === 'resources') {
+    return (
+      <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
+        <div>
+          <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+            Official Reference Vault
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            Study Resources, Formula Sheet & Syllabus
+          </h1>
+          <p className="text-sm text-slate-400 mt-1">
+            Open the interactive JAMB Formula Cheat Sheet, University Course Brochure Checker, or High-Yield Syllabus Frequency Heatmap.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-500 shadow-xl flex flex-col justify-between gap-4">
+            <div>
+              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[10px] font-black uppercase">
+                LaTeX Equations
+              </span>
+              <h3 className="text-xl font-black mt-3">Formula Cheat Sheet</h3>
+              <p className="text-xs font-semibold text-slate-900 mt-1">
+                High-frequency Physics, Chemistry, and Mathematics equations & mnemonics tested in UTME.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowFormulaModal(true)}
+              className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+            >
+              Open Formula Sheet →
+            </button>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-500 shadow-xl flex flex-col justify-between gap-4">
+            <div>
+              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[10px] font-black uppercase">
+                Subject Combinations
+              </span>
+              <h3 className="text-xl font-black mt-3">JAMB Brochure Checker</h3>
+              <p className="text-xs font-semibold text-slate-900 mt-1">
+                Verify official UTME 4-subject combinations and cut-off requirements for Nigerian universities.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowBrochureModal(true)}
+              className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+            >
+              Open Brochure Checker →
+            </button>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-500 shadow-xl flex flex-col justify-between gap-4">
+            <div>
+              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[10px] font-black uppercase">
+                Topic Weighting
+              </span>
+              <h3 className="text-xl font-black mt-3">Syllabus Frequency Map</h3>
+              <p className="text-xs font-semibold text-slate-900 mt-1">
+                See which topics carry the highest question frequency in past JAMB papers.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowHeatmapModal(true)}
+              className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+            >
+              Open Syllabus Map →
+            </button>
+          </div>
+        </div>
+
+        <FormulaCheatSheetModal isOpen={showFormulaModal} onClose={() => setShowFormulaModal(false)} />
+        <JAMBBrochureCheckerModal
+          isOpen={showBrochureModal}
+          onClose={() => setShowBrochureModal(false)}
+          profile={{
+            name: (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate',
+            classLevel: 'SSS3',
+            attempts: 1,
+            chosenSubjects: getCandidateOnboardingMeta().chosenSubjects as any,
+            targetCourse: getCandidateOnboardingMeta().targetCourse,
+            targetUniversity: getCandidateOnboardingMeta().targetUniversity,
+            monthsUntilExam: 3,
+            priorScoreBaseline: getCandidateOnboardingMeta().targetScore,
+            subjectConfidence: {} as any,
+            struggleTypes: {} as any,
+            studyHabits: 'scheduled',
+            dailyStudyHours: '2h',
+            studyEnvironment: 'quiet',
+            explanationPreference: 'step-by-step',
+            languagePreference: 'english',
+            motivation: 'Admission',
+            blindSpots: [],
+            streakCount: 0,
+            xpPoints: 0,
+            unlockedSubjectsCount: 4,
+            isPremium: false,
+            aiCredits: 0,
+            topicMemories: {},
+            conversationHistory: [],
+          }}
+        />
+        <SyllabusFrequencyHeatmapModal isOpen={showHeatmapModal} onClose={() => setShowHeatmapModal(false)} />
+      </div>
+    );
+  }
+
+  // 3. HELP & ABOUT PAGES (/menu/help, /menu/about)
   return (
-    <div className="space-y-8 pb-16 lg:pb-0 max-w-3xl">
+    <div className="space-y-6 pb-16 lg:pb-0 max-w-3xl">
       <div>
         <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
-          SABI CBT
+          SABI JAMB CBT Platform
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          {title}
+          {section === 'help' ? 'Help, Keyboard Shortcuts & Account Recovery' : section === 'about' ? 'About SABI UTME Engine' : page}
         </h1>
-        <p className="text-sm text-slate-400 mt-1">{description}</p>
       </div>
 
-      <div className="p-8 rounded-3xl border-2 border-slate-800 text-center space-y-4">
-        <BookOpenCheck size={36} className="mx-auto text-blue-400" />
-        <h3 className="text-lg font-black">{title} Connected</h3>
-        <p className="text-xs text-slate-400 max-w-md mx-auto">
-          This study section is integrated into your SABI dashboard session.
+      <div className={`p-6 sm:p-8 rounded-3xl border-2 space-y-4 ${
+        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+      }`}>
+        <h3 className="text-lg font-black text-amber-500">
+          1. Your 5-Character Unique SABI ID (4 Numbers + 1 Letter)
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+          Every registered candidate is issued a permanent 5-character Unique SABI ID (for example, <code className="font-mono font-bold text-amber-400">4829K</code>). Whether you sign in with Email/Password or Google Auth using the same email address, your account remains unified. Keep your downloaded Recovery ID Doc safe—it is required to reset your password.
         </p>
-        <Link to="/home" className="inline-block px-6 py-3 rounded-2xl bg-amber-400 text-slate-950 font-black text-xs">
-          Back to Dashboard
-        </Link>
+
+        <h3 className="text-lg font-black text-amber-500 pt-2">
+          2. CBT Keyboard Shortcuts (Desktop & Laptop)
+        </h3>
+        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+          During Blitz and CBT sessions, press <strong>A, B, C, or D</strong> on your keyboard to select an option, and press <strong>Enter</strong> or <strong>Space</strong> to submit and advance to the next question—matching official JAMB CBT centers.
+        </p>
+
+        <div className="pt-4">
+          <button
+            onClick={() => navigate('/home')}
+            className="px-6 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+          >
+            Back to Dashboard →
+          </button>
+        </div>
       </div>
     </div>
   );

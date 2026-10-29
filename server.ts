@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -19,12 +20,18 @@ app.use(express.json());
 // -------------------------------------------------------------
 // Supabase Server Client (Supports both new Secret Key & legacy service_role key)
 // -------------------------------------------------------------
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const supabaseServerKey =
+const rawSupabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseUrl = rawSupabaseUrl
+  .trim()
+  .replace(/\/rest\/v1\/?$/i, '')
+  .replace(/\/+$/, '');
+
+const supabaseServerKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SECRET_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
-  '';
+  ''
+).trim();
 
 const supabaseAdmin =
   supabaseUrl && supabaseServerKey
@@ -306,6 +313,39 @@ app.post('/api/profile/onboarding', async (req, res) => {
   }
 });
 
+// 0d. Sync Real Student Progress & Verified Diamond Balance (Starts at 0) to Supabase
+app.post('/api/profile/progress', async (req, res) => {
+  try {
+    const { email, progress } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+
+    if (supabaseAdmin && normalizedEmail && progress) {
+      const { data: existing } = await supabaseAdmin
+        .from('profiles')
+        .select('onboarding_answers')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      const mergedAnswers = {
+        ...(existing?.onboarding_answers || {}),
+        live_progress: progress,
+      };
+
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          onboarding_answers: mergedAnswers,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('email', normalizedEmail);
+    }
+
+    return res.json({ status: 'synced' });
+  } catch {
+    return res.json({ status: 'synced_locally' });
+  }
+});
+
 // 1. Get seed questions
 app.get('/api/questions', (req, res) => {
   res.json({ status: 'success', questions: SEED_QUESTIONS });
@@ -332,11 +372,13 @@ app.post('/api/explain', async (req, res) => {
     const prompt = question
       ? `
       You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
-      Explain this question in detail:
+      Explain and verify this UTME question in detail:
+      Subject: ${question.subject} (${question.topic})
       Question: ${question.question}
       Options: A) ${question.options.A}, B) ${question.options.B}, C) ${question.options.C}, D) ${question.options.D}
       Correct Answer: Option ${question.answer}
       Our database worked solution: ${question.explanation}
+      ${userCustomPrompt ? `\nStudent's specific verification question: "${userCustomPrompt}"\nPlease directly answer the student's question while verifying why Option ${question.answer} is correct.` : ''}
       
       The student has specific preferences:
       - Explanation length/detail: ${preference === 'short' ? 'Concise/Short summary' : 'Step-by-step detailed breakdown'}

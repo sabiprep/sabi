@@ -70,3 +70,6 @@ export function clearAllMistakes() {
     localStorage.removeItem(STORAGE_KEY);
   } catch (e) {}
 }
+
+export const saveMistake = saveMistakeRecord;
+
