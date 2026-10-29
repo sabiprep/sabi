@@ -274,14 +274,36 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   const [recoveryFeedback, setRecoveryFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
   // Handle Google Auth Sync (links by email address so no duplicate ID is ever created)
-  const handleGoogleSync = (targetNext: 'register' | 'login') => {
+  const handleGoogleSync = async (targetNext: 'register' | 'login') => {
     const syncedEmail = (emailInput.trim() || 'scholar@gmail.com').toLowerCase();
     const syncedName = fullNameInput.trim() || 'David Adeleke';
     setEmailInput(syncedEmail);
     setFullNameInput(syncedName);
     setAuthProvider('google');
 
-    const uniqueId = getOrGenerateSabiUniqueId(syncedEmail);
+    let uniqueId = getOrGenerateSabiUniqueId(syncedEmail);
+    try {
+      const resp = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: syncedName,
+          email: syncedEmail,
+          phone: phoneInput.trim(),
+          stateOfOrigin: stateOfOriginInput,
+          provider: 'google',
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data?.sabi_unique_id) {
+          uniqueId = data.sabi_unique_id;
+        }
+      }
+    } catch {
+      // Fallback to deterministic ID
+    }
+
     localStorage.setItem('sabi_user_email', syncedEmail);
     localStorage.setItem('sabi_user_name', syncedName);
     localStorage.setItem('sabi_unique_id', uniqueId);
@@ -297,7 +319,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         navigate('/home');
       }
     } else {
-      // On Create Account, populate fields and generate synced ID if phone & state are set
       if (phoneInput.trim() && stateOfOriginInput) {
         localStorage.setItem('sabi_user_phone', phoneInput.trim());
         localStorage.setItem('sabi_user_state', stateOfOriginInput);
@@ -308,10 +329,33 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   };
 
   // Handle Create Account form submission -> generates Unique SABI ID before Onboarding
-  const handleCreateAccountSubmit = (e: React.FormEvent) => {
+  const handleCreateAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const normalizedEmail = emailInput.trim().toLowerCase();
-    const uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
+    let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
+
+    try {
+      const resp = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: fullNameInput.trim(),
+          email: normalizedEmail,
+          password: passwordInput,
+          phone: phoneInput.trim(),
+          stateOfOrigin: stateOfOriginInput,
+          provider: authProvider === 'google' ? 'google' : 'email',
+        }),
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data?.sabi_unique_id) {
+          uniqueId = data.sabi_unique_id;
+        }
+      }
+    } catch {
+      // Fallback to deterministic local ID
+    }
 
     localStorage.setItem('sabi_user_name', fullNameInput.trim());
     localStorage.setItem('sabi_user_email', normalizedEmail);
@@ -370,7 +414,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   };
 
   // Handle direct sign in into dashboard or requested redirect directory
-  const handleSignInSubmit = (e: React.FormEvent) => {
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (emailInput.trim()) {
       const normalized = emailInput.trim().toLowerCase();
@@ -389,7 +433,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   };
 
   // Handle Password Reset verified by 5-character Unique SABI ID (4 digits + 1 letter)
-  const handlePasswordResetWithUniqueId = (e: React.FormEvent) => {
+  const handlePasswordResetWithUniqueId = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanedId = recoveryUniqueId.trim().toUpperCase();
     if (!/^\d{4}[A-Z]$/.test(cleanedId)) {
@@ -400,17 +444,37 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       return;
     }
 
-    const storedId = localStorage.getItem('sabi_unique_id');
-    const expectedForEmail = recoveryIdentifier.includes('@')
-      ? getOrGenerateSabiUniqueId(recoveryIdentifier)
-      : storedId;
-
-    if (storedId && cleanedId !== storedId && cleanedId !== expectedForEmail) {
-      setRecoveryFeedback({
-        type: 'error',
-        message: 'Verification failed: The Unique SABI ID provided does not match this account.'
+    try {
+      const resp = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: recoveryIdentifier.trim(),
+          uniqueId: cleanedId,
+          newPassword: newResetPassword,
+        }),
       });
-      return;
+      const data = await resp.json();
+      if (!resp.ok || data?.verified === false) {
+        setRecoveryFeedback({
+          type: 'error',
+          message: data?.error || 'Verification failed: The Unique SABI ID provided does not match this account.',
+        });
+        return;
+      }
+    } catch {
+      const storedId = localStorage.getItem('sabi_unique_id');
+      const expectedForEmail = recoveryIdentifier.includes('@')
+        ? getOrGenerateSabiUniqueId(recoveryIdentifier)
+        : storedId;
+
+      if (storedId && cleanedId !== storedId && cleanedId !== expectedForEmail) {
+        setRecoveryFeedback({
+          type: 'error',
+          message: 'Verification failed: The Unique SABI ID provided does not match this account.'
+        });
+        return;
+      }
     }
 
     setRecoveryFeedback({

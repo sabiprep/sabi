@@ -128,6 +128,17 @@ export function OnboardingPage() {
     sound.playCorrect();
     if (question.id === totalSteps) {
       localStorage.setItem('sabi_user_signed_in', 'true');
+      const email = localStorage.getItem('sabi_user_email') || '';
+      fetch('/api/profile/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          onboardingAnswers: answers,
+          registeredSubjects: selectedSubjects,
+          targetScore: answers.targetScore || 320,
+        }),
+      }).catch(() => {});
       navigate('/home');
     } else {
       navigate(`/onboarding/${question.id + 1}`);
