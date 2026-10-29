@@ -17,6 +17,7 @@ const CbtPage = lazy(() => import('./pages/StudentPages').then(module => ({ defa
 const ProgressPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProgressPage })));
 const ProfilePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProfilePage })));
 const NotificationsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.NotificationsPage })));
+const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -47,7 +48,9 @@ export default function App() {
               <Route path="/practice" element={<PracticePage />} />
               <Route path="/practice/smart" element={<SmartPracticePage />} />
               <Route path="/practice/blitz" element={<BlitzPage />} />
-              <Route path="/practice/custom" element={<MainPage page="Custom Practice" />} />
+              <Route path="/practice/custom" element={<CustomJambSimulatorPage />} />
+              <Route path="/custom-simulator" element={<CustomJambSimulatorPage />} />
+              <Route path="/simulator" element={<CustomJambSimulatorPage />} />
               <Route path="/cbt" element={<CbtPage />} />
               <Route path="/cbt/:examId" element={<MainPage page="CBT Simulator" />} />
               <Route path="/cbt/:examId/results" element={<MainPage page="CBT Results" />} />

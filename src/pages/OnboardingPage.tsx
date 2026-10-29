@@ -634,8 +634,14 @@ export function OnboardingPage() {
               <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800/80">
                 <button
                   type="button"
-                  disabled={question.id === 1 || isPushingGate}
-                  onClick={() => navigate(`/onboarding/${question.id - 1}`)}
+                  disabled={isPushingGate}
+                  onClick={() => {
+                    if (question.id > 1) {
+                      navigate(`/onboarding/${question.id - 1}`);
+                    } else {
+                      navigate('/auth/choice');
+                    }
+                  }}
                   className={`px-4 py-2.5 rounded-xl border text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
                     isDark 
                       ? 'border-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 bg-slate-900/60 text-slate-300' 

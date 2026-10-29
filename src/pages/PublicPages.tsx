@@ -30,88 +30,43 @@ function BrandLockup({ compact = false }: { compact?: boolean }) {
   );
 }
 
+import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
+
 // ==========================================
-// SCREEN 1: FULL SCREEN SABI LOGO SPLASH (4-5s)
+// SCREEN 1: FULL SCREEN SABI IRON MAN ASSEMBLE
 // ==========================================
 export function SplashPage() {
   const navigate = useNavigate();
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(4.5);
-  const [progressPercent, setProgressPercent] = useState<number>(0);
 
-  useEffect(() => {
-    const totalDuration = 4500; // 4.5 seconds
-    const intervalTime = 50;
-    const step = (intervalTime / totalDuration) * 100;
-
-    const timer = setInterval(() => {
-      setProgressPercent((prev) => Math.min(100, prev + step));
-      setSecondsRemaining((prev) => Math.max(0, +(prev - 0.05).toFixed(1)));
-    }, intervalTime);
-
-    const navTimer = setTimeout(() => {
-      navigate('/welcome', { replace: true });
-    }, totalDuration);
-
-    return () => {
-      clearInterval(timer);
-      clearTimeout(navTimer);
-    };
-  }, [navigate]);
+  const handleComplete = () => {
+    navigate('/welcome');
+  };
 
   return (
-    <main className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#070D1F] text-white px-6 overflow-hidden select-none">
-      {/* Background radial glow */}
+    <main 
+      onClick={handleComplete}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#060B18] text-white px-4 overflow-hidden select-none cursor-pointer"
+      title="Click or tap anywhere to continue"
+    >
+      {/* Background subtle radial glow */}
       <div className="absolute w-[600px] h-[600px] rounded-full bg-blue-600/15 blur-3xl pointer-events-none animate-pulse" />
       <div className="absolute w-[300px] h-[300px] rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
 
-      {/* Main Full-Screen SABI Brand Presentation */}
-      <div className="relative z-10 flex flex-col items-center max-w-lg w-full text-center animate-fade-in">
-        {/* Full Screen Logo */}
-        <div className="w-full max-w-sm sm:max-w-md px-4 py-8 mb-6 bg-white/5 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl shadow-blue-950/60 transition-transform duration-500 hover:scale-[1.02]">
-          <img 
-            src="/sabi-logo.svg" 
-            alt="SABI" 
-            className="w-full h-auto max-h-36 object-contain filter drop-shadow-[0_10px_20px_rgba(0,102,255,0.35)]" 
-          />
-        </div>
-
-        {/* Brand Mission Tagline */}
-        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mb-2">
-          JAMB Preparation Re-engineered
-        </h2>
-        <p className="text-sm sm:text-base text-slate-400 font-medium max-w-md mb-8">
-          The CBT data engine with endless Blitz and Smart Practice.
-        </p>
-
-        {/* 4.5s Progress Bar & Countdown */}
-        <div className="w-full max-w-xs space-y-3">
-          <div className="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden border border-slate-700/60 p-0.5">
-            <div 
-              className="h-full bg-gradient-to-r from-blue-600 via-amber-400 to-amber-500 rounded-full transition-all duration-75 shadow-sm shadow-amber-400/50" 
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-            <span className="flex items-center gap-1.5 text-amber-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" /> Initializing Simulator…
-            </span>
-            <span>{secondsRemaining.toFixed(1)}s</span>
-          </div>
-        </div>
-
-        {/* Quick Skip button for review */}
-        <button
-          onClick={() => navigate('/welcome', { replace: true })}
-          className="mt-8 text-xs font-bold text-slate-500 hover:text-slate-300 transition-colors uppercase tracking-wider py-1 px-3 rounded-lg hover:bg-slate-800/40"
-        >
-          Skip Intro →
-        </button>
+      {/* Centerpiece: Sabi SVG Scattering & Assembling like Iron Man */}
+      <div className="relative z-10 w-full flex flex-col items-center justify-center animate-fade-in">
+        <SabiIronManAssemble onComplete={handleComplete} autoCompleteDelay={4000} />
       </div>
 
-      {/* Footer Branding Note */}
-      <footer className="absolute bottom-6 text-center text-xs text-slate-500 font-mono">
-        SABI CBT Software · Built for Nigeria JAMB 2026/2027
-      </footer>
+      {/* Subtle discreet bypass hint */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          handleComplete();
+        }}
+        className="absolute bottom-6 text-[11px] font-mono tracking-wider text-slate-500 hover:text-slate-300 transition-colors uppercase py-1 px-3 rounded-lg"
+      >
+        TAP TO CONTINUE →
+      </button>
     </main>
   );
 }
