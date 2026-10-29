@@ -1,17 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Flame, Star, Volume2, VolumeX, Sun, Moon, Sparkles, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import confetti from 'canvas-confetti';
 import { ONBOARDING_QUESTIONS, SUBJECTS_POOL } from '../data/onboardingQuestions';
 import type { SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
 import { useTheme } from '../app/ThemeProvider';
 
-const STORAGE_KEY = 'sabi_onboarding_preview_v1';
-const CLASS_OPTIONS = ['SS2', 'SS3', 'Out-of-school candidate / resitter'];
-const ATTEMPT_OPTIONS = ['0 (First attempt)', '1 previous attempt', '2 or more previous attempts'];
-const POPULAR_COURSES = ['Medicine & Surgery', 'Computer Science', 'Law', 'Nursing Science', 'Mechanical Engineering', 'Accounting', 'Pharmacy', 'Economics'];
-const POPULAR_UNIVERSITIES = ['UNILAG', 'UI (Ibadan)', 'OAU Ife', 'UNILORIN', 'UNN', 'ABU Zaria', 'FUTA', 'UNIBEN', 'LASU', 'Covenant Univ'];
+const STORAGE_KEY = 'sabi_onboarding_v2_10q';
+const CLASS_OPTIONS = ['SS2 Candidate', 'SS3 Candidate', 'Post-Secondary / Resitter'];
+const ATTEMPT_OPTIONS = ['First UTME Sitting (0 prior)', '1 Previous UTME Sitting', '2+ Previous UTME Sittings'];
+const POPULAR_COURSES = [
+  'Medicine & Surgery',
+  'Computer Science',
+  'Law',
+  'Nursing Science',
+  'Mechanical Engineering',
+  'Accounting',
+  'Pharmacy',
+  'Economics',
+];
+const POPULAR_UNIVERSITIES = [
+  'UNILAG',
+  'UI (Ibadan)',
+  'OAU Ife',
+  'UNILORIN',
+  'UNN',
+  'ABU Zaria',
+  'FUTA',
+  'UNIBEN',
+  'LASU',
+  'Covenant University',
+];
 
 type Answers = Record<string, string | string[] | Record<string, number>>;
 
@@ -28,13 +47,13 @@ export function OnboardingPage() {
   const { step } = useParams();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+
+  const totalSteps = ONBOARDING_QUESTIONS.length; // 10 mature questions
   const stepNumber = Number(step);
-  const validStep = Number.isInteger(stepNumber) && stepNumber >= 1 && stepNumber <= ONBOARDING_QUESTIONS.length;
-  const question = ONBOARDING_QUESTIONS[Math.min(Math.max(stepNumber, 1), ONBOARDING_QUESTIONS.length) - 1];
+  const validStep = Number.isInteger(stepNumber) && stepNumber >= 1 && stepNumber <= totalSteps;
+  const question = ONBOARDING_QUESTIONS[Math.min(Math.max(stepNumber, 1), totalSteps) - 1];
 
   const [answers, setAnswers] = useState<Answers>(readAnswers);
-  const [isPushingGate, setIsPushingGate] = useState(false);
-  const [gateUnlocked, setGateUnlocked] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
 
   const selectedSubjects = (answers.chosenSubjects as string[] | undefined) ?? ['English Language'];
@@ -80,13 +99,13 @@ export function OnboardingPage() {
   const canContinue = useMemo(() => {
     switch (question.id) {
       case 1:
-        return Boolean(String(answers.name ?? '').trim());
-      case 2:
         return selectedSubjects.length === 4;
+      case 2:
+        return Boolean(String(answers.targetCourse ?? '').trim() && String(answers.targetUniversity ?? '').trim());
       case 3:
-        return Boolean(answers.currentClass && answers.attempts);
+        return Boolean(answers.targetScore);
       case 4:
-        return Boolean(answers.targetCourse && answers.targetUniversity);
+        return Boolean(answers.currentClass && answers.attempts);
       case 5:
         return Boolean(answers.monthsUntilExam);
       case 6:
@@ -96,52 +115,32 @@ export function OnboardingPage() {
       case 8:
         return Boolean(answers.struggleType);
       case 9:
-        return true;
+        return Boolean(answers.dailyStudyHours);
       case 10:
-      case 11:
-      case 12:
-      case 13:
-      case 14:
-        return Boolean(answers[question.fieldName]);
-      case 15:
-        return Boolean(String(answers.motivation ?? '').trim());
+        return Boolean(answers.explanationPreference);
       default:
         return false;
     }
-  }, [answers, confidence, question, selectedSubjects]);
+  }, [answers, confidence, question.id, selectedSubjects]);
 
-  const handlePushGate = () => {
-    if (!canContinue || isPushingGate) return;
+  const handleNext = () => {
+    if (!canContinue) return;
+    sound.playCorrect();
+    if (question.id === totalSteps) {
+      localStorage.setItem('sabi_user_signed_in', 'true');
+      navigate('/home');
+    } else {
+      navigate(`/onboarding/${question.id + 1}`);
+    }
+  };
 
-    setIsPushingGate(true);
-    sound.playGatePush();
-
-    setTimeout(() => {
-      setGateUnlocked(true);
-      sound.playGateUnlock();
-
-      confetti({
-        particleCount: 55,
-        spread: 65,
-        origin: { y: 0.72 },
-        colors: ['#F59E0B', '#2563EB', '#FCD34D', '#3B82F6', '#FFFFFF'],
-      });
-
-      if (question.id === 15) {
-        sound.speakWelcomeVoice(String(answers.name || 'Scholar'));
-      }
-
-      setTimeout(() => {
-        setIsPushingGate(false);
-        setGateUnlocked(false);
-        if (question.id === 15) {
-          localStorage.setItem('sabi_user_signed_in', 'true');
-          navigate('/home');
-        } else {
-          navigate(`/onboarding/${question.id + 1}`);
-        }
-      }, 650);
-    }, 420);
+  const handleBack = () => {
+    sound.playTap();
+    if (question.id > 1) {
+      navigate(`/onboarding/${question.id - 1}`);
+    } else {
+      navigate('/auth/choice');
+    }
   };
 
   const toggleSound = () => {
@@ -155,193 +154,111 @@ export function OnboardingPage() {
   return (
     <main
       className={`h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-hidden flex flex-col font-sans select-none transition-colors duration-200 ${
-        isDark ? 'bg-[#060C18] text-slate-100' : 'bg-[#EEF2F8] text-slate-900'
+        isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'
       }`}
     >
       {/* ===================================================================== */}
-      {/* TOP BAR: BRAND & GATEWAY PROGRESSION                                 */}
+      {/* SIMPLE MATURE TOP HEADER (Standard Blue & Yellow Pairing)             */}
       {/* ===================================================================== */}
       <header
-        className={`px-4 py-2.5 sm:px-6 border-b shrink-0 z-30 flex items-center justify-between transition-colors ${
-          isDark ? 'bg-[#080E1E] border-slate-800/90' : 'bg-white border-slate-200/90'
+        className={`px-4 sm:px-8 py-3.5 border-b shrink-0 flex items-center justify-between transition-colors ${
+          isDark ? 'bg-[#0B1224] border-slate-800' : 'bg-white border-slate-200'
         }`}
       >
-        <Link to="/welcome" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-700 to-amber-500 p-0.5 shadow-md group-hover:scale-105 transition-transform">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <span className="font-black text-amber-400 text-sm tracking-wider">S</span>
-            </div>
+        <Link to="/welcome" className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center font-black text-amber-400 text-base shadow-xs">
+            S
           </div>
-          <span className={`font-black text-base sm:text-lg tracking-tight ${isDark ? 'text-white' : 'text-slate-950'}`}>
-            SABI<span className="text-amber-500">.</span>
+          <span className={`font-black text-lg tracking-tight ${isDark ? 'text-white' : 'text-blue-950'}`}>
+            SABI
           </span>
         </Link>
 
-        <div className="flex items-center gap-2 sm:gap-2.5">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-black">
-            <Flame size={13} className="text-amber-500 animate-bounce" />
-            <span>GATE {question.id} / 15</span>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/15 border border-blue-500/25 text-blue-500 text-xs font-black">
-            <Star size={12} className="text-amber-500 fill-amber-500" />
-            <span>+{question.id * 25} XP</span>
-          </div>
+        {/* Clean Step Counter */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs sm:text-sm font-black tracking-wide text-blue-600 dark:text-amber-400 tabular-nums">
+            Step {question.id} of {totalSteps}
+          </span>
 
           <button
+            type="button"
             onClick={toggleTheme}
             aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-            className={`p-2 rounded-xl border transition-all cursor-pointer ${
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
               isDark
                 ? 'border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800'
                 : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            {isDark ? <Sun size={15} /> : <Moon size={15} />}
+            {isDark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
           <button
+            type="button"
             onClick={toggleSound}
             aria-label="Toggle Sound"
-            className={`p-2 rounded-xl border transition-all cursor-pointer ${
+            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
               isDark
                 ? 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
                 : 'border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900'
             }`}
           >
-            {audioEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+            {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
         </div>
       </header>
 
-      {/* Edge-to-Edge Progress Bar */}
-      <div className={`w-full h-1.5 shrink-0 overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-200'}`}>
+      {/* Clean Standard Blue & Yellow Progress Bar */}
+      <div className={`w-full h-2 shrink-0 ${isDark ? 'bg-blue-950/60' : 'bg-blue-100'}`}>
         <div
-          className="h-full bg-gradient-to-r from-blue-600 via-amber-400 to-amber-500 transition-all duration-500"
-          style={{ width: `${(question.id / 15) * 100}%` }}
+          className="h-full bg-amber-400 transition-all duration-300"
+          style={{ width: `${(question.id / totalSteps) * 100}%` }}
         />
       </div>
 
       {/* ===================================================================== */}
-      {/* FULL-SCREEN UNIFIED ONBOARDING WORKSPACE (NO EMPTY GAPS)             */}
+      {/* MAIN 10-QUESTION MATURE WORKSPACE                                     */}
       {/* ===================================================================== */}
-      <div className="flex-1 min-h-0 w-full max-w-6xl mx-auto flex flex-col lg:grid lg:grid-cols-12 lg:gap-5 lg:p-5">
+      <div className="flex-1 min-h-0 w-full max-w-3xl mx-auto px-4 py-4 sm:px-6 sm:py-6 flex flex-col justify-between gap-4">
         
-        {/* LEFT / TOP + MIDDLE COLUMN: SPECIAL ENLARGED QUESTION + SCROLLABLE OPTIONS */}
+        {/* Unified Question + Scrollable Options Card */}
         <section
-          className={`flex-1 min-h-0 lg:col-span-7 flex flex-col overflow-hidden lg:rounded-3xl lg:border-2 ${
-            isDark
-              ? 'bg-[#0B1426] lg:border-slate-800'
-              : 'bg-white lg:border-slate-200 lg:shadow-xl'
+          className={`flex-1 min-h-0 rounded-3xl border-2 flex flex-col overflow-hidden shadow-lg transition-colors ${
+            isDark ? 'bg-[#0E172B] border-blue-900/60' : 'bg-white border-blue-200'
           }`}
         >
-          {/* 1. SPECIAL ENLARGED QUESTION HEADER BANNER (Fixed at Top of Container) */}
-          <div
-            className={`shrink-0 px-4 pt-4 pb-3.5 sm:px-6 sm:pt-6 sm:pb-5 border-b-2 relative overflow-hidden ${
-              isDark
-                ? 'bg-gradient-to-br from-blue-950/90 via-[#0F1D3A] to-[#0B1426] border-blue-500/30'
-                : 'bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 border-blue-800 text-white'
-            }`}
-          >
-            {/* Subtle Architectural Grid Accent */}
-            <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#F59E0B_1.5px,transparent_1.5px)] [background-size:18px_18px] pointer-events-none" />
-
-            <div className="relative z-10 flex items-center justify-between gap-2 mb-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[11px] font-black uppercase tracking-wider shadow-sm">
-                <Sparkles size={12} />
-                <span>
-                  LEVEL {question.id} · {question.id <= 5 ? 'FOUNDATION CITADEL' : question.id <= 10 ? 'STUDY STRATEGY' : 'COMBAT SETUP'}
-                </span>
-              </div>
-              <span className="text-[11px] font-mono font-bold text-amber-300">
-                {Math.round((question.id / 15) * 100)}% Complete
-              </span>
+          {/* Yellow & Royal Blue Standard Question Header */}
+          <div className="shrink-0 bg-amber-400 text-slate-950 px-5 py-4 sm:px-7 sm:py-5 border-b-2 border-amber-500">
+            <div className="flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider text-blue-900 mb-1">
+              <span>{question.category}</span>
+              <span className="tabular-nums">{question.id} / {totalSteps}</span>
             </div>
-
-            <h1 className="relative z-10 text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug text-white drop-shadow-xs">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug text-slate-950">
               {question.question}
             </h1>
-
-            <p className="relative z-10 text-xs sm:text-sm font-semibold text-blue-100/95 mt-1.5 leading-relaxed">
+            <p className="text-xs sm:text-sm font-semibold text-slate-900/80 mt-1">
               {question.subtext}
             </p>
           </div>
 
-          {/* 2. DEDICATED SCROLLABLE OPTIONS / INPUTS CONTAINER (Right Before the Gate) */}
-          <div
-            className={`flex-1 min-h-0 overflow-y-auto px-4 py-3.5 sm:px-6 sm:py-5 flex flex-col ${
-              isDark ? 'bg-[#0B1426]' : 'bg-slate-50/70'
-            }`}
-          >
-            {/* LEVEL 1: FULL NAME */}
+          {/* Scrollable Interactive Options Container */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 flex flex-col">
+            
+            {/* Q1: 4 JAMB SUBJECTS */}
             {question.id === 1 && (
-              <div className="flex-1 flex flex-col justify-between gap-3">
-                <div
-                  className={`flex-1 rounded-2xl p-4 sm:p-6 border-2 flex flex-col justify-center gap-3 ${
-                    isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                  }`}
-                >
-                  <label className="text-xs font-black uppercase tracking-wider text-amber-500 block">
-                    Candidate Full Name or Nickname
-                  </label>
-                  <input
-                    type="text"
-                    autoFocus
-                    autoComplete="name"
-                    value={String(answers.name ?? '')}
-                    placeholder="e.g. Daniel Etim"
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && canContinue) handlePushGate();
-                    }}
-                    onChange={e => setAnswer('name', e.target.value)}
-                    className={`w-full px-5 py-4 text-lg sm:text-2xl font-black rounded-2xl border-2 outline-none transition ${
-                      isDark
-                        ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                        : 'bg-slate-50 border-slate-300 text-slate-950 focus:border-blue-600 focus:bg-white'
-                    }`}
-                  />
-                  <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-blue-500 dark:text-blue-400 pt-1">
-                    <ShieldCheck size={16} className="shrink-0 text-amber-500" />
-                    <span>Appears on your Official 180-Question JAMB CBT Mock Result Slips.</span>
-                  </div>
-                </div>
-
-                {/* Live Candidate Badge Preview to fill container richly */}
-                <div
-                  className={`rounded-2xl p-4 border-2 flex items-center justify-between ${
-                    isDark ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200'
-                  }`}
-                >
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 block">
-                      LIVE CANDIDATE PASS PREVIEW
-                    </span>
-                    <span className={`text-base sm:text-lg font-black ${isDark ? 'text-white' : 'text-slate-950'}`}>
-                      {String(answers.name ?? '').trim() || 'Awaiting Scholar Name...'}
-                    </span>
-                  </div>
-                  <span className="px-3 py-1.5 rounded-xl bg-amber-400/20 border border-amber-400/40 text-amber-500 font-black text-xs">
-                    UTME 2026/2027
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* LEVEL 2: 4 JAMB SUBJECTS (Scrolls cleanly inside this container right before the gate) */}
-            {question.id === 2 && (
               <div className="flex-1 flex flex-col gap-3">
                 <div
-                  className={`sticky top-0 z-10 py-2 px-3.5 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-black backdrop-blur-md ${
-                    isDark ? 'bg-slate-900/95 border-slate-800 text-white' : 'bg-white/95 border-slate-200 text-slate-900 shadow-xs'
+                  className={`sticky top-0 z-10 py-2.5 px-4 rounded-xl border-2 flex items-center justify-between text-xs sm:text-sm font-black ${
+                    isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-blue-50 border-blue-200 text-blue-950'
                   }`}
                 >
                   <span>Selected: {selectedSubjects.length} of 4 Subjects</span>
-                  <span className={selectedSubjects.length === 4 ? 'text-emerald-500' : 'text-amber-500'}>
-                    {selectedSubjects.length === 4 ? '✓ All 4 Subjects Locked' : `Pick ${4 - selectedSubjects.length} more`}
+                  <span className={selectedSubjects.length === 4 ? 'text-blue-600 dark:text-amber-400' : 'text-amber-600 dark:text-amber-400'}>
+                    {selectedSubjects.length === 4 ? '✓ Combination Complete' : `Select ${4 - selectedSubjects.length} more`}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pb-1">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                   {SUBJECTS_POOL.map(({ name, category }) => {
                     const isEnglish = name === 'English Language';
                     const checked = selectedSubjects.includes(name);
@@ -351,27 +268,27 @@ export function OnboardingPage() {
                         key={name}
                         type="button"
                         onClick={() => toggleSubject(name)}
-                        className={`p-3.5 sm:p-4 rounded-2xl border-2 text-left transition-all duration-150 cursor-pointer active:scale-95 flex flex-col justify-between min-h-[76px] ${
+                        className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
                           isEnglish
-                            ? 'bg-amber-500/15 border-amber-500 text-amber-500 cursor-default'
+                            ? 'bg-amber-400 border-amber-500 text-slate-950 cursor-default font-black'
                             : checked
-                            ? 'bg-blue-600 border-blue-500 text-white shadow-md shadow-blue-600/30'
+                            ? 'bg-blue-700 border-blue-600 text-white shadow-md'
                             : isDark
-                            ? 'bg-slate-900 border-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 text-slate-100'
-                            : 'bg-white border-slate-300 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 text-slate-900'
+                            ? 'bg-slate-900/90 border-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 text-slate-100'
+                            : 'bg-slate-50 border-slate-200 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 text-slate-900'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
-                          <span className="text-[10px] uppercase font-black tracking-wider opacity-80">
+                          <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">
                             {isEnglish ? 'COMPULSORY' : category}
                           </span>
                           {(checked || isEnglish) && (
                             <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-xs font-black">
-                              ✓
+                              <Check size={12} strokeWidth={3} />
                             </span>
                           )}
                         </div>
-                        <span className="text-sm sm:text-base font-black leading-tight">{name}</span>
+                        <span className="text-xs sm:text-sm font-black leading-tight">{name}</span>
                       </button>
                     );
                   })}
@@ -379,85 +296,27 @@ export function OnboardingPage() {
               </div>
             )}
 
-            {/* LEVEL 3: CLASS & PRIOR ATTEMPTS */}
-            {question.id === 3 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="flex flex-col justify-between gap-2">
-                  <label className="text-xs font-black uppercase tracking-wider text-amber-500">
-                    1. Current Academic Level
-                  </label>
-                  <div className="flex-1 flex flex-col gap-2">
-                    {CLASS_OPTIONS.map(opt => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setAnswer('currentClass', opt)}
-                        className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition-all cursor-pointer active:scale-95 ${
-                          answers.currentClass === opt
-                            ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                            : isDark
-                            ? 'border-slate-800 bg-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-100'
-                            : 'border-slate-300 bg-white hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-900'
-                        }`}
-                      >
-                        <span>{opt}</span>
-                        {answers.currentClass === opt && <CheckCircle2 size={18} className="shrink-0 text-amber-300" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col justify-between gap-2">
-                  <label className="text-xs font-black uppercase tracking-wider text-amber-500">
-                    2. Previous UTME Attempts
-                  </label>
-                  <div className="flex-1 flex flex-col gap-2">
-                    {ATTEMPT_OPTIONS.map(opt => (
-                      <button
-                        key={opt}
-                        type="button"
-                        onClick={() => setAnswer('attempts', opt)}
-                        className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition-all cursor-pointer active:scale-95 ${
-                          answers.attempts === opt
-                            ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/30'
-                            : isDark
-                            ? 'border-slate-800 bg-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-100'
-                            : 'border-slate-300 bg-white hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-900'
-                        }`}
-                      >
-                        <span>{opt}</span>
-                        {answers.attempts === opt && <CheckCircle2 size={18} className="shrink-0 text-amber-300" />}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LEVEL 4: TARGET COURSE & GOAL UNIVERSITY (Full Container with Quick Chips - Zero Empty Space) */}
-            {question.id === 4 && (
-              <div className="flex-1 flex flex-col justify-between gap-3.5">
+            {/* Q2: TARGET COURSE & UNIVERSITY */}
+            {question.id === 2 && (
+              <div className="flex-1 flex flex-col justify-between gap-4">
                 <div
-                  className={`flex-1 p-4 rounded-2xl border-2 flex flex-col justify-between gap-2.5 ${
-                    isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                  className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 flex flex-col justify-between gap-3 ${
+                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-amber-500 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 mb-1.5">
                       Target Course of Study
                     </label>
                     <input
                       type="text"
                       value={String(answers.targetCourse ?? '')}
-                      placeholder="e.g. Medicine & Surgery, Law, Computer Science"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && canContinue) handlePushGate();
-                      }}
+                      placeholder="e.g. Medicine & Surgery, Computer Science, Law"
                       onChange={e => setAnswer('targetCourse', e.target.value)}
-                      className={`w-full px-4 py-3.5 rounded-xl border-2 text-base sm:text-lg font-black outline-none ${
+                      className={`w-full px-4 py-3.5 rounded-xl border-2 text-base font-black outline-none ${
                         isDark
                           ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                          : 'bg-slate-50 border-slate-300 text-slate-950 focus:border-blue-600 focus:bg-white'
+                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-700'
                       }`}
                     />
                   </div>
@@ -467,12 +326,12 @@ export function OnboardingPage() {
                         key={course}
                         type="button"
                         onClick={() => setAnswer('targetCourse', course)}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition cursor-pointer ${
                           answers.targetCourse === course
-                            ? 'bg-blue-600 border-blue-500 text-white'
+                            ? 'bg-blue-700 border-blue-600 text-white'
                             : isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-amber-400'
-                            : 'bg-slate-100 border-slate-300 text-slate-800 hover:border-blue-600'
+                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                            : 'bg-white border-slate-200 text-slate-800 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
                         }`}
                       >
                         {course}
@@ -482,26 +341,23 @@ export function OnboardingPage() {
                 </div>
 
                 <div
-                  className={`flex-1 p-4 rounded-2xl border-2 flex flex-col justify-between gap-2.5 ${
-                    isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+                  className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 flex flex-col justify-between gap-3 ${
+                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
                   }`}
                 >
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-amber-500 mb-1.5">
-                      Goal University / Institution
+                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 mb-1.5">
+                      First-Choice University / Institution
                     </label>
                     <input
                       type="text"
                       value={String(answers.targetUniversity ?? '')}
                       placeholder="e.g. UNILAG, UI, OAU, UNILORIN"
-                      onKeyDown={e => {
-                        if (e.key === 'Enter' && canContinue) handlePushGate();
-                      }}
                       onChange={e => setAnswer('targetUniversity', e.target.value)}
-                      className={`w-full px-4 py-3.5 rounded-xl border-2 text-base sm:text-lg font-black outline-none ${
+                      className={`w-full px-4 py-3.5 rounded-xl border-2 text-base font-black outline-none ${
                         isDark
                           ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                          : 'bg-slate-50 border-slate-300 text-slate-950 focus:border-blue-600 focus:bg-white'
+                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-700'
                       }`}
                     />
                   </div>
@@ -511,12 +367,12 @@ export function OnboardingPage() {
                         key={uni}
                         type="button"
                         onClick={() => setAnswer('targetUniversity', uni)}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition cursor-pointer ${
                           answers.targetUniversity === uni
-                            ? 'bg-blue-600 border-blue-500 text-white'
+                            ? 'bg-blue-700 border-blue-600 text-white'
                             : isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-amber-400'
-                            : 'bg-slate-100 border-slate-300 text-slate-800 hover:border-blue-600'
+                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                            : 'bg-white border-slate-200 text-slate-800 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
                         }`}
                       >
                         {uni}
@@ -527,64 +383,110 @@ export function OnboardingPage() {
               </div>
             )}
 
-            {/* LEVEL 5: MONTHS UNTIL EXAM */}
-            {question.id === 5 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(question.options || ['1 month', '2 - 3 months', '4 - 6 months', 'More than 6 months']).map(opt => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setAnswer('monthsUntilExam', opt)}
-                    className={`p-5 rounded-2xl border-2 text-left font-black text-base sm:text-lg flex items-center justify-between transition-all duration-150 cursor-pointer active:scale-95 ${
-                      answers.monthsUntilExam === opt
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
-                        : isDark
-                        ? 'border-slate-800 bg-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-100'
-                        : 'border-slate-300 bg-white hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-900'
-                    }`}
-                  >
-                    <span>⏳ {opt}</span>
-                    {answers.monthsUntilExam === opt && <CheckCircle2 size={22} className="text-amber-300 shrink-0" />}
-                  </button>
-                ))}
+            {/* Q4: ACADEMIC LEVEL & PRIOR ATTEMPTS */}
+            {question.id === 4 && (
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400">
+                    Current Academic Status
+                  </span>
+                  <div className="flex-1 flex flex-col gap-2.5">
+                    {CLASS_OPTIONS.map(opt => {
+                      const active = answers.currentClass === opt;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setAnswer('currentClass', opt)}
+                          className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition cursor-pointer ${
+                            active
+                              ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                              : isDark
+                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                              : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                          }`}
+                        >
+                          <span>{opt}</span>
+                          {active && (
+                            <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center">
+                              <Check size={14} strokeWidth={3} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400">
+                    Previous UTME Sittings
+                  </span>
+                  <div className="flex-1 flex flex-col gap-2.5">
+                    {ATTEMPT_OPTIONS.map(opt => {
+                      const active = answers.attempts === opt;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setAnswer('attempts', opt)}
+                          className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition cursor-pointer ${
+                            active
+                              ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                              : isDark
+                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                              : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                          }`}
+                        >
+                          <span>{opt}</span>
+                          {active && (
+                            <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center">
+                              <Check size={14} strokeWidth={3} />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* LEVEL 6: SUBJECT CONFIDENCE RATINGS */}
+            {/* Q6: SUBJECT CONFIDENCE MATRIX */}
             {question.id === 6 && (
-              <div className="flex-1 flex flex-col justify-between gap-2.5">
+              <div className="flex-1 flex flex-col justify-between gap-3">
                 {selectedSubjects.map(subj => {
                   const val = confidence[subj] ?? 0;
                   return (
                     <div
                       key={subj}
-                      className={`flex-1 p-3.5 sm:p-4 rounded-2xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
-                        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-300 shadow-xs'
+                      className={`flex-1 p-4 rounded-2xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
                       }`}
                     >
                       <div>
                         <span className={`font-black text-base sm:text-lg block ${isDark ? 'text-white' : 'text-slate-950'}`}>
                           {subj}
                         </span>
-                        <span className="text-[11px] font-bold text-slate-400">
-                          {val === 0 ? 'Tap a star rating (1–5)' : `Confidence Level: ${val} / 5`}
+                        <span className="text-xs font-semibold text-slate-400">
+                          {val === 0 ? 'Select readiness level (1 to 5)' : `Readiness Rating: ${val} / 5`}
                         </span>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        {[1, 2, 3, 4, 5].map(starNum => (
+                      <div className="flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map(num => (
                           <button
-                            key={starNum}
+                            key={num}
                             type="button"
-                            onClick={() => setAnswer('subjectConfidence', { ...confidence, [subj]: starNum })}
-                            className={`flex-1 sm:flex-initial h-10 sm:w-11 sm:h-11 px-3 sm:px-0 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
-                              val >= starNum
-                                ? 'bg-blue-600 text-white shadow-md'
+                            onClick={() => setAnswer('subjectConfidence', { ...confidence, [subj]: num })}
+                            className={`flex-1 sm:flex-initial w-11 h-11 rounded-xl font-black text-sm flex items-center justify-center border-2 transition cursor-pointer ${
+                              val >= num
+                                ? 'bg-blue-700 border-blue-600 text-amber-300 shadow-xs'
                                 : isDark
-                                ? 'bg-slate-800 hover:bg-amber-400 hover:text-slate-950 text-slate-300'
-                                : 'bg-slate-100 hover:bg-amber-400 hover:text-slate-950 text-slate-800 border border-slate-300'
+                                ? 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                                : 'bg-white border-slate-300 text-slate-700 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
                             }`}
                           >
-                            ★ {starNum}
+                            {num}
                           </button>
                         ))}
                       </div>
@@ -594,283 +496,109 @@ export function OnboardingPage() {
               </div>
             )}
 
-            {/* LEVEL 7: PRIORITY SUBJECT */}
+            {/* Q7: PRIORITY SUBJECT */}
             {question.id === 7 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {selectedSubjects.map(subj => (
-                  <button
-                    key={subj}
-                    type="button"
-                    onClick={() => setAnswer('prioritySubject', subj)}
-                    className={`p-5 rounded-2xl border-2 text-left font-black text-base sm:text-lg flex items-center justify-between transition-all duration-150 cursor-pointer active:scale-95 ${
-                      answers.prioritySubject === subj
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
-                        : isDark
-                        ? 'border-slate-800 bg-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-100'
-                        : 'border-slate-300 bg-white hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-900'
-                    }`}
-                  >
-                    <span>🎯 {subj}</span>
-                    {answers.prioritySubject === subj && <CheckCircle2 size={22} className="text-amber-300 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* LEVEL 8: STRUGGLE TYPE */}
-            {question.id === 8 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(question.options || []).map(opt => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setAnswer('struggleType', opt)}
-                    className={`p-5 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between gap-3 transition-all duration-150 cursor-pointer active:scale-95 ${
-                      answers.struggleType === opt
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
-                        : isDark
-                        ? 'border-slate-800 bg-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-100'
-                        : 'border-slate-300 bg-white hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-900'
-                    }`}
-                  >
-                    <span>{opt}</span>
-                    {answers.struggleType === opt && <CheckCircle2 size={20} className="text-amber-300 shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* LEVEL 9: WEAK TOPICS */}
-            {question.id === 9 && (
-              <div className="flex-1 flex flex-col justify-between gap-3">
-                <div
-                  className={`flex-1 p-5 rounded-2xl border-2 flex flex-col justify-center gap-3 ${
-                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                  }`}
-                >
-                  <label className="text-xs font-black uppercase tracking-wider text-amber-500">
-                    Specific Challenging Topics (Optional — Tap chips or type below)
-                  </label>
-                  <input
-                    type="text"
-                    value={String(answers.weakTopics ?? '')}
-                    placeholder="e.g. Organic Chemistry, Waves, Concord, Calculus"
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handlePushGate();
-                    }}
-                    onChange={e => setAnswer('weakTopics', e.target.value)}
-                    className={`w-full px-5 py-4 rounded-2xl border-2 text-base sm:text-lg font-black outline-none ${
-                      isDark
-                        ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                        : 'bg-slate-50 border-slate-300 text-slate-950 focus:border-blue-600 focus:bg-white'
-                    }`}
-                  />
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {[
-                      'Organic Chemistry',
-                      'Calculus & Integration',
-                      'Waves & Optics',
-                      'Lexis & Concord',
-                      'Redox Reactions',
-                      'Current Electricity',
-                      'Trigonometry',
-                      'Oral English',
-                    ].map(topic => (
-                      <button
-                        key={topic}
-                        type="button"
-                        onClick={() => {
-                          const cur = String(answers.weakTopics ?? '');
-                          setAnswer('weakTopics', cur ? `${cur}, ${topic}` : topic);
-                        }}
-                        className={`px-3.5 py-2 rounded-xl border-2 text-xs sm:text-sm font-black transition cursor-pointer ${
-                          isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-200 hover:border-amber-400 hover:text-amber-400'
-                            : 'bg-slate-100 border-slate-300 text-slate-900 hover:border-blue-600'
-                        }`}
-                      >
-                        + {topic}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* LEVELS 10 TO 14: STRATEGY & COMBAT OPTIONS */}
-            {question.id >= 10 && question.id <= 14 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {(question.options || []).map(opt => {
-                  const isSelected = answers[question.fieldName] === opt;
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {selectedSubjects.map(subj => {
+                  const active = answers.prioritySubject === subj;
                   return (
                     <button
-                      key={opt}
+                      key={subj}
                       type="button"
-                      onClick={() => setAnswer(question.fieldName, opt)}
-                      className={`p-5 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between gap-3 transition-all duration-150 cursor-pointer active:scale-95 ${
-                        isSelected
-                          ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/30'
+                      onClick={() => setAnswer('prioritySubject', subj)}
+                      className={`p-5 rounded-2xl border-2 text-left font-black text-base sm:text-lg flex items-center justify-between transition cursor-pointer ${
+                        active
+                          ? 'bg-blue-700 border-blue-600 text-white shadow-md'
                           : isDark
-                          ? 'border-slate-800 bg-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-100'
-                          : 'border-slate-300 bg-white hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400 text-slate-900'
+                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
                       }`}
                     >
-                      <span>{opt}</span>
-                      {isSelected && <CheckCircle2 size={20} className="text-amber-300 shrink-0" />}
+                      <span>{subj}</span>
+                      {active && (
+                        <span className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
+                          <Check size={16} strokeWidth={3} />
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
             )}
 
-            {/* LEVEL 15: FINAL MOTIVATION STATEMENT */}
-            {question.id === 15 && (
+            {/* Q3, Q5, Q8, Q9, Q10: STANDARD RADIO OPTIONS */}
+            {(question.id === 3 || question.id === 5 || question.id === 8 || question.id === 9 || question.id === 10) && (
               <div className="flex-1 flex flex-col justify-between gap-3">
-                <div
-                  className={`flex-1 p-5 rounded-2xl border-2 flex flex-col justify-center gap-3 ${
-                    isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                  }`}
-                >
-                  <label className="text-xs font-black uppercase tracking-wider text-amber-500">
-                    Your Personal UTME Victory Pledge
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={String(answers.motivation ?? '')}
-                    placeholder="e.g. To make my family proud and gain admission to study Medicine at UNILAG on my first attempt!"
-                    onChange={e => setAnswer('motivation', e.target.value)}
-                    className={`w-full px-5 py-4 text-base sm:text-lg font-black rounded-2xl border-2 outline-none resize-none ${
-                      isDark
-                        ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                        : 'bg-slate-50 border-slate-300 text-slate-950 focus:border-blue-600 focus:bg-white'
-                    }`}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      'Score 320+ and make my family proud!',
-                      'Gain merit admission into my dream course!',
-                      'Crush every past question in 60 seconds!',
-                    ].map(pledge => (
-                      <button
-                        key={pledge}
-                        type="button"
-                        onClick={() => setAnswer('motivation', pledge)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-black transition cursor-pointer ${
-                          isDark
-                            ? 'bg-slate-950 border-slate-800 text-amber-400 hover:border-amber-400'
-                            : 'bg-amber-50 border-amber-300 text-slate-900 hover:border-amber-500'
+                {(question.options || []).map(opt => {
+                  const active = answers[question.fieldName] === opt;
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setAnswer(question.fieldName, opt)}
+                      className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between gap-4 transition cursor-pointer ${
+                        active
+                          ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                          : isDark
+                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                      }`}
+                    >
+                      <span className="leading-snug">{opt}</span>
+                      <span
+                        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${
+                          active
+                            ? 'bg-amber-400 border-amber-400 text-slate-950'
+                            : isDark
+                            ? 'border-slate-700'
+                            : 'border-slate-300'
                         }`}
                       >
-                        ⚡ "{pledge}"
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                        {active && <Check size={14} strokeWidth={3} />}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
         </section>
 
         {/* ===================================================================== */}
-        {/* 3. ENLARGED NORMAL CITADEL GATE & ACTION DOCK (Bottom on Mobile, Right on Desktop) */}
+        {/* SIMPLE BOTTOM NAVIGATION BAR (Blue Primary Button, Yellow Hover)      */}
         {/* ===================================================================== */}
-        <section
-          className={`shrink-0 lg:col-span-5 flex flex-col justify-between border-t-2 lg:border-2 lg:rounded-3xl p-3.5 sm:p-5 transition-colors ${
-            isDark
-              ? 'bg-gradient-to-b from-[#0E1930] to-[#080F1E] border-slate-800'
-              : 'bg-white border-slate-200 lg:shadow-xl'
-          }`}
-        >
-          {/* Enlarged Architectural Citadel Gate Stage */}
-          <div
-            className={`relative w-full h-32 sm:h-40 lg:flex-1 lg:min-h-[260px] rounded-2xl border-2 overflow-hidden flex items-center justify-between px-4 sm:px-6 mb-3 ${
+        <footer className="shrink-0 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={handleBack}
+            className={`px-5 py-4 rounded-2xl border-2 font-black text-sm flex items-center gap-2 transition cursor-pointer ${
               isDark
-                ? 'bg-gradient-to-r from-[#091224] via-[#102040] to-[#091224] border-blue-900/50'
-                : 'bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 border-blue-900 text-white'
+                ? 'border-slate-800 bg-slate-900 text-slate-200 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                : 'border-slate-300 bg-white text-slate-800 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
             }`}
           >
-            {/* Radial Gate Glow */}
-            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:14px_14px] pointer-events-none" />
+            <ArrowLeft size={18} />
+            <span>Back</span>
+          </button>
 
-            {/* Left Gate Status Info */}
-            <div className="relative z-10 flex flex-col justify-center max-w-[46%] sm:max-w-[50%]">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider w-fit mb-1.5">
-                Citadel Gate {question.id}
-              </span>
-              <h2 className="text-sm sm:text-base lg:text-xl font-black text-white leading-tight">
-                {gateUnlocked
-                  ? 'Gate Unlocked!'
-                  : canContinue
-                  ? 'Ready to Push Gate!'
-                  : 'Complete Above to Unlock'}
-              </h2>
-              <p className="text-[11px] sm:text-xs text-blue-200/90 font-semibold mt-1 line-clamp-2">
-                {canContinue
-                  ? 'Tap PUSH GATE below to drive the Sabi Scholar through the iron gate.'
-                  : 'Fill or select your response above to power up the Sabi Scholar.'}
-              </p>
-            </div>
-
-            {/* Enlarged Normal Sabi Scholar & Iron Gate Illustration */}
-            <div className="relative z-10 w-36 h-28 sm:w-48 sm:h-36 lg:w-56 lg:h-48 shrink-0 flex items-center justify-center">
-              <img
-                src={
-                  gateUnlocked
-                    ? question.id === 15
-                      ? '/assets/mascots/onboarding/scholar_welcome_salute.svg'
-                      : '/assets/mascots/onboarding/scholar_gate_celebrate.svg'
-                    : '/assets/mascots/onboarding/scholar_pushing_gate.svg'
-                }
-                alt="Sabi Scholar Pushing Citadel Gate"
-                className={`w-full h-full object-contain filter drop-shadow-2xl transition-all duration-300 transform ${
-                  isPushingGate ? 'translate-x-4 scale-110' : 'scale-105'
-                }`}
-              />
-            </div>
-          </div>
-
-          {/* Action Controls Row: Back + Large PUSH GATE Button */}
-          <div className="flex items-center gap-3 w-full">
-            <button
-              type="button"
-              disabled={isPushingGate}
-              onClick={() => {
-                if (question.id > 1) {
-                  navigate(`/onboarding/${question.id - 1}`);
-                } else {
-                  navigate('/auth/choice');
-                }
-              }}
-              className={`px-4 sm:px-5 py-3.5 sm:py-4 rounded-2xl border-2 text-xs sm:text-sm font-black flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 shrink-0 ${
-                isDark
-                  ? 'border-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 bg-slate-900 text-slate-200'
-                  : 'border-slate-300 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 bg-slate-100 text-slate-900'
-              }`}
-            >
-              <ArrowLeft size={17} />
-              <span>Back</span>
-            </button>
-
-            <button
-              type="button"
-              disabled={!canContinue || isPushingGate}
-              onClick={handlePushGate}
-              className={`flex-1 py-3.5 sm:py-4 px-5 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-all duration-200 cursor-pointer border-2 ${
-                canContinue
-                  ? 'bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white border-blue-500 hover:border-amber-400 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/40 transform hover:scale-[1.01] active:scale-95'
-                  : isDark
-                  ? 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed'
-                  : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
-              }`}
-            >
-              <span>
-                {isPushingGate ? 'PUSHING GATE…' : question.id === 15 ? 'ENTER CITADEL 🚀' : 'PUSH GATE 🔓'}
-              </span>
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        </section>
+          <button
+            type="button"
+            disabled={!canContinue}
+            onClick={handleNext}
+            className={`flex-1 py-4 px-6 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 border-2 transition cursor-pointer ${
+              canContinue
+                ? 'bg-blue-700 hover:bg-amber-400 hover:text-slate-950 text-white border-blue-600 hover:border-amber-400 shadow-lg shadow-blue-700/25'
+                : isDark
+                ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+                : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
+            }`}
+          >
+            <span>{question.id === totalSteps ? 'Complete Setup & Enter Dashboard' : 'Continue'}</span>
+            <ArrowRight size={18} />
+          </button>
+        </footer>
       </div>
     </main>
   );
 }
+export default OnboardingPage;

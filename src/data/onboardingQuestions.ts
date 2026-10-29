@@ -2,11 +2,11 @@ import { SubjectName } from '../types';
 
 export interface OnboardingQuestion {
   id: number;
+  category: string;
   question: string;
   subtext: string;
-  type: 'text' | 'subjects' | 'select' | 'course_uni' | 'confidence' | 'radio' | 'weak_topic' | 'textarea';
+  type: 'subjects' | 'course_uni' | 'radio' | 'select' | 'confidence' | 'weak_topic';
   options?: string[];
-  placeholder?: string;
   fieldName: string;
 }
 
@@ -39,145 +39,110 @@ export const SUBJECTS_POOL: { name: SubjectName; category: string }[] = [
 export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
   {
     id: 1,
-    question: "What is your full name?",
-    subtext: "We want to address you warmly on your JAMB journey.",
-    type: 'text',
-    placeholder: "e.g. Daniel Etim",
-    fieldName: 'name'
-  },
-  {
-    id: 2,
-    question: "Select your 4 JAMB subjects:",
-    subtext: "English Language is compulsory. Select exactly 3 other subjects to build your core team of 4.",
+    category: 'Subject Combination',
+    question: 'Select your 4 official JAMB UTME subjects',
+    subtext: 'Use of English is compulsory for all candidates. Select 3 additional subjects matching your target faculty.',
     type: 'subjects',
     fieldName: 'chosenSubjects'
   },
   {
-    id: 3,
-    question: "What is your current class and prior attempts?",
-    subtext: "Tell us about your current level and previous sittings for the exam.",
-    type: 'select',
-    fieldName: 'classAndAttempts'
-  },
-  {
-    id: 4,
-    question: "Do you have a dream course and goal university in mind?",
-    subtext: "Focusing on a concrete target keeps motivation high and structures our score pacing.",
+    id: 2,
+    category: 'Admission Target',
+    question: 'What is your target course and first-choice institution?',
+    subtext: 'Your course and university benchmark determine your departmental cut-off target.',
     type: 'course_uni',
     fieldName: 'targets'
   },
   {
-    id: 5,
-    question: "When are you sitting for your JAMB exam?",
-    subtext: "We will tailor your daily workloads around the remaining countdown duration.",
-    type: 'select',
+    id: 3,
+    category: 'Score Benchmark',
+    question: 'What is your target UTME aggregate score?',
+    subtext: 'We calibrate your daily Blitz speed thresholds and mock accuracy targets to match your goal.',
+    type: 'radio',
     options: [
-      "1 month or less",
-      "2-3 months",
-      "4-6 months",
-      "More than 6 months"
+      '250 – 279 (Standard Merit Admission)',
+      '280 – 309 (Competitive Departmental Cut-Off)',
+      '310 – 339 (High-Demand Faculty: Medicine, Law, Engineering)',
+      '340+ (National Top 1% Merit Scholar)'
+    ],
+    fieldName: 'targetScore'
+  },
+  {
+    id: 4,
+    category: 'Academic Profile',
+    question: 'What is your current academic level and prior UTME experience?',
+    subtext: 'Helps SABI adjust question difficulty progression from foundational concepts to past exam traps.',
+    type: 'select',
+    fieldName: 'classAndAttempts'
+  },
+  {
+    id: 5,
+    category: 'Preparation Timeline',
+    question: 'How much time remains until your JAMB UTME sitting?',
+    subtext: 'Determines your syllabus pacing and weekly mock simulation frequency.',
+    type: 'radio',
+    options: [
+      'Under 30 Days (Intensive Revision Sprint)',
+      '1 to 3 Months (Focused Syllabus & Past Questions)',
+      '3 to 6 Months (Comprehensive Topic Mastery)',
+      'Over 6 Months (Early Foundation Building)'
     ],
     fieldName: 'monthsUntilExam'
   },
   {
     id: 6,
-    question: "Rate your confidence level for each selected subject:",
-    subtext: "Be completely honest! Sabi adapts specifically to make your weakest subjects your strongest.",
+    category: 'Baseline Readiness',
+    question: 'Rate your current mastery across your 4 selected subjects',
+    subtext: 'Rate from 1 (Needs Foundation) to 5 (Exam Ready) so Smart Practice prioritizes your gaps.',
     type: 'confidence',
     fieldName: 'subjectConfidence'
   },
   {
     id: 7,
-    question: "Which of these subjects worries you the most?",
-    subtext: "This subject will receive extra protective study alerts and gentle supportive tutoring.",
-    type: 'weak_topic', // We'll render chips of the selected 4 subjects
+    category: 'Priority Subject',
+    question: 'Which of your 4 subjects requires the most urgent improvement?',
+    subtext: 'SABI will allocate extra diagnostic drills and step-by-step breakdowns to this subject.',
+    type: 'weak_topic',
     fieldName: 'prioritySubject'
   },
   {
     id: 8,
-    question: "When you struggle with this subject, what is the root cause?",
-    subtext: "Identifying the precise friction point helps Sabi tailor its exercise methods.",
+    category: 'Exam Bottleneck',
+    question: 'What is your biggest challenge under exam conditions?',
+    subtext: 'Identifies whether to prioritize 60-second Blitz speed training or deep Smart Practice conceptual drills.',
     type: 'radio',
     options: [
-      "I make careless mistakes under time pressure",
-      "I run out of exam time before answering all questions",
-      "I struggle with the core solving methods/formulas",
-      "I don't study consistently enough"
+      'Time Management — Running out of time before finishing all 180 questions',
+      'Formula & Analytical Application — Solving calculation and multi-step problems',
+      'Accuracy Under Pressure — Second-guessing between two close options',
+      'Syllabus Coverage — Encountering unfamiliar topics from the JAMB syllabus'
     ],
     fieldName: 'struggleType'
   },
   {
     id: 9,
-    question: "Is there a specific topic that historically trips you up?",
-    subtext: "We will flag this for immediate, deep diagnostic evaluation. (e.g. Concord, Surds)",
-    type: 'text',
-    placeholder: "e.g. Proximity Concord, Alternating Currents",
-    fieldName: 'selfIdentifiedWeakTopic'
-  },
-  {
-    id: 10,
-    question: "What is your typical study style?",
-    subtext: "We adapt to fit your calendar-whether you're micro-learning or cramming.",
+    category: 'Study Schedule',
+    question: 'What daily practice commitment can you sustain consistently?',
+    subtext: 'Consistent daily CBT practice outperforms irregular weekend cramming.',
     type: 'radio',
     options: [
-      "Structured schedule (set times every day)",
-      "Flexible flexible slots (study on-the-go)",
-      "I don't study at all"
-    ],
-    fieldName: 'studyHabits'
-  },
-  {
-    id: 11,
-    question: "How much time can you realistically dedicate daily?",
-    subtext: "Consistent micro-habits perform far better than intensive weekend cramming.",
-    type: 'radio',
-    options: [
-      "1 hour or less per day",
-      "2 to 3 hours per day",
-      "4 hours or more per day"
+      '30 – 45 Minutes Daily (2 Blitz Sets + 1 Smart Checkpoint)',
+      '1 – 2 Hours Daily (4 Blitz Sets + 2 Smart Checkpoints)',
+      '3+ Hours Daily (Full Intensive UTME Marathon)'
     ],
     fieldName: 'dailyStudyHours'
   },
   {
-    id: 12,
-    question: "Where do you usually study, and is it quiet?",
-    subtext: "This helps Sabi suggest audio guides or offline-ready focus modules.",
+    id: 10,
+    category: 'Coaching Format',
+    question: 'How should SABI present answer corrections and explanations?',
+    subtext: 'Customize how solutions are displayed after every Blitz and Smart Practice question.',
     type: 'radio',
     options: [
-      "Quiet private space (home/library)",
-      "Busy/noisy environment (transit/evening centers)"
-    ],
-    fieldName: 'studyEnvironment'
-  },
-  {
-    id: 13,
-    question: "How do you prefer your study explanations?",
-    subtext: "Tell us how deep you want your Sabi Coach to go when reviewing answers.",
-    type: 'radio',
-    options: [
-      "Brief & concise (straight to the point)",
-      "Detailed step-by-step (with proofs and derivations)"
+      'Concise Exam Rule — Direct formula, key principle, and final answer',
+      'Detailed Step-by-Step Derivation — Full analytical workings and syllabus proof',
+      'Dual-Layer Clarity — Standard English explanation paired with Nigerian Pidgin summary'
     ],
     fieldName: 'explanationPreference'
-  },
-  {
-    id: 14,
-    question: "What language style works best for complex topics?",
-    subtext: "We support formal English, West African Pidgin, or a comfortable mix of both.",
-    type: 'radio',
-    options: [
-      "Plain Formal English",
-      "West African Pidgin English (Warm and laid back)",
-      "Mixed Nigerian English (Formal logic + supportive Pidgin vibes)"
-    ],
-    fieldName: 'languagePreference'
-  },
-  {
-    id: 15,
-    question: "What is your core motivation for passing your JAMB?",
-    subtext: "Is it family pride, career ambitions, or proving to yourself that you can win?",
-    type: 'textarea',
-    placeholder: "Write from the heart... Sabi will remind you of this when the going gets tough.",
-    fieldName: 'motivation'
   }
 ];

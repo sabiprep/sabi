@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import {
   Activity, ArrowRight, Bell, BookMarked, BookOpen, BookOpenCheck,
-  CheckCircle, ChevronRight, ClipboardList, Coins,
+  CheckCircle, ChevronRight, ClipboardList, Coins, Copy, Check, Download,
   Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
-  Menu, Moon, Settings, Sliders, Sun, Target,
+  Menu, Moon, Settings, ShieldCheck, Sliders, Sun, Target,
   X, Zap, Award
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useParams } from 'react-router-dom';
@@ -582,20 +582,18 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Sabi Scholar Motivation Banner with Mascot */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900 via-blue-950 to-slate-950 border-2 border-blue-600/40 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        
+      {/* Sabi Scholar Welcome Banner (Yellow Container + Royal Blue Button) */}
+      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="relative z-10 flex-1 space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] tracking-wider uppercase">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] tracking-wider uppercase">
             <Award size={13} /> Sabi Scholar Citadel
           </div>
           
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight">
-            Welcome to your Dashboard, David!
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-slate-950">
+            Welcome to your Dashboard, {typeof window !== 'undefined' && localStorage.getItem('sabi_user_name') ? localStorage.getItem('sabi_user_name') : 'David'}!
           </h1>
           
-          <p className="text-sm sm:text-base text-slate-300 max-w-xl leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-900 font-semibold max-w-xl leading-relaxed">
             Your target is <strong>320+ in JAMB UTME</strong> for <strong>Medicine & Surgery at UNILAG</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
           </p>
 
@@ -603,12 +601,12 @@ export function HomePage() {
             <button
               type="button"
               onClick={() => setShowSubjectRates(true)}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-md cursor-pointer"
+              className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg shadow-blue-900/20 cursor-pointer"
             >
-              <Activity size={14} />
+              <Activity size={15} />
               <span>See Subject Rates (4 Subjects) →</span>
             </button>
-            <span className="text-xs font-bold text-amber-400">⚡ UTME Readiness: 84%</span>
+            <span className="text-xs font-black text-blue-950">UTME Readiness: 84%</span>
           </div>
         </div>
 
@@ -616,16 +614,16 @@ export function HomePage() {
           <img
             src="/assets/mascots/onboarding/scholar_welcome_salute.svg"
             alt="Sabi Scholar"
-            className="w-full h-full object-contain filter drop-shadow-2xl hover:scale-105 transition-transform"
+            className="w-full h-full object-contain filter drop-shadow-xl hover:scale-105 transition-transform"
           />
         </div>
       </section>
 
-      {/* THE 4 CORE DASHBOARD MODULES */}
+      {/* THE 4 CORE DASHBOARD FEATURE CONTAINERS (Yellow Background + Blue Buttons) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-500/50" />
+            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               Core Practice & Subject Rates
             </h2>
@@ -641,146 +639,142 @@ export function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: SABI BLITZ (Eagle Mascot) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-b from-blue-950 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-all duration-300">
+          {/* Card 1: SABI BLITZ (Yellow Container + Blue Button) */}
+          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider inline-block">
-                  ⚡ 60s Rapid Simulator
+                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                  60s Rapid Simulator
                 </span>
                 <div className="w-16 h-16 shrink-0">
                   <img
                     src="/assets/mascots/blitz/eagle_idle.svg"
                     alt="Sabi Eagle Mascot"
-                    className="w-full h-full object-contain filter drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-300"
                   />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
                 SABI BLITZ
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
-                Endless past & recent questions on a sharp continuous Z-path level map with eagle streak multipliers.
+              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+                Endless past & recent questions on a continuous Z-path level map with eagle streak multipliers.
               </p>
             </div>
 
-            <div className="pt-5 mt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-[11px] font-mono text-amber-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <span>Level 3 · 15Q Active</span>
+            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-950">
+                Level 3 · 15Q Active
               </div>
               <Link
                 to="/blitz"
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
-                <span>Enter Blitz ⚡</span>
+                <span>Enter Blitz</span>
                 <ArrowRight size={15} />
               </Link>
             </div>
           </div>
 
-          {/* Card 2: SMART PRACTICE (Student Study Room Mascot) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-b from-blue-900/60 via-slate-900 to-blue-950/40 border-2 border-blue-500/50 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-blue-400 transition-all duration-300">
+          {/* Card 2: SMART PRACTICE (Yellow Container + Blue Button) */}
+          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-500 text-white font-black text-[11px] uppercase tracking-wider inline-block">
-                  🎯 4-Subject Adaptive Road
+                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                  4-Subject Adaptive Road
                 </span>
                 <div className="w-16 h-16 shrink-0">
                   <img
                     src="/assets/mascots/smart/student_desk_studying.svg"
                     alt="Student Study Room"
-                    className="w-full h-full object-contain filter drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-300"
                   />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
                 SMART PRACTICE
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
                 Branching road past campus faculties. Study room simulator with student mascot, desk calculator, and theory inbox.
               </p>
             </div>
 
-            <div className="pt-5 mt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-[11px] font-mono text-blue-300 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-                <span>West Quad · Level 2</span>
+            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-950">
+                West Quad · Level 2
               </div>
               <Link
                 to="/smart"
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
-                <span>Enter Smart 🎓</span>
+                <span>Enter Smart</span>
                 <ArrowRight size={15} />
               </Link>
             </div>
           </div>
 
-          {/* Card 3: CUSTOM JAMB SIMULATOR */}
-          <div className="rounded-3xl p-6 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950/40 border-2 border-indigo-500/40 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-all duration-300">
+          {/* Card 3: CUSTOM JAMB SIMULATOR (Yellow Container + Blue Button) */}
+          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 font-black text-[11px] uppercase tracking-wider inline-block">
-                  🛠️ Custom Simulator
+                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                  Custom Simulator
                 </span>
-                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-amber-400 shrink-0">
-                  <Sliders size={24} />
+                <div className="w-12 h-12 rounded-2xl bg-blue-950 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
+                  <Sliders size={22} />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
                 CUSTOM SIMULATOR
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
                 Dedicated workspace directory for custom exam configs, question counts, custom timing, and personalized practice drills.
               </p>
             </div>
 
-            <div className="pt-5 mt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-[11px] font-mono text-amber-400/80 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                <span>Workspace Ready</span>
+            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-950">
+                Workspace Ready
               </div>
               <Link
                 to="/custom-simulator"
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
-                <span>Open Simulator 🛠️</span>
+                <span>Open Simulator</span>
                 <ArrowRight size={15} />
               </Link>
             </div>
           </div>
 
-          {/* Card 4: SUBJECT RATES (Pops Out Full-Screen Dashboard for the 4 Registered Subjects) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-b from-blue-950 via-slate-900 to-emerald-950/40 border-2 border-emerald-500/40 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-all duration-300">
+          {/* Card 4: SUBJECT RATES (Yellow Container + Blue Button) */}
+          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-emerald-400 text-slate-950 font-black text-[11px] uppercase tracking-wider inline-block">
-                  📊 4 Registered Subjects
+                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                  4 Registered Subjects
                 </span>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                  <Activity size={24} />
+                <div className="w-12 h-12 rounded-2xl bg-blue-950 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
+                  <Activity size={22} />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
                 SUBJECT RATES
               </h3>
-              <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
                 Inspect your live mastery rates across English (84%), Maths (78%), Physics (65%), and Chemistry (72%) in a full-screen dashboard.
               </p>
             </div>
 
-            <div className="pt-5 mt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>4 Subjects · 75% Avg Rate</span>
+            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-950">
+                4 Subjects · 75% Avg Rate
               </div>
               <button
                 type="button"
                 onClick={() => setShowSubjectRates(true)}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
-                <span>See Subject Rates 📊</span>
+                <span>See Subject Rates</span>
                 <ArrowRight size={15} />
               </button>
             </div>
@@ -1003,17 +997,17 @@ export function PracticePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Blitz Card */}
-        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-b from-blue-950 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 text-white shadow-xl flex flex-col justify-between">
+        {/* Blitz Card (Yellow Container + Blue Button) */}
+        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <span className="px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
-                ⚡ Endless 60s Mode
+              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider">
+                Endless 60s Mode
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-white mt-3">
+              <h2 className="text-2xl font-black tracking-tight text-slate-950 mt-3">
                 SABI BLITZ
               </h2>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
                 Eagle mascot, continuous Z-path with 10Q and 15Q levels, formula rendering, and instant step-by-step corrections.
               </p>
             </div>
@@ -1021,23 +1015,23 @@ export function PracticePage() {
           </div>
           <Link
             to="/blitz"
-            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-center hover:brightness-110 transition shadow-md shadow-amber-500/20"
+            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 text-white text-center transition shadow-lg shadow-blue-900/20"
           >
             Launch Blitz Level Path →
           </Link>
         </div>
 
-        {/* Smart Practice Card */}
-        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-b from-blue-900/60 via-slate-900 to-blue-950/40 border-2 border-blue-500/50 text-white shadow-xl flex flex-col justify-between">
+        {/* Smart Practice Card (Yellow Container + Blue Button) */}
+        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between">
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <span className="px-3 py-1 rounded-full bg-blue-500 text-white font-black text-[11px] uppercase tracking-wider">
-                🎯 4-Subject Road
+              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider">
+                4-Subject Road
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-white mt-3">
+              <h2 className="text-2xl font-black tracking-tight text-slate-950 mt-3">
                 SMART PRACTICE
               </h2>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
                 Forward branches (Straight, Left, Right) past campus faculties. Study room with animated student and desk calculator.
               </p>
             </div>
@@ -1045,7 +1039,7 @@ export function PracticePage() {
           </div>
           <Link
             to="/smart"
-            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-center hover:brightness-110 transition shadow-md shadow-blue-500/20"
+            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 text-white text-center transition shadow-lg shadow-blue-900/20"
           >
             Launch Smart Practice Road →
           </Link>
@@ -1229,39 +1223,130 @@ export function ProgressPage() {
 }
 
 // ==========================================
-// PROFILE PAGE
+// PROFILE PAGE (With Unique SABI ID & Recovery Doc Download)
 // ==========================================
 export function ProfilePage() {
   const { isDark, toggleTheme } = useTheme();
+  const [copiedId, setCopiedId] = useState(false);
+
+  const userName = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'David Chukwu';
+  const userEmail = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) || 'david.chukwu@student.ng';
+  const userPhone = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_phone')) || '+234 803 000 0000';
+  const userState = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_state')) || 'Lagos State';
+  const uniqueId = (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) || '4829K';
+
+  const handleCopyId = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(uniqueId);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
+
+  const handleDownloadRecoveryDoc = () => {
+    const docText = [
+      '====================================================',
+      'SABI JAMB UTME PLATFORM — OFFICIAL ACCOUNT RECOVERY SLIP',
+      '====================================================',
+      `Candidate Name   : ${userName}`,
+      `Email Address    : ${userEmail}`,
+      `Phone Number     : ${userPhone}`,
+      `State of Origin  : ${userState}`,
+      `UNIQUE SABI ID   : ${uniqueId}`,
+      '----------------------------------------------------',
+      'IMPORTANT SECURITY NOTICE:',
+      'Keep this 5-character Unique SABI ID (4 digits + 1 letter)',
+      'in a safe place. It is your mandatory verification grant',
+      'required to reset your password or recover your SABI account.',
+      '====================================================',
+    ].join('\n');
+
+    const blob = new Blob([docText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `SABI-Recovery-ID-${uniqueId}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0 max-w-3xl">
       <div>
         <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
-          Account
+          Account & Verification Vault
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Student Profile & Settings
+          Student Profile & Unique ID
         </h1>
       </div>
 
-      <div className={`p-6 sm:p-8 rounded-3xl border-2 space-y-6 ${
-        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-      }`}>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-amber-500 text-white font-black text-2xl flex items-center justify-center shadow-lg">
-            D
-          </div>
+      {/* Unique SABI ID Vault Card (Yellow Background + Blue Actions) */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-black">David Chukwu</h2>
-            <p className="text-xs text-slate-400">Target: Medicine & Surgery · UNILAG · 320+</p>
-            <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 mt-1">
-              Active Candidate (2026/2027 UTME)
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider mb-2">
+              <ShieldCheck size={13} /> Mandatory Account Recovery Grant
+            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-950">
+              Your Unique SABI Verification ID
+            </h2>
+            <p className="text-xs sm:text-sm font-semibold text-slate-900/85 mt-1 max-w-md">
+              This 5-character code (4 digits + 1 letter) is permanently linked to your email and Google account. It is required whenever you reset your password.
+            </p>
+          </div>
+
+          <div className="px-6 py-4 rounded-2xl bg-blue-950 text-amber-400 border-2 border-blue-900 text-center shrink-0 shadow-md">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 block">
+              UNIQUE ID
+            </span>
+            <span className="text-3xl font-mono font-black tracking-widest">
+              {uniqueId}
             </span>
           </div>
         </div>
 
-        <div className="pt-4 border-t border-slate-800 space-y-4">
+        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-amber-600/30">
+          <button
+            type="button"
+            onClick={handleCopyId}
+            className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition cursor-pointer"
+          >
+            {copiedId ? <Check size={15} /> : <Copy size={15} />}
+            <span>{copiedId ? 'Copied to Clipboard' : 'Copy Unique ID'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadRecoveryDoc}
+            className="px-5 py-3 rounded-xl bg-blue-950 hover:bg-slate-900 text-amber-400 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition cursor-pointer"
+          >
+            <Download size={15} />
+            <span>Download Recovery ID Doc (.txt)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Candidate Details & Preferences */}
+      <div className={`p-6 sm:p-8 rounded-3xl border-2 space-y-6 ${
+        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
+      }`}>
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl bg-blue-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h2 className="text-xl font-black">{userName}</h2>
+            <p className="text-xs text-slate-400">{userEmail} · {userPhone} · {userState}</p>
+            <span className="inline-block text-xs font-bold text-blue-600 dark:text-amber-400 mt-1">
+              Active Candidate (2026/2027 UTME) · ID: {uniqueId}
+            </span>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm font-bold block">Theme Mode</span>
@@ -1269,7 +1354,7 @@ export function ProfilePage() {
             </div>
             <button
               onClick={toggleTheme}
-              className="px-4 py-2 rounded-xl text-xs font-bold border border-slate-700 bg-slate-800 text-amber-400"
+              className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-700 hover:bg-blue-800 text-white cursor-pointer"
             >
               {isDark ? 'Dark Mode (Active)' : 'Light Mode (Active)'}
             </button>
