@@ -18,6 +18,7 @@ const ProgressPage = lazy(() => import('./pages/StudentPages').then(module => ({
 const ProfilePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProfilePage })));
 const NotificationsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.NotificationsPage })));
 const DailyMissionsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.DailyMissionsPage })));
+const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubjectRatesPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 
 function PageLoading() {
@@ -45,7 +46,8 @@ export default function App() {
             <Route path="/smart" element={<SmartPracticePage />} />
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
-              <Route path="/subjects" element={<MainPage page="Subjects" />} />
+              <Route path="/subjects" element={<SubjectRatesPage />} />
+              <Route path="/subject-rates" element={<SubjectRatesPage />} />
               <Route path="/practice" element={<PracticePage />} />
               <Route path="/practice/smart" element={<SmartPracticePage />} />
               <Route path="/practice/blitz" element={<BlitzPage />} />

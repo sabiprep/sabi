@@ -20,6 +20,7 @@ const MAIN_NAV = [
 ];
 
 const MENU_ITEMS = [
+  { to: '/subject-rates', label: 'Subject Rates', Icon: Activity, description: 'Full-screen mastery rates for your 4 JAMB subjects' },
   { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests, streak flames & gem rewards' },
   { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review questions to revisit' },
   { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet and syllabus' },
@@ -253,11 +254,267 @@ export function AppShell() {
 // ==========================================
 // MAIN STUDENT DASHBOARD (HOMEPAGE)
 // ==========================================
-export function HomePage() {
+const REGISTERED_SUBJECTS_DATA = [
+  {
+    name: 'English Language',
+    accuracy: '84%',
+    numericRate: 84,
+    questions: '210 Solved',
+    locked: true,
+    badge: 'Compulsory Crest',
+    strongTopics: ['Comprehension Passages', 'Registers & Idioms'],
+    focusTopics: ['Concord & Agreement', 'Stress & Emphatic Stress'],
+    projectedScore: '76 / 100',
+  },
+  {
+    name: 'Mathematics',
+    accuracy: '78%',
+    numericRate: 78,
+    questions: '185 Solved',
+    locked: false,
+    badge: 'Calculus & Algebra',
+    strongTopics: ['Quadratic Equations', 'Indices & Logarithms'],
+    focusTopics: ['Differentiation & Integration', 'Circle Theorems'],
+    projectedScore: '78 / 100',
+  },
+  {
+    name: 'Physics',
+    accuracy: '65%',
+    numericRate: 65,
+    questions: '142 Solved',
+    locked: false,
+    badge: 'Waves & Optics',
+    strongTopics: ['Kinematics & Projectiles', 'Work, Energy & Power'],
+    focusTopics: ['Waves & Sound Optics', 'Alternating Current (AC)'],
+    projectedScore: '68 / 100',
+  },
+  {
+    name: 'Chemistry',
+    accuracy: '72%',
+    numericRate: 72,
+    questions: '160 Solved',
+    locked: false,
+    badge: 'Organic & Redox',
+    strongTopics: ['Stoichiometry & Gas Laws', 'Periodic Table'],
+    focusTopics: ['IUPAC Organic Nomenclature', 'Electrolysis & Redox'],
+    projectedScore: '74 / 100',
+  },
+];
+
+function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
   const { isDark } = useTheme();
 
   return (
+    <div
+      className={`fixed inset-0 z-50 w-full h-[100dvh] overflow-y-auto flex flex-col animate-fade-in ${
+        isDark ? 'bg-[#060B18] text-slate-100' : 'bg-slate-50 text-slate-900'
+      }`}
+    >
+      {/* Full-Screen Top Header */}
+      <header
+        className={`sticky top-0 z-20 px-4 sm:px-8 py-4 border-b backdrop-blur-md flex items-center justify-between ${
+          isDark ? 'bg-[#080E1E]/95 border-slate-800' : 'bg-white/95 border-slate-200 shadow-xs'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className={`px-3.5 py-2 rounded-xl border-2 font-black text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+                isDark
+                  ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                  : 'border-slate-200 bg-slate-100 text-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+              }`}
+            >
+              <X size={16} />
+              <span>Close</span>
+            </button>
+          ) : (
+            <Link
+              to="/home"
+              className={`px-3.5 py-2 rounded-xl border-2 font-black text-xs sm:text-sm flex items-center gap-1.5 transition ${
+                isDark
+                  ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                  : 'border-slate-200 bg-slate-100 text-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+              }`}
+            >
+              <X size={16} />
+              <span>Dashboard</span>
+            </Link>
+          )}
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block">
+              Official JAMB Combination
+            </span>
+            <h1 className="text-lg sm:text-2xl font-black tracking-tight">
+              Subject Rates Dashboard
+            </h1>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-black">
+            Avg Mastery: 75%
+          </div>
+        </div>
+      </header>
+
+      {/* Main Full-Screen Subject Rates Body */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
+        {/* Overall Aggregate Projection Banner */}
+        <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900 via-blue-950 to-slate-950 border-2 border-blue-500/40 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
+              4 Registered UTME Subjects
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+              Your Live Subject Mastery & Score Projection
+            </h2>
+            <p className="text-xs sm:text-sm text-blue-100/90 max-w-2xl">
+              Track your real-time mastery rate across each of your 4 registered JAMB subjects. Drill weak topics directly in Blitz or Smart Practice to push every subject above 85%.
+            </p>
+          </div>
+          <div className="px-5 py-4 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm text-center shrink-0 w-full sm:w-auto">
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
+              PROJECTED UTME AGGREGATE
+            </span>
+            <span className="text-3xl sm:text-4xl font-black text-white">296 / 400</span>
+            <span className="text-[11px] font-bold text-emerald-300 block mt-0.5">
+              Target: 320+ (+24 pts needed)
+            </span>
+          </div>
+        </section>
+
+        {/* 4 Subject Rate Cards Grid */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {REGISTERED_SUBJECTS_DATA.map(sub => (
+            <div
+              key={sub.name}
+              className={`p-6 rounded-3xl border-2 transition-all flex flex-col justify-between gap-5 ${
+                isDark
+                  ? 'bg-slate-900/95 border-slate-800 hover:border-blue-500/50'
+                  : 'bg-white border-slate-200 hover:border-blue-400 shadow-md'
+              }`}
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                      sub.locked
+                        ? 'bg-amber-400/20 text-amber-500 border border-amber-500/30'
+                        : 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
+                    }`}
+                  >
+                    {sub.badge}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    {sub.questions}
+                  </span>
+                </div>
+
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                      {sub.name}
+                    </h3>
+                    <span className="text-xs font-bold text-slate-400">
+                      Projected UTME Score: <strong className="text-amber-500">{sub.projectedScore}</strong>
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+                      Mastery Rate
+                    </span>
+                    <span className="text-3xl sm:text-4xl font-black text-blue-600 dark:text-amber-400">
+                      {sub.accuracy}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Full-Width Progress Bar */}
+                <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-amber-400 rounded-full transition-all duration-500"
+                    style={{ width: sub.accuracy }}
+                  />
+                </div>
+
+                {/* Strong & Focus Topics */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div
+                    className={`p-3 rounded-2xl border ${
+                      isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 block mb-1">
+                      ✓ Strongest Topics
+                    </span>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {sub.strongTopics.join(' · ')}
+                    </p>
+                  </div>
+                  <div
+                    className={`p-3 rounded-2xl border ${
+                      isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 block mb-1">
+                      ⚡ Priority Focus
+                    </span>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {sub.focusTopics.join(' · ')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3">
+                <Link
+                  to="/blitz"
+                  onClick={onClose}
+                  className="flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white text-center transition shadow-md"
+                >
+                  Blitz {sub.name.split(' ')[0]} ⚡
+                </Link>
+                <Link
+                  to="/smart"
+                  onClick={onClose}
+                  className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider border-2 text-center transition ${
+                    isDark
+                      ? 'border-slate-700 bg-slate-800 text-white hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                      : 'border-slate-300 bg-slate-100 text-slate-900 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                  }`}
+                >
+                  Smart Road 🎓
+                </Link>
+              </div>
+            </div>
+          ))}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+export function SubjectRatesPage() {
+  return <SubjectRatesFullScreenView />;
+}
+
+// ==========================================
+// MAIN STUDENT DASHBOARD (HOMEPAGE)
+// ==========================================
+export function HomePage() {
+  const { isDark } = useTheme();
+  const [showSubjectRates, setShowSubjectRates] = useState(false);
+
+  return (
     <div className="space-y-8 pb-16 lg:pb-0">
+      {/* Full-Screen Popout for 4 Registered Subjects (Subject Rates Dashboard) */}
+      {showSubjectRates && (
+        <SubjectRatesFullScreenView onClose={() => setShowSubjectRates(false)} />
+      )}
+
       {/* Top Gamified HUD Bar */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
@@ -342,10 +599,16 @@ export function HomePage() {
             Your target is <strong>320+ in JAMB UTME</strong> for <strong>Medicine & Surgery at UNILAG</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 text-xs font-bold pt-2">
-            <span className="text-amber-400">⚡ UTME Readiness: 84%</span>
-            <span className="text-slate-600">·</span>
-            <span className="text-blue-300">🎯 Priority: Physics Waves & Organic Chemistry</span>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowSubjectRates(true)}
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-md cursor-pointer"
+            >
+              <Activity size={14} />
+              <span>See Subject Rates (4 Subjects) →</span>
+            </button>
+            <span className="text-xs font-bold text-amber-400">⚡ UTME Readiness: 84%</span>
           </div>
         </div>
 
@@ -358,21 +621,26 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* THE TWO CORE ADDICTIVE PILLARS: BLITZ & SMART PRACTICE */}
+      {/* THE 4 CORE DASHBOARD MODULES */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <span className="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-500/50" />
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Core Practice Modes
+              Core Practice & Subject Rates
             </h2>
           </div>
-          <span className="text-xs font-bold text-slate-400">
-            Endless simulator engines
-          </span>
+          <button
+            type="button"
+            onClick={() => setShowSubjectRates(true)}
+            className="text-xs font-black text-blue-600 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+          >
+            <span>Subject Rates</span>
+            <ArrowRight size={13} />
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Card 1: SABI BLITZ (Eagle Mascot) */}
           <div className="rounded-3xl p-6 bg-gradient-to-b from-blue-950 via-slate-900 to-amber-950/40 border-2 border-amber-500/50 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-all duration-300">
             <div>
@@ -449,7 +717,7 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Card 3: CUSTOM JAMB SIMULATOR (Reserved Empty Dashboard) */}
+          {/* Card 3: CUSTOM JAMB SIMULATOR */}
           <div className="rounded-3xl p-6 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950/40 border-2 border-indigo-500/40 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-all duration-300">
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -482,65 +750,41 @@ export function HomePage() {
               </Link>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* 4-SUBJECT MASTERY CARDS */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-            Your 4 Registered Subjects
-          </h3>
-          <span className="text-xs font-bold text-amber-500">Official JAMB Combination</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { name: 'English Language', accuracy: '84%', questions: '210 Solved', locked: true, badge: 'Compulsory Crest' },
-            { name: 'Mathematics', accuracy: '78%', questions: '185 Solved', locked: false, badge: 'Calculus & Algebra' },
-            { name: 'Physics', accuracy: '65%', questions: '142 Solved', locked: false, badge: 'Waves & Optics' },
-            { name: 'Chemistry', accuracy: '72%', questions: '160 Solved', locked: false, badge: 'Organic & Redox' },
-          ].map(sub => (
-            <div
-              key={sub.name}
-              className={`p-5 rounded-3xl border-2 transition-all flex flex-col justify-between ${
-                isDark ? 'bg-slate-900/90 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
-              } shadow-sm`}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                    sub.locked
-                      ? 'bg-amber-400/20 text-amber-500 border border-amber-500/30'
-                      : 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
-                  }`}>
-                    {sub.badge}
-                  </span>
-                  <span className="text-xs font-mono font-bold text-slate-400">
-                    {sub.questions}
-                  </span>
-                </div>
-
-                <h4 className="text-base font-black text-slate-900 dark:text-white">
-                  {sub.name}
-                </h4>
-
-                <div className="mt-4 flex items-end justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                      Mastery Rate
-                    </span>
-                    <span className="text-2xl font-black text-slate-900 dark:text-white">
-                      {sub.accuracy}
-                    </span>
-                  </div>
-                  <div className="w-16 h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden mb-1">
-                    <div className="h-full bg-gradient-to-r from-blue-600 to-amber-500 rounded-full" style={{ width: sub.accuracy }} />
-                  </div>
+          {/* Card 4: SUBJECT RATES (Pops Out Full-Screen Dashboard for the 4 Registered Subjects) */}
+          <div className="rounded-3xl p-6 bg-gradient-to-b from-blue-950 via-slate-900 to-emerald-950/40 border-2 border-emerald-500/40 text-white shadow-xl flex flex-col justify-between relative overflow-hidden group hover:border-amber-400 transition-all duration-300">
+            <div>
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <span className="px-3 py-1 rounded-full bg-emerald-400 text-slate-950 font-black text-[11px] uppercase tracking-wider inline-block">
+                  📊 4 Registered Subjects
+                </span>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <Activity size={24} />
                 </div>
               </div>
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                SUBJECT RATES
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+                Inspect your live mastery rates across English (84%), Maths (78%), Physics (65%), and Chemistry (72%) in a full-screen dashboard.
+              </p>
             </div>
-          ))}
+
+            <div className="pt-5 mt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>4 Subjects · 75% Avg Rate</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSubjectRates(true)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 hover:shadow-amber-400/30 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+              >
+                <span>See Subject Rates 📊</span>
+                <ArrowRight size={15} />
+              </button>
+            </div>
+          </div>
         </div>
       </section>
     </div>

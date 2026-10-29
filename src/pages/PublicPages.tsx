@@ -81,9 +81,9 @@ export function WelcomePage() {
   const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
+    <div className={`min-h-[100dvh] w-full max-w-full overflow-x-hidden ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
       {/* Top Navbar */}
-      <header className={`px-6 py-4 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
+      <header className={`px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <BrandLockup />
 
@@ -102,8 +102,8 @@ export function WelcomePage() {
       </header>
 
       {/* Main Welcome Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 py-8 flex-1 flex flex-col items-center justify-center">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 flex flex-col items-center justify-center">
+        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
           
           {/* Left Column: Animated Man and Woman at Laptop Table */}
           <div className="lg:col-span-7 flex flex-col items-center justify-center">
@@ -231,9 +231,9 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   };
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
+    <div className={`min-h-[100dvh] w-full max-w-full overflow-x-hidden ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
       {/* Header */}
-      <header className={`px-6 py-4 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
+      <header className={`px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <BrandLockup />
           <div className="flex items-center gap-3">
