@@ -1,4 +1,5 @@
 import type { SubjectName } from '../types';
+import { supabase } from '../lib/supabase';
 
 export interface SubjectProgressStat {
   solved: number;
@@ -159,11 +160,34 @@ export function saveRealUserProgress(next: UserRealProgress): UserRealProgress {
 
     const email = localStorage.getItem('sabi_user_email');
     if (email) {
+      const normalizedEmail = email.trim().toLowerCase();
       fetch('/api/profile/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, progress: normalized }),
+        body: JSON.stringify({ email: normalizedEmail, progress: normalized }),
       }).catch(() => {});
+
+      // Also sync directly to Supabase public.profiles when configured (for Android APK & Vercel)
+      if (supabase) {
+        (async () => {
+          const { data: existing } = await supabase
+            .from('profiles')
+            .select('onboarding_answers')
+            .eq('email', normalizedEmail)
+            .maybeSingle();
+          const mergedAnswers = {
+            ...(existing?.onboarding_answers || {}),
+            live_progress: normalized,
+          };
+          await supabase
+            .from('profiles')
+            .update({
+              onboarding_answers: mergedAnswers,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('email', normalizedEmail);
+        })().catch(() => {});
+      }
     }
   } catch {
     // ignore storage errors

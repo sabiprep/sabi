@@ -108,8 +108,8 @@ export function AppShell() {
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col`}>
       {/* Top Navbar */}
-      <header className={`px-4 sm:px-8 py-3.5 border-b sticky top-0 z-40 backdrop-blur-md ${
-        isDark ? 'bg-[#080D1A]/90 border-slate-800' : 'bg-white/90 border-slate-200'
+      <header className={`sabi-top-safe-bar px-4 sm:px-8 py-3.5 border-b sticky top-0 z-40 backdrop-blur-md ${
+        isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'
       }`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Left Brand Lockup + 3-Dash Menu Button (Always Visible) */}
@@ -225,7 +225,7 @@ export function AppShell() {
       </main>
 
       {/* Mobile Bottom Navigation Bar */}
-      <nav className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t px-4 py-2 flex items-center justify-around backdrop-blur-md ${
+      <nav className={`sabi-bottom-safe lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t px-4 py-2 flex items-center justify-around backdrop-blur-md ${
         isDark ? 'bg-[#080D1A]/95 border-slate-800 text-slate-400' : 'bg-white/95 border-slate-200 text-slate-600'
       }`}>
         {MAIN_NAV.slice(0, 5).map(({ to, label, Icon }) => {
@@ -255,7 +255,7 @@ export function AppShell() {
           onClick={() => setMenuOpen(false)}
         >
           <aside
-            className={`w-80 sm:w-96 max-w-[88vw] h-full p-6 shadow-2xl flex flex-col justify-between overflow-y-auto ${
+            className={`sabi-drawer-safe sabi-bottom-safe w-80 sm:w-96 max-w-[88vw] h-full p-6 shadow-2xl flex flex-col justify-between overflow-y-auto ${
               isDark ? 'bg-[#090F1E] border-r border-slate-800 text-white' : 'bg-white border-r border-slate-200 text-slate-900'
             }`}
             onClick={e => e.stopPropagation()}

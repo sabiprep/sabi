@@ -221,6 +221,102 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+// 0a-2. Login Candidate (Email or Phone + Password) & Return Synced Profile
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { identifier, password, method = 'email' } = req.body;
+    const cleanIdentifier = String(identifier || '').trim().toLowerCase();
+    if (!cleanIdentifier) {
+      return res.status(400).json({ error: 'Email or phone number is required.' });
+    }
+
+    if (supabaseAdmin) {
+      // Find candidate profile by email or phone
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .or(
+          method === 'phone' || !cleanIdentifier.includes('@')
+            ? `phone.eq.${cleanIdentifier},email.eq.${cleanIdentifier}`
+            : `email.eq.${cleanIdentifier}`
+        )
+        .maybeSingle();
+
+      const targetEmail = profile?.email || (cleanIdentifier.includes('@') ? cleanIdentifier : '');
+
+      // Verify password via Supabase Auth if email & password provided
+      if (targetEmail && password) {
+        const { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
+          email: targetEmail,
+          password: String(password),
+        });
+
+        if (signInErr) {
+          const msg = signInErr.message || '';
+          if (msg.toLowerCase().includes('invalid login credentials') && profile?.id) {
+            return res.status(401).json({
+              error: 'Invalid email or password. Use your 5-character Unique SABI ID if you need to reset your password.',
+            });
+          }
+        } else if (signInData?.user && !profile) {
+          const fallbackId = generateDeterministicSabiId(targetEmail);
+          const { data: createdProfile } = await supabaseAdmin
+            .from('profiles')
+            .upsert(
+              {
+                id: signInData.user.id,
+                email: targetEmail,
+                sabi_unique_id: fallbackId,
+                full_name: signInData.user.user_metadata?.full_name || 'Candidate',
+                phone: signInData.user.user_metadata?.phone || '',
+                state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
+                auth_providers: ['email'],
+              },
+              { onConflict: 'email' }
+            )
+            .select('*')
+            .maybeSingle();
+
+          return res.json({
+            status: 'authenticated',
+            profile: createdProfile,
+            sabi_unique_id: createdProfile?.sabi_unique_id || fallbackId,
+          });
+        }
+      }
+
+      if (profile) {
+        return res.json({
+          status: 'authenticated',
+          profile,
+          sabi_unique_id: profile.sabi_unique_id,
+        });
+      }
+    }
+
+    // Local fallback
+    const localProfile = localProfilesByEmail.get(cleanIdentifier);
+    const sabi_unique_id =
+      localProfile?.sabi_unique_id ||
+      generateDeterministicSabiId(cleanIdentifier.includes('@') ? cleanIdentifier : `${cleanIdentifier}@sabi.ng`);
+
+    return res.json({
+      status: 'authenticated',
+      sabi_unique_id,
+      profile: localProfile || {
+        email: cleanIdentifier.includes('@') ? cleanIdentifier : `${cleanIdentifier}@sabi.ng`,
+        sabi_unique_id,
+        full_name: 'Candidate',
+        phone: cleanIdentifier.includes('@') ? '' : cleanIdentifier,
+        state_of_origin: 'Lagos',
+        onboarding_completed: true,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Sign in failed.' });
+  }
+});
+
 // 0b. Reset Password Verified by 5-Character Unique SABI ID (4 numbers + 1 letter)
 app.post('/api/auth/reset-password', async (req, res) => {
   try {

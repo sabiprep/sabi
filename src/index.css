@@ -85,12 +85,43 @@ html, body, #root {
   scrollbar-width: none;  /* Firefox */
 }
 
-/* Safe area padding utilities for mobile */
+/* Safe area padding utilities for mobile & Android status bar (battery %, network bar) */
+:root {
+  --sabi-top-safe-offset: env(safe-area-inset-top, 0px);
+  --sabi-bottom-safe-offset: env(safe-area-inset-bottom, 0px);
+}
+
+html.is-android-view {
+  --sabi-top-safe-offset: max(env(safe-area-inset-top, 0px), 34px);
+  --sabi-bottom-safe-offset: max(env(safe-area-inset-bottom, 0px), 10px);
+}
+
 .pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
+  padding-top: var(--sabi-top-safe-offset);
 }
 .pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-bottom: var(--sabi-bottom-safe-offset);
+}
+
+/* Brings top header content down below the Android battery/network bar while keeping header background color at top:0 */
+.sabi-top-safe-bar {
+  padding-top: calc(0.875rem + var(--sabi-top-safe-offset)) !important;
+}
+
+.sabi-drawer-safe {
+  padding-top: calc(1.5rem + var(--sabi-top-safe-offset)) !important;
+}
+
+.sabi-bottom-safe {
+  padding-bottom: calc(0.5rem + var(--sabi-bottom-safe-offset)) !important;
+}
+
+.flow-header,
+.app-topbar,
+.public-header {
+  padding-top: var(--sabi-top-safe-offset) !important;
+  height: auto !important;
+  min-height: calc(74px + var(--sabi-top-safe-offset)) !important;
 }
 
 body {

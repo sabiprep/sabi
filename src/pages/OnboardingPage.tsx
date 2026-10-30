@@ -5,6 +5,7 @@ import { ONBOARDING_QUESTIONS, SUBJECTS_POOL } from '../data/onboardingQuestions
 import type { SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
 import { useTheme } from '../app/ThemeProvider';
+import { supabase } from '../lib/supabase';
 
 const STORAGE_KEY = 'sabi_onboarding_v2_10q';
 const CLASS_OPTIONS = ['SS2 Candidate', 'SS3 Candidate', 'Post-Secondary / Resitter'];
@@ -128,7 +129,9 @@ export function OnboardingPage() {
     sound.playCorrect();
     if (question.id === totalSteps) {
       localStorage.setItem('sabi_user_signed_in', 'true');
-      const email = localStorage.getItem('sabi_user_email') || '';
+      localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(answers));
+      const email = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
+
       fetch('/api/profile/onboarding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,6 +142,21 @@ export function OnboardingPage() {
           targetScore: answers.targetScore || 320,
         }),
       }).catch(() => {});
+
+      if (email && supabase) {
+        supabase
+          .from('profiles')
+          .update({
+            onboarding_completed: true,
+            onboarding_answers: answers,
+            registered_subjects: selectedSubjects,
+            target_score: Number(answers.targetScore) || 320,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('email', email)
+          .then(() => {}, () => {});
+      }
+
       navigate('/home');
     } else {
       navigate(`/onboarding/${question.id + 1}`);
@@ -172,7 +190,7 @@ export function OnboardingPage() {
       {/* SIMPLE MATURE TOP HEADER (Standard Blue & Yellow Pairing)             */}
       {/* ===================================================================== */}
       <header
-        className={`px-4 sm:px-8 py-3.5 border-b shrink-0 flex items-center justify-between transition-colors ${
+        className={`sabi-top-safe-bar px-4 sm:px-8 py-3.5 border-b shrink-0 flex items-center justify-between transition-colors ${
           isDark ? 'bg-[#0B1224] border-slate-800' : 'bg-white border-slate-200'
         }`}
       >

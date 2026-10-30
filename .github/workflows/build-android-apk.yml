@@ -27,13 +27,13 @@ jobs:
           java-version: '21'
 
       - name: Install NPM Dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps || npm install
 
-      - name: Build Production Web Bundle & Sync Capacitor Android
+      - name: Build Production Web Bundle, Ensure Android Wrapper & Sync Capacitor
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app' }}
         run: npm run android:sync
 
       - name: Grant Execute Permission to Gradle Wrapper
@@ -41,7 +41,7 @@ jobs:
 
       - name: Assemble Installable Android Debug APK
         working-directory: ./android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload SABI Android APK Artifact
         uses: actions/upload-artifact@v4

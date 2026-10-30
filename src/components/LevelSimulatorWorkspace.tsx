@@ -244,7 +244,7 @@ export default function LevelSimulatorWorkspace({
     return (
       <div className="fixed inset-0 z-50 bg-[#060B16] text-slate-100 flex flex-col overflow-y-auto">
         {/* Top Solution Dashboard Header */}
-        <header className="sticky top-0 z-30 bg-[#080E1E]/95 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
+        <header className="sabi-top-safe-bar sticky top-0 z-30 bg-[#080E1E]/95 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
               <BookOpenCheck size={20} />
@@ -486,7 +486,7 @@ export default function LevelSimulatorWorkspace({
   return (
     <div className="fixed inset-0 z-50 bg-[#070C18] text-white flex flex-col justify-between overflow-hidden select-none">
       {/* Top Simulator HUD Bar */}
-      <header className="w-full bg-[#0A1122] border-b border-slate-800 px-3 sm:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4 shrink-0">
+      <header className="sabi-top-safe-bar w-full bg-[#0A1122] border-b border-slate-800 px-3 sm:px-8 py-3 flex items-center justify-between gap-2 sm:gap-4 shrink-0">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
@@ -642,7 +642,7 @@ export default function LevelSimulatorWorkspace({
       </main>
 
       {/* BOTTOM ACTION DOCK: Submit Question -> Optional Popup Solution/AI -> Next Question -> Final Submit at #10/#15 */}
-      <footer className="w-full bg-[#0A1122] border-t border-slate-800 px-4 sm:px-8 py-3.5 sm:py-4 shrink-0">
+      <footer className="sabi-bottom-safe w-full bg-[#0A1122] border-t border-slate-800 px-4 sm:px-8 py-3.5 sm:py-4 shrink-0">
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
           {/* Left: Previous Question & Question Status */}
           <div className="flex items-center gap-2.5">

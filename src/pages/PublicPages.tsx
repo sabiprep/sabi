@@ -22,6 +22,8 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
+import { supabase } from '../lib/supabase';
+import { saveRealUserProgress } from '../utils/userProgressStore';
 
 const NIGERIAN_STATES = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
@@ -133,7 +135,7 @@ export function WelcomePage() {
 
   return (
     <div className={`min-h-[100dvh] w-full max-w-full overflow-x-hidden ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
-      <header className={`px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
+      <header className={`sabi-top-safe-bar px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <BrandLockup />
 
@@ -273,15 +275,114 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   const [newResetPassword, setNewResetPassword] = useState('');
   const [recoveryFeedback, setRecoveryFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
+  // Auth loading & status banner for both Android APK and Webapp
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authFeedback, setAuthFeedback] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null);
+
+  // Syncs a retrieved Supabase/Backend profile into local storage & restores progress
+  const applySyncedProfileToLocal = (profile: any, fallbackEmail: string, fallbackName?: string) => {
+    const email = (profile?.email || fallbackEmail || 'scholar@sabi.ng').trim().toLowerCase();
+    const uniqueId = profile?.sabi_unique_id || getOrGenerateSabiUniqueId(email);
+    const fullName = profile?.full_name || fallbackName || localStorage.getItem('sabi_user_name') || 'Candidate';
+    const phone = profile?.phone || phoneInput.trim() || localStorage.getItem('sabi_user_phone') || '';
+    const state = profile?.state_of_origin || stateOfOriginInput || localStorage.getItem('sabi_user_state') || 'Lagos';
+
+    localStorage.setItem('sabi_user_email', email);
+    localStorage.setItem('sabi_user_name', fullName);
+    localStorage.setItem('sabi_user_phone', phone);
+    localStorage.setItem('sabi_user_state', state);
+    localStorage.setItem('sabi_unique_id', uniqueId);
+
+    // Restore onboarding answers & live progress if saved in Supabase profile
+    if (profile?.onboarding_answers && typeof profile.onboarding_answers === 'object') {
+      const { live_progress, ...onboardingOnly } = profile.onboarding_answers;
+      if (Object.keys(onboardingOnly).length > 0) {
+        localStorage.setItem('sabi_onboarding_v2_10q', JSON.stringify(onboardingOnly));
+        localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(onboardingOnly));
+      }
+      if (live_progress && typeof live_progress === 'object') {
+        saveRealUserProgress(live_progress);
+      }
+    }
+    return { email, uniqueId, fullName };
+  };
+
   // Handle Google Auth Sync (links by email address so no duplicate ID is ever created)
   const handleGoogleSync = async (targetNext: 'register' | 'login') => {
-    const syncedEmail = (emailInput.trim() || 'scholar@gmail.com').toLowerCase();
-    const syncedName = fullNameInput.trim() || 'David Adeleke';
+    setAuthFeedback(null);
+    const rawEmail = emailInput.trim();
+    if (!rawEmail && targetNext === 'login') {
+      // Check if an email was already saved on this device
+      const savedEmail = localStorage.getItem('sabi_user_email');
+      if (!savedEmail) {
+        setAuthFeedback({
+          type: 'info',
+          message: 'Enter your Gmail address below first, then tap "Continue with Google" to sync your account and Unique ID.',
+        });
+        return;
+      }
+    }
+
+    setAuthLoading(true);
+    const syncedEmail = (rawEmail || localStorage.getItem('sabi_user_email') || 'scholar@gmail.com').toLowerCase();
+    const syncedName = fullNameInput.trim() || localStorage.getItem('sabi_user_name') || syncedEmail.split('@')[0];
     setEmailInput(syncedEmail);
     setFullNameInput(syncedName);
     setAuthProvider('google');
 
     let uniqueId = getOrGenerateSabiUniqueId(syncedEmail);
+    let syncedProfile: any = null;
+
+    // 1. Direct Supabase public.profiles lookup/upsert (works directly on Android APK & Vercel Webapp)
+    if (supabase) {
+      try {
+        const { data: existing } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', syncedEmail)
+          .maybeSingle();
+
+        if (existing) {
+          uniqueId = existing.sabi_unique_id || uniqueId;
+          syncedProfile = existing;
+          const updatedProviders = Array.from(new Set([...(existing.auth_providers || ['email']), 'google']));
+          await supabase
+            .from('profiles')
+            .update({
+              full_name: fullNameInput.trim() || existing.full_name || syncedName,
+              phone: phoneInput.trim() || existing.phone || '',
+              state_of_origin: stateOfOriginInput || existing.state_of_origin || 'Lagos',
+              auth_providers: updatedProviders,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('email', syncedEmail);
+        } else {
+          const { data: inserted } = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                email: syncedEmail,
+                sabi_unique_id: uniqueId,
+                full_name: syncedName,
+                phone: phoneInput.trim(),
+                state_of_origin: stateOfOriginInput || 'Lagos',
+                auth_providers: ['google'],
+              },
+              { onConflict: 'email' }
+            )
+            .select('*')
+            .maybeSingle();
+          if (inserted) {
+            syncedProfile = inserted;
+            uniqueId = inserted.sabi_unique_id || uniqueId;
+          }
+        }
+      } catch {
+        // Continue to API sync
+      }
+    }
+
+    // 2. Backend API sync
     try {
       const resp = await fetch('/api/auth/register', {
         method: 'POST',
@@ -299,15 +400,18 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         if (data?.sabi_unique_id) {
           uniqueId = data.sabi_unique_id;
         }
+        if (data?.profile) {
+          syncedProfile = data.profile;
+        }
       }
     } catch {
       // Fallback to deterministic ID
     }
 
-    localStorage.setItem('sabi_user_email', syncedEmail);
-    localStorage.setItem('sabi_user_name', syncedName);
+    applySyncedProfileToLocal(syncedProfile, syncedEmail, syncedName);
     localStorage.setItem('sabi_unique_id', uniqueId);
     localStorage.setItem('sabi_auth_provider', 'google+email');
+    setAuthLoading(false);
 
     if (targetNext === 'login') {
       localStorage.setItem('sabi_user_signed_in', 'true');
@@ -324,6 +428,11 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         localStorage.setItem('sabi_user_state', stateOfOriginInput);
         setGeneratedUniqueId(uniqueId);
         setCurrentMode('verify');
+      } else {
+        setAuthFeedback({
+          type: 'success',
+          message: 'Google Gmail linked! Complete your Phone Number and State of Origin below to generate your Unique SABI ID.',
+        });
       }
     }
   };
@@ -331,18 +440,88 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   // Handle Create Account form submission -> generates Unique SABI ID before Onboarding
   const handleCreateAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const normalizedEmail = emailInput.trim().toLowerCase();
-    let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
+    setAuthFeedback(null);
+    setAuthLoading(true);
 
+    const normalizedEmail = emailInput.trim().toLowerCase();
+    const cleanedName = fullNameInput.trim();
+    const cleanedPhone = phoneInput.trim();
+    let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
+    let syncedProfile: any = null;
+
+    // 1. Direct Supabase Auth + public.profiles Upsert (Works natively on Android APK & Webapp)
+    if (supabase) {
+      try {
+        // Check if profile already exists for this email so we never overwrite an existing sabi_unique_id
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+
+        if (existingProfile?.sabi_unique_id) {
+          uniqueId = existingProfile.sabi_unique_id;
+        }
+
+        let authUserId: string | undefined = existingProfile?.id;
+
+        if (passwordInput) {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email: normalizedEmail,
+            password: passwordInput,
+            options: {
+              emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+              data: {
+                full_name: cleanedName,
+                phone: cleanedPhone,
+                state_of_origin: stateOfOriginInput,
+                sabi_unique_id: uniqueId,
+              },
+            },
+          });
+
+          if (!signUpError && signUpData?.user?.id) {
+            authUserId = signUpData.user.id;
+          }
+        }
+
+        const { data: upsertedProfile } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              ...(authUserId ? { id: authUserId } : {}),
+              email: normalizedEmail,
+              sabi_unique_id: uniqueId,
+              full_name: cleanedName,
+              phone: cleanedPhone,
+              state_of_origin: stateOfOriginInput,
+              auth_providers: [authProvider === 'google' ? 'google' : 'email'],
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'email' }
+          )
+          .select('*')
+          .maybeSingle();
+
+        if (upsertedProfile) {
+          syncedProfile = upsertedProfile;
+          uniqueId = upsertedProfile.sabi_unique_id || uniqueId;
+        }
+      } catch {
+        // Continue to backend API registration
+      }
+    }
+
+    // 2. Backend API Registration & Admin Sync
     try {
       const resp = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName: fullNameInput.trim(),
+          fullName: cleanedName,
           email: normalizedEmail,
           password: passwordInput,
-          phone: phoneInput.trim(),
+          phone: cleanedPhone,
           stateOfOrigin: stateOfOriginInput,
           provider: authProvider === 'google' ? 'google' : 'email',
         }),
@@ -352,19 +531,22 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         if (data?.sabi_unique_id) {
           uniqueId = data.sabi_unique_id;
         }
+        if (data?.profile) {
+          syncedProfile = data.profile;
+        }
       }
     } catch {
       // Fallback to deterministic local ID
     }
 
-    localStorage.setItem('sabi_user_name', fullNameInput.trim());
-    localStorage.setItem('sabi_user_email', normalizedEmail);
-    localStorage.setItem('sabi_user_phone', phoneInput.trim());
+    applySyncedProfileToLocal(syncedProfile, normalizedEmail, cleanedName);
+    localStorage.setItem('sabi_user_phone', cleanedPhone);
     localStorage.setItem('sabi_user_state', stateOfOriginInput);
     localStorage.setItem('sabi_unique_id', uniqueId);
     localStorage.setItem('sabi_auth_provider', authProvider === 'google' ? 'google+email' : 'email');
 
     setGeneratedUniqueId(uniqueId);
+    setAuthLoading(false);
     setCurrentMode('verify');
   };
 
@@ -376,8 +558,8 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     setTimeout(() => setCopiedId(false), 2500);
   };
 
-  // Download Official SABI Recovery ID Document (.txt)
-  const handleDownloadUniqueIdDoc = () => {
+  // Download or Share Official SABI Recovery ID Document (.txt) — works on both Webapp & Android APK
+  const handleDownloadUniqueIdDoc = async () => {
     const idToSave = generatedUniqueId || localStorage.getItem('sabi_unique_id') || '4829K';
     const docContent = [
       '==========================================================',
@@ -402,31 +584,146 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       '=========================================================='
     ].join('\n');
 
-    const blob = new Blob([docContent], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `SABI-Recovery-ID-${idToSave}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const blob = new Blob([docContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SABI-Recovery-ID-${idToSave}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback for mobile WebViews
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(docContent).catch(() => {});
+    }
   };
 
-  // Handle direct sign in into dashboard or requested redirect directory
+  // Handle Sign In (Email or Phone + Password) on both Android APK and Webapp
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (emailInput.trim()) {
-      const normalized = emailInput.trim().toLowerCase();
-      const syncedId = getOrGenerateSabiUniqueId(normalized);
-      localStorage.setItem('sabi_user_email', normalized);
-      localStorage.setItem('sabi_unique_id', syncedId);
+    setAuthFeedback(null);
+    setAuthLoading(true);
+
+    const identifier = (authMethod === 'email' ? emailInput : phoneInput).trim().toLowerCase();
+    if (!identifier) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message: 'Please enter your registered email address or Nigerian phone number.',
+      });
+      return;
     }
+
+    let matchedProfile: any = null;
+    let resolvedEmail = authMethod === 'email' ? identifier : '';
+
+    // 1. Check Supabase public.profiles & Supabase Auth directly (works on Android APK & Webapp)
+    if (supabase) {
+      try {
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(
+            authMethod === 'phone' || !identifier.includes('@')
+              ? `phone.eq.${identifier},email.eq.${identifier}`
+              : `email.eq.${identifier}`
+          )
+          .maybeSingle();
+
+        if (profileRow) {
+          matchedProfile = profileRow;
+          resolvedEmail = profileRow.email || resolvedEmail;
+        }
+
+        if (resolvedEmail && passwordInput) {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: resolvedEmail,
+            password: passwordInput,
+          });
+
+          if (signInErr) {
+            const errMsg = (signInErr.message || '').toLowerCase();
+            // If user exists in Supabase Auth and entered wrong password, block and notify
+            if (errMsg.includes('invalid login credentials') && matchedProfile?.id) {
+              setAuthLoading(false);
+              setAuthFeedback({
+                type: 'error',
+                message: 'Incorrect email or password. Forgot your password? Click "Forgot Password" to reset using your 5-character Unique SABI ID.',
+              });
+              return;
+            }
+          } else if (signInData?.user && !matchedProfile) {
+            const fallbackId = getOrGenerateSabiUniqueId(resolvedEmail);
+            const { data: syncedRow } = await supabase
+              .from('profiles')
+              .upsert(
+                {
+                  id: signInData.user.id,
+                  email: resolvedEmail,
+                  sabi_unique_id: fallbackId,
+                  full_name: signInData.user.user_metadata?.full_name || 'Candidate',
+                  phone: signInData.user.user_metadata?.phone || '',
+                  state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
+                  auth_providers: ['email'],
+                },
+                { onConflict: 'email' }
+              )
+              .select('*')
+              .maybeSingle();
+            if (syncedRow) matchedProfile = syncedRow;
+          }
+        }
+      } catch {
+        // Fallback to backend API login
+      }
+    }
+
+    // 2. Also call Backend /api/auth/login (verifies via Supabase Admin on server)
+    try {
+      const resp = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier,
+          password: passwordInput,
+          method: authMethod,
+        }),
+      });
+      if (resp.status === 401) {
+        const errData = await resp.json().catch(() => ({}));
+        setAuthLoading(false);
+        setAuthFeedback({
+          type: 'error',
+          message: errData?.error || 'Incorrect email or password.',
+        });
+        return;
+      }
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data?.profile) {
+          matchedProfile = matchedProfile || data.profile;
+        }
+      }
+    } catch {
+      // Offline / local fallback
+    }
+
+    const finalEmail = matchedProfile?.email || resolvedEmail || `${identifier.replace(/[^a-z0-9]/g, '')}@sabi.ng`;
+    applySyncedProfileToLocal(matchedProfile, finalEmail);
     localStorage.setItem('sabi_user_signed_in', 'true');
+    setAuthLoading(false);
+
     const params = new URLSearchParams(window.location.search);
     const redirectUrl = params.get('redirect');
     if (redirectUrl && redirectUrl.startsWith('/')) {
       navigate(redirectUrl);
+    } else if (matchedProfile && matchedProfile.onboarding_completed === false) {
+      navigate('/onboarding/1');
     } else {
       navigate('/home');
     }
@@ -436,6 +733,8 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   const handlePasswordResetWithUniqueId = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanedId = recoveryUniqueId.trim().toUpperCase();
+    const cleanIdent = recoveryIdentifier.trim().toLowerCase();
+
     if (!/^\d{4}[A-Z]$/.test(cleanedId)) {
       setRecoveryFeedback({
         type: 'error',
@@ -444,18 +743,44 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       return;
     }
 
+    setAuthLoading(true);
+
+    // 1. Check direct Supabase public.profiles first
+    if (supabase) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(`email.eq.${cleanIdent},phone.eq.${cleanIdent}`)
+          .maybeSingle();
+
+        if (profile && String(profile.sabi_unique_id).toUpperCase() !== cleanedId) {
+          setAuthLoading(false);
+          setRecoveryFeedback({
+            type: 'error',
+            message: 'Verification failed: The Unique SABI ID provided does not match this account.',
+          });
+          return;
+        }
+      } catch {
+        // Proceed to backend verification
+      }
+    }
+
+    // 2. Call Backend /api/auth/reset-password
     try {
       const resp = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          identifier: recoveryIdentifier.trim(),
+          identifier: cleanIdent,
           uniqueId: cleanedId,
           newPassword: newResetPassword,
         }),
       });
       const data = await resp.json();
       if (!resp.ok || data?.verified === false) {
+        setAuthLoading(false);
         setRecoveryFeedback({
           type: 'error',
           message: data?.error || 'Verification failed: The Unique SABI ID provided does not match this account.',
@@ -464,11 +789,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       }
     } catch {
       const storedId = localStorage.getItem('sabi_unique_id');
-      const expectedForEmail = recoveryIdentifier.includes('@')
-        ? getOrGenerateSabiUniqueId(recoveryIdentifier)
+      const expectedForEmail = cleanIdent.includes('@')
+        ? getOrGenerateSabiUniqueId(cleanIdent)
         : storedId;
 
       if (storedId && cleanedId !== storedId && cleanedId !== expectedForEmail) {
+        setAuthLoading(false);
         setRecoveryFeedback({
           type: 'error',
           message: 'Verification failed: The Unique SABI ID provided does not match this account.'
@@ -477,6 +803,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       }
     }
 
+    setAuthLoading(false);
     setRecoveryFeedback({
       type: 'success',
       message: `Unique ID (${cleanedId}) verified! Your password has been updated. Redirecting to Sign In...`
@@ -491,7 +818,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   return (
     <div className={`min-h-[100dvh] w-full max-w-full overflow-x-hidden ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
       {/* Header */}
-      <header className={`px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/80 border-slate-800' : 'bg-white/90 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
+      <header className={`sabi-top-safe-bar px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <BrandLockup />
           <div className="flex items-center gap-3">
@@ -590,6 +917,20 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                   {currentMode === 'forgot-password' && 'Provide your registered email/phone and your 5-character Unique SABI ID as verification grant.'}
                 </p>
               </div>
+
+              {authFeedback && (
+                <div
+                  className={`mb-4 p-3.5 rounded-xl text-xs font-bold border ${
+                    authFeedback.type === 'error'
+                      ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+                      : authFeedback.type === 'success'
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                      : 'bg-amber-400/15 border-amber-400/40 text-amber-400'
+                  }`}
+                >
+                  {authFeedback.message}
+                </div>
+              )}
 
               {/* ========================================== */}
               {/* 1. CHOICE MODE                             */}
@@ -782,9 +1123,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
                   <button
                     type="submit"
-                    className="w-full py-4 rounded-2xl font-black text-sm sm:text-base bg-blue-700 hover:bg-blue-800 text-white shadow-lg shadow-blue-700/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    disabled={authLoading}
+                    className="w-full py-4 rounded-2xl font-black text-sm sm:text-base bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white shadow-lg shadow-blue-700/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
-                    <span>Create Account & Generate Unique ID</span>
+                    <span>{authLoading ? 'Creating Account & Syncing ID...' : 'Create Account & Generate Unique ID'}</span>
                     <ArrowRight size={18} />
                   </button>
                 </form>
@@ -982,9 +1324,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
                   <button
                     type="submit"
-                    className="w-full py-4 rounded-2xl font-black text-base bg-blue-700 hover:bg-blue-800 text-white shadow-lg shadow-blue-700/25 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    disabled={authLoading}
+                    className="w-full py-4 rounded-2xl font-black text-base bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white shadow-lg shadow-blue-700/25 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
-                    <span>Sign In to Dashboard</span>
+                    <span>{authLoading ? 'Signing In & Syncing...' : 'Sign In to Dashboard'}</span>
                     <ArrowRight size={18} />
                   </button>
 

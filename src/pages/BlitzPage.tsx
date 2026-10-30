@@ -158,8 +158,8 @@ export function BlitzPage() {
       {/* TOP HEADER: SABI BLITZ HUB */}
       {/* ======================================================== */}
       <header
-        className={`sticky top-0 z-30 px-4 sm:px-8 py-3.5 border-b backdrop-blur-md ${
-          isDark ? 'bg-[#080D1A]/90 border-slate-800' : 'bg-white/95 border-slate-200'
+        className={`sabi-top-safe-bar sticky top-0 z-30 px-4 sm:px-8 py-3.5 border-b backdrop-blur-md ${
+          isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'
         } flex items-center justify-between gap-3`}
       >
         <div className="flex items-center gap-3">
