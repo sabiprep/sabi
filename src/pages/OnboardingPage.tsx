@@ -124,13 +124,58 @@ export function OnboardingPage() {
     }
   }, [answers, confidence, question.id, selectedSubjects]);
 
-  const handleNext = () => {
+  // Guard: Ensure candidate actually created a Supabase account before accessing Onboarding
+  useEffect(() => {
+    const email = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
+    if (!email) {
+      navigate('/auth/sign-up', { replace: true });
+      return;
+    }
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('email', email)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        if (!data || !data.email) {
+          localStorage.removeItem('sabi_user_signed_in');
+          navigate('/auth/sign-up', { replace: true });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  const handleNext = async () => {
     if (!canContinue) return;
     sound.playCorrect();
     if (question.id === totalSteps) {
-      localStorage.setItem('sabi_user_signed_in', 'true');
-      localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(answers));
       const email = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
+      if (!email) {
+        navigate('/auth/sign-up', { replace: true });
+        return;
+      }
+
+      localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(answers));
+      localStorage.setItem('sabi_user_signed_in', 'true');
+
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            onboarding_completed: true,
+            onboarding_answers: answers,
+            registered_subjects: selectedSubjects,
+            target_score: Number(answers.targetScore) || 320,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('email', email);
+      } catch {
+        // Backend sync fallback below
+      }
 
       fetch('/api/profile/onboarding', {
         method: 'POST',
@@ -142,20 +187,6 @@ export function OnboardingPage() {
           targetScore: answers.targetScore || 320,
         }),
       }).catch(() => {});
-
-      if (email && supabase) {
-        supabase
-          .from('profiles')
-          .update({
-            onboarding_completed: true,
-            onboarding_answers: answers,
-            registered_subjects: selectedSubjects,
-            target_score: Number(answers.targetScore) || 320,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('email', email)
-          .then(() => {}, () => {});
-      }
 
       navigate('/home');
     } else {

@@ -31,7 +31,10 @@ app.use((req, res, next) => {
 // -------------------------------------------------------------
 // Supabase Server Client (Supports both new Secret Key & legacy service_role key)
 // -------------------------------------------------------------
-const rawSupabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const rawSupabaseUrl =
+  process.env.VITE_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://dnrzixaasphxiswjyglj.supabase.co';
 const supabaseUrl = rawSupabaseUrl
   .trim()
   .replace(/\/rest\/v1\/?$/i, '')
@@ -41,15 +44,16 @@ const supabaseServerKey = (
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SECRET_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
-  ''
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucnppeGFhc3BoeGlzd2p5Z2xqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyOTg3MzQsImV4cCI6MjEwODg3NDczNH0.B0SXI_Ds7MaVvtwcBnfQqZl8x8PNKen-UZkYrTnMzk4'
 ).trim();
 
-const supabaseAdmin =
-  supabaseUrl && supabaseServerKey
-    ? createClient(supabaseUrl, supabaseServerKey, {
-        auth: { autoRefreshToken: false, persistSession: false },
-      })
-    : null;
+const hasServiceRoleKey = Boolean(
+  (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim()
+);
+
+const supabaseAdmin = createClient(supabaseUrl, supabaseServerKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
 
 // Deterministic 5-character Unique SABI ID generator (4 digits + 1 uppercase letter, e.g. 4829K)
 function generateDeterministicSabiId(email: string): string {
@@ -65,9 +69,6 @@ function generateDeterministicSabiId(email: string): string {
   const oneLetter = letters[absHash % letters.length];
   return `${fourDigits}${oneLetter}`;
 }
-
-// In-memory fallback store when Supabase env vars are not yet set
-const localProfilesByEmail = new Map<string, any>();
 
 // Initialize Gemini SDK with telemetry header requested in the skill guide
 const apiKey = process.env.GEMINI_API_KEY;
@@ -99,129 +100,126 @@ async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Prom
 // API Endpoints: Auth, Unique SABI ID & Supabase Profile Sync
 // -------------------------------------------------------------
 
-// 0a. Register or Sync Candidate (Unifies Email & Google Auth by email so no duplicate IDs)
+// 0a. Register or Sync Candidate in Supabase Auth (auth.users) + public.profiles
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { fullName, email, password, phone, stateOfOrigin, provider = 'email' } = req.body;
+    const { fullName, email, password, phone, stateOfOrigin, provider = 'email', authUserId: clientAuthUserId } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (!normalizedEmail) {
-      return res.status(400).json({ error: 'Email address is required.' });
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return res.status(400).json({ error: 'A valid email address is required.' });
+    }
+    if (!password || String(password).length < 6) {
+      return res.status(400).json({ error: 'Password is required and must be at least 6 characters.' });
     }
 
     const fallbackUniqueId = generateDeterministicSabiId(normalizedEmail);
 
-    if (supabaseAdmin) {
-      // 1. Check if profile already exists for this email (prevents duplicate IDs across Google & Email)
-      const { data: existingProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('email', normalizedEmail)
-        .maybeSingle();
+    // 1. Check if profile already exists for this email
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
 
-      if (existingProfile) {
-        const updatedProviders = Array.from(
-          new Set([...(existingProfile.auth_providers || ['email']), provider])
-        );
-        const { data: syncedProfile } = await supabaseAdmin
-          .from('profiles')
-          .update({
-            full_name: fullName || existingProfile.full_name,
-            phone: phone || existingProfile.phone,
-            state_of_origin: stateOfOrigin || existingProfile.state_of_origin,
-            auth_providers: updatedProviders,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('email', normalizedEmail)
-          .select('*')
-          .single();
+    const uniqueId = existingProfile?.sabi_unique_id || fallbackUniqueId;
+    let userId: string | undefined = clientAuthUserId || existingProfile?.id;
 
-        return res.json({
-          status: 'synced',
-          profile: syncedProfile || existingProfile,
-          sabi_unique_id: (syncedProfile || existingProfile).sabi_unique_id,
-        });
+    // 2. Ensure user exists in Supabase Auth (auth.users -> Authentication > Users tab)
+    if (!userId && hasServiceRoleKey) {
+      const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: normalizedEmail,
+        password: String(password),
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName || existingProfile?.full_name || '',
+          phone: phone || existingProfile?.phone || '',
+          state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+          sabi_unique_id: uniqueId,
+        },
+      });
+
+      if (authData?.user?.id) {
+        userId = authData.user.id;
+      } else if (createErr) {
+        const errMsg = (createErr.message || '').toLowerCase();
+        if (errMsg.includes('already') || errMsg.includes('registered') || errMsg.includes('exists')) {
+          return res.status(409).json({
+            error: `An account with ${normalizedEmail} is already registered. Please Sign In or use Forgot Password with your Unique SABI ID.`,
+          });
+        }
+        return res.status(400).json({ error: createErr.message || 'Failed to create user in Supabase Auth.' });
       }
-
-      // 2. Create user in Supabase Auth if Service Role key is configured
-      let userId: string | undefined;
-      if (password) {
-        const { data: authData } = await supabaseAdmin.auth.admin.createUser({
-          email: normalizedEmail,
-          password,
-          email_confirm: true,
-          user_metadata: {
-            full_name: fullName,
-            phone,
-            state_of_origin: stateOfOrigin,
-          },
-        });
-        userId = authData?.user?.id;
-      }
-
-      // 3. Upsert into public.profiles and retrieve the 4-digit + 1-letter sabi_unique_id
-      const { data: newProfile } = await supabaseAdmin
-        .from('profiles')
-        .upsert(
-          {
-            ...(userId ? { id: userId } : {}),
-            email: normalizedEmail,
-            sabi_unique_id: fallbackUniqueId,
+    } else if (!userId) {
+      const { data: signUpData, error: signUpErr } = await supabaseAdmin.auth.signUp({
+        email: normalizedEmail,
+        password: String(password),
+        options: {
+          data: {
             full_name: fullName || '',
             phone: phone || '',
             state_of_origin: stateOfOrigin || 'Lagos',
-            auth_providers: [provider],
+            sabi_unique_id: uniqueId,
           },
-          { onConflict: 'email' }
-        )
-        .select('*')
-        .maybeSingle();
-
-      if (newProfile) {
-        return res.json({
-          status: 'created',
-          profile: newProfile,
-          sabi_unique_id: newProfile.sabi_unique_id,
+        },
+      });
+      if (signUpErr) {
+        return res.status(400).json({ error: signUpErr.message });
+      }
+      if (signUpData?.user?.identities && signUpData.user.identities.length === 0) {
+        return res.status(409).json({
+          error: `An account with ${normalizedEmail} is already registered. Please Sign In instead.`,
         });
       }
+      userId = signUpData?.user?.id;
     }
 
-    // Local fallback when Supabase credentials are not yet added
-    const existingLocal = localProfilesByEmail.get(normalizedEmail);
-    const profile = {
-      email: normalizedEmail,
-      sabi_unique_id: existingLocal?.sabi_unique_id || fallbackUniqueId,
-      full_name: fullName || existingLocal?.full_name || 'Candidate',
-      phone: phone || existingLocal?.phone || '',
-      state_of_origin: stateOfOrigin || existingLocal?.state_of_origin || 'Lagos',
-      auth_providers: Array.from(new Set([...(existingLocal?.auth_providers || []), provider])),
-      onboarding_completed: existingLocal?.onboarding_completed || false,
-    };
-    localProfilesByEmail.set(normalizedEmail, profile);
+    if (!userId) {
+      return res.status(500).json({ error: 'Supabase Auth did not return a valid user ID.' });
+    }
+
+    // 3. Upsert into public.profiles linked to auth.users ID
+    const updatedProviders = Array.from(
+      new Set([...(existingProfile?.auth_providers || []), provider, 'email'])
+    );
+
+    const { data: savedProfile, error: profileErr } = await supabaseAdmin
+      .from('profiles')
+      .upsert(
+        {
+          id: userId,
+          email: normalizedEmail,
+          sabi_unique_id: uniqueId,
+          full_name: fullName || existingProfile?.full_name || '',
+          phone: phone || existingProfile?.phone || '',
+          state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+          auth_providers: updatedProviders,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'email' }
+      )
+      .select('*')
+      .single();
+
+    if (profileErr || !savedProfile) {
+      return res.status(500).json({
+        error: profileErr?.message || 'Failed to save candidate profile in Supabase.',
+      });
+    }
 
     return res.json({
       status: 'created',
-      profile,
-      sabi_unique_id: profile.sabi_unique_id,
+      auth_user_id: userId,
+      profile: savedProfile,
+      sabi_unique_id: savedProfile.sabi_unique_id,
     });
   } catch (err: any) {
-    console.warn('Register endpoint fallback:', err?.message || err);
-    const normalizedEmail = String(req.body?.email || 'scholar@sabi.ng').trim().toLowerCase();
-    const sabi_unique_id = generateDeterministicSabiId(normalizedEmail);
-    return res.json({
-      status: 'created',
-      sabi_unique_id,
-      profile: {
-        email: normalizedEmail,
-        sabi_unique_id,
-        full_name: req.body?.fullName || 'Candidate',
-        phone: req.body?.phone || '',
-        state_of_origin: req.body?.stateOfOrigin || 'Lagos',
-      },
+    return res.status(500).json({
+      error: err?.message || 'Account registration failed on server.',
     });
   }
 });
 
-// 0a-2. Login Candidate (Email or Phone + Password) & Return Synced Profile
+// 0a-2. Login Candidate (Email or Phone + Password) & Verify Against Supabase Auth
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { identifier, password, method = 'email' } = req.body;
@@ -229,88 +227,77 @@ app.post('/api/auth/login', async (req, res) => {
     if (!cleanIdentifier) {
       return res.status(400).json({ error: 'Email or phone number is required.' });
     }
-
-    if (supabaseAdmin) {
-      // Find candidate profile by email or phone
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .or(
-          method === 'phone' || !cleanIdentifier.includes('@')
-            ? `phone.eq.${cleanIdentifier},email.eq.${cleanIdentifier}`
-            : `email.eq.${cleanIdentifier}`
-        )
-        .maybeSingle();
-
-      const targetEmail = profile?.email || (cleanIdentifier.includes('@') ? cleanIdentifier : '');
-
-      // Verify password via Supabase Auth if email & password provided
-      if (targetEmail && password) {
-        const { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
-          email: targetEmail,
-          password: String(password),
-        });
-
-        if (signInErr) {
-          const msg = signInErr.message || '';
-          if (msg.toLowerCase().includes('invalid login credentials') && profile?.id) {
-            return res.status(401).json({
-              error: 'Invalid email or password. Use your 5-character Unique SABI ID if you need to reset your password.',
-            });
-          }
-        } else if (signInData?.user && !profile) {
-          const fallbackId = generateDeterministicSabiId(targetEmail);
-          const { data: createdProfile } = await supabaseAdmin
-            .from('profiles')
-            .upsert(
-              {
-                id: signInData.user.id,
-                email: targetEmail,
-                sabi_unique_id: fallbackId,
-                full_name: signInData.user.user_metadata?.full_name || 'Candidate',
-                phone: signInData.user.user_metadata?.phone || '',
-                state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
-                auth_providers: ['email'],
-              },
-              { onConflict: 'email' }
-            )
-            .select('*')
-            .maybeSingle();
-
-          return res.json({
-            status: 'authenticated',
-            profile: createdProfile,
-            sabi_unique_id: createdProfile?.sabi_unique_id || fallbackId,
-          });
-        }
-      }
-
-      if (profile) {
-        return res.json({
-          status: 'authenticated',
-          profile,
-          sabi_unique_id: profile.sabi_unique_id,
-        });
-      }
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required to sign in.' });
     }
 
-    // Local fallback
-    const localProfile = localProfilesByEmail.get(cleanIdentifier);
-    const sabi_unique_id =
-      localProfile?.sabi_unique_id ||
-      generateDeterministicSabiId(cleanIdentifier.includes('@') ? cleanIdentifier : `${cleanIdentifier}@sabi.ng`);
+    // 1. Find candidate profile by email or phone in public.profiles
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .or(
+        method === 'phone' || !cleanIdentifier.includes('@')
+          ? `phone.eq.${cleanIdentifier},email.eq.${cleanIdentifier}`
+          : `email.eq.${cleanIdentifier}`
+      )
+      .maybeSingle();
+
+    const targetEmail = profile?.email || (cleanIdentifier.includes('@') ? cleanIdentifier : '');
+    if (!targetEmail) {
+      return res.status(404).json({
+        error: 'No SABI account found with that phone number. Please Create an Account first or sign in with your registered email.',
+      });
+    }
+
+    // 2. Authenticate password strictly against Supabase Auth
+    const { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
+      email: targetEmail,
+      password: String(password),
+    });
+
+    if (signInErr || !signInData?.user) {
+      const msg = (signInErr?.message || '').toLowerCase();
+      if (msg.includes('email not confirmed')) {
+        return res.status(403).json({
+          error: `Please confirm your email (${targetEmail}) first! Check your inbox or spam folder for the verification link.`,
+          code: 'EMAIL_NOT_CONFIRMED',
+          email: targetEmail,
+        });
+      }
+      return res.status(401).json({
+        error: 'Incorrect email or password. If you forgot your password, click "Forgot Password" and verify with your 5-character Unique SABI ID.',
+      });
+    }
+
+    // 3. Ensure public.profiles row exists and is linked to signInData.user.id
+    let finalProfile = profile;
+    if (!finalProfile || !finalProfile.id) {
+      const fallbackId = finalProfile?.sabi_unique_id || generateDeterministicSabiId(targetEmail);
+      const { data: syncedProfile } = await supabaseAdmin
+        .from('profiles')
+        .upsert(
+          {
+            id: signInData.user.id,
+            email: targetEmail,
+            sabi_unique_id: fallbackId,
+            full_name: finalProfile?.full_name || signInData.user.user_metadata?.full_name || 'Candidate',
+            phone: finalProfile?.phone || signInData.user.user_metadata?.phone || '',
+            state_of_origin: finalProfile?.state_of_origin || signInData.user.user_metadata?.state_of_origin || 'Lagos',
+            auth_providers: finalProfile?.auth_providers || ['email'],
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'email' }
+        )
+        .select('*')
+        .single();
+      finalProfile = syncedProfile || finalProfile;
+    }
 
     return res.json({
       status: 'authenticated',
-      sabi_unique_id,
-      profile: localProfile || {
-        email: cleanIdentifier.includes('@') ? cleanIdentifier : `${cleanIdentifier}@sabi.ng`,
-        sabi_unique_id,
-        full_name: 'Candidate',
-        phone: cleanIdentifier.includes('@') ? '' : cleanIdentifier,
-        state_of_origin: 'Lagos',
-        onboarding_completed: true,
-      },
+      auth_user_id: signInData.user.id,
+      profile: finalProfile,
+      sabi_unique_id: finalProfile?.sabi_unique_id || generateDeterministicSabiId(targetEmail),
     });
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Sign in failed.' });
@@ -330,51 +317,54 @@ app.post('/api/auth/reset-password', async (req, res) => {
         error: 'Unique SABI ID must be 4 numbers followed by 1 uppercase letter (e.g., 4829K).',
       });
     }
-
-    if (supabaseAdmin) {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .or(`email.eq.${cleanIdentifier},phone.eq.${cleanIdentifier}`)
-        .maybeSingle();
-
-      if (profile) {
-        if (String(profile.sabi_unique_id).toUpperCase() !== cleanId) {
-          return res.status(403).json({
-            verified: false,
-            error: 'Verification denied: Unique SABI ID does not match this account.',
-          });
-        }
-
-        if (profile.id && newPassword) {
-          await supabaseAdmin.auth.admin.updateUserById(profile.id, {
-            password: newPassword,
-          });
-        }
-
-        return res.json({
-          verified: true,
-          message: `Unique ID (${cleanId}) verified! Password updated in Supabase.`,
-        });
-      }
+    if (!newPassword || String(newPassword).length < 6) {
+      return res.status(400).json({
+        verified: false,
+        error: 'New password must be at least 6 characters long.',
+      });
     }
 
-    // Fallback check against deterministic / local store
-    const localProfile = localProfilesByEmail.get(cleanIdentifier);
-    const expectedId =
-      localProfile?.sabi_unique_id ||
-      (cleanIdentifier.includes('@') ? generateDeterministicSabiId(cleanIdentifier) : cleanId);
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .or(`email.eq.${cleanIdentifier},phone.eq.${cleanIdentifier}`)
+      .maybeSingle();
 
-    if (cleanId !== expectedId) {
+    if (!profile) {
+      return res.status(404).json({
+        verified: false,
+        error: 'No registered SABI candidate account found for that email or phone number.',
+      });
+    }
+
+    if (String(profile.sabi_unique_id).toUpperCase() !== cleanId) {
       return res.status(403).json({
         verified: false,
         error: 'Verification denied: Unique SABI ID does not match this account.',
       });
     }
 
+    if (profile.id && hasServiceRoleKey) {
+      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+        password: String(newPassword),
+        email_confirm: true,
+      });
+      if (updateErr) {
+        return res.status(500).json({
+          verified: false,
+          error: updateErr.message || 'Failed to update password in Supabase Auth.',
+        });
+      }
+    } else {
+      return res.status(500).json({
+        verified: false,
+        error: 'Password reset requires server admin connection to Supabase Auth.',
+      });
+    }
+
     return res.json({
       verified: true,
-      message: `Unique ID (${cleanId}) verified! Your password has been reset.`,
+      message: `Unique ID (${cleanId}) verified! Password updated in Supabase.`,
     });
   } catch (err: any) {
     return res.status(500).json({
@@ -403,20 +393,9 @@ app.post('/api/profile/onboarding', async (req, res) => {
         .eq('email', normalizedEmail);
     }
 
-    if (normalizedEmail && localProfilesByEmail.has(normalizedEmail)) {
-      const existing = localProfilesByEmail.get(normalizedEmail);
-      localProfilesByEmail.set(normalizedEmail, {
-        ...existing,
-        onboarding_completed: true,
-        onboarding_answers: onboardingAnswers,
-        registered_subjects: registeredSubjects,
-        target_score: targetScore,
-      });
-    }
-
     return res.json({ status: 'saved' });
   } catch (err: any) {
-    return res.json({ status: 'saved_locally' });
+    return res.status(500).json({ error: err?.message || 'Failed to save onboarding answers.' });
   }
 });
 

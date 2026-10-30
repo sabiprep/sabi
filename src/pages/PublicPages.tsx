@@ -91,13 +91,31 @@ function BrandLockup({ compact = false }: { compact?: boolean }) {
 export function SplashPage() {
   const navigate = useNavigate();
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     const isSigned = typeof window !== 'undefined' && localStorage.getItem('sabi_user_signed_in') === 'true';
-    if (isSigned) {
-      navigate('/home');
-    } else {
-      navigate('/welcome');
+    const savedEmail = typeof window !== 'undefined' ? (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase() : '';
+
+    if (isSigned && savedEmail) {
+      try {
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, email, sabi_unique_id')
+          .eq('email', savedEmail)
+          .maybeSingle();
+
+        if (existingProfile?.email) {
+          navigate('/home');
+          return;
+        } else {
+          // Clear any stale localStorage-only session that does not exist in Supabase
+          localStorage.removeItem('sabi_user_signed_in');
+        }
+      } catch {
+        navigate('/home');
+        return;
+      }
     }
+    navigate('/welcome');
   };
 
   return (
@@ -279,9 +297,11 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   const [authLoading, setAuthLoading] = useState(false);
   const [authFeedback, setAuthFeedback] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null);
 
-  // Syncs a retrieved Supabase/Backend profile into local storage & restores progress
+  const [unconfirmedEmailForResend, setUnconfirmedEmailForResend] = useState<string>('');
+
+  // Syncs a verified Supabase profile into local storage & restores progress
   const applySyncedProfileToLocal = (profile: any, fallbackEmail: string, fallbackName?: string) => {
-    const email = (profile?.email || fallbackEmail || 'scholar@sabi.ng').trim().toLowerCase();
+    const email = (profile?.email || fallbackEmail || '').trim().toLowerCase();
     const uniqueId = profile?.sabi_unique_id || getOrGenerateSabiUniqueId(email);
     const fullName = profile?.full_name || fallbackName || localStorage.getItem('sabi_user_name') || 'Candidate';
     const phone = profile?.phone || phoneInput.trim() || localStorage.getItem('sabi_user_phone') || '';
@@ -307,212 +327,242 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     return { email, uniqueId, fullName };
   };
 
-  // Handle Google Auth Sync (links by email address so no duplicate ID is ever created)
+  // Resend Supabase verification email when Email Confirmation is active
+  const handleResendVerificationEmail = async () => {
+    const targetEmail = (unconfirmedEmailForResend || emailInput).trim().toLowerCase();
+    if (!targetEmail) return;
+    setAuthLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: targetEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+        },
+      });
+      setAuthLoading(false);
+      if (error) {
+        setAuthFeedback({
+          type: 'error',
+          message: error.message || 'Could not resend verification email. Please wait a minute and try again.',
+        });
+      } else {
+        setAuthFeedback({
+          type: 'success',
+          message: `Verification email resent to ${targetEmail}! Check your inbox and spam folder.`,
+        });
+      }
+    } catch (err: any) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message: err?.message || 'Failed to resend verification email.',
+      });
+    }
+  };
+
+  // Handle Google Auth Sync (links by email address in Supabase so no duplicate ID is ever created)
   const handleGoogleSync = async (targetNext: 'register' | 'login') => {
     setAuthFeedback(null);
-    const rawEmail = emailInput.trim();
-    if (!rawEmail && targetNext === 'login') {
-      // Check if an email was already saved on this device
-      const savedEmail = localStorage.getItem('sabi_user_email');
-      if (!savedEmail) {
-        setAuthFeedback({
-          type: 'info',
-          message: 'Enter your Gmail address below first, then tap "Continue with Google" to sync your account and Unique ID.',
-        });
-        return;
-      }
+    setUnconfirmedEmailForResend('');
+
+    if (targetNext === 'register') {
+      setAuthProvider('google');
+      setAuthFeedback({
+        type: 'info',
+        message: 'Google Gmail sync enabled! Enter your Gmail address, phone number, state of origin, and password below to create your synced Supabase account.',
+      });
+      return;
+    }
+
+    // For Sign-In: if the user entered their Gmail & password, sign them in and link 'google' provider in Supabase
+    const rawEmail = emailInput.trim().toLowerCase();
+    if (!rawEmail || !passwordInput) {
+      setAuthFeedback({
+        type: 'info',
+        message: 'Enter your registered Gmail address and password below, then tap "Sign In to Dashboard" (or "Continue with Google") to verify with Supabase.',
+      });
+      return;
     }
 
     setAuthLoading(true);
-    const syncedEmail = (rawEmail || localStorage.getItem('sabi_user_email') || 'scholar@gmail.com').toLowerCase();
-    const syncedName = fullNameInput.trim() || localStorage.getItem('sabi_user_name') || syncedEmail.split('@')[0];
-    setEmailInput(syncedEmail);
-    setFullNameInput(syncedName);
-    setAuthProvider('google');
-
-    let uniqueId = getOrGenerateSabiUniqueId(syncedEmail);
-    let syncedProfile: any = null;
-
-    // 1. Direct Supabase public.profiles lookup/upsert (works directly on Android APK & Vercel Webapp)
-    if (supabase) {
-      try {
-        const { data: existing } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('email', syncedEmail)
-          .maybeSingle();
-
-        if (existing) {
-          uniqueId = existing.sabi_unique_id || uniqueId;
-          syncedProfile = existing;
-          const updatedProviders = Array.from(new Set([...(existing.auth_providers || ['email']), 'google']));
-          await supabase
-            .from('profiles')
-            .update({
-              full_name: fullNameInput.trim() || existing.full_name || syncedName,
-              phone: phoneInput.trim() || existing.phone || '',
-              state_of_origin: stateOfOriginInput || existing.state_of_origin || 'Lagos',
-              auth_providers: updatedProviders,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('email', syncedEmail);
-        } else {
-          const { data: inserted } = await supabase
-            .from('profiles')
-            .upsert(
-              {
-                email: syncedEmail,
-                sabi_unique_id: uniqueId,
-                full_name: syncedName,
-                phone: phoneInput.trim(),
-                state_of_origin: stateOfOriginInput || 'Lagos',
-                auth_providers: ['google'],
-              },
-              { onConflict: 'email' }
-            )
-            .select('*')
-            .maybeSingle();
-          if (inserted) {
-            syncedProfile = inserted;
-            uniqueId = inserted.sabi_unique_id || uniqueId;
-          }
-        }
-      } catch {
-        // Continue to API sync
-      }
-    }
-
-    // 2. Backend API sync
     try {
-      const resp = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: syncedName,
-          email: syncedEmail,
-          phone: phoneInput.trim(),
-          stateOfOrigin: stateOfOriginInput,
-          provider: 'google',
-        }),
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: rawEmail,
+        password: passwordInput,
       });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data?.sabi_unique_id) {
-          uniqueId = data.sabi_unique_id;
+
+      if (signInErr || !signInData?.user) {
+        setAuthLoading(false);
+        const msg = (signInErr?.message || '').toLowerCase();
+        if (msg.includes('email not confirmed')) {
+          setUnconfirmedEmailForResend(rawEmail);
+          setAuthFeedback({
+            type: 'error',
+            message: `Please confirm your email (${rawEmail}) first via the link sent to your inbox.`,
+          });
+          return;
         }
-        if (data?.profile) {
-          syncedProfile = data.profile;
-        }
+        setAuthFeedback({
+          type: 'error',
+          message: signInErr?.message || 'Google/Email authentication failed. Ensure your Gmail and password are registered.',
+        });
+        return;
       }
-    } catch {
-      // Fallback to deterministic ID
-    }
 
-    applySyncedProfileToLocal(syncedProfile, syncedEmail, syncedName);
-    localStorage.setItem('sabi_unique_id', uniqueId);
-    localStorage.setItem('sabi_auth_provider', 'google+email');
-    setAuthLoading(false);
+      const uniqueId = getOrGenerateSabiUniqueId(rawEmail);
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', rawEmail)
+        .maybeSingle();
 
-    if (targetNext === 'login') {
+      const updatedProviders = Array.from(
+        new Set([...(existing?.auth_providers || ['email']), 'google'])
+      );
+
+      const { data: syncedProfile } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            id: signInData.user.id,
+            email: rawEmail,
+            sabi_unique_id: existing?.sabi_unique_id || uniqueId,
+            full_name: existing?.full_name || signInData.user.user_metadata?.full_name || rawEmail.split('@')[0],
+            phone: existing?.phone || signInData.user.user_metadata?.phone || '',
+            state_of_origin: existing?.state_of_origin || signInData.user.user_metadata?.state_of_origin || 'Lagos',
+            auth_providers: updatedProviders,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'email' }
+        )
+        .select('*')
+        .single();
+
+      applySyncedProfileToLocal(syncedProfile || existing, rawEmail);
+      localStorage.setItem('sabi_auth_provider', 'google+email');
       localStorage.setItem('sabi_user_signed_in', 'true');
+      setAuthLoading(false);
+
       const params = new URLSearchParams(window.location.search);
       const redirectUrl = params.get('redirect');
       if (redirectUrl && redirectUrl.startsWith('/')) {
         navigate(redirectUrl);
+      } else if (syncedProfile && syncedProfile.onboarding_completed === false) {
+        navigate('/onboarding/1');
       } else {
         navigate('/home');
       }
-    } else {
-      if (phoneInput.trim() && stateOfOriginInput) {
-        localStorage.setItem('sabi_user_phone', phoneInput.trim());
-        localStorage.setItem('sabi_user_state', stateOfOriginInput);
-        setGeneratedUniqueId(uniqueId);
-        setCurrentMode('verify');
-      } else {
-        setAuthFeedback({
-          type: 'success',
-          message: 'Google Gmail linked! Complete your Phone Number and State of Origin below to generate your Unique SABI ID.',
-        });
-      }
+    } catch (err: any) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message: err?.message || 'Unable to authenticate with Supabase. Please check your connection.',
+      });
     }
   };
 
-  // Handle Create Account form submission -> generates Unique SABI ID before Onboarding
+  // Handle Create Account form submission -> strictly creates user in Supabase Auth (auth.users) + public.profiles
   const handleCreateAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
-    setAuthLoading(true);
+    setUnconfirmedEmailForResend('');
 
     const normalizedEmail = emailInput.trim().toLowerCase();
     const cleanedName = fullNameInput.trim();
     const cleanedPhone = phoneInput.trim();
-    let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
-    let syncedProfile: any = null;
 
-    // 1. Direct Supabase Auth + public.profiles Upsert (Works natively on Android APK & Webapp)
-    if (supabase) {
-      try {
-        // Check if profile already exists for this email so we never overwrite an existing sabi_unique_id
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('email', normalizedEmail)
-          .maybeSingle();
-
-        if (existingProfile?.sabi_unique_id) {
-          uniqueId = existingProfile.sabi_unique_id;
-        }
-
-        let authUserId: string | undefined = existingProfile?.id;
-
-        if (passwordInput) {
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email: normalizedEmail,
-            password: passwordInput,
-            options: {
-              emailRedirectTo: `${window.location.origin}/auth/sign-in`,
-              data: {
-                full_name: cleanedName,
-                phone: cleanedPhone,
-                state_of_origin: stateOfOriginInput,
-                sabi_unique_id: uniqueId,
-              },
-            },
-          });
-
-          if (!signUpError && signUpData?.user?.id) {
-            authUserId = signUpData.user.id;
-          }
-        }
-
-        const { data: upsertedProfile } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              ...(authUserId ? { id: authUserId } : {}),
-              email: normalizedEmail,
-              sabi_unique_id: uniqueId,
-              full_name: cleanedName,
-              phone: cleanedPhone,
-              state_of_origin: stateOfOriginInput,
-              auth_providers: [authProvider === 'google' ? 'google' : 'email'],
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'email' }
-          )
-          .select('*')
-          .maybeSingle();
-
-        if (upsertedProfile) {
-          syncedProfile = upsertedProfile;
-          uniqueId = upsertedProfile.sabi_unique_id || uniqueId;
-        }
-      } catch {
-        // Continue to backend API registration
-      }
+    if (!cleanedName || !normalizedEmail || !cleanedPhone) {
+      setAuthFeedback({
+        type: 'error',
+        message: 'Please complete your Full Name, Email Address, and Nigerian Phone Number.',
+      });
+      return;
     }
 
-    // 2. Backend API Registration & Admin Sync
+    if (!passwordInput || passwordInput.length < 6) {
+      setAuthFeedback({
+        type: 'error',
+        message: 'Your password must be at least 6 characters long.',
+      });
+      return;
+    }
+
+    setAuthLoading(true);
+    let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
+    let syncedProfile: any = null;
+    let authUserId: string | undefined;
+    let lastErrorMessage = '';
+
+    // 1. Check if this email already has a registered profile in Supabase public.profiles
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (existingProfile?.id) {
+        setAuthLoading(false);
+        setAuthFeedback({
+          type: 'error',
+          message: `An account with ${normalizedEmail} is already registered (Unique ID: ${existingProfile.sabi_unique_id}). Please switch to "Sign In" or use "Forgot Password".`,
+        });
+        return;
+      }
+      if (existingProfile?.sabi_unique_id) {
+        uniqueId = existingProfile.sabi_unique_id;
+      }
+    } catch {
+      // Proceed to creation
+    }
+
+    // 2. Create user in Supabase Auth (auth.users -> Authentication > Users tab) directly from client
+    //    This triggers Supabase's native email verification flow when Confirm Email is ON.
+    try {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: normalizedEmail,
+        password: passwordInput,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+          data: {
+            full_name: cleanedName,
+            phone: cleanedPhone,
+            state_of_origin: stateOfOriginInput,
+            sabi_unique_id: uniqueId,
+          },
+        },
+      });
+
+      if (signUpError) {
+        lastErrorMessage = signUpError.message;
+        const lowerErr = signUpError.message.toLowerCase();
+        if (lowerErr.includes('already registered') || lowerErr.includes('already exists')) {
+          setAuthLoading(false);
+          setAuthFeedback({
+            type: 'error',
+            message: `An account with ${normalizedEmail} already exists in Supabase. Please go to Sign In.`,
+          });
+          return;
+        }
+      } else if (signUpData?.user) {
+        // When Confirm Email is ON, Supabase returns identities: [] if the user already exists in auth.users
+        if (Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
+          setAuthLoading(false);
+          setAuthFeedback({
+            type: 'error',
+            message: `An account with ${normalizedEmail} is already registered in Supabase Auth. Please Sign In instead.`,
+          });
+          return;
+        }
+        authUserId = signUpData.user.id;
+      }
+    } catch (err: any) {
+      lastErrorMessage = err?.message || 'Supabase Auth signup request failed.';
+    }
+
+    // 3. Also call Backend /api/auth/register (ensures user is created in auth.users & public.profiles
+    //    even if Supabase free-tier SMTP email rate limit was reached during signUp)
     try {
       const resp = await fetch('/api/auth/register', {
         method: 'POST',
@@ -524,19 +574,78 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           phone: cleanedPhone,
           stateOfOrigin: stateOfOriginInput,
           provider: authProvider === 'google' ? 'google' : 'email',
+          authUserId,
         }),
       });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.status === 409) {
+        setAuthLoading(false);
+        setAuthFeedback({
+          type: 'error',
+          message: data?.error || `An account with ${normalizedEmail} already exists. Please Sign In.`,
+        });
+        return;
+      }
       if (resp.ok) {
-        const data = await resp.json();
+        if (data?.auth_user_id) {
+          authUserId = data.auth_user_id;
+        }
         if (data?.sabi_unique_id) {
           uniqueId = data.sabi_unique_id;
         }
         if (data?.profile) {
           syncedProfile = data.profile;
         }
+      } else if (data?.error) {
+        lastErrorMessage = data.error;
       }
     } catch {
-      // Fallback to deterministic local ID
+      // Direct Supabase client upsert below will handle profile persistence
+    }
+
+    // 4. Ensure public.profiles row is upserted directly in Supabase with the real authUserId
+    if (authUserId && !syncedProfile) {
+      try {
+        const { data: upsertedProfile, error: upsertErr } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: authUserId,
+              email: normalizedEmail,
+              sabi_unique_id: uniqueId,
+              full_name: cleanedName,
+              phone: cleanedPhone,
+              state_of_origin: stateOfOriginInput,
+              auth_providers: authProvider === 'google' ? ['google', 'email'] : ['email'],
+              onboarding_completed: false,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'email' }
+          )
+          .select('*')
+          .single();
+
+        if (upsertErr) {
+          lastErrorMessage = upsertErr.message;
+        } else if (upsertedProfile) {
+          syncedProfile = upsertedProfile;
+          uniqueId = upsertedProfile.sabi_unique_id || uniqueId;
+        }
+      } catch (err: any) {
+        lastErrorMessage = err?.message || lastErrorMessage;
+      }
+    }
+
+    // 5. STRICT GATE: Never create a localStorage-only account if Supabase Auth or public.profiles failed
+    if (!authUserId || !syncedProfile) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message:
+          lastErrorMessage ||
+          'Could not create your account in Supabase. Please check your internet connection and try again.',
+      });
+      return;
     }
 
     applySyncedProfileToLocal(syncedProfile, normalizedEmail, cleanedName);
@@ -603,118 +712,154 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
   };
 
-  // Handle Sign In (Email or Phone + Password) on both Android APK and Webapp
+  // Handle Sign In (Email or Phone + Password) — strictly verifies against Supabase Auth + public.profiles
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
-    setAuthLoading(true);
+    setUnconfirmedEmailForResend('');
 
     const identifier = (authMethod === 'email' ? emailInput : phoneInput).trim().toLowerCase();
     if (!identifier) {
-      setAuthLoading(false);
       setAuthFeedback({
         type: 'error',
         message: 'Please enter your registered email address or Nigerian phone number.',
       });
       return;
     }
+    if (!passwordInput) {
+      setAuthFeedback({
+        type: 'error',
+        message: 'Please enter your password to sign in.',
+      });
+      return;
+    }
 
+    setAuthLoading(true);
     let matchedProfile: any = null;
     let resolvedEmail = authMethod === 'email' ? identifier : '';
+    let authenticatedUserId: string | undefined;
+    let signInErrorMessage = '';
 
-    // 1. Check Supabase public.profiles & Supabase Auth directly (works on Android APK & Webapp)
-    if (supabase) {
-      try {
-        const { data: profileRow } = await supabase
-          .from('profiles')
-          .select('*')
-          .or(
-            authMethod === 'phone' || !identifier.includes('@')
-              ? `phone.eq.${identifier},email.eq.${identifier}`
-              : `email.eq.${identifier}`
-          )
-          .maybeSingle();
-
-        if (profileRow) {
-          matchedProfile = profileRow;
-          resolvedEmail = profileRow.email || resolvedEmail;
-        }
-
-        if (resolvedEmail && passwordInput) {
-          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-            email: resolvedEmail,
-            password: passwordInput,
-          });
-
-          if (signInErr) {
-            const errMsg = (signInErr.message || '').toLowerCase();
-            // If user exists in Supabase Auth and entered wrong password, block and notify
-            if (errMsg.includes('invalid login credentials') && matchedProfile?.id) {
-              setAuthLoading(false);
-              setAuthFeedback({
-                type: 'error',
-                message: 'Incorrect email or password. Forgot your password? Click "Forgot Password" to reset using your 5-character Unique SABI ID.',
-              });
-              return;
-            }
-          } else if (signInData?.user && !matchedProfile) {
-            const fallbackId = getOrGenerateSabiUniqueId(resolvedEmail);
-            const { data: syncedRow } = await supabase
-              .from('profiles')
-              .upsert(
-                {
-                  id: signInData.user.id,
-                  email: resolvedEmail,
-                  sabi_unique_id: fallbackId,
-                  full_name: signInData.user.user_metadata?.full_name || 'Candidate',
-                  phone: signInData.user.user_metadata?.phone || '',
-                  state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
-                  auth_providers: ['email'],
-                },
-                { onConflict: 'email' }
-              )
-              .select('*')
-              .maybeSingle();
-            if (syncedRow) matchedProfile = syncedRow;
-          }
-        }
-      } catch {
-        // Fallback to backend API login
-      }
-    }
-
-    // 2. Also call Backend /api/auth/login (verifies via Supabase Admin on server)
+    // 1. Look up candidate profile in Supabase public.profiles by email or phone
     try {
-      const resp = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier,
-          password: passwordInput,
-          method: authMethod,
-        }),
-      });
-      if (resp.status === 401) {
-        const errData = await resp.json().catch(() => ({}));
-        setAuthLoading(false);
-        setAuthFeedback({
-          type: 'error',
-          message: errData?.error || 'Incorrect email or password.',
-        });
-        return;
-      }
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data?.profile) {
-          matchedProfile = matchedProfile || data.profile;
-        }
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(
+          authMethod === 'phone' || !identifier.includes('@')
+            ? `phone.eq.${identifier},email.eq.${identifier}`
+            : `email.eq.${identifier}`
+        )
+        .maybeSingle();
+
+      if (profileRow) {
+        matchedProfile = profileRow;
+        resolvedEmail = profileRow.email || resolvedEmail;
       }
     } catch {
-      // Offline / local fallback
+      // Will also check backend /api/auth/login below
     }
 
-    const finalEmail = matchedProfile?.email || resolvedEmail || `${identifier.replace(/[^a-z0-9]/g, '')}@sabi.ng`;
-    applySyncedProfileToLocal(matchedProfile, finalEmail);
+    if (!resolvedEmail) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message: 'No registered SABI account found for that phone number. Please Create an Account first or sign in with your email.',
+      });
+      return;
+    }
+
+    // 2. Authenticate password strictly against Supabase Auth directly
+    try {
+      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+        email: resolvedEmail,
+        password: passwordInput,
+      });
+
+      if (signInErr) {
+        const errMsg = (signInErr.message || '').toLowerCase();
+        if (errMsg.includes('email not confirmed')) {
+          setAuthLoading(false);
+          setUnconfirmedEmailForResend(resolvedEmail);
+          setAuthFeedback({
+            type: 'error',
+            message: `Your email (${resolvedEmail}) has not been confirmed yet. Please click the verification link sent to your email inbox (or spam folder), then sign in.`,
+          });
+          return;
+        }
+        signInErrorMessage = 'Incorrect email or password. Forgot your password? Click "Forgot Password" to reset using your 5-character Unique SABI ID.';
+      } else if (signInData?.user) {
+        authenticatedUserId = signInData.user.id;
+        if (!matchedProfile) {
+          const fallbackId = getOrGenerateSabiUniqueId(resolvedEmail);
+          const { data: syncedRow } = await supabase
+            .from('profiles')
+            .upsert(
+              {
+                id: signInData.user.id,
+                email: resolvedEmail,
+                sabi_unique_id: fallbackId,
+                full_name: signInData.user.user_metadata?.full_name || 'Candidate',
+                phone: signInData.user.user_metadata?.phone || '',
+                state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
+                auth_providers: ['email'],
+              },
+              { onConflict: 'email' }
+            )
+            .select('*')
+            .maybeSingle();
+          if (syncedRow) matchedProfile = syncedRow;
+        }
+      }
+    } catch (err: any) {
+      signInErrorMessage = err?.message || 'Sign in request failed.';
+    }
+
+    // 3. If client signInWithPassword didn't succeed, verify via Backend /api/auth/login
+    if (!authenticatedUserId) {
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            identifier,
+            password: passwordInput,
+            method: authMethod,
+          }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok && data?.auth_user_id) {
+          authenticatedUserId = data.auth_user_id;
+          matchedProfile = data.profile || matchedProfile;
+        } else if (data?.code === 'EMAIL_NOT_CONFIRMED') {
+          setAuthLoading(false);
+          setUnconfirmedEmailForResend(data.email || resolvedEmail);
+          setAuthFeedback({
+            type: 'error',
+            message: data.error,
+          });
+          return;
+        } else if (data?.error) {
+          signInErrorMessage = data.error;
+        }
+      } catch {
+        // Keep signInErrorMessage from direct Supabase Auth
+      }
+    }
+
+    // 4. STRICT GATE: Never allow localStorage sign-in if Supabase Auth did not authenticate the user
+    if (!authenticatedUserId || !matchedProfile) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message:
+          signInErrorMessage ||
+          'Account not found or incorrect password. Please check your credentials or Create an Account first.',
+      });
+      return;
+    }
+
+    applySyncedProfileToLocal(matchedProfile, matchedProfile.email || resolvedEmail);
     localStorage.setItem('sabi_user_signed_in', 'true');
     setAuthLoading(false);
 
@@ -722,7 +867,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     const redirectUrl = params.get('redirect');
     if (redirectUrl && redirectUrl.startsWith('/')) {
       navigate(redirectUrl);
-    } else if (matchedProfile && matchedProfile.onboarding_completed === false) {
+    } else if (matchedProfile.onboarding_completed === false) {
       navigate('/onboarding/1');
     } else {
       navigate('/home');
@@ -732,6 +877,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   // Handle Password Reset verified by 5-character Unique SABI ID (4 digits + 1 letter)
   const handlePasswordResetWithUniqueId = async (e: React.FormEvent) => {
     e.preventDefault();
+    setRecoveryFeedback(null);
     const cleanedId = recoveryUniqueId.trim().toUpperCase();
     const cleanIdent = recoveryIdentifier.trim().toLowerCase();
 
@@ -743,31 +889,46 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       return;
     }
 
-    setAuthLoading(true);
-
-    // 1. Check direct Supabase public.profiles first
-    if (supabase) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .or(`email.eq.${cleanIdent},phone.eq.${cleanIdent}`)
-          .maybeSingle();
-
-        if (profile && String(profile.sabi_unique_id).toUpperCase() !== cleanedId) {
-          setAuthLoading(false);
-          setRecoveryFeedback({
-            type: 'error',
-            message: 'Verification failed: The Unique SABI ID provided does not match this account.',
-          });
-          return;
-        }
-      } catch {
-        // Proceed to backend verification
-      }
+    if (!newResetPassword || newResetPassword.length < 6) {
+      setRecoveryFeedback({
+        type: 'error',
+        message: 'Your new password must be at least 6 characters long.',
+      });
+      return;
     }
 
-    // 2. Call Backend /api/auth/reset-password
+    setAuthLoading(true);
+
+    // 1. Verify account & Unique SABI ID in Supabase public.profiles
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`email.eq.${cleanIdent},phone.eq.${cleanIdent}`)
+        .maybeSingle();
+
+      if (!profile) {
+        setAuthLoading(false);
+        setRecoveryFeedback({
+          type: 'error',
+          message: 'No registered SABI account found in Supabase for that email or phone number.',
+        });
+        return;
+      }
+
+      if (String(profile.sabi_unique_id).toUpperCase() !== cleanedId) {
+        setAuthLoading(false);
+        setRecoveryFeedback({
+          type: 'error',
+          message: 'Verification failed: The Unique SABI ID provided does not match this account.',
+        });
+        return;
+      }
+    } catch {
+      // Proceed to backend verification
+    }
+
+    // 2. Call Backend /api/auth/reset-password to update password in Supabase Auth
     try {
       const resp = await fetch('/api/auth/reset-password', {
         method: 'POST',
@@ -778,35 +939,28 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           newPassword: newResetPassword,
         }),
       });
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
       if (!resp.ok || data?.verified === false) {
         setAuthLoading(false);
         setRecoveryFeedback({
           type: 'error',
-          message: data?.error || 'Verification failed: The Unique SABI ID provided does not match this account.',
+          message: data?.error || 'Verification failed: Could not update password in Supabase.',
         });
         return;
       }
     } catch {
-      const storedId = localStorage.getItem('sabi_unique_id');
-      const expectedForEmail = cleanIdent.includes('@')
-        ? getOrGenerateSabiUniqueId(cleanIdent)
-        : storedId;
-
-      if (storedId && cleanedId !== storedId && cleanedId !== expectedForEmail) {
-        setAuthLoading(false);
-        setRecoveryFeedback({
-          type: 'error',
-          message: 'Verification failed: The Unique SABI ID provided does not match this account.'
-        });
-        return;
-      }
+      setAuthLoading(false);
+      setRecoveryFeedback({
+        type: 'error',
+        message: 'Unable to reach password reset server. Please check your internet connection.',
+      });
+      return;
     }
 
     setAuthLoading(false);
     setRecoveryFeedback({
       type: 'success',
-      message: `Unique ID (${cleanedId}) verified! Your password has been updated. Redirecting to Sign In...`
+      message: `Unique ID (${cleanedId}) verified! Your password has been updated in Supabase. Redirecting to Sign In...`
     });
 
     setTimeout(() => {
@@ -928,7 +1082,17 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       : 'bg-amber-400/15 border-amber-400/40 text-amber-400'
                   }`}
                 >
-                  {authFeedback.message}
+                  <div>{authFeedback.message}</div>
+                  {unconfirmedEmailForResend && (
+                    <button
+                      type="button"
+                      onClick={handleResendVerificationEmail}
+                      disabled={authLoading}
+                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] transition-all cursor-pointer"
+                    >
+                      <span>Resend Confirmation Email to {unconfirmedEmailForResend}</span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -1003,7 +1167,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                     </div>
                     <button
                       type="button"
-                      onClick={() => setAuthProvider('google')}
+                      onClick={() => handleGoogleSync('register')}
                       className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer ${
                         authProvider === 'google'
                           ? 'bg-amber-400 text-slate-950 border-amber-500'
@@ -1099,21 +1263,22 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                     </div>
                   </div>
 
-                  {/* Password (Optional if Google Auth is chosen, or set password for dual login) */}
+                  {/* Password (Always required for Supabase Auth user creation) */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className={`block text-[11px] font-black uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        Password {authProvider === 'google' ? '(Optional for Direct Email Login)' : ''}
+                        Password (Minimum 6 Characters)
                       </label>
                     </div>
                     <div className="relative">
                       <LockKeyhole size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input
                         type="password"
+                        minLength={6}
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder={authProvider === 'google' ? 'Optional backup password' : 'Create a strong password'}
-                        required={authProvider !== 'google'}
+                        placeholder="Create a strong password (min. 6 chars)"
+                        required
                         className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
                           isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
                         } outline-none`}

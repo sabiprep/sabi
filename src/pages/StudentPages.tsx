@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
+import { supabase } from '../lib/supabase';
 import { getRealUserProgress, UserRealProgress } from '../utils/userProgressStore';
 import {
   getMistakeRecords,
@@ -100,10 +101,41 @@ function getCandidateOnboardingMeta() {
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { isDark, setMode, toggleTheme, dimnessLevel, setDimnessLevel } = useTheme();
   const progress = useLiveUserProgress();
   const userName =
     (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
+
+  // Ensure any active session actually exists in Supabase public.profiles (clears localStorage-only accounts)
+  useEffect(() => {
+    const savedEmail = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
+    const isSigned = localStorage.getItem('sabi_user_signed_in') === 'true';
+    if (!isSigned || !savedEmail) {
+      localStorage.removeItem('sabi_user_signed_in');
+      navigate('/auth/choice', { replace: true });
+      return;
+    }
+
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('id, email, full_name, sabi_unique_id')
+      .eq('email', savedEmail)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled || error) return;
+        if (!data || !data.email) {
+          // Account was only in localStorage and does not exist in Supabase -> force real registration
+          localStorage.removeItem('sabi_user_signed_in');
+          navigate('/auth/choice', { replace: true });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col`}>
@@ -431,6 +463,7 @@ export function AppShell() {
                 onClick={() => {
                   try {
                     localStorage.removeItem('sabi_user_signed_in');
+                    supabase.auth.signOut().catch(() => {});
                   } catch {
                     // ignore storage errors
                   }

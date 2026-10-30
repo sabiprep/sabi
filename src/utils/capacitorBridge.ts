@@ -42,8 +42,14 @@ export function initCapacitorAndroidBridge(): void {
     document.body?.classList.add('is-android-view');
   }
 
-  // 1. Intercept relative `/api/*` calls inside the native Android WebView
-  if (isNative && DEFAULT_NATIVE_API_BASE) {
+  // 1. Intercept relative `/api/*` calls inside the native Android WebView or static frontend hosts (e.g. Vercel)
+  const isStaticFrontendHost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname.endsWith('.vercel.app') ||
+      window.location.hostname.endsWith('.netlify.app') ||
+      window.location.hostname.endsWith('.github.io'));
+
+  if ((isNative || isStaticFrontendHost) && DEFAULT_NATIVE_API_BASE) {
     const originalFetch = window.fetch.bind(window);
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       if (typeof input === 'string' && input.startsWith('/api/')) {
