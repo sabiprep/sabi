@@ -151,8 +151,8 @@ export function AppShell() {
               onClick={() => setMenuOpen(true)}
               className={`p-2 rounded-xl border transition cursor-pointer ${
                 isDark
-                  ? 'border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800'
-                  : 'border-slate-200 bg-slate-100 text-blue-700 hover:bg-slate-200'
+                  ? 'border-slate-800 bg-slate-900 text-blue-400 hover:bg-slate-800'
+                  : 'border-slate-200 bg-slate-50 text-blue-700 hover:bg-blue-50'
               }`}
               aria-label="Open 3-dash menu"
               title="Open 3-Dash Menu (Subscription, Theme & Dimness)"
@@ -161,16 +161,14 @@ export function AppShell() {
             </button>
 
             <Link to="/home" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-amber-500 p-0.5 shadow-md group-hover:scale-105 transition-transform">
-                <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-                  <span className="font-black text-amber-400 text-lg tracking-wider">S</span>
-                </div>
+              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+                <span className="font-black text-white text-lg tracking-wider">S</span>
               </div>
               <div className="flex flex-col">
-                <span className="font-black text-lg tracking-tight leading-none text-blue-600 dark:text-white">
+                <span className="font-black text-lg tracking-tight leading-none text-blue-700 dark:text-white">
                   SABI
                 </span>
-                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mt-0.5">
+                <span className="text-[10px] font-bold text-slate-500 dark:text-blue-400 uppercase tracking-widest leading-none mt-0.5">
                   JAMB CBT
                 </span>
               </div>
@@ -187,10 +185,10 @@ export function AppShell() {
                   to={to}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                     isActive
-                      ? 'bg-amber-400 text-slate-950 shadow-md shadow-amber-400/20'
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/20'
                       : isDark
                       ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      : 'text-slate-600 hover:text-blue-700 hover:bg-blue-50/60'
                   }`}
                 >
                   <Icon size={16} />
@@ -206,15 +204,15 @@ export function AppShell() {
             <div className="hidden sm:flex items-center gap-2">
               <Link
                 to="/missions"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-xs font-black text-amber-500 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-950/30 hover:bg-yellow-100/80 border border-yellow-200 dark:border-yellow-800/40 text-xs font-black text-amber-700 dark:text-yellow-300 transition"
                 title="View Daily UTME Missions & Real Streaks"
               >
-                <Flame size={15} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
+                <Flame size={15} className={progress.streakDays > 0 ? 'animate-bounce text-amber-500' : 'text-amber-500'} />
                 <span>{progress.streakDays}d</span>
               </Link>
               <Link
                 to="/subscription"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-xs font-black text-blue-500 dark:text-amber-400 transition"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100/80 border border-blue-200 dark:border-blue-800 text-xs font-black text-blue-700 dark:text-blue-300 transition"
                 title={`Streak Bonus: ${progress.streakBonusDiamonds} 💎 (Used First) | Main Vault: ${progress.mainDiamonds} 💎`}
               >
                 <Coins size={15} />
@@ -226,7 +224,7 @@ export function AppShell() {
             <button
               onClick={toggleTheme}
               className={`p-2 rounded-xl border transition-colors ${
-                isDark ? 'bg-slate-800 border-slate-700 text-amber-400' : 'bg-slate-100 border-slate-200 text-slate-700'
+                isDark ? 'bg-slate-800 border-slate-700 text-blue-300' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
               title="Toggle Theme"
             >
@@ -237,7 +235,7 @@ export function AppShell() {
             <Link
               to="/profile"
               className={`flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl border transition ${
-                isDark ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-800' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                isDark ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 shadow-2xs'
               }`}
             >
               <div className="w-6 h-6 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
@@ -268,8 +266,8 @@ export function AppShell() {
               to={to}
               className={`flex flex-col items-center gap-1 text-[10px] font-bold py-1 px-2.5 rounded-xl transition-all ${
                 isActive
-                  ? 'text-amber-500 font-black scale-105'
-                  : 'hover:text-slate-200'
+                  ? 'text-blue-600 dark:text-blue-400 font-black scale-105'
+                  : 'hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <Icon size={18} />
@@ -295,12 +293,12 @@ export function AppShell() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-400 flex items-center justify-center font-black text-slate-950 text-sm">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-white text-sm">
                     S
                   </div>
                   <div>
                     <span className="font-black text-base block leading-none">SABI JAMB CBT</span>
-                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest">
                       Command Drawer
                     </span>
                   </div>
@@ -308,7 +306,7 @@ export function AppShell() {
                 <button
                   type="button"
                   onClick={() => setMenuOpen(false)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
                 >
                   <X size={20} />
                 </button>
@@ -318,20 +316,20 @@ export function AppShell() {
               <Link
                 to="/subscription"
                 onClick={() => setMenuOpen(false)}
-                className="block p-4 rounded-2xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-300 text-slate-950 shadow-lg hover:brightness-105 transition"
+                className="block p-4 rounded-2xl bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-lg hover:brightness-105 transition"
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="px-2.5 py-0.5 rounded-full bg-blue-950 text-amber-400 font-black text-[10px] uppercase tracking-wider">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full bg-yellow-50 text-blue-950 font-black text-[10px] uppercase tracking-wider">
                     ₦10,000 One-Time Pass
                   </span>
-                  <span className="font-mono font-black text-xs text-blue-950">
+                  <span className="font-mono font-black text-xs text-blue-100">
                     {progress.diamonds} 💎 Active
                   </span>
                 </div>
-                <h4 className="font-black text-sm text-slate-950">
+                <h4 className="font-black text-sm text-white">
                   Subscription & 5,000 💎 Vault →
                 </h4>
-                <p className="text-[11px] font-bold text-slate-900/85 mt-0.5">
+                <p className="text-[11px] font-medium text-blue-100/90 mt-0.5">
                   Streak Bonus ({progress.streakBonusDiamonds} 💎) used first before Main 5K 💎!
                 </p>
               </Link>
@@ -343,7 +341,7 @@ export function AppShell() {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-amber-500">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     Theme & Eye Dimness
                   </span>
                   <span className="text-[10px] font-bold text-slate-400">
@@ -358,7 +356,7 @@ export function AppShell() {
                     onClick={() => setMode('light')}
                     className={`py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
                       !isDark
-                        ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-sm'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                         : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                     }`}
                   >
@@ -370,7 +368,7 @@ export function AppShell() {
                     onClick={() => setMode('dark')}
                     className={`py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border transition cursor-pointer ${
                       isDark
-                        ? 'bg-blue-600 text-white border-blue-400 shadow-sm'
+                        ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
                         : 'bg-white text-slate-600 border-slate-200 hover:text-slate-950'
                     }`}
                   >
@@ -382,14 +380,14 @@ export function AppShell() {
                 {/* Number-Line Dimness Control (0 to 10) Overpowering Header & Background */}
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between text-[10px] font-bold">
-                    <span className="text-slate-400">
+                    <span className="text-slate-500 dark:text-slate-400">
                       Dimness Number-Line (Overpowers Header & Screen):
                     </span>
                     {dimnessLevel > 0 && (
                       <button
                         type="button"
                         onClick={() => setDimnessLevel(0)}
-                        className="text-amber-400 hover:underline font-black cursor-pointer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline font-black cursor-pointer"
                       >
                         Reset (0)
                       </button>
@@ -407,7 +405,7 @@ export function AppShell() {
                           onClick={() => setDimnessLevel(num)}
                           className={`py-1.5 rounded-lg text-[10px] font-mono font-black border transition cursor-pointer ${
                             active
-                              ? 'bg-amber-400 text-slate-950 border-amber-300 scale-105 shadow-sm'
+                              ? 'bg-blue-600 text-white border-blue-500 scale-105 shadow-xs'
                               : isDark
                               ? 'bg-slate-950 text-slate-400 border-slate-800 hover:border-slate-600'
                               : 'bg-white text-slate-700 border-slate-200 hover:border-blue-400'
@@ -604,10 +602,10 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
             <button
               type="button"
               onClick={onClose}
-              className={`px-3.5 py-2 rounded-xl border-2 font-black text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl border font-black text-xs sm:text-sm flex items-center gap-1.5 transition cursor-pointer ${
                 isDark
-                  ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
-                  : 'border-slate-200 bg-slate-100 text-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                  ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-500 hover:text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700'
               }`}
             >
               <X size={16} />
@@ -616,10 +614,10 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
           ) : (
             <Link
               to="/home"
-              className={`px-3.5 py-2 rounded-xl border-2 font-black text-xs sm:text-sm flex items-center gap-1.5 transition ${
+              className={`px-3.5 py-2 rounded-xl border font-black text-xs sm:text-sm flex items-center gap-1.5 transition ${
                 isDark
-                  ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
-                  : 'border-slate-200 bg-slate-100 text-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                  ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-500 hover:text-white'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-700'
               }`}
             >
               <X size={16} />
@@ -627,7 +625,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
             </Link>
           )}
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-500 block">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 block">
               Official JAMB Combination
             </span>
             <h1 className="text-lg sm:text-2xl font-black tracking-tight">
@@ -637,7 +635,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="px-3.5 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-black">
+          <div className="px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-black">
             Avg Mastery: {avgMastery}%
           </div>
         </div>
@@ -645,9 +643,9 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
 
       {/* Main Full-Screen Subject Rates Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
-        <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900 via-blue-950 to-slate-950 border-2 border-blue-500/40 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-800 via-blue-900 to-blue-950 border border-blue-600/40 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="space-y-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[11px] uppercase tracking-wider">
               4 Registered UTME Subjects
             </span>
             <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
@@ -658,7 +656,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
             </p>
           </div>
           <div className="px-5 py-4 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm text-center shrink-0 w-full sm:w-auto">
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-300 block">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 block">
               PROJECTED UTME AGGREGATE
             </span>
             <span className="text-3xl sm:text-4xl font-black text-white">
@@ -675,10 +673,10 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
           {subjectCards.map(sub => (
             <div
               key={sub.name}
-              className={`p-6 rounded-3xl border-2 transition-all flex flex-col justify-between gap-5 ${
+              className={`p-6 rounded-3xl border transition-all flex flex-col justify-between gap-5 ${
                 isDark
                   ? 'bg-slate-900/95 border-slate-800 hover:border-blue-500/50'
-                  : 'bg-white border-slate-200 hover:border-blue-400 shadow-md'
+                  : 'bg-white border-slate-200 hover:border-blue-400 shadow-sm hover:shadow-md'
               }`}
             >
               <div className="space-y-4">
@@ -686,8 +684,8 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                   <span
                     className={`px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider ${
                       sub.locked
-                        ? 'bg-amber-400/20 text-amber-500 border border-amber-500/30'
-                        : 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
+                        ? 'bg-yellow-50 dark:bg-yellow-950/40 text-amber-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800/50'
+                        : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                     }`}
                   >
                     {sub.badge}
@@ -702,24 +700,24 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                     <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                       {sub.name}
                     </h3>
-                    <span className="text-xs font-bold text-slate-400">
-                      Projected UTME Score: <strong className="text-amber-500">{sub.projectedScore}</strong>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      Projected UTME Score: <strong className="text-blue-600 dark:text-blue-400">{sub.projectedScore}</strong>
                     </span>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
                       Mastery Rate
                     </span>
-                    <span className="text-3xl sm:text-4xl font-black text-blue-600 dark:text-amber-400">
+                    <span className="text-3xl sm:text-4xl font-black text-blue-600 dark:text-blue-400">
                       {sub.accuracy}
                     </span>
                   </div>
                 </div>
 
                 {/* Full-Width Progress Bar */}
-                <div className="w-full h-3 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-600 via-blue-500 to-amber-400 rounded-full transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 rounded-full transition-all duration-500"
                     style={{ width: `${Math.max(sub.rateNum, 2)}%` }}
                   />
                 </div>
@@ -731,7 +729,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                       isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
                     }`}
                   >
-                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 block mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1">
                       ✓ Core Syllabus Topics
                     </span>
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -740,10 +738,10 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                   </div>
                   <div
                     className={`p-3 rounded-2xl border ${
-                      isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-slate-50 border-slate-200'
+                      isDark ? 'bg-slate-950/70 border-slate-800' : 'bg-blue-50/40 border-blue-100'
                     }`}
                   >
-                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 block mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
                       ⚡ Priority Focus
                     </span>
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -757,17 +755,17 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                 <Link
                   to="/blitz"
                   onClick={onClose}
-                  className="flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 text-white text-center transition shadow-md"
+                  className="flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white text-center transition shadow-sm"
                 >
                   Blitz {sub.name.split(' ')[0]} ⚡
                 </Link>
                 <Link
                   to="/smart"
                   onClick={onClose}
-                  className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider border-2 text-center transition ${
+                  className={`flex-1 py-3 px-4 rounded-xl font-black text-xs uppercase tracking-wider border text-center transition ${
                     isDark
-                      ? 'border-slate-700 bg-slate-800 text-white hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
-                      : 'border-slate-300 bg-slate-100 text-slate-900 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950'
+                      ? 'border-slate-700 bg-slate-800 text-white hover:border-blue-500 hover:bg-slate-700'
+                      : 'border-slate-200 bg-white text-blue-700 hover:border-blue-400 hover:bg-blue-50'
                   }`}
                 >
                   Smart Road 🎓
@@ -816,14 +814,14 @@ export function HomePage() {
 
       {/* Top Gamified HUD Bar (Real Values Only — Zero Fake Diamonds) */}
       <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
-          isDark ? 'bg-slate-900/80 border-amber-500/30' : 'bg-white border-amber-200'
+        <div className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
         }`}>
-          <div className="p-3 rounded-2xl bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20">
+          <div className="p-3 rounded-2xl bg-yellow-50 dark:bg-yellow-950/40 text-amber-600 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50 font-black">
             <Flame size={22} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
           </div>
           <div>
-            <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Streak Flame
             </span>
             <span className="text-lg font-black text-slate-900 dark:text-white">
@@ -834,11 +832,11 @@ export function HomePage() {
 
         <Link
           to="/subscription"
-          className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
-            isDark ? 'bg-slate-900/80 border-blue-500/30 hover:border-blue-400' : 'bg-white border-blue-200 hover:border-blue-400'
+          className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-400'
           }`}
         >
-          <div className="p-3 rounded-2xl bg-blue-600 text-white font-black shadow-md shadow-blue-600/20">
+          <div className="p-3 rounded-2xl bg-blue-600 text-white font-black shadow-sm shadow-blue-600/20">
             <Coins size={22} />
           </div>
           <div>
@@ -848,20 +846,20 @@ export function HomePage() {
             <span className="text-lg font-black text-slate-900 dark:text-white">
               {progress.diamonds} 💎
             </span>
-            <span className="text-[9px] font-bold text-amber-500 block">
+            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block">
               Bonus: {progress.streakBonusDiamonds} 💎 (Used 1st)
             </span>
           </div>
         </Link>
 
-        <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
-          isDark ? 'bg-slate-900/80 border-emerald-500/30' : 'bg-white border-emerald-200'
+        <div className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
         }`}>
-          <div className="p-3 rounded-2xl bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20">
+          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
             <Zap size={22} />
           </div>
           <div>
-            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Questions Solved
             </span>
             <span className="text-lg font-black text-slate-900 dark:text-white">
@@ -870,14 +868,14 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className={`p-4 rounded-3xl border-2 flex items-center gap-3.5 transition shadow-sm ${
-          isDark ? 'bg-slate-900/80 border-indigo-500/30' : 'bg-white border-indigo-200'
+        <div className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
+          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
         }`}>
-          <div className="p-3 rounded-2xl bg-indigo-600 text-white font-black shadow-md shadow-indigo-600/20">
+          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black">
             <Target size={22} />
           </div>
           <div>
-            <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
               Target Score
             </span>
             <span className="text-lg font-black text-slate-900 dark:text-white truncate">
@@ -887,31 +885,31 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Sabi Scholar Welcome Banner (Yellow Container + Royal Blue Button) */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      {/* Sabi Scholar Welcome Banner (Royal Blue Primary Container + Crisp White Button) */}
+      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="relative z-10 flex-1 space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] tracking-wider uppercase">
-            <Award size={13} /> Sabi Scholar Citadel
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50/95 text-blue-950 font-black text-[11px] tracking-wider uppercase shadow-2xs">
+            <Award size={13} className="text-blue-700" /> Sabi Scholar Citadel
           </div>
           
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-slate-950">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-white">
             Welcome to your Dashboard, {userName}!
           </h1>
           
-          <p className="text-sm sm:text-base text-slate-900 font-semibold max-w-xl leading-relaxed">
-            Your target is <strong>{meta.targetScore}+ in JAMB UTME</strong> for <strong>{meta.targetCourse} at {meta.targetUniversity}</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
+          <p className="text-sm sm:text-base text-blue-100 font-medium max-w-xl leading-relaxed">
+            Your target is <strong className="text-white">{meta.targetScore}+ in JAMB UTME</strong> for <strong className="text-white">{meta.targetCourse} at {meta.targetUniversity}</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               type="button"
               onClick={() => setShowSubjectRates(true)}
-              className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg shadow-blue-900/20 cursor-pointer"
+              className="px-5 py-3 rounded-xl bg-white hover:bg-blue-50 text-blue-800 font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-md cursor-pointer"
             >
               <Activity size={15} />
               <span>See Subject Rates (4 Subjects) →</span>
             </button>
-            <span className="text-xs font-black text-blue-950">
+            <span className="text-xs font-black text-blue-100">
               Live Accuracy: {overallAccuracy}% ({totalSolved} Solved)
             </span>
           </div>
@@ -926,11 +924,11 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* THE 4 CORE DASHBOARD FEATURE CONTAINERS (Yellow Background + Blue Buttons) */}
+      {/* THE 4 CORE DASHBOARD FEATURE CONTAINERS (Clean White Cards + Royal Blue Accents & Buttons) */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" />
+            <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               Core Practice & Subject Rates
             </h2>
@@ -938,7 +936,7 @@ export function HomePage() {
           <button
             type="button"
             onClick={() => setShowSubjectRates(true)}
-            className="text-xs font-black text-blue-600 dark:text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
+            className="text-xs font-black text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
           >
             <span>Subject Rates</span>
             <ArrowRight size={13} />
@@ -946,11 +944,13 @@ export function HomePage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: SABI BLITZ (Yellow Container + Blue Button) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
+          {/* Card 1: SABI BLITZ (White Surface + Royal Blue CTA) */}
+          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
+            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
+          }`}>
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider inline-block">
                   60s Rapid Simulator
                 </span>
                 <div className="w-16 h-16 shrink-0">
@@ -961,21 +961,21 @@ export function HomePage() {
                   />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 SABI BLITZ
               </h3>
-              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
                 Endless past & recent questions on a continuous Z-path level map with eagle streak multipliers.
               </p>
             </div>
 
-            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-950">
+            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
                 Level {progress.blitzUnlockedLevel} Active
               </div>
               <Link
                 to="/blitz"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
                 <span>Enter Blitz</span>
                 <ArrowRight size={15} />
@@ -983,11 +983,13 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Card 2: SMART PRACTICE (Yellow Container + Blue Button) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
+          {/* Card 2: SMART PRACTICE (White Surface + Royal Blue CTA) */}
+          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
+            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
+          }`}>
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider inline-block">
                   4-Subject Adaptive Road
                 </span>
                 <div className="w-16 h-16 shrink-0">
@@ -998,21 +1000,21 @@ export function HomePage() {
                   />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 SMART PRACTICE
               </h3>
-              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
                 Branching road past campus faculties. Study room simulator with student mascot, desk calculator, and theory inbox.
               </p>
             </div>
 
-            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-950">
+            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
                 Campus Level {progress.smartUnlockedLevel}
               </div>
               <Link
                 to="/smart"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
                 <span>Enter Smart</span>
                 <ArrowRight size={15} />
@@ -1020,32 +1022,34 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Card 3: CUSTOM JAMB SIMULATOR (Yellow Container + Blue Button) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
+          {/* Card 3: CUSTOM JAMB SIMULATOR (White Surface + Royal Blue CTA) */}
+          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
+            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
+          }`}>
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider inline-block">
                   Custom Simulator
                 </span>
-                <div className="w-12 h-12 rounded-2xl bg-blue-950 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center justify-center shrink-0">
                   <Sliders size={22} />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 CUSTOM SIMULATOR
               </h3>
-              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
                 Dedicated workspace directory for custom exam configs, question counts, custom timing, and personalized practice drills.
               </p>
             </div>
 
-            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-950">
+            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
                 Workspace Ready
               </div>
               <Link
                 to="/custom-simulator"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
                 <span>Open Simulator</span>
                 <ArrowRight size={15} />
@@ -1053,33 +1057,35 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Card 4: SUBJECT RATES (Yellow Container + Blue Button) */}
-          <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
+          {/* Card 4: SUBJECT RATES (White Surface + Royal Blue CTA) */}
+          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
+            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
+          }`}>
             <div>
               <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider inline-block">
+                <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 text-amber-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800/50 font-black text-[11px] uppercase tracking-wider inline-block">
                   4 Registered Subjects
                 </span>
-                <div className="w-12 h-12 rounded-2xl bg-blue-950 text-amber-400 flex items-center justify-center shrink-0 shadow-md">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center justify-center shrink-0">
                   <Activity size={22} />
                 </div>
               </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
+              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
                 SUBJECT RATES
               </h3>
-              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
                 Inspect your live mastery rates across {meta.chosenSubjects.join(', ')} in a full-screen analytical dashboard.
               </p>
             </div>
 
-            <div className="pt-5 mt-5 border-t border-amber-600/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-950">
+            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
                 4 Subjects · {overallAccuracy}% Avg Rate
               </div>
               <button
                 type="button"
                 onClick={() => setShowSubjectRates(true)}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/25 cursor-pointer transform hover:scale-[1.02] active:scale-95"
+                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
               >
                 <span>See Subject Rates</span>
                 <ArrowRight size={15} />
@@ -1090,27 +1096,27 @@ export function HomePage() {
       </section>
 
       {/* NIGERIAN ₦10,000 ONE-TIME PASS & 5,000 DIAMONDS + STREAK BONUS BANNER WITH CUSTOM SVG */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 border-2 border-amber-400 text-white shadow-2xl flex flex-col lg:flex-row items-center justify-between gap-6">
+      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900 via-blue-950 to-slate-950 border border-blue-700/60 text-white shadow-xl flex flex-col lg:flex-row items-center justify-between gap-6">
         <div className="space-y-3 flex-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
-            <Coins size={13} />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[11px] uppercase tracking-wider">
+            <Coins size={13} className="text-blue-700" />
             <span>₦10,000 One-Time UTME Pass = 5,000 💎 Vault</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
             5,000 Diamonds Split Across All Study Sections + Free Streak Bonus Shield
           </h2>
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
+          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed max-w-2xl">
             Just like Duolingo, serious candidates with a strong daily streak earn free <strong>Streak Bonus Diamonds ({progress.streakBonusDiamonds} 💎 earned)</strong> that are <strong>always used up first before your main 5,000 💎 vault is ever touched</strong>!
           </p>
           <div className="pt-2 flex flex-wrap items-center gap-3">
             <Link
               to="/subscription"
-              className="px-6 py-3.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg"
+              className="px-6 py-3.5 rounded-xl bg-white hover:bg-blue-50 text-blue-900 font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg"
             >
               <span>Open ₦10,000 Subscription & 5,000 💎 Vault</span>
               <ArrowRight size={15} />
             </Link>
-            <span className="text-xs font-bold text-amber-300">
+            <span className="text-xs font-semibold text-blue-200">
               Also accessible anytime inside the top-left 3-dash menu
             </span>
           </div>
@@ -1306,15 +1312,15 @@ export function DailyMissionsPage() {
         </div>
 
         {/* 180-Q Mock Exam Quick Launch */}
-        <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 shadow-xl flex flex-col justify-between border-2 border-amber-500">
+        <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 text-white shadow-xl flex flex-col justify-between border border-blue-600">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[10px] uppercase tracking-wider mb-3">
-              <FileQuestion size={12} /> Official JAMB UTME Simulator
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[10px] uppercase tracking-wider mb-3">
+              <FileQuestion size={12} className="text-blue-700" /> Official JAMB UTME Simulator
             </div>
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-tight">
+            <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-tight text-white">
               180-Question Timed Mock Exam
             </h3>
-            <p className="text-xs text-slate-900 font-semibold mt-2 leading-relaxed">
+            <p className="text-xs text-blue-100 font-medium mt-2 leading-relaxed">
               Simulate full UTME exam conditions with 120-minute countdown, 8-digit onscreen calculator, and instant official JAMB result slip.
             </p>
           </div>
@@ -1322,7 +1328,7 @@ export function DailyMissionsPage() {
           <div className="pt-6">
             <Link
               to="/cbt"
-              className="w-full py-4 rounded-2xl font-black text-sm bg-blue-700 hover:bg-blue-800 text-white transition flex items-center justify-center gap-2 shadow-lg"
+              className="w-full py-4 rounded-2xl font-black text-sm bg-white hover:bg-blue-50 text-blue-800 transition flex items-center justify-center gap-2 shadow-lg"
             >
               <span>Launch Official CBT Exam</span>
               <ArrowRight size={16} />
@@ -1343,7 +1349,7 @@ export function PracticePage() {
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
       <div>
-        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
           Practice Hub
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -1355,17 +1361,19 @@ export function PracticePage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Blitz Card (Yellow Container + Blue Button) */}
-        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between">
+        {/* Blitz Card (Clean White Surface + Royal Blue CTA) */}
+        <div className={`rounded-3xl p-6 sm:p-8 border shadow-md flex flex-col justify-between ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider">
+              <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider">
                 Endless 60s Mode
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-slate-950 mt-3">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-3">
                 SABI BLITZ
               </h2>
-              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
                 Eagle mascot, continuous Z-path with 10Q and 15Q levels, formula rendering, and instant step-by-step corrections.
               </p>
             </div>
@@ -1373,23 +1381,25 @@ export function PracticePage() {
           </div>
           <Link
             to="/blitz"
-            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 text-white text-center transition shadow-lg shadow-blue-900/20"
+            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white text-center transition shadow-md shadow-blue-600/20"
           >
             Launch Blitz Level Path →
           </Link>
         </div>
 
-        {/* Smart Practice Card (Yellow Container + Blue Button) */}
-        <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between">
+        {/* Smart Practice Card (Clean White Surface + Royal Blue CTA) */}
+        <div className={`rounded-3xl p-6 sm:p-8 border shadow-md flex flex-col justify-between ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}>
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider">
+              <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider">
                 4-Subject Road
               </span>
-              <h2 className="text-2xl font-black tracking-tight text-slate-950 mt-3">
+              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-3">
                 SMART PRACTICE
               </h2>
-              <p className="text-xs sm:text-sm text-slate-900 font-semibold mt-2 leading-relaxed">
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
                 Forward branches (Straight, Left, Right) past campus faculties. Study room with animated student and desk calculator.
               </p>
             </div>
@@ -1397,7 +1407,7 @@ export function PracticePage() {
           </div>
           <Link
             to="/smart"
-            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-700 hover:bg-blue-800 text-white text-center transition shadow-lg shadow-blue-900/20"
+            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white text-center transition shadow-md shadow-blue-600/20"
           >
             Launch Smart Practice Road →
           </Link>
@@ -1408,68 +1418,68 @@ export function PracticePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link
           to="/cbt"
-          className={`p-6 rounded-3xl border-2 transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
+          className={`p-6 rounded-3xl border transition ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
           } flex items-center justify-between group`}
         >
           <div className="flex items-center gap-4">
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 font-black">
+            <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
               <FileQuestion size={24} />
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
                 180-Q UTME CBT Mock
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Official 120-minute timer and onscreen calculator
               </p>
             </div>
           </div>
-          <ArrowRight size={20} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
         </Link>
 
         <Link
           to="/diagnostic"
-          className={`p-6 rounded-3xl border-2 transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
+          className={`p-6 rounded-3xl border transition ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
           } flex items-center justify-between group`}
         >
           <div className="flex items-center gap-4">
-            <div className="p-3.5 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20 font-black">
+            <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
               <Activity size={24} />
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
                 Weak Topic Diagnostic
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Rapid evaluation of Organic Chem, Waves, and Concord
               </p>
             </div>
           </div>
-          <ArrowRight size={20} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
         </Link>
 
         <Link
           to="/custom-simulator"
-          className={`p-6 rounded-3xl border-2 transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
+          className={`p-6 rounded-3xl border transition ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
           } flex items-center justify-between group sm:col-span-2`}
         >
           <div className="flex items-center gap-4">
-            <div className="p-3.5 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-black">
+            <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
               <Sliders size={24} />
             </div>
             <div>
               <h3 className="text-base font-black text-slate-900 dark:text-white">
                 Custom JAMB Simulator Dashboard
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Dedicated simulator workspace directory
               </p>
             </div>
           </div>
-          <ArrowRight size={20} className="text-slate-400 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
         </Link>
       </div>
     </div>
@@ -1486,7 +1496,7 @@ export function CbtPage() {
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
       <div>
-        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
           JAMB CBT Simulator
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -1497,20 +1507,20 @@ export function CbtPage() {
         </p>
       </div>
 
-      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[10px] uppercase">
+          <span className="px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[10px] uppercase">
             Official UTME Mock
           </span>
-          <h2 className="text-2xl font-black">Full 4-Subject UTME Mock · 120 Minutes</h2>
-          <p className="text-xs font-semibold max-w-xl text-slate-900">
+          <h2 className="text-2xl font-black text-white">Full 4-Subject UTME Mock · 120 Minutes</h2>
+          <p className="text-xs font-medium max-w-xl text-blue-100">
             English Language + 3 Chosen Subjects. Features accurate 8-digit onscreen calculator, question flagging, and instant JAMB score breakdown out of 400.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setIsExamModalOpen(true)}
-          className="px-7 py-4 rounded-2xl font-black text-sm bg-blue-700 hover:bg-blue-800 text-white transition flex items-center gap-2 shrink-0 shadow-lg cursor-pointer"
+          className="px-7 py-4 rounded-2xl font-black text-sm bg-white hover:bg-blue-50 text-blue-800 transition flex items-center gap-2 shrink-0 shadow-lg cursor-pointer"
         >
           <span>Start Full Exam Now</span>
           <ArrowRight size={18} />
@@ -1521,24 +1531,24 @@ export function CbtPage() {
         <button
           type="button"
           onClick={() => setIsExamModalOpen(true)}
-          className={`p-6 rounded-3xl border-2 text-left transition cursor-pointer ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-amber-400' : 'bg-white border-slate-200 hover:border-blue-600'
+          className={`p-6 rounded-3xl border text-left transition cursor-pointer ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-400 shadow-xs'
           }`}
         >
-          <span className="text-xs font-black text-amber-500 uppercase">Quick Mock</span>
+          <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">Quick Mock</span>
           <h3 className="text-xl font-black mt-1">Rapid 4-Subject CBT Sprint</h3>
-          <p className="text-xs text-slate-400 mt-1">Launch the interactive CBT simulator for a focused timed session.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Launch the interactive CBT simulator for a focused timed session.</p>
         </button>
 
         <Link
           to="/blitz"
-          className={`p-6 rounded-3xl border-2 text-left transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-amber-400' : 'bg-white border-slate-200 hover:border-blue-600'
+          className={`p-6 rounded-3xl border text-left transition ${
+            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-400 shadow-xs'
           }`}
         >
-          <span className="text-xs font-black text-blue-500 uppercase">Subject Speed Drill</span>
+          <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">Subject Speed Drill</span>
           <h3 className="text-xl font-black mt-1">Single Subject · 60s Blitz</h3>
-          <p className="text-xs text-slate-400 mt-1">Deep drill in English, Mathematics, Physics, or Chemistry.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Deep drill in English, Mathematics, Physics, or Chemistry.</p>
         </Link>
       </div>
 
@@ -1580,7 +1590,7 @@ export function ProgressPage() {
     <div className="space-y-8 pb-16 lg:pb-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+          <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
             Daily Activity & Strict Subject Ratings
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -1593,7 +1603,7 @@ export function ProgressPage() {
 
         <Link
           to="/subject-rates"
-          className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
+          className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start shadow-sm"
         >
           Full-Screen Subject Rates →
         </Link>
@@ -1615,21 +1625,21 @@ export function ProgressPage() {
           return (
             <div
               key={subName}
-              className={`p-5 rounded-3xl border-2 space-y-3 ${
-                isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+              className={`p-5 rounded-3xl border space-y-3 ${
+                isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-amber-500 uppercase truncate">
+                <span className="text-xs font-black text-blue-700 dark:text-blue-300 uppercase truncate">
                   {subName}
                 </span>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 font-mono text-[10px] font-black">
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-black">
                   {stat.flawlessLevels || 0} Flawless
                 </span>
               </div>
 
               <div>
-                <span className="text-3xl font-black text-blue-600 dark:text-amber-400">
+                <span className="text-3xl font-black text-blue-600 dark:text-blue-400">
                   {rating}%
                 </span>
                 <span className="text-[10px] font-bold text-slate-400 block">
@@ -1637,14 +1647,14 @@ export function ProgressPage() {
                 </span>
               </div>
 
-              <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-600 to-amber-400 rounded-full transition-all"
+                  className="h-full bg-gradient-to-r from-blue-700 to-blue-500 rounded-full transition-all"
                   style={{ width: `${Math.max(3, rating)}%` }}
                 />
               </div>
 
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-400">
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-400">
                 <span>{stat.solved} Practiced</span>
                 <span>Raw Acc: {rawAcc}%</span>
               </div>
@@ -1655,8 +1665,8 @@ export function ProgressPage() {
 
       {/* Daily Activity Log Section */}
       <section
-        className={`p-6 sm:p-8 rounded-3xl border-2 space-y-5 ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        className={`p-6 sm:p-8 rounded-3xl border space-y-5 ${
+          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1664,18 +1674,20 @@ export function ProgressPage() {
             <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
               Tracked Daily Study Activities
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Total Practiced: {totalSolved} questions ({accuracy}% raw accuracy) · Average Strict Rating: {avgStrictRating}%
             </p>
           </div>
-          <span className="px-3 py-1 rounded-full bg-amber-500/15 text-amber-500 text-xs font-black">
+          <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800/50 text-amber-800 dark:text-yellow-300 text-xs font-black">
             {progress.streakDays} Day Active Streak 🔥
           </span>
         </div>
 
         {dailyEntries.length === 0 ? (
-          <div className="p-6 rounded-2xl border border-dashed border-slate-700 text-center space-y-2">
-            <p className="text-sm font-bold text-slate-300">
+          <div className={`p-6 rounded-2xl border border-dashed text-center space-y-2 ${
+            isDark ? 'border-slate-800 text-slate-300' : 'border-slate-200 text-slate-600'
+          }`}>
+            <p className="text-sm font-bold">
               No daily study sessions logged yet today.
             </p>
             <p className="text-xs text-slate-400">
@@ -1698,23 +1710,25 @@ export function ProgressPage() {
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-black text-sm text-amber-500">
+                      <span className="font-mono font-black text-sm text-blue-600 dark:text-blue-400">
                         {entry.date}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-black">
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[10px] font-black">
                         {entry.questionsPracticed} Questions Practiced ({dayAcc}% Correct)
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 font-semibold">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                       Subjects Drilled: {(entry.subjectsPracticed || []).join(', ') || 'General UTME'}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-bold text-slate-300">
+                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${
+                      isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
+                    }`}>
                       Levels Attempted: <strong>{entry.levelsAttempted || 0}</strong>
                     </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs font-black text-emerald-400">
+                    <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-black text-emerald-600 dark:text-emerald-400">
                       100% Flawless Clears: {entry.flawlessLevelsCleared || 0}
                     </div>
                   </div>
@@ -1762,7 +1776,7 @@ export function SubscriptionPage() {
     <div className="space-y-8 pb-16 lg:pb-0 max-w-5xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+          <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
             Official Nigerian UTME Pass · ₦10,000 One-Time Payment
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -1775,17 +1789,17 @@ export function SubscriptionPage() {
 
         <Link
           to="/home"
-          className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-black uppercase tracking-wider self-start"
+          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-black uppercase tracking-wider self-start shadow-2xs"
         >
           ← Back to Dashboard
         </Link>
       </div>
 
       {/* Hero Banner with Custom SVG (/assets/environment/subscription_banner.svg) */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 border-2 border-amber-400 text-white shadow-2xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-blue-800 via-blue-900 to-slate-950 border border-blue-600/50 text-white shadow-xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
         <div className="lg:col-span-7 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider">
-            <Coins size={14} />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-xs uppercase tracking-wider">
+            <Coins size={14} className="text-blue-700" />
             <span>One-Time UTME Access · ₦10,000 = 5,000 💎</span>
           </div>
 
@@ -1793,44 +1807,44 @@ export function SubscriptionPage() {
             Unlock All Study Sets & Protect Your Vault with Daily Streaks
           </h2>
 
-          <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
             No recurring monthly charges. A single <strong>₦10,000</strong> payment allocates <strong>5,000 💎</strong> across Blitz, Smart Practice, CBT Mocks, and AI Verifications. Even better: serious candidates with an active daily streak earn free <strong>Streak Bonus Diamonds</strong> that are <strong>always spent first before your main 5,000 💎 balance is ever touched</strong>!
           </p>
 
           {/* Live User Diamond Balances */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-amber-400/50">
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
+            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15">
+              <span className="text-[10px] font-black uppercase tracking-wider text-yellow-200 block">
                 Streak Bonus Shield (Used 1st)
               </span>
               <span className="text-2xl font-mono font-black text-white">
                 {progress.streakBonusDiamonds} 💎
               </span>
-              <span className="text-[10px] text-emerald-400 font-bold block mt-0.5">
+              <span className="text-[10px] text-emerald-300 font-bold block mt-0.5">
                 Earned free via {progress.streakDays}d streak
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-slate-900/90 border border-blue-400/50">
-              <span className="text-[10px] font-black uppercase tracking-wider text-blue-300 block">
+            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-200 block">
                 Main Purchased Vault
               </span>
               <span className="text-2xl font-mono font-black text-white">
                 {progress.mainDiamonds} 💎
               </span>
-              <span className="text-[10px] text-slate-400 font-bold block mt-0.5">
+              <span className="text-[10px] text-blue-200/80 font-bold block mt-0.5">
                 {progress.subscriptionPlan === 'free' ? '0 / 5,000 💎 (Unpaid)' : 'Active Pass'}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-amber-400 text-slate-950">
-              <span className="text-[10px] font-black uppercase tracking-wider text-blue-950 block">
+            <div className="p-3.5 rounded-2xl bg-white text-blue-950 shadow-md">
+              <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 block">
                 Total Available Diamonds
               </span>
-              <span className="text-2xl font-mono font-black text-slate-950">
+              <span className="text-2xl font-mono font-black text-blue-950">
                 {progress.diamonds} 💎
               </span>
-              <span className="text-[10px] font-black text-blue-950 block mt-0.5">
+              <span className="text-[10px] font-black text-blue-600 block mt-0.5">
                 Zero Fake Diamonds Policy
               </span>
             </div>
@@ -1855,18 +1869,20 @@ export function SubscriptionPage() {
           {DIAMOND_SECTIONS.map(sec => (
             <div
               key={sec.title}
-              className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl flex flex-col justify-between gap-3"
+              className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-3 ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+              }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-xs uppercase">
+                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-xs uppercase">
                   Section Allocation
                 </span>
-                <span className="text-xl font-mono font-black text-blue-950">
+                <span className="text-xl font-mono font-black text-blue-700 dark:text-blue-400">
                   {sec.allocation}
                 </span>
               </div>
-              <h4 className="text-lg font-black text-slate-950">{sec.title}</h4>
-              <p className="text-xs font-semibold text-slate-900 leading-relaxed">
+              <h4 className="text-lg font-black text-slate-900 dark:text-white">{sec.title}</h4>
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
                 {sec.desc}
               </p>
             </div>
@@ -1876,13 +1892,13 @@ export function SubscriptionPage() {
 
       {/* Duolingo-Style Streak Bonus Explanation & Payment Gateway Readiness */}
       <section
-        className={`p-6 sm:p-8 rounded-3xl border-2 flex flex-col md:flex-row items-center justify-between gap-6 ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-sm'
+        className={`p-6 sm:p-8 rounded-3xl border flex flex-col md:flex-row items-center justify-between gap-6 ${
+          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
         }`}
       >
         <div className="space-y-2 max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-amber-500">
-            <Flame size={15} />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800/50 text-xs font-black uppercase tracking-wider text-amber-800 dark:text-yellow-300">
+            <Flame size={15} className="text-amber-500" />
             <span>Duolingo-Style Serious Streak Protection</span>
           </div>
           <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
@@ -1897,11 +1913,11 @@ export function SubscriptionPage() {
           <button
             type="button"
             disabled
-            className="w-full md:w-auto px-7 py-4 rounded-2xl bg-blue-700/80 text-white font-black text-xs sm:text-sm uppercase tracking-wider opacity-90 cursor-not-allowed shadow-lg"
+            className="w-full md:w-auto px-7 py-4 rounded-2xl bg-blue-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider opacity-90 cursor-not-allowed shadow-md"
           >
             ₦10,000 Payment Gateway (Integrating Soon)
           </button>
-          <span className="text-[11px] font-bold text-amber-500 block">
+          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
             Standard Subscription Vault Ready for Live Naira Checkout
           </span>
         </div>
@@ -1964,7 +1980,7 @@ export function ProfilePage() {
   return (
     <div className="space-y-8 pb-16 lg:pb-0 max-w-3xl">
       <div>
-        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
           Account & Verification Vault
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -1972,36 +1988,36 @@ export function ProfilePage() {
         </h1>
       </div>
 
-      {/* Unique SABI ID Vault Card (Yellow Background + Blue Actions) */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 shadow-xl space-y-5">
+      {/* Unique SABI ID Vault Card (Royal Blue Primary + White Secondary) */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-xl space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 font-black text-[11px] uppercase tracking-wider mb-2">
-              <ShieldCheck size={13} /> Mandatory Account Recovery Grant
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[11px] uppercase tracking-wider mb-2">
+              <ShieldCheck size={13} className="text-blue-700" /> Mandatory Account Recovery Grant
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-950">
+            <h2 className="text-xl sm:text-2xl font-black text-white">
               Your Unique SABI Verification ID
             </h2>
-            <p className="text-xs sm:text-sm font-semibold text-slate-900/85 mt-1 max-w-md">
+            <p className="text-xs sm:text-sm font-medium text-blue-100 mt-1 max-w-md">
               This 5-character code (4 digits + 1 letter) is permanently linked to your email and Google account. It is required whenever you reset your password.
             </p>
           </div>
 
-          <div className="px-6 py-4 rounded-2xl bg-blue-950 text-amber-400 border-2 border-blue-900 text-center shrink-0 shadow-md">
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 block">
+          <div className="px-6 py-4 rounded-2xl bg-white text-blue-950 border border-blue-200 text-center shrink-0 shadow-md">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 block">
               UNIQUE ID
             </span>
-            <span className="text-3xl font-mono font-black tracking-widest">
+            <span className="text-3xl font-mono font-black tracking-widest text-blue-950">
               {uniqueId}
             </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-amber-600/30">
+        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/15">
           <button
             type="button"
             onClick={handleCopyId}
-            className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition cursor-pointer"
+            className="px-5 py-3 rounded-xl bg-white hover:bg-blue-50 text-blue-800 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition cursor-pointer"
           >
             {copiedId ? <Check size={15} /> : <Copy size={15} />}
             <span>{copiedId ? 'Copied to Clipboard' : 'Copy Unique ID'}</span>
@@ -2010,7 +2026,7 @@ export function ProfilePage() {
           <button
             type="button"
             onClick={handleDownloadRecoveryDoc}
-            className="px-5 py-3 rounded-xl bg-blue-950 hover:bg-slate-900 text-amber-400 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-md transition cursor-pointer"
+            className="px-5 py-3 rounded-xl bg-blue-950/60 hover:bg-blue-950 text-white border border-white/20 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition cursor-pointer"
           >
             <Download size={15} />
             <span>Download Recovery ID Doc (.txt)</span>
@@ -2019,18 +2035,18 @@ export function ProfilePage() {
       </div>
 
       {/* Candidate Details, Verified Diamond Balance & Preferences */}
-      <div className={`p-6 sm:p-8 rounded-3xl border-2 space-y-6 ${
-        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
+      <div className={`p-6 sm:p-8 rounded-3xl border space-y-6 ${
+        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
       }`}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-700 text-amber-400 font-black text-2xl flex items-center justify-center shadow-lg">
+            <div className="w-16 h-16 rounded-2xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-md">
               {userName.charAt(0).toUpperCase()}
             </div>
             <div>
               <h2 className="text-xl font-black">{userName}</h2>
-              <p className="text-xs text-slate-400">{userEmail} · {userPhone} · {userState}</p>
-              <span className="inline-block text-xs font-bold text-blue-600 dark:text-amber-400 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400">{userEmail} · {userPhone} · {userState}</p>
+              <span className="inline-block text-xs font-bold text-blue-600 dark:text-blue-400 mt-1">
                 Active Candidate (2026/2027 UTME) · ID: {uniqueId}
               </span>
             </div>
@@ -2042,7 +2058,7 @@ export function ProfilePage() {
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
               Verified Diamond Balance
             </span>
-            <span className="text-xl font-black text-blue-600 dark:text-amber-400">
+            <span className="text-xl font-black text-blue-600 dark:text-blue-400">
               {progress.diamonds} 💎
             </span>
             <span className="text-[10px] font-bold text-slate-400 block">
@@ -2059,7 +2075,7 @@ export function ProfilePage() {
             </div>
             <button
               onClick={toggleTheme}
-              className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-700 hover:bg-blue-800 text-white cursor-pointer"
+              className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
             >
               {isDark ? 'Dark Mode (Active)' : 'Light Mode (Active)'}
             </button>
@@ -2074,10 +2090,11 @@ export function ProfilePage() {
 // NOTIFICATIONS PAGE
 // ==========================================
 export function NotificationsPage() {
+  const { isDark } = useTheme();
   return (
     <div className="space-y-8 pb-16 lg:pb-0 max-w-2xl">
       <div>
-        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
           Updates
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
@@ -2085,11 +2102,13 @@ export function NotificationsPage() {
         </h1>
       </div>
 
-      <div className="p-8 rounded-3xl border-2 border-slate-800 text-center space-y-3">
-        <Bell size={32} className="mx-auto text-amber-400 opacity-60" />
+      <div className={`p-8 rounded-3xl border text-center space-y-3 ${
+        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+      }`}>
+        <Bell size={32} className="mx-auto text-blue-600 dark:text-blue-400 opacity-70" />
         <h3 className="text-lg font-black">You're All Caught Up</h3>
-        <p className="text-xs text-slate-400">No pending notifications. Keep drilling your subjects!</p>
-        <Link to="/home" className="inline-block px-5 py-2.5 rounded-xl bg-amber-400 text-slate-950 font-bold text-xs mt-2">
+        <p className="text-xs text-slate-500 dark:text-slate-400">No pending notifications. Keep drilling your subjects!</p>
+        <Link to="/home" className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs mt-2">
           Return to Dashboard
         </Link>
       </div>
@@ -2129,19 +2148,19 @@ export function MainPage({ page }: { page: string }) {
       <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+            <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
               Error Correction Engine
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
               Mistake Notebook ({mistakes.length})
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               Every question you miss in Blitz, Smart Practice, or CBT is automatically logged here with its worked solution.
             </p>
           </div>
           <Link
             to="/blitz"
-            className="px-5 py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
+            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
           >
             Practice in Blitz →
           </Link>
@@ -2155,10 +2174,10 @@ export function MainPage({ page }: { page: string }) {
               onClick={() => setMistakeSubjectFilter(sub)}
               className={`px-4 py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
                 mistakeSubjectFilter === sub
-                  ? 'bg-amber-400 text-slate-950 border-amber-500'
+                  ? 'bg-blue-600 text-white border-blue-600'
                   : isDark
                   ? 'bg-slate-900 border-slate-800 text-slate-300'
-                  : 'bg-white border-slate-200 text-slate-700'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
               }`}
             >
               {sub}
@@ -2167,8 +2186,8 @@ export function MainPage({ page }: { page: string }) {
         </div>
 
         {filteredMistakes.length === 0 ? (
-          <div className={`p-8 rounded-3xl border-2 text-center space-y-3 ${
-            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
+          <div className={`p-8 rounded-3xl border text-center space-y-3 ${
+            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
           }`}>
             <CheckCircle2 size={36} className="mx-auto text-emerald-500" />
             <h3 className="text-lg font-black">No Unresolved Mistakes in {mistakeSubjectFilter}</h3>
@@ -2181,12 +2200,12 @@ export function MainPage({ page }: { page: string }) {
             {filteredMistakes.map(item => (
               <div
                 key={item.question.id}
-                className={`p-6 rounded-3xl border-2 space-y-4 ${
-                  isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+                className={`p-6 rounded-3xl border space-y-4 ${
+                  isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-500 text-xs font-black">
+                  <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">
                     {item.question.subject} · {item.question.topic}
                   </span>
                   <div className="flex items-center gap-2">
@@ -2195,7 +2214,7 @@ export function MainPage({ page }: { page: string }) {
                         markMistakeMastered(item.question.id);
                         setMistakes(getMistakeRecords());
                       }}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 cursor-pointer"
                     >
                       {item.mastered ? 'Mastered ✓' : 'Mark Mastered'}
                     </button>
@@ -2204,7 +2223,7 @@ export function MainPage({ page }: { page: string }) {
                         removeMistakeRecord(item.question.id);
                         setMistakes(getMistakeRecords());
                       }}
-                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/15 cursor-pointer"
+                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/15 cursor-pointer"
                       title="Remove from Notebook"
                     >
                       <Trash2 size={16} />
@@ -2217,10 +2236,10 @@ export function MainPage({ page }: { page: string }) {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 font-bold">
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold">
                     Your Answer: Option {item.selectedAnswer}
                   </div>
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold">
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold">
                     Correct Answer: Option {item.question.answer} (
                     <MathText text={item.question.options[item.question.answer]} />)
                   </div>
@@ -2229,7 +2248,7 @@ export function MainPage({ page }: { page: string }) {
                 <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
                   isDark ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
                 }`}>
-                  <strong className="font-black text-amber-500 block mb-1">Worked Step-by-Step Solution:</strong>
+                  <strong className="font-black text-blue-600 dark:text-blue-400 block mb-1">Worked Step-by-Step Solution:</strong>
                   <MathText text={item.question.explanation} />
                 </div>
               </div>
@@ -2245,67 +2264,73 @@ export function MainPage({ page }: { page: string }) {
     return (
       <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
         <div>
-          <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
+          <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
             Official Reference Vault
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
             Study Resources, Formula Sheet & Syllabus
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             Open the interactive JAMB Formula Cheat Sheet, University Course Brochure Checker, or High-Yield Syllabus Frequency Heatmap.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-500 shadow-xl flex flex-col justify-between gap-4">
+          <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
             <div>
-              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[10px] font-black uppercase">
+              <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black uppercase">
                 LaTeX Equations
               </span>
-              <h3 className="text-xl font-black mt-3">Formula Cheat Sheet</h3>
-              <p className="text-xs font-semibold text-slate-900 mt-1">
+              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">Formula Cheat Sheet</h3>
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1">
                 High-frequency Physics, Chemistry, and Mathematics equations & mnemonics tested in UTME.
               </p>
             </div>
             <button
               onClick={() => setShowFormulaModal(true)}
-              className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase cursor-pointer"
             >
               Open Formula Sheet →
             </button>
           </div>
 
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-500 shadow-xl flex flex-col justify-between gap-4">
+          <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
             <div>
-              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[10px] font-black uppercase">
+              <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black uppercase">
                 Subject Combinations
               </span>
-              <h3 className="text-xl font-black mt-3">JAMB Brochure Checker</h3>
-              <p className="text-xs font-semibold text-slate-900 mt-1">
+              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">JAMB Brochure Checker</h3>
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1">
                 Verify official UTME 4-subject combinations and cut-off requirements for Nigerian universities.
               </p>
             </div>
             <button
               onClick={() => setShowBrochureModal(true)}
-              className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase cursor-pointer"
             >
               Open Brochure Checker →
             </button>
           </div>
 
-          <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-500 shadow-xl flex flex-col justify-between gap-4">
+          <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}>
             <div>
-              <span className="px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[10px] font-black uppercase">
+              <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 text-amber-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800/50 text-[10px] font-black uppercase">
                 Topic Weighting
               </span>
-              <h3 className="text-xl font-black mt-3">Syllabus Frequency Map</h3>
-              <p className="text-xs font-semibold text-slate-900 mt-1">
+              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">Syllabus Frequency Map</h3>
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1">
                 See which topics carry the highest question frequency in past JAMB papers.
               </p>
             </div>
             <button
               onClick={() => setShowHeatmapModal(true)}
-              className="w-full py-3 rounded-xl bg-blue-700 hover:bg-blue-800 text-white font-black text-xs uppercase cursor-pointer"
+              className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase cursor-pointer"
             >
               Open Syllabus Map →
             </button>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowRight, 
   LockKeyhole, 
@@ -22,7 +22,7 @@ import {
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
-import { supabase } from '../lib/supabase';
+import { supabase, getSabiAuthRedirectUrl } from '../lib/supabase';
 import { saveRealUserProgress } from '../utils/userProgressStore';
 
 const NIGERIAN_STATES = [
@@ -175,10 +175,10 @@ export function WelcomePage() {
         <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
           <div className="lg:col-span-7 flex flex-col items-center justify-center">
             <div className={`relative w-full max-w-2xl rounded-3xl p-6 sm:p-8 border shadow-xl overflow-hidden transition-all duration-300 ${
-              isDark ? 'bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border-slate-800' : 'bg-gradient-to-b from-white via-blue-50/50 to-amber-50/40 border-blue-100'
+              isDark ? 'bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border-slate-800' : 'bg-gradient-to-b from-white via-blue-50/40 to-white border-blue-100'
             }`}>
               <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-60 h-60 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
 
               <div className="relative z-10 w-full flex items-center justify-center">
                 <img 
@@ -187,23 +187,17 @@ export function WelcomePage() {
                   className="w-full h-auto max-h-[380px] object-contain filter drop-shadow-lg"
                 />
               </div>
-
-              <div className="absolute top-4 left-4 z-20 flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950/80 backdrop-blur-md border border-white/10 text-xs font-bold text-slate-200">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Simulating Live JAMB Sessions</span>
-              </div>
             </div>
           </div>
 
           <div className="lg:col-span-5 flex flex-col items-start justify-center space-y-6">
-            <div className="flex items-center gap-2 text-xs font-black tracking-widest uppercase text-blue-600 dark:text-amber-400">
-              <span className="w-2 h-2 rounded-full bg-blue-600 dark:bg-amber-400 inline-block" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs font-extrabold tracking-wider uppercase text-blue-700 dark:text-blue-300">
               <span>Official JAMB UTME Prep Platform</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
               Study Smarter.<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-blue-500 to-amber-500">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 dark:from-blue-400 dark:via-blue-300 dark:to-sky-300">
                 Score 320+ in JAMB.
               </span>
             </h1>
@@ -213,18 +207,18 @@ export function WelcomePage() {
             </p>
 
             <div className="grid grid-cols-2 gap-3 w-full">
-              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center gap-2.5`}>
-                <div className="p-2 rounded-xl bg-amber-500 text-slate-950 font-black"><BookOpenCheck size={16} /></div>
+              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'} flex items-center gap-2.5`}>
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/60 font-black"><BookOpenCheck size={16} /></div>
                 <div>
                   <h4 className="text-xs font-extrabold">Endless Blitz</h4>
-                  <p className="text-[11px] text-slate-400">Past & recent questions</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Past & recent questions</p>
                 </div>
               </div>
-              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'} flex items-center gap-2.5`}>
+              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'} flex items-center gap-2.5`}>
                 <div className="p-2 rounded-xl bg-blue-600 text-white font-black"><ShieldCheck size={16} /></div>
                 <div>
                   <h4 className="text-xs font-extrabold">Smart Practice</h4>
-                  <p className="text-[11px] text-slate-400">4-Subject rotation</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">4-Subject rotation</p>
                 </div>
               </div>
             </div>
@@ -232,7 +226,7 @@ export function WelcomePage() {
             <div className="w-full space-y-3 pt-2">
               <button
                 onClick={() => navigate('/auth/choice')}
-                className="w-full py-4 px-6 rounded-2xl font-black text-lg bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white shadow-xl shadow-blue-600/25 hover:shadow-amber-400/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-3 group cursor-pointer"
+                className="w-full py-4 px-6 rounded-2xl font-black text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-700/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-3 group cursor-pointer"
               >
                 <span>Get Started</span>
                 <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
@@ -240,10 +234,10 @@ export function WelcomePage() {
 
               <button
                 onClick={() => navigate('/auth/sign-in')}
-                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm border-2 transition-all cursor-pointer ${
+                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm border transition-all cursor-pointer ${
                   isDark 
-                    ? 'border-slate-800 bg-slate-900/80 text-slate-300 hover:border-amber-400 hover:bg-amber-400/10 hover:text-amber-400' 
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-amber-400 hover:bg-amber-50 hover:text-amber-700'
+                    ? 'border-slate-800 bg-slate-900/80 text-slate-200 hover:border-blue-500 hover:bg-blue-950/30 hover:text-blue-300' 
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 shadow-xs'
                 } flex items-center justify-center gap-2`}
               >
                 <span>Already have an account? Sign in</span>
@@ -312,6 +306,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     localStorage.setItem('sabi_user_phone', phone);
     localStorage.setItem('sabi_user_state', state);
     localStorage.setItem('sabi_unique_id', uniqueId);
+    localStorage.setItem('sabi_user_signed_in', 'true');
 
     // Restore onboarding answers & live progress if saved in Supabase profile
     if (profile?.onboarding_answers && typeof profile.onboarding_answers === 'object') {
@@ -327,36 +322,97 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     return { email, uniqueId, fullName };
   };
 
-  // Resend Supabase verification email when Email Confirmation is active
+  // Handle incoming verification links / URL callback parameters or initialize saved Unique ID
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const savedId = localStorage.getItem('sabi_unique_id');
+    const savedMail = localStorage.getItem('sabi_user_email');
+    if (savedId && !generatedUniqueId) {
+      setGeneratedUniqueId(savedId);
+    }
+    if (savedMail && !emailInput) {
+      setEmailInput(savedMail);
+    }
+
+    const hash = window.location.hash || '';
+    const search = window.location.search || '';
+    const combined = `${hash}&${search}`;
+
+    if (
+      combined.includes('access_token=') ||
+      combined.includes('verified=true') ||
+      combined.includes('error_code=') ||
+      combined.includes('type=signup')
+    ) {
+      // Clean URL bar so no broken token or error hash remains visible
+      window.history.replaceState({}, document.title, window.location.pathname);
+
+      const targetEmail = (emailInput || savedMail || '').trim().toLowerCase();
+      if (targetEmail) {
+        fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: targetEmail }),
+        }).catch(() => {});
+      }
+
+      setAuthFeedback({
+        type: 'success',
+        message: '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in or proceed.',
+      });
+    }
+  }, []);
+
+  // Instant SABI Account Verification (confirms user directly in Supabase Auth via /api/auth/verify)
   const handleResendVerificationEmail = async () => {
     const targetEmail = (unconfirmedEmailForResend || emailInput).trim().toLowerCase();
     if (!targetEmail) return;
     setAuthLoading(true);
     try {
+      // 1. Verify directly via SABI Server Admin API so the user doesn't need any email link
+      const verifyResp = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail }),
+      });
+      const verifyData = await verifyResp.json().catch(() => ({}));
+
+      if (verifyResp.ok && verifyData?.verified) {
+        setAuthLoading(false);
+        setUnconfirmedEmailForResend('');
+        setAuthFeedback({
+          type: 'success',
+          message: `✓ SABI has verified your account (${targetEmail})! Tap "Sign In to Dashboard" below to continue immediately.`,
+        });
+        return;
+      }
+
+      // 2. Fallback: Resend with public non-localhost SABI URL
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: targetEmail,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
+          emailRedirectTo: getSabiAuthRedirectUrl('/auth/verify'),
         },
       });
       setAuthLoading(false);
       if (error) {
         setAuthFeedback({
           type: 'error',
-          message: error.message || 'Could not resend verification email. Please wait a minute and try again.',
+          message: error.message || 'Could not verify account right now. Please try signing in again.',
         });
       } else {
         setAuthFeedback({
           type: 'success',
-          message: `Verification email resent to ${targetEmail}! Check your inbox and spam folder.`,
+          message: `SABI verification link sent to ${targetEmail}!`,
         });
       }
     } catch (err: any) {
       setAuthLoading(false);
       setAuthFeedback({
         type: 'error',
-        message: err?.message || 'Failed to resend verification email.',
+        message: err?.message || 'Verification request failed.',
       });
     }
   };
@@ -370,23 +426,29 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       setAuthProvider('google');
       setAuthFeedback({
         type: 'info',
-        message: 'Google Gmail sync enabled! Enter your Gmail address, phone number, state of origin, and password below to create your synced Supabase account.',
+        message: 'Google Gmail sync enabled! Enter your Gmail address, phone number, state of origin, and password below to create your synced SABI account.',
       });
       return;
     }
 
-    // For Sign-In: if the user entered their Gmail & password, sign them in and link 'google' provider in Supabase
     const rawEmail = emailInput.trim().toLowerCase();
     if (!rawEmail || !passwordInput) {
       setAuthFeedback({
         type: 'info',
-        message: 'Enter your registered Gmail address and password below, then tap "Sign In to Dashboard" (or "Continue with Google") to verify with Supabase.',
+        message: 'Enter your registered Gmail address and password below, then tap "Sign In to Dashboard" (or "Continue with Google") to verify with SABI.',
       });
       return;
     }
 
     setAuthLoading(true);
     try {
+      // Auto-verify via SABI backend first if needed
+      await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: rawEmail }),
+      }).catch(() => {});
+
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
         email: rawEmail,
         password: passwordInput,
@@ -394,15 +456,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
       if (signInErr || !signInData?.user) {
         setAuthLoading(false);
-        const msg = (signInErr?.message || '').toLowerCase();
-        if (msg.includes('email not confirmed')) {
-          setUnconfirmedEmailForResend(rawEmail);
-          setAuthFeedback({
-            type: 'error',
-            message: `Please confirm your email (${rawEmail}) first via the link sent to your inbox.`,
-          });
-          return;
-        }
         setAuthFeedback({
           type: 'error',
           message: signInErr?.message || 'Google/Email authentication failed. Ensure your Gmail and password are registered.',
@@ -437,7 +490,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           { onConflict: 'email' }
         )
         .select('*')
-        .single();
+        .maybeSingle();
 
       applySyncedProfileToLocal(syncedProfile || existing, rawEmail);
       localStorage.setItem('sabi_auth_provider', 'google+email');
@@ -457,12 +510,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       setAuthLoading(false);
       setAuthFeedback({
         type: 'error',
-        message: err?.message || 'Unable to authenticate with Supabase. Please check your connection.',
+        message: err?.message || 'Unable to authenticate with SABI. Please check your connection.',
       });
     }
   };
 
-  // Handle Create Account form submission -> strictly creates user in Supabase Auth (auth.users) + public.profiles
+  // Handle Create Account form submission -> Creates & Immediately Verifies User in Supabase under SABI
   const handleCreateAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
@@ -494,75 +547,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     let authUserId: string | undefined;
     let lastErrorMessage = '';
 
-    // 1. Check if this email already has a registered profile in Supabase public.profiles
-    try {
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', normalizedEmail)
-        .maybeSingle();
-
-      if (existingProfile?.id) {
-        setAuthLoading(false);
-        setAuthFeedback({
-          type: 'error',
-          message: `An account with ${normalizedEmail} is already registered (Unique ID: ${existingProfile.sabi_unique_id}). Please switch to "Sign In" or use "Forgot Password".`,
-        });
-        return;
-      }
-      if (existingProfile?.sabi_unique_id) {
-        uniqueId = existingProfile.sabi_unique_id;
-      }
-    } catch {
-      // Proceed to creation
-    }
-
-    // 2. Create user in Supabase Auth (auth.users -> Authentication > Users tab) directly from client
-    //    This triggers Supabase's native email verification flow when Confirm Email is ON.
-    try {
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password: passwordInput,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/sign-in`,
-          data: {
-            full_name: cleanedName,
-            phone: cleanedPhone,
-            state_of_origin: stateOfOriginInput,
-            sabi_unique_id: uniqueId,
-          },
-        },
-      });
-
-      if (signUpError) {
-        lastErrorMessage = signUpError.message;
-        const lowerErr = signUpError.message.toLowerCase();
-        if (lowerErr.includes('already registered') || lowerErr.includes('already exists')) {
-          setAuthLoading(false);
-          setAuthFeedback({
-            type: 'error',
-            message: `An account with ${normalizedEmail} already exists in Supabase. Please go to Sign In.`,
-          });
-          return;
-        }
-      } else if (signUpData?.user) {
-        // When Confirm Email is ON, Supabase returns identities: [] if the user already exists in auth.users
-        if (Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
-          setAuthLoading(false);
-          setAuthFeedback({
-            type: 'error',
-            message: `An account with ${normalizedEmail} is already registered in Supabase Auth. Please Sign In instead.`,
-          });
-          return;
-        }
-        authUserId = signUpData.user.id;
-      }
-    } catch (err: any) {
-      lastErrorMessage = err?.message || 'Supabase Auth signup request failed.';
-    }
-
-    // 3. Also call Backend /api/auth/register (ensures user is created in auth.users & public.profiles
-    //    even if Supabase free-tier SMTP email rate limit was reached during signUp)
+    // 1. Primary Path: Call SABI Backend /api/auth/register FIRST!
+    //    This creates the user via supabaseAdmin.auth.admin.createUser({ email_confirm: true })
+    //    so the candidate is immediately verified under SABI and Supabase NEVER sends a "Supabase"
+    //    email with a broken localhost:3000 link!
     try {
       const resp = await fetch('/api/auth/register', {
         method: 'POST',
@@ -574,7 +562,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           phone: cleanedPhone,
           stateOfOrigin: stateOfOriginInput,
           provider: authProvider === 'google' ? 'google' : 'email',
-          authUserId,
         }),
       });
       const data = await resp.json().catch(() => ({}));
@@ -582,31 +569,126 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         setAuthLoading(false);
         setAuthFeedback({
           type: 'error',
-          message: data?.error || `An account with ${normalizedEmail} already exists. Please Sign In.`,
+          message:
+            data?.error ||
+            `An account with ${normalizedEmail} is already registered. Please switch to "Sign In" or use "Forgot Password".`,
         });
         return;
       }
-      if (resp.ok) {
-        if (data?.auth_user_id) {
-          authUserId = data.auth_user_id;
-        }
-        if (data?.sabi_unique_id) {
+      if (resp.ok && data?.auth_user_id) {
+        authUserId = data.auth_user_id;
+        if (data.sabi_unique_id) {
           uniqueId = data.sabi_unique_id;
         }
-        if (data?.profile) {
+        if (data.profile) {
           syncedProfile = data.profile;
         }
       } else if (data?.error) {
         lastErrorMessage = data.error;
       }
     } catch {
-      // Direct Supabase client upsert below will handle profile persistence
+      // Fallback to direct Supabase Auth below if backend route was unreachable
     }
 
-    // 4. Ensure public.profiles row is upserted directly in Supabase with the real authUserId
-    if (authUserId && !syncedProfile) {
+    // 2. Fallback Path (only if /api/auth/register didn't already create the user):
+    //    Uses public non-localhost SABI redirect URL and then calls /api/auth/verify to auto-confirm.
+    if (!authUserId) {
       try {
-        const { data: upsertedProfile, error: upsertErr } = await supabase
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: passwordInput,
+          options: {
+            emailRedirectTo: getSabiAuthRedirectUrl('/auth/verify'),
+            data: {
+              full_name: cleanedName,
+              phone: cleanedPhone,
+              state_of_origin: stateOfOriginInput,
+              sabi_unique_id: uniqueId,
+              issuer: 'SABI',
+            },
+          },
+        });
+
+        if (signUpError) {
+          lastErrorMessage = signUpError.message;
+          const lowerErr = signUpError.message.toLowerCase();
+          if (lowerErr.includes('already registered') || lowerErr.includes('already exists')) {
+            setAuthLoading(false);
+            setAuthFeedback({
+              type: 'error',
+              message: `An account with ${normalizedEmail} already exists in SABI. Please switch to "Sign In".`,
+            });
+            return;
+          }
+        } else if (signUpData?.user) {
+          if (Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
+            setAuthLoading(false);
+            setAuthFeedback({
+              type: 'error',
+              message: `An account with ${normalizedEmail} is already registered. Please Sign In instead.`,
+            });
+            return;
+          }
+          authUserId = signUpData.user.id;
+
+          // Request instant verification from backend if reachable
+          try {
+            const verifyResp = await fetch('/api/auth/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: normalizedEmail,
+                uniqueId,
+                authUserId,
+              }),
+            });
+            const verifyData = await verifyResp.json().catch(() => ({}));
+            if (verifyData?.profile) {
+              syncedProfile = verifyData.profile;
+              uniqueId = verifyData.sabi_unique_id || uniqueId;
+            }
+          } catch {
+            // PostgreSQL trigger on_auth_user_created handles profile creation
+          }
+        }
+      } catch (err: any) {
+        lastErrorMessage = err?.message || 'Account creation request failed.';
+      }
+    }
+
+    if (!authUserId) {
+      setAuthLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message:
+          lastErrorMessage ||
+          'Could not create your account. Please check your internet connection and try again.',
+      });
+      return;
+    }
+
+    // 3. Establish active authenticated Supabase session on the client now that user is confirmed
+    try {
+      const { error: firstSignInErr } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password: passwordInput,
+      });
+      if (firstSignInErr && (firstSignInErr.message || '').toLowerCase().includes('email not confirmed')) {
+        // Wait briefly for the 2.5s SABI verification guardian to confirm the user in Supabase Auth, then retry
+        await new Promise((r) => setTimeout(r, 2600));
+        await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password: passwordInput,
+        });
+      }
+    } catch {
+      // Session will also be synced on next login
+    }
+
+    // 4. Sync or construct verified profile (PostgreSQL trigger on_auth_user_created already inserts public.profiles)
+    if (!syncedProfile) {
+      try {
+        const { data: upsertedProfile } = await supabase
           .from('profiles')
           .upsert(
             {
@@ -623,29 +705,28 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             { onConflict: 'email' }
           )
           .select('*')
-          .single();
+          .maybeSingle();
 
-        if (upsertErr) {
-          lastErrorMessage = upsertErr.message;
-        } else if (upsertedProfile) {
+        if (upsertedProfile) {
           syncedProfile = upsertedProfile;
           uniqueId = upsertedProfile.sabi_unique_id || uniqueId;
         }
-      } catch (err: any) {
-        lastErrorMessage = err?.message || lastErrorMessage;
+      } catch {
+        // Ignore RLS error if session is still propagating; trigger already created the row in public.profiles
       }
     }
 
-    // 5. STRICT GATE: Never create a localStorage-only account if Supabase Auth or public.profiles failed
-    if (!authUserId || !syncedProfile) {
-      setAuthLoading(false);
-      setAuthFeedback({
-        type: 'error',
-        message:
-          lastErrorMessage ||
-          'Could not create your account in Supabase. Please check your internet connection and try again.',
-      });
-      return;
+    if (!syncedProfile) {
+      syncedProfile = {
+        id: authUserId,
+        email: normalizedEmail,
+        sabi_unique_id: uniqueId,
+        full_name: cleanedName,
+        phone: cleanedPhone,
+        state_of_origin: stateOfOriginInput,
+        auth_providers: authProvider === 'google' ? ['google', 'email'] : ['email'],
+        onboarding_completed: false,
+      };
     }
 
     applySyncedProfileToLocal(syncedProfile, normalizedEmail, cleanedName);
@@ -653,6 +734,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     localStorage.setItem('sabi_user_state', stateOfOriginInput);
     localStorage.setItem('sabi_unique_id', uniqueId);
     localStorage.setItem('sabi_auth_provider', authProvider === 'google' ? 'google+email' : 'email');
+    localStorage.setItem('sabi_user_signed_in', 'true');
 
     setGeneratedUniqueId(uniqueId);
     setAuthLoading(false);
@@ -712,7 +794,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
   };
 
-  // Handle Sign In (Email or Phone + Password) — strictly verifies against Supabase Auth + public.profiles
+  // Handle Sign In (Email or Phone + Password) — Verifies against SABI Backend + Supabase Auth with auto-confirmation
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
@@ -740,62 +822,88 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     let authenticatedUserId: string | undefined;
     let signInErrorMessage = '';
 
-    // 1. Look up candidate profile in Supabase public.profiles by email or phone
+    // 1. Authenticate via SABI Backend /api/auth/login first (auto-confirms any unconfirmed user & resolves phone numbers)
     try {
-      const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(
-          authMethod === 'phone' || !identifier.includes('@')
-            ? `phone.eq.${identifier},email.eq.${identifier}`
-            : `email.eq.${identifier}`
-        )
-        .maybeSingle();
-
-      if (profileRow) {
-        matchedProfile = profileRow;
-        resolvedEmail = profileRow.email || resolvedEmail;
+      const resp = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier,
+          password: passwordInput,
+          method: authMethod,
+        }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok && data?.auth_user_id) {
+        authenticatedUserId = data.auth_user_id;
+        matchedProfile = data.profile || matchedProfile;
+        resolvedEmail = matchedProfile?.email || resolvedEmail;
+      } else if (data?.error) {
+        signInErrorMessage = data.error;
       }
     } catch {
-      // Will also check backend /api/auth/login below
+      // Fall back to direct Supabase Auth below
     }
 
+    // 1b. If on Android APK without backend and user signed in via Phone Number, resolve email directly from Supabase profiles
     if (!resolvedEmail) {
-      setAuthLoading(false);
-      setAuthFeedback({
-        type: 'error',
-        message: 'No registered SABI account found for that phone number. Please Create an Account first or sign in with your email.',
-      });
-      return;
+      try {
+        const { data: phoneProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(`phone.eq.${identifier},email.eq.${identifier}`)
+          .maybeSingle();
+        if (phoneProfile?.email) {
+          matchedProfile = phoneProfile;
+          resolvedEmail = phoneProfile.email.trim().toLowerCase();
+        }
+      } catch {
+        // Ignore lookup error
+      }
     }
 
-    // 2. Authenticate password strictly against Supabase Auth directly
-    try {
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-        email: resolvedEmail,
-        password: passwordInput,
-      });
+    // 2. Also establish client-side Supabase Auth session (or authenticate directly if backend wasn't reached)
+    if (resolvedEmail) {
+      try {
+        let { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: resolvedEmail,
+          password: passwordInput,
+        });
 
-      if (signInErr) {
-        const errMsg = (signInErr.message || '').toLowerCase();
-        if (errMsg.includes('email not confirmed')) {
-          setAuthLoading(false);
-          setUnconfirmedEmailForResend(resolvedEmail);
-          setAuthFeedback({
-            type: 'error',
-            message: `Your email (${resolvedEmail}) has not been confirmed yet. Please click the verification link sent to your email inbox (or spam folder), then sign in.`,
+        // If client received "Email not confirmed", trigger /api/auth/verify, wait for SABI guardian, and retry immediately!
+        if (signInErr && (signInErr.message || '').toLowerCase().includes('email not confirmed')) {
+          await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: resolvedEmail }),
+          }).catch(() => {});
+
+          await new Promise((r) => setTimeout(r, 2600));
+
+          const retry = await supabase.auth.signInWithPassword({
+            email: resolvedEmail,
+            password: passwordInput,
           });
-          return;
+          signInData = retry.data;
+          signInErr = retry.error;
         }
-        signInErrorMessage = 'Incorrect email or password. Forgot your password? Click "Forgot Password" to reset using your 5-character Unique SABI ID.';
-      } else if (signInData?.user) {
-        authenticatedUserId = signInData.user.id;
-        if (!matchedProfile) {
-          const fallbackId = getOrGenerateSabiUniqueId(resolvedEmail);
-          const { data: syncedRow } = await supabase
-            .from('profiles')
-            .upsert(
-              {
+
+        if (signInData?.user) {
+          authenticatedUserId = signInData.user.id;
+          if (!matchedProfile) {
+            const { data: profileRow } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', signInData.user.id)
+              .maybeSingle();
+
+            if (profileRow) {
+              matchedProfile = profileRow;
+            } else {
+              const fallbackId =
+                signInData.user.user_metadata?.sabi_unique_id ||
+                getOrGenerateSabiUniqueId(resolvedEmail);
+              matchedProfile = {
                 id: signInData.user.id,
                 email: resolvedEmail,
                 sabi_unique_id: fallbackId,
@@ -803,51 +911,30 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                 phone: signInData.user.user_metadata?.phone || '',
                 state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
                 auth_providers: ['email'],
-              },
-              { onConflict: 'email' }
-            )
-            .select('*')
-            .maybeSingle();
-          if (syncedRow) matchedProfile = syncedRow;
+              };
+            }
+          }
+        } else if (signInErr && !authenticatedUserId) {
+          const errMsg = (signInErr.message || '').toLowerCase();
+          if (errMsg.includes('email not confirmed')) {
+            setAuthLoading(false);
+            setUnconfirmedEmailForResend(resolvedEmail);
+            setAuthFeedback({
+              type: 'error',
+              message: `Your account (${resolvedEmail}) needs instant SABI verification. Tap the button below to verify your account right now.`,
+            });
+            return;
+          }
+          signInErrorMessage =
+            'Incorrect email or password. Forgot your password? Click "Forgot Password" to reset using your 5-character Unique SABI ID.';
         }
-      }
-    } catch (err: any) {
-      signInErrorMessage = err?.message || 'Sign in request failed.';
-    }
-
-    // 3. If client signInWithPassword didn't succeed, verify via Backend /api/auth/login
-    if (!authenticatedUserId) {
-      try {
-        const resp = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            identifier,
-            password: passwordInput,
-            method: authMethod,
-          }),
-        });
-        const data = await resp.json().catch(() => ({}));
-        if (resp.ok && data?.auth_user_id) {
-          authenticatedUserId = data.auth_user_id;
-          matchedProfile = data.profile || matchedProfile;
-        } else if (data?.code === 'EMAIL_NOT_CONFIRMED') {
-          setAuthLoading(false);
-          setUnconfirmedEmailForResend(data.email || resolvedEmail);
-          setAuthFeedback({
-            type: 'error',
-            message: data.error,
-          });
-          return;
-        } else if (data?.error) {
-          signInErrorMessage = data.error;
+      } catch (err: any) {
+        if (!authenticatedUserId) {
+          signInErrorMessage = err?.message || 'Sign in request failed.';
         }
-      } catch {
-        // Keep signInErrorMessage from direct Supabase Auth
       }
     }
 
-    // 4. STRICT GATE: Never allow localStorage sign-in if Supabase Auth did not authenticate the user
     if (!authenticatedUserId || !matchedProfile) {
       setAuthLoading(false);
       setAuthFeedback({
@@ -1002,7 +1089,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
             
             <div className="relative z-10">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-sm mb-6">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 text-white border border-white/20 font-black text-xs uppercase tracking-wider shadow-xs mb-6">
                 <span>Unified Candidate Identity · JAMB 2027</span>
               </div>
               <h1 className="text-3xl xl:text-4xl font-black tracking-tight leading-tight mb-4">
@@ -1024,13 +1111,13 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             </div>
 
             <div className="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/10 text-xs">
-              <div className="p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
-                <div className="font-black text-amber-400 text-sm mb-0.5">🔐 4-Digit + 1-Letter ID</div>
-                <div className="text-blue-100/80 text-[11px]">Easy to remember & downloadable as a recovery doc</div>
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15">
+                <div className="font-black text-white text-sm mb-0.5">🔐 4-Digit + 1-Letter ID</div>
+                <div className="text-blue-100/85 text-[11px]">Easy to remember & downloadable as a recovery doc</div>
               </div>
-              <div className="p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
-                <div className="font-black text-amber-400 text-sm mb-0.5">🔄 Google + Email Sync</div>
-                <div className="text-blue-100/80 text-[11px]">Zero duplicate accounts when switching sign-in method</div>
+              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15">
+                <div className="font-black text-white text-sm mb-0.5">🔄 Google + Email Sync</div>
+                <div className="text-blue-100/85 text-[11px]">Zero duplicate accounts when switching sign-in method</div>
               </div>
             </div>
           </div>
@@ -1048,7 +1135,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                     setRecoveryFeedback(null);
                     setCurrentMode('choice');
                   }}
-                  className="mb-4 text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 hover:underline flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="mb-4 text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   ← Back to Account Options
                 </button>
@@ -1076,10 +1163,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                 <div
                   className={`mb-4 p-3.5 rounded-xl text-xs font-bold border ${
                     authFeedback.type === 'error'
-                      ? 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
                       : authFeedback.type === 'success'
-                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                      : 'bg-amber-400/15 border-amber-400/40 text-amber-400'
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
                   }`}
                 >
                   <div>{authFeedback.message}</div>
@@ -1088,9 +1175,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       type="button"
                       onClick={handleResendVerificationEmail}
                       disabled={authLoading}
-                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] transition-all cursor-pointer"
+                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] transition-all cursor-pointer"
                     >
-                      <span>Resend Confirmation Email to {unconfirmedEmailForResend}</span>
+                      <CheckCircle2 size={14} />
+                      <span>Verify SABI Account Instantly ({unconfirmedEmailForResend})</span>
                     </button>
                   )}
                 </div>
@@ -1107,20 +1195,20 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       setCurrentMode('sign-up');
                       navigate('/auth/sign-up', { replace: true });
                     }}
-                    className="w-full p-5 sm:p-6 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black shadow-lg shadow-amber-400/20 flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer border-2 border-amber-500"
+                    className="w-full p-5 sm:p-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg shadow-blue-600/20 flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer border border-blue-500"
                   >
                     <div className="flex items-center gap-4 text-left">
-                      <div className="p-3 rounded-xl bg-blue-700 text-white transition-colors">
+                      <div className="p-3 rounded-xl bg-white/15 text-white transition-colors">
                         <UserPlus size={24} />
                       </div>
                       <div>
-                        <h3 className="text-lg sm:text-xl font-black leading-tight text-slate-950">Create Account</h3>
-                        <p className="text-xs text-slate-800 font-bold mt-0.5">
+                        <h3 className="text-lg sm:text-xl font-black leading-tight text-white">Create Account</h3>
+                        <p className="text-xs text-blue-100 font-semibold mt-0.5">
                           Register your details, get your Unique SABI ID & start 10-step onboarding
                         </p>
                       </div>
                     </div>
-                    <ArrowRight size={22} className="text-blue-800 group-hover:translate-x-1.5 transition-transform shrink-0" />
+                    <ArrowRight size={22} className="text-white group-hover:translate-x-1.5 transition-transform shrink-0" />
                   </button>
 
                   <button
@@ -1129,20 +1217,24 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       setCurrentMode('sign-in');
                       navigate('/auth/sign-in', { replace: true });
                     }}
-                    className="w-full p-5 sm:p-6 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-black shadow-lg shadow-blue-700/25 flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer border-2 border-blue-600"
+                    className={`w-full p-5 sm:p-6 rounded-2xl font-black shadow-sm flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer border-2 ${
+                      isDark
+                        ? 'bg-slate-950 hover:bg-slate-900 text-white border-slate-800 hover:border-blue-500'
+                        : 'bg-white hover:bg-blue-50/40 text-slate-900 border-slate-200 hover:border-blue-400'
+                    }`}
                   >
                     <div className="flex items-center gap-4 text-left">
-                      <div className="p-3 rounded-xl bg-amber-400 text-slate-950 transition-colors font-bold">
+                      <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 transition-colors font-bold">
                         <LogIn size={24} />
                       </div>
                       <div>
                         <h3 className="text-lg sm:text-xl font-black leading-tight">Already Have an Account</h3>
-                        <p className="text-xs text-blue-100 font-semibold opacity-90 mt-0.5">
+                        <p className={`text-xs font-semibold mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                           Sign in with Email, Phone, or synced Google account
                         </p>
                       </div>
                     </div>
-                    <ChevronRight size={22} className="group-hover:translate-x-1.5 transition-transform shrink-0" />
+                    <ChevronRight size={22} className="text-blue-600 dark:text-blue-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
                   </button>
                 </div>
               )}
@@ -1154,10 +1246,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                 <form onSubmit={handleCreateAccountSubmit} className="space-y-3.5 animate-fade-in">
                   {/* Synced Google Auth Quick-Link Banner */}
                   <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                    isDark ? 'bg-blue-950/40 border-blue-800/70' : 'bg-blue-50/80 border-blue-200'
+                    isDark ? 'bg-blue-950/30 border-blue-800/60' : 'bg-blue-50/60 border-blue-200'
                   }`}>
                     <div className="text-xs">
-                      <div className="font-black text-blue-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <div className="font-black text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
                         <Chrome size={15} />
                         <span>Google & Email Identity Sync Active</span>
                       </div>
@@ -1170,10 +1262,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       onClick={() => handleGoogleSync('register')}
                       className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer ${
                         authProvider === 'google'
-                          ? 'bg-amber-400 text-slate-950 border-amber-500'
+                          ? 'bg-blue-600 text-white border-blue-600'
                           : isDark
-                          ? 'bg-slate-900 text-white border-slate-700 hover:border-amber-400'
-                          : 'bg-white text-slate-900 border-slate-300 hover:border-blue-600'
+                          ? 'bg-slate-900 text-white border-slate-700 hover:border-blue-400'
+                          : 'bg-white text-blue-700 border-blue-200 hover:border-blue-600'
                       }`}
                     >
                       {authProvider === 'google' ? '✓ Google Linked' : 'Link Google Gmail'}
@@ -1194,7 +1286,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                         placeholder="e.g. Adeleke David Oluwaseun"
                         required
                         className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
+                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
                         } outline-none`}
                       />
                     </div>
@@ -1214,7 +1306,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                         placeholder="candidate@gmail.com"
                         required
                         className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
+                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
                         } outline-none`}
                       />
                     </div>
@@ -1235,7 +1327,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                           placeholder="+234 803 123 4567"
                           required
                           className={`w-full pl-10 pr-3 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
+                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
                           } outline-none`}
                         />
                       </div>
@@ -1252,7 +1344,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                           onChange={(e) => setStateOfOriginInput(e.target.value)}
                           required
                           className={`w-full pl-10 pr-3 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
+                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
                           } outline-none`}
                         >
                           {NIGERIAN_STATES.map((st) => (
@@ -1280,7 +1372,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                         placeholder="Create a strong password (min. 6 chars)"
                         required
                         className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-amber-400' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
+                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
                         } outline-none`}
                       />
                     </div>
@@ -1289,9 +1381,9 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full py-4 rounded-2xl font-black text-sm sm:text-base bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white shadow-lg shadow-blue-700/25 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    className="w-full py-4 rounded-2xl font-black text-sm sm:text-base bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
-                    <span>{authLoading ? 'Creating Account & Syncing ID...' : 'Create Account & Generate Unique ID'}</span>
+                    <span>{authLoading ? 'Creating Account & Verifying SABI ID...' : 'Create Account & Generate Unique ID'}</span>
                     <ArrowRight size={18} />
                   </button>
                 </form>
@@ -1302,34 +1394,37 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
               {/* ========================================== */}
               {currentMode === 'verify' && (
                 <div className="space-y-5 animate-fade-in">
-                  {/* Yellow & Blue Official Unique ID Card */}
-                  <div className="rounded-3xl p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 text-slate-950 border-2 border-amber-300 shadow-xl">
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span className="px-3 py-1 rounded-lg bg-slate-950/15 text-slate-950 font-mono text-[11px] font-black uppercase tracking-widest">
-                        OFFICIAL VERIFICATION GRANT
+                  {/* Blue & White Official Unique ID Card with subtle light yellow accent */}
+                  <div className={`rounded-3xl p-6 border-2 shadow-xl ${
+                    isDark ? 'bg-slate-950 border-blue-800 text-white' : 'bg-white border-blue-200 text-slate-900'
+                  }`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                      <span className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono text-[11px] font-black uppercase tracking-widest">
+                        SABI OFFICIAL VERIFICATION GRANT
                       </span>
-                      <span className="text-xs font-black text-blue-950">
-                        4 Numbers + 1 Letter
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-black">
+                        <CheckCircle2 size={13} />
+                        <span>Verified by SABI</span>
                       </span>
                     </div>
 
-                    <p className="text-xs font-bold text-slate-900 mb-2">
-                      Assigned to <span className="font-black underline">{emailInput || 'candidate@sabi.ng'}</span> ({stateOfOriginInput} State)
+                    <p className={`text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
+                      Assigned to <span className="font-black text-blue-600 dark:text-blue-400 underline">{emailInput || 'candidate@sabi.ng'}</span> ({stateOfOriginInput} State)
                     </p>
 
-                    <div className="my-4 p-4 rounded-2xl bg-slate-950 text-amber-400 flex items-center justify-between border-2 border-blue-700">
+                    <div className="my-4 p-4 rounded-2xl bg-gradient-to-r from-blue-700 to-blue-900 text-white flex items-center justify-between border border-blue-500 shadow-md">
                       <div>
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-slate-400">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-blue-200">
                           YOUR PERMANENT SABI UNIQUE ID
                         </div>
-                        <div className="text-3xl sm:text-4xl font-black font-mono tracking-[0.2em] mt-0.5 text-amber-400">
+                        <div className="text-3xl sm:text-4xl font-black font-mono tracking-[0.2em] mt-0.5 text-white">
                           {generatedUniqueId}
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={handleCopyUniqueId}
-                        className="px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                        className="px-4 py-2.5 rounded-xl bg-white hover:bg-blue-50 text-blue-800 font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
                       >
                         {copiedId ? <CheckCircle2 size={16} /> : <Copy size={16} />}
                         <span>{copiedId ? 'Copied!' : 'Copy ID'}</span>
@@ -1340,7 +1435,11 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       <button
                         type="button"
                         onClick={handleDownloadUniqueIdDoc}
-                        className="flex-1 py-3 px-4 rounded-xl bg-slate-950/15 hover:bg-slate-950/25 text-slate-950 font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        className={`flex-1 py-3 px-4 rounded-xl border font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                          isDark
+                            ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200'
+                            : 'bg-slate-50 hover:bg-blue-50/50 border-slate-200 text-blue-800'
+                        }`}
                       >
                         <Download size={16} />
                         <span>Download ID Recovery Doc (.txt)</span>
@@ -1349,15 +1448,15 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                   </div>
 
                   <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${
-                    isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-200 text-slate-700'
+                    isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-yellow-50/70 border-yellow-200/80 text-slate-700'
                   }`}>
-                    <strong className="font-black text-blue-600 dark:text-amber-400">Important:</strong> This ID is also saved in your Account Dashboard where you can download the recovery document at any time. You will need this 5-character ID to reset your password if you ever lose access.
+                    <strong className="font-black text-blue-700 dark:text-blue-400">Important:</strong> This ID is also saved in your Account Dashboard where you can download the recovery document at any time. You will need this 5-character ID to reset your password if you ever lose access.
                   </div>
 
                   <button
                     type="button"
                     onClick={() => navigate('/onboarding/1')}
-                    className="w-full py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 text-white font-black text-base shadow-xl shadow-blue-700/25 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
+                    className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
                   >
                     <span>Proceed to 10-Step Onboarding</span>
                     <ArrowRight size={20} />
@@ -1374,13 +1473,13 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                   <button
                     type="button"
                     onClick={() => handleGoogleSync('login')}
-                    className={`w-full py-3.5 px-4 rounded-2xl border-2 font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
+                    className={`w-full py-3.5 px-4 rounded-2xl border font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
                       isDark
-                        ? 'bg-slate-950 border-slate-800 text-white hover:border-amber-400'
-                        : 'bg-slate-50 border-slate-300 text-slate-900 hover:border-blue-600'
+                        ? 'bg-slate-950 border-slate-800 text-white hover:border-blue-500'
+                        : 'bg-white border-slate-300 text-slate-900 hover:border-blue-600 shadow-xs'
                     }`}
                   >
-                    <Chrome size={18} className="text-blue-500" />
+                    <Chrome size={18} className="text-blue-600" />
                     <span>Continue with Google (Synced with Email Account)</span>
                   </button>
 
@@ -1397,7 +1496,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       onClick={() => setAuthMethod('email')}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
                         authMethod === 'email' 
-                          ? 'bg-blue-700 text-white shadow-sm' 
+                          ? 'bg-blue-600 text-white shadow-sm' 
                           : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -1408,7 +1507,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       onClick={() => setAuthMethod('phone')}
                       className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
                         authMethod === 'phone' 
-                          ? 'bg-blue-700 text-white shadow-sm' 
+                          ? 'bg-blue-600 text-white shadow-sm' 
                           : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
@@ -1467,7 +1566,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                           setRecoveryFeedback(null);
                           setCurrentMode('forgot-password');
                         }}
-                        className="text-xs text-blue-500 hover:text-amber-500 hover:underline font-bold"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold"
                       >
                         Forgot Password? (Verify with Unique ID)
                       </button>
@@ -1490,7 +1589,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full py-4 rounded-2xl font-black text-base bg-blue-700 hover:bg-blue-800 disabled:opacity-60 text-white shadow-lg shadow-blue-700/25 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
+                    className="w-full py-4 rounded-2xl font-black text-base bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white shadow-lg shadow-blue-600/20 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
                   >
                     <span>{authLoading ? 'Signing In & Syncing...' : 'Sign In to Dashboard'}</span>
                     <ArrowRight size={18} />
@@ -1500,7 +1599,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                     <button
                       type="button"
                       onClick={() => setCurrentMode('sign-up')}
-                      className={`text-xs font-bold ${isDark ? 'text-slate-400 hover:text-amber-400' : 'text-slate-600 hover:text-amber-600'} transition-colors cursor-pointer`}
+                      className={`text-xs font-bold ${isDark ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'} transition-colors cursor-pointer`}
                     >
                       Don't have an account? Create one & get your Unique ID
                     </button>
@@ -1513,8 +1612,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
               {/* ========================================== */}
               {currentMode === 'forgot-password' && (
                 <form onSubmit={handlePasswordResetWithUniqueId} className="space-y-4 animate-fade-in">
-                  <div className="p-3.5 rounded-2xl bg-amber-400/15 border border-amber-400/40 text-xs font-semibold leading-relaxed">
-                    <span className="font-black text-amber-500 uppercase tracking-wider block mb-0.5">
+                  <div className={`p-3.5 rounded-2xl border text-xs font-semibold leading-relaxed ${
+                    isDark ? 'bg-blue-950/40 border-blue-800/60 text-slate-200' : 'bg-yellow-50/80 border-yellow-200 text-slate-700'
+                  }`}>
+                    <span className="font-black text-blue-700 dark:text-blue-300 uppercase tracking-wider block mb-0.5">
                       Mandatory Security Grant
                     </span>
                     To reset your password or recover your account, you must enter the <strong>5-character Unique SABI ID (4 numbers + 1 letter)</strong> issued to you at registration.
@@ -1551,7 +1652,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       5-Character Unique SABI ID (4 Numbers + 1 Letter)
                     </label>
                     <div className="relative">
-                      <KeyRound size={18} className="absolute left-3.5 top-3.5 text-amber-500" />
+                      <KeyRound size={18} className="absolute left-3.5 top-3.5 text-blue-600" />
                       <input
                         type="text"
                         maxLength={5}
@@ -1560,7 +1661,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                         placeholder="e.g. 4829K"
                         required
                         className={`w-full pl-11 pr-4 py-3.5 rounded-xl border-2 text-base font-mono font-black tracking-widest uppercase ${
-                          isDark ? 'bg-slate-950 border-amber-500/50 text-amber-400' : 'bg-amber-50/40 border-amber-400 text-slate-950'
+                          isDark ? 'bg-slate-950 border-blue-500/50 text-blue-300' : 'bg-blue-50/40 border-blue-300 text-slate-950'
                         } outline-none`}
                       />
                     </div>

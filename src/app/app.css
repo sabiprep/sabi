@@ -1,39 +1,39 @@
 :root {
-  --sabi-blue: #1e3a8a;
-  --sabi-blue-strong: #0b1f4b;
-  --sabi-yellow: #d4a900;
-  --sabi-yellow-bright: #f2c94c;
-  --sabi-yellow-foreground: #0b1f4b;
-  --sabi-page: #f1f5f9;
+  --sabi-blue: #1d4ed8;
+  --sabi-blue-strong: #0f296b;
+  --sabi-yellow: #fde68a;
+  --sabi-yellow-bright: #fef9c3;
+  --sabi-yellow-foreground: #1e3a8a;
+  --sabi-page: #f8fafc;
   --sabi-surface: #ffffff;
-  --sabi-surface-muted: #e8edf5;
+  --sabi-surface-muted: #f1f5f9;
   --sabi-text: #0f172a;
   --sabi-text-secondary: #475569;
-  --sabi-border: #cbd5e1;
-  --sabi-focus: #3b82f6;
+  --sabi-border: #e2e8f0;
+  --sabi-focus: #2563eb;
   --sabi-danger: #b42318;
   --sabi-success: #137a4b;
-  --sabi-shadow: 0 16px 45px rgb(11 31 75 / 9%);
-  --sabi-wallpaper-opacity: .028;
+  --sabi-shadow: 0 12px 32px rgb(15 41 107 / 7%);
+  --sabi-wallpaper-opacity: .022;
 }
 
 .dark {
-  --sabi-blue: #93c5fd;
+  --sabi-blue: #60a5fa;
   --sabi-blue-strong: #07152f;
-  --sabi-yellow: #f2c94c;
-  --sabi-yellow-bright: #f6d66d;
+  --sabi-yellow: #fde68a;
+  --sabi-yellow-bright: #fef3c7;
   --sabi-yellow-foreground: #0b1f4b;
   --sabi-page: #08111f;
   --sabi-surface: #101d30;
   --sabi-surface-muted: #17263b;
   --sabi-text: #f8fafc;
   --sabi-text-secondary: #cbd5e1;
-  --sabi-border: #26364d;
-  --sabi-focus: #93c5fd;
+  --sabi-border: #1e293b;
+  --sabi-focus: #60a5fa;
   --sabi-danger: #fda29b;
   --sabi-success: #6ce9a6;
   --sabi-shadow: 0 16px 45px rgb(0 0 0 / 24%);
-  --sabi-wallpaper-opacity: .032;
+  --sabi-wallpaper-opacity: .028;
 }
 
 body {

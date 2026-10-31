@@ -1,33 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0A1128"/>
-      <stop offset="100%" stop-color="#050814"/>
+    <linearGradient id="sabiIconBg512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F0F6FF"/>
     </linearGradient>
-    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#F2C94C"/>
-      <stop offset="100%" stop-color="#D4A900"/>
+    <linearGradient id="ribbonTop512" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0062FF"/>
+      <stop offset="40%" stop-color="#0084FF"/>
+      <stop offset="100%" stop-color="#00D2FF"/>
     </linearGradient>
-    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#F2C94C"/>
-      <stop offset="100%" stop-color="#D4A900"/>
+    <linearGradient id="ribbonShadow512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#022B8E"/>
+      <stop offset="50%" stop-color="#063EB6"/>
+      <stop offset="100%" stop-color="#0A2268"/>
+    </linearGradient>
+    <linearGradient id="ribbonMid512" x1="0%" y1="0%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#0080FF"/>
+      <stop offset="60%" stop-color="#004BE0"/>
+      <stop offset="100%" stop-color="#002DB3"/>
+    </linearGradient>
+    <linearGradient id="bookBottom512" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0066FF"/>
+      <stop offset="100%" stop-color="#0033CC"/>
     </linearGradient>
   </defs>
-  <!-- Background with Safe Margin -->
-  <rect width="512" height="512" rx="120" fill="url(#bg)"/>
-  
-  <!-- Outer Glow Ring -->
-  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#accent)" stroke-width="8" opacity="0.4"/>
-  
-  <!-- Inner Shield / Emblem -->
-  <polygon points="256,110 390,175 390,320 256,410 122,320 122,175" fill="#0E1B38" stroke="url(#accent)" stroke-width="12"/>
-  
-  <!-- Sabi Graduation Cap -->
-  <polygon points="256,160 350,205 256,250 162,205" fill="url(#accent)"/>
-  <polygon points="256,250 330,225 330,265 256,300 182,265 182,225" fill="#1E3A8A"/>
-  <circle cx="256" cy="180" r="10" fill="url(#gold)"/>
-  <path d="M 330 205 L 340 245 L 344 245 L 334 205 Z" fill="url(#gold)"/>
-  
-  <!-- CBT Lightning Flash -->
-  <polygon points="266,280 230,340 256,340 246,380 286,325 260,325" fill="url(#gold)"/>
+  <rect width="512" height="512" rx="116" fill="url(#sabiIconBg512)"/>
+  <rect x="8" y="8" width="496" height="496" rx="108" fill="none" stroke="#DBEAFE" stroke-width="6"/>
+  <g transform="translate(256, 256) scale(1.15) translate(-305, -189)">
+    <path d="M375 42 C335 44, 280 85, 252 145 C235 180, 248 200, 290 220 C320 235, 345 250, 355 272 C370 305, 350 338, 305 344 C275 348, 250 342, 230 326 C228 320, 235 295, 275 285 C310 276, 320 250, 295 235 C260 215, 230 185, 235 130 C242 75, 295 32, 360 25 Z" fill="url(#ribbonMid512)"/>
+    <path d="M360 25 C375 24, 385 30, 380 44 C370 70, 315 130, 290 155 C275 140, 285 100, 325 55 C340 38, 352 28, 360 25 Z" fill="url(#ribbonTop512)"/>
+    <path d="M290 155 C275 170, 260 190, 290 220 C320 235, 345 250, 355 272 C325 245, 290 225, 270 200 C255 180, 265 165, 290 155 Z" fill="url(#ribbonShadow512)"/>
+    <path d="M230 326 C220 345, 240 354, 275 352 C320 350, 362 315, 360 270 C358 245, 335 235, 305 225 C260 240, 230 275, 230 326 Z" fill="url(#bookBottom512)"/>
+    <path d="M255 265 Q285 285 325 315 Q290 295 248 280 Z" fill="#FFFFFF" opacity="0.96"/>
+    <path d="M242 290 Q275 310 315 335 Q280 320 236 305 Z" fill="#FFFFFF" opacity="0.96"/>
+    <path d="M232 315 Q262 332 298 348 Q268 338 228 326 Z" fill="#FFFFFF" opacity="0.96"/>
+  </g>
 </svg>

@@ -246,11 +246,11 @@ export default function LevelSimulatorWorkspace({
         {/* Top Solution Dashboard Header */}
         <header className="sabi-top-safe-bar sticky top-0 z-30 bg-[#080E1E]/95 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md">
               <BookOpenCheck size={20} />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">
                 {mode === 'blitz' ? 'SABI BLITZ' : 'SMART PRACTICE'} · LEVEL {levelId} SOLUTION DASHBOARD
               </span>
               <h1 className="text-base sm:text-xl font-black text-white">
@@ -263,7 +263,7 @@ export default function LevelSimulatorWorkspace({
             <button
               type="button"
               onClick={() => setIsCalculatorOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-black flex items-center gap-1.5 cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-300 text-xs font-black flex items-center gap-1.5 cursor-pointer"
             >
               <Calculator size={15} />
               <span className="hidden sm:inline">Calculator</span>
@@ -271,7 +271,7 @@ export default function LevelSimulatorWorkspace({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider cursor-pointer shadow-sm"
             >
               Finish & Return →
             </button>
@@ -285,7 +285,7 @@ export default function LevelSimulatorWorkspace({
             className={`rounded-3xl p-6 sm:p-8 border-2 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 ${
               finalScoreSummary.flawless
                 ? 'bg-gradient-to-r from-emerald-950 via-blue-950 to-slate-900 border-emerald-400'
-                : 'bg-gradient-to-r from-blue-950 via-slate-900 to-amber-950/40 border-amber-400/70'
+                : 'bg-gradient-to-r from-blue-950 via-slate-900 to-blue-900/60 border-blue-500/60'
             }`}
           >
             <div className="flex items-center gap-5">
@@ -299,7 +299,7 @@ export default function LevelSimulatorWorkspace({
                 className="w-24 h-24 sm:w-28 sm:h-28 object-contain shrink-0 drop-shadow-xl"
               />
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[11px] uppercase tracking-wider">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-100 text-blue-950 font-black text-[11px] uppercase tracking-wider">
                   <Award size={13} />
                   <span>
                     {finalScoreSummary.flawless
@@ -321,7 +321,7 @@ export default function LevelSimulatorWorkspace({
             </div>
 
             <div className="px-6 py-4 rounded-2xl bg-slate-950/90 border border-slate-800 text-center shrink-0 w-full md:w-auto">
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">
                 FINAL LEVEL SCORE
               </span>
               <span className="text-3xl sm:text-4xl font-black text-white">
@@ -329,7 +329,7 @@ export default function LevelSimulatorWorkspace({
               </span>
               <span
                 className={`text-[11px] font-black block mt-1 ${
-                  finalScoreSummary.flawless ? 'text-emerald-400' : 'text-amber-300'
+                  finalScoreSummary.flawless ? 'text-emerald-400' : 'text-yellow-200'
                 }`}
               >
                 {finalScoreSummary.flawless ? '★ Flawless Rating Unlocked' : '100% Required for Rating +Boost'}
@@ -343,7 +343,7 @@ export default function LevelSimulatorWorkspace({
               <h3 className="text-lg sm:text-xl font-black text-white">
                 Question-by-Question Solutions & AI Verification ({questions.length})
               </h3>
-              <span className="text-xs font-bold text-amber-400">
+              <span className="text-xs font-bold text-blue-300">
                 Click "AI Verify & Explain" on any question for deeper breakdown
               </span>
             </div>
@@ -375,7 +375,7 @@ export default function LevelSimulatorWorkspace({
                       <span className="px-3 py-1 rounded-full bg-blue-950 border border-blue-700/40 text-blue-300 text-xs font-black">
                         {q.subject} · {q.topic}
                       </span>
-                      <span className="text-xs font-bold text-amber-400">
+                      <span className="text-xs font-bold text-slate-400">
                         JAMB {q.year || 2024}
                       </span>
                     </div>
@@ -383,7 +383,7 @@ export default function LevelSimulatorWorkspace({
                     <button
                       type="button"
                       onClick={() => openAiPopupForQuestion(q)}
-                      className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md cursor-pointer"
                     >
                       <Sparkles size={14} />
                       <span>AI Verify & More Explanation</span>
@@ -435,14 +435,14 @@ export default function LevelSimulatorWorkspace({
 
                   {/* Step-by-Step KaTeX Worked Explanation */}
                   <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 text-xs sm:text-sm text-slate-200 leading-relaxed space-y-2">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 block">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-blue-400 block">
                       Step-by-Step Worked Solution:
                     </span>
                     <div>
                       <MathText text={q.explanation} />
                     </div>
                     {q.explanation_pidgin && (
-                      <div className="pt-2 border-t border-slate-800/80 text-xs text-amber-300">
+                      <div className="pt-2 border-t border-slate-800/80 text-xs text-yellow-200">
                         <strong>Pidgin Breakdown:</strong> <MathText text={q.explanation_pidgin} />
                       </div>
                     )}
@@ -497,7 +497,7 @@ export default function LevelSimulatorWorkspace({
             <X size={18} />
           </button>
           <div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block leading-none">
+            <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block leading-none">
               {mode === 'blitz' ? 'SABI BLITZ' : 'SMART ROAD'} · LEVEL {levelId}
             </span>
             <span className="text-xs sm:text-sm font-black text-white truncate max-w-[160px] sm:max-w-xs block mt-0.5">
@@ -522,11 +522,11 @@ export default function LevelSimulatorWorkspace({
                 }}
                 className={`h-2.5 flex-1 rounded-full transition-all cursor-pointer ${
                   isActive
-                    ? 'bg-amber-400 scale-y-125'
+                    ? 'bg-blue-400 scale-y-125'
                     : isSub
                     ? 'bg-emerald-500'
                     : hasAns
-                    ? 'bg-blue-500'
+                    ? 'bg-blue-600'
                     : 'bg-slate-800'
                 }`}
                 title={`Question ${idx + 1}`}
@@ -540,7 +540,7 @@ export default function LevelSimulatorWorkspace({
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800">
             <Clock
               size={14}
-              className={secondsRemaining <= 10 ? 'text-rose-500 animate-spin' : 'text-amber-400'}
+              className={secondsRemaining <= 10 ? 'text-rose-500 animate-spin' : 'text-blue-400'}
             />
             <span
               className={`text-xs font-mono font-black ${
@@ -551,7 +551,7 @@ export default function LevelSimulatorWorkspace({
             </span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-black">
+          <div className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-yellow-500/10 border border-yellow-400/30 text-yellow-200 text-xs font-black">
             <Flame size={14} />
             <span>{streakCount}x</span>
           </div>
@@ -559,7 +559,7 @@ export default function LevelSimulatorWorkspace({
           <button
             type="button"
             onClick={() => setIsCalculatorOpen(prev => !prev)}
-            className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+            className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition cursor-pointer"
             title="Toggle Moveable Scientific Calculator"
           >
             <Calculator size={14} />
@@ -576,7 +576,7 @@ export default function LevelSimulatorWorkspace({
             <span className="px-3 py-1 rounded-xl bg-blue-600 text-white font-black text-xs">
               Question {currentIndex + 1} of {questions.length}
             </span>
-            <span className="px-3 py-1 rounded-xl bg-amber-400/15 border border-amber-400/30 text-amber-300 font-black text-xs">
+            <span className="px-3 py-1 rounded-xl bg-blue-950 border border-blue-500/30 text-blue-200 font-black text-xs">
               {currentQuestion.subject} · {currentQuestion.topic}
             </span>
           </div>
@@ -615,7 +615,7 @@ export default function LevelSimulatorWorkspace({
                     : showWrong
                     ? 'bg-rose-950/70 border-rose-500 text-rose-200'
                     : isSelected
-                    ? 'bg-amber-400 text-slate-950 border-amber-300 shadow-[0_6px_20px_rgba(245,158,11,0.3)] scale-[1.01]'
+                    ? 'bg-blue-600 text-white border-blue-400 shadow-[0_6px_20px_rgba(37,99,235,0.3)] scale-[1.01]'
                     : 'bg-slate-900/90 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800/80'
                 }`}
               >
@@ -626,7 +626,7 @@ export default function LevelSimulatorWorkspace({
                       : showWrong
                       ? 'bg-rose-500 text-white border-rose-400'
                       : isSelected
-                      ? 'bg-blue-950 text-amber-400 border-blue-900'
+                      ? 'bg-white text-blue-700 border-white'
                       : 'bg-slate-800 text-slate-300 border-slate-700'
                   }`}
                 >
@@ -660,7 +660,7 @@ export default function LevelSimulatorWorkspace({
               <button
                 type="button"
                 onClick={() => openAiPopupForQuestion(currentQuestion)}
-                className="px-4 py-2.5 rounded-xl bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/50 text-amber-300 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer animate-fade-in"
+                className="px-4 py-2.5 rounded-xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-400/50 text-blue-200 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 cursor-pointer animate-fade-in"
               >
                 <Sparkles size={14} />
                 <span>See Solution & AI Popup</span>
@@ -692,7 +692,7 @@ export default function LevelSimulatorWorkspace({
                 disabled={!currentSelected && !isCurrentSubmitted}
                 className={`px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition cursor-pointer ${
                   currentSelected || isCurrentSubmitted
-                    ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-lg shadow-amber-400/20'
+                    ? 'bg-white hover:bg-blue-50 text-blue-900 shadow-lg'
                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                 }`}
               >
@@ -703,7 +703,7 @@ export default function LevelSimulatorWorkspace({
               <button
                 type="button"
                 onClick={handleFinalSubmitLevel}
-                className="px-7 py-3.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-emerald-400 via-amber-400 to-amber-500 hover:brightness-105 text-slate-950 shadow-xl flex items-center gap-2 cursor-pointer"
+                className="px-7 py-3.5 rounded-xl font-black text-xs sm:text-sm uppercase tracking-wider bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white shadow-xl flex items-center gap-2 cursor-pointer"
               >
                 <BookOpenCheck size={16} />
                 <span>Final Submit Level ({questions.length}Q) →</span>
@@ -768,15 +768,15 @@ function AiVerificationModal({
 }: AiVerificationModalProps) {
   return (
     <div className="fixed inset-0 z-[80] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-      <div className="w-full max-w-2xl rounded-3xl bg-[#0B1326] border-2 border-amber-400 text-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-2xl rounded-3xl bg-[#0B1326] border-2 border-blue-500 text-white shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black">
               <Sparkles size={18} />
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block">
                 SABI AI TUTOR & SOLUTION VERIFIER
               </span>
               <h3 className="text-sm sm:text-base font-black text-white">
@@ -811,7 +811,7 @@ function AiVerificationModal({
 
           {/* Standard Worked Solution */}
           <div className="p-4 rounded-2xl bg-blue-950/40 border border-blue-500/30 space-y-2">
-            <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 block">
+            <span className="text-[11px] font-black uppercase tracking-wider text-blue-300 block">
               Official Worked Solution (KaTeX):
             </span>
             <div className="text-xs sm:text-sm text-slate-100 leading-relaxed">
@@ -828,14 +828,14 @@ function AiVerificationModal({
           {/* AI Verification Controls */}
           <div className="space-y-3 pt-2 border-t border-slate-800">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+              <span className="text-xs font-black uppercase tracking-wider text-blue-300">
                 Live AI Deep Explanation & Verification:
               </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setAiLanguage(aiLanguage === 'english' ? 'pidgin' : 'english')}
-                  className="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[11px] font-black text-amber-300 cursor-pointer"
+                  className="px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[11px] font-black text-yellow-200 cursor-pointer"
                 >
                   Mode: {aiLanguage === 'english' ? 'Standard English' : 'Pidgin Breakdown'}
                 </button>
@@ -856,13 +856,13 @@ function AiVerificationModal({
                 value={customAiQuery}
                 onChange={e => setCustomAiQuery(e.target.value)}
                 placeholder="Ask AI to verify a step or explain why another option is wrong..."
-                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs sm:text-sm text-white focus:outline-hidden focus:border-amber-400"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs sm:text-sm text-white focus:outline-hidden focus:border-blue-500"
               />
               <button
                 type="button"
                 onClick={() => onFetchAi(question, customAiQuery)}
                 disabled={aiLoading}
-                className="px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shrink-0 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
                 <Send size={13} />
                 <span>{aiLoading ? 'Verifying…' : 'Verify with AI'}</span>

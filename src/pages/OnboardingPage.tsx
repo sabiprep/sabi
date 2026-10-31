@@ -218,7 +218,7 @@ export function OnboardingPage() {
       }`}
     >
       {/* ===================================================================== */}
-      {/* SIMPLE MATURE TOP HEADER (Standard Blue & Yellow Pairing)             */}
+      {/* SIMPLE MATURE TOP HEADER (Blue Primary + White Secondary)             */}
       {/* ===================================================================== */}
       <header
         className={`sabi-top-safe-bar px-4 sm:px-8 py-3.5 border-b shrink-0 flex items-center justify-between transition-colors ${
@@ -226,7 +226,7 @@ export function OnboardingPage() {
         }`}
       >
         <Link to="/welcome" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-700 flex items-center justify-center font-black text-amber-400 text-base shadow-xs">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-white text-base shadow-xs">
             S
           </div>
           <span className={`font-black text-lg tracking-tight ${isDark ? 'text-white' : 'text-blue-950'}`}>
@@ -236,7 +236,7 @@ export function OnboardingPage() {
 
         {/* Clean Step Counter */}
         <div className="flex items-center gap-3">
-          <span className="text-xs sm:text-sm font-black tracking-wide text-blue-600 dark:text-amber-400 tabular-nums">
+          <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs sm:text-sm font-black tracking-wide text-blue-700 dark:text-blue-300 tabular-nums">
             Step {question.id} of {totalSteps}
           </span>
 
@@ -246,8 +246,8 @@ export function OnboardingPage() {
             aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
             className={`p-2 rounded-xl border transition-colors cursor-pointer ${
               isDark
-                ? 'border-slate-800 bg-slate-900 text-amber-400 hover:bg-slate-800'
-                : 'border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                ? 'border-slate-800 bg-slate-900 text-blue-300 hover:bg-slate-800'
+                : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
             }`}
           >
             {isDark ? <Sun size={16} /> : <Moon size={16} />}
@@ -260,7 +260,7 @@ export function OnboardingPage() {
             className={`p-2 rounded-xl border transition-colors cursor-pointer ${
               isDark
                 ? 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
-                : 'border-slate-200 bg-slate-100 text-slate-600 hover:text-slate-900'
+                : 'border-slate-200 bg-slate-50 text-slate-600 hover:text-slate-900'
             }`}
           >
             {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
@@ -268,10 +268,10 @@ export function OnboardingPage() {
         </div>
       </header>
 
-      {/* Clean Standard Blue & Yellow Progress Bar */}
-      <div className={`w-full h-2 shrink-0 ${isDark ? 'bg-blue-950/60' : 'bg-blue-100'}`}>
+      {/* Clean Royal Blue Progress Bar */}
+      <div className={`w-full h-1.5 shrink-0 ${isDark ? 'bg-slate-900' : 'bg-blue-100'}`}>
         <div
-          className="h-full bg-amber-400 transition-all duration-300"
+          className="h-full bg-blue-600 transition-all duration-300"
           style={{ width: `${(question.id / totalSteps) * 100}%` }}
         />
       </div>
@@ -283,20 +283,20 @@ export function OnboardingPage() {
         
         {/* Unified Question + Scrollable Options Card */}
         <section
-          className={`flex-1 min-h-0 rounded-3xl border-2 flex flex-col overflow-hidden shadow-lg transition-colors ${
-            isDark ? 'bg-[#0E172B] border-blue-900/60' : 'bg-white border-blue-200'
+          className={`flex-1 min-h-0 rounded-3xl border flex flex-col overflow-hidden shadow-lg transition-colors ${
+            isDark ? 'bg-[#0E172B] border-slate-800' : 'bg-white border-slate-200'
           }`}
         >
-          {/* Yellow & Royal Blue Standard Question Header */}
-          <div className="shrink-0 bg-amber-400 text-slate-950 px-5 py-4 sm:px-7 sm:py-5 border-b-2 border-amber-500">
-            <div className="flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider text-blue-900 mb-1">
+          {/* Royal Blue Question Header */}
+          <div className="shrink-0 bg-gradient-to-r from-blue-700 via-blue-700 to-blue-800 text-white px-5 py-4 sm:px-7 sm:py-5 border-b border-blue-600">
+            <div className="flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider text-blue-100 mb-1">
               <span>{question.category}</span>
-              <span className="tabular-nums">{question.id} / {totalSteps}</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white tabular-nums">{question.id} / {totalSteps}</span>
             </div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug text-slate-950">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug text-white">
               {question.question}
             </h1>
-            <p className="text-xs sm:text-sm font-semibold text-slate-900/80 mt-1">
+            <p className="text-xs sm:text-sm font-medium text-blue-100/90 mt-1">
               {question.subtext}
             </p>
           </div>
@@ -308,12 +308,12 @@ export function OnboardingPage() {
             {question.id === 1 && (
               <div className="flex-1 flex flex-col gap-3">
                 <div
-                  className={`sticky top-0 z-10 py-2.5 px-4 rounded-xl border-2 flex items-center justify-between text-xs sm:text-sm font-black ${
-                    isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-blue-50 border-blue-200 text-blue-950'
+                  className={`sticky top-0 z-10 py-2.5 px-4 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-black ${
+                    isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-blue-50/80 border-blue-200 text-blue-950'
                   }`}
                 >
                   <span>Selected: {selectedSubjects.length} of 4 Subjects</span>
-                  <span className={selectedSubjects.length === 4 ? 'text-blue-600 dark:text-amber-400' : 'text-amber-600 dark:text-amber-400'}>
+                  <span className={selectedSubjects.length === 4 ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}>
                     {selectedSubjects.length === 4 ? '✓ Combination Complete' : `Select ${4 - selectedSubjects.length} more`}
                   </span>
                 </div>
@@ -330,20 +330,28 @@ export function OnboardingPage() {
                         onClick={() => toggleSubject(name)}
                         className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
                           isEnglish
-                            ? 'bg-amber-400 border-amber-500 text-slate-950 cursor-default font-black'
+                            ? isDark
+                              ? 'bg-blue-950/60 border-blue-700 text-white cursor-default font-black'
+                              : 'bg-yellow-50/90 border-yellow-200 text-slate-900 cursor-default font-black'
                             : checked
-                            ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-600/15'
                             : isDark
-                            ? 'bg-slate-900/90 border-slate-800 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 text-slate-100'
-                            : 'bg-slate-50 border-slate-200 hover:border-amber-400 hover:bg-amber-400 hover:text-slate-950 text-slate-900'
+                            ? 'bg-slate-900/90 border-slate-800 hover:border-blue-500 hover:bg-slate-800 text-slate-100'
+                            : 'bg-white border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 text-slate-900'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full mb-1">
-                          <span className="text-[10px] uppercase font-bold tracking-wider opacity-80">
+                          <span className={`text-[10px] uppercase font-bold tracking-wider ${
+                            isEnglish && !isDark ? 'text-amber-800' : 'opacity-80'
+                          }`}>
                             {isEnglish ? 'COMPULSORY' : category}
                           </span>
                           {(checked || isEnglish) && (
-                            <span className="w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center text-xs font-black">
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black ${
+                              isEnglish && !isDark
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-white text-blue-700'
+                            }`}>
                               <Check size={12} strokeWidth={3} />
                             </span>
                           )}
@@ -360,12 +368,12 @@ export function OnboardingPage() {
             {question.id === 2 && (
               <div className="flex-1 flex flex-col justify-between gap-4">
                 <div
-                  className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 flex flex-col justify-between gap-3 ${
-                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  className={`flex-1 p-4 sm:p-5 rounded-2xl border flex flex-col justify-between gap-3 ${
+                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50/80 border-slate-200'
                   }`}
                 >
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
                       Target Course of Study
                     </label>
                     <input
@@ -373,10 +381,10 @@ export function OnboardingPage() {
                       value={String(answers.targetCourse ?? '')}
                       placeholder="e.g. Medicine & Surgery, Computer Science, Law"
                       onChange={e => setAnswer('targetCourse', e.target.value)}
-                      className={`w-full px-4 py-3.5 rounded-xl border-2 text-base font-black outline-none ${
+                      className={`w-full px-4 py-3.5 rounded-xl border text-base font-black outline-none ${
                         isDark
-                          ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-700'
+                          ? 'bg-slate-950 border-slate-700 text-white focus:border-blue-500'
+                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-600'
                       }`}
                     />
                   </div>
@@ -386,12 +394,12 @@ export function OnboardingPage() {
                         key={course}
                         type="button"
                         onClick={() => setAnswer('targetCourse', course)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
                           answers.targetCourse === course
-                            ? 'bg-blue-700 border-blue-600 text-white'
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                             : isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                            : 'bg-white border-slate-200 text-slate-800 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-blue-500 hover:text-white'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
                         }`}
                       >
                         {course}
@@ -401,12 +409,12 @@ export function OnboardingPage() {
                 </div>
 
                 <div
-                  className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 flex flex-col justify-between gap-3 ${
-                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50 border-slate-200'
+                  className={`flex-1 p-4 sm:p-5 rounded-2xl border flex flex-col justify-between gap-3 ${
+                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50/80 border-slate-200'
                   }`}
                 >
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 mb-1.5">
+                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
                       First-Choice University / Institution
                     </label>
                     <input
@@ -414,10 +422,10 @@ export function OnboardingPage() {
                       value={String(answers.targetUniversity ?? '')}
                       placeholder="e.g. UNILAG, UI, OAU, UNILORIN"
                       onChange={e => setAnswer('targetUniversity', e.target.value)}
-                      className={`w-full px-4 py-3.5 rounded-xl border-2 text-base font-black outline-none ${
+                      className={`w-full px-4 py-3.5 rounded-xl border text-base font-black outline-none ${
                         isDark
-                          ? 'bg-slate-950 border-slate-700 text-white focus:border-amber-400'
-                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-700'
+                          ? 'bg-slate-950 border-slate-700 text-white focus:border-blue-500'
+                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-600'
                       }`}
                     />
                   </div>
@@ -427,12 +435,12 @@ export function OnboardingPage() {
                         key={uni}
                         type="button"
                         onClick={() => setAnswer('targetUniversity', uni)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
                           answers.targetUniversity === uni
-                            ? 'bg-blue-700 border-blue-600 text-white'
+                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                             : isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                            : 'bg-white border-slate-200 text-slate-800 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-blue-500 hover:text-white'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
                         }`}
                       >
                         {uni}
@@ -447,7 +455,7 @@ export function OnboardingPage() {
             {question.id === 4 && (
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400">
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     Current Academic Status
                   </span>
                   <div className="flex-1 flex flex-col gap-2.5">
@@ -460,15 +468,15 @@ export function OnboardingPage() {
                           onClick={() => setAnswer('currentClass', opt)}
                           className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition cursor-pointer ${
                             active
-                              ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                               : isDark
-                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                              : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
+                              : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
                           }`}
                         >
                           <span>{opt}</span>
                           {active && (
-                            <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-full bg-white text-blue-700 flex items-center justify-center">
                               <Check size={14} strokeWidth={3} />
                             </span>
                           )}
@@ -479,7 +487,7 @@ export function OnboardingPage() {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400">
+                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
                     Previous UTME Sittings
                   </span>
                   <div className="flex-1 flex flex-col gap-2.5">
@@ -492,15 +500,15 @@ export function OnboardingPage() {
                           onClick={() => setAnswer('attempts', opt)}
                           className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition cursor-pointer ${
                             active
-                              ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                               : isDark
-                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                              : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
+                              : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
                           }`}
                         >
                           <span>{opt}</span>
                           {active && (
-                            <span className="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center">
+                            <span className="w-6 h-6 rounded-full bg-white text-blue-700 flex items-center justify-center">
                               <Check size={14} strokeWidth={3} />
                             </span>
                           )}
@@ -520,15 +528,15 @@ export function OnboardingPage() {
                   return (
                     <div
                       key={subj}
-                      className={`flex-1 p-4 rounded-2xl border-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50 border-slate-200'
+                      className={`flex-1 p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                        isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50/80 border-slate-200'
                       }`}
                     >
                       <div>
                         <span className={`font-black text-base sm:text-lg block ${isDark ? 'text-white' : 'text-slate-950'}`}>
                           {subj}
                         </span>
-                        <span className="text-xs font-semibold text-slate-400">
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {val === 0 ? 'Select readiness level (1 to 5)' : `Readiness Rating: ${val} / 5`}
                         </span>
                       </div>
@@ -540,10 +548,10 @@ export function OnboardingPage() {
                             onClick={() => setAnswer('subjectConfidence', { ...confidence, [subj]: num })}
                             className={`flex-1 sm:flex-initial w-11 h-11 rounded-xl font-black text-sm flex items-center justify-center border-2 transition cursor-pointer ${
                               val >= num
-                                ? 'bg-blue-700 border-blue-600 text-amber-300 shadow-xs'
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                                 : isDark
-                                ? 'bg-slate-950 border-slate-800 text-slate-400 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                                : 'bg-white border-slate-300 text-slate-700 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                                ? 'bg-slate-950 border-slate-800 text-slate-400 hover:border-blue-500 hover:text-white'
+                                : 'bg-white border-slate-300 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
                             }`}
                           >
                             {num}
@@ -568,15 +576,15 @@ export function OnboardingPage() {
                       onClick={() => setAnswer('prioritySubject', subj)}
                       className={`p-5 rounded-2xl border-2 text-left font-black text-base sm:text-lg flex items-center justify-between transition cursor-pointer ${
                         active
-                          ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                           : isDark
-                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
+                          : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
                       }`}
                     >
                       <span>{subj}</span>
                       {active && (
-                        <span className="w-7 h-7 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
+                        <span className="w-7 h-7 rounded-full bg-white text-blue-700 flex items-center justify-center shrink-0">
                           <Check size={16} strokeWidth={3} />
                         </span>
                       )}
@@ -598,17 +606,17 @@ export function OnboardingPage() {
                       onClick={() => setAnswer(question.fieldName, opt)}
                       className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between gap-4 transition cursor-pointer ${
                         active
-                          ? 'bg-blue-700 border-blue-600 text-white shadow-md'
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-md'
                           : isDark
-                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                          : 'bg-slate-50 border-slate-200 text-slate-900 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
+                          : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
                       }`}
                     >
                       <span className="leading-snug">{opt}</span>
                       <span
                         className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${
                           active
-                            ? 'bg-amber-400 border-amber-400 text-slate-950'
+                            ? 'bg-white border-white text-blue-700'
                             : isDark
                             ? 'border-slate-700'
                             : 'border-slate-300'
@@ -625,16 +633,16 @@ export function OnboardingPage() {
         </section>
 
         {/* ===================================================================== */}
-        {/* SIMPLE BOTTOM NAVIGATION BAR (Blue Primary Button, Yellow Hover)      */}
+        {/* SIMPLE BOTTOM NAVIGATION BAR (Blue Primary Button + White Back)       */}
         {/* ===================================================================== */}
         <footer className="shrink-0 flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={handleBack}
-            className={`px-5 py-4 rounded-2xl border-2 font-black text-sm flex items-center gap-2 transition cursor-pointer ${
+            className={`px-5 py-4 rounded-2xl border font-black text-sm flex items-center gap-2 transition cursor-pointer ${
               isDark
-                ? 'border-slate-800 bg-slate-900 text-slate-200 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
-                : 'border-slate-300 bg-white text-slate-800 hover:bg-amber-400 hover:text-slate-950 hover:border-amber-400'
+                ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-500 hover:text-white'
+                : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 shadow-xs'
             }`}
           >
             <ArrowLeft size={18} />
@@ -645,9 +653,9 @@ export function OnboardingPage() {
             type="button"
             disabled={!canContinue}
             onClick={handleNext}
-            className={`flex-1 py-4 px-6 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 border-2 transition cursor-pointer ${
+            className={`flex-1 py-4 px-6 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 border transition cursor-pointer ${
               canContinue
-                ? 'bg-blue-700 hover:bg-amber-400 hover:text-slate-950 text-white border-blue-600 hover:border-amber-400 shadow-lg shadow-blue-700/25'
+                ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-lg shadow-blue-600/20'
                 : isDark
                 ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
                 : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'

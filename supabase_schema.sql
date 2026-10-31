@@ -55,18 +55,26 @@ CREATE POLICY "Candidates can view their own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+CREATE POLICY "Candidates can insert their own profile"
+  ON public.profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Candidates can update their own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
--- 4. Trigger to automatically create or sync a profile when a user signs up with Email OR Google
--- Supabase Auth automatically links identities sharing the same verified email address into the same auth.users row.
+-- 4. Trigger to automatically confirm email and create/sync a SABI profile when a user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_or_linked_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
+  -- Auto-confirm email in auth.users so candidates are verified immediately by SABI
+  UPDATE auth.users
+  SET email_confirmed_at = COALESCE(email_confirmed_at, NOW())
+  WHERE id = NEW.id AND email_confirmed_at IS NULL;
+
   INSERT INTO public.profiles (
     id,
     email,
@@ -78,7 +86,7 @@ BEGIN
   VALUES (
     NEW.id,
     LOWER(TRIM(NEW.email)),
-    public.generate_sabi_unique_id(),
+    COALESCE(NEW.raw_user_meta_data->>'sabi_unique_id', public.generate_sabi_unique_id()),
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''),
     COALESCE(NEW.raw_user_meta_data->>'phone', NEW.phone, ''),
     COALESCE(NEW.raw_user_meta_data->>'state_of_origin', 'Lagos')

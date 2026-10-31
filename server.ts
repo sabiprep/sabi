@@ -96,14 +96,88 @@ async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
+// Helper: Automatically confirm any unverified users in Supabase Auth & sync public.profiles
+const verifiedUserCache = new Set<string>();
+
+async function syncAndVerifyPendingSupabaseUsers(): Promise<void> {
+  if (!hasServiceRoleKey) return;
+  try {
+    const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({
+      page: 1,
+      perPage: 50,
+    });
+    if (error || !usersData?.users) return;
+
+    for (const u of usersData.users as any[]) {
+      if (!u.email) continue;
+      const cleanEmail = u.email.trim().toLowerCase();
+      const fallbackId =
+        u.user_metadata?.sabi_unique_id || generateDeterministicSabiId(cleanEmail);
+
+      if (!u.email_confirmed_at) {
+        await supabaseAdmin.auth.admin.updateUserById(u.id, {
+          email_confirm: true,
+          user_metadata: {
+            ...u.user_metadata,
+            sabi_unique_id: fallbackId,
+            email_verified: true,
+            issuer: 'SABI',
+          },
+        });
+      }
+
+      if (!verifiedUserCache.has(u.id)) {
+        const { data: existingProf } = await supabaseAdmin
+          .from('profiles')
+          .select('id, sabi_unique_id')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (!existingProf) {
+          await supabaseAdmin.from('profiles').upsert(
+            {
+              id: u.id,
+              email: cleanEmail,
+              sabi_unique_id: fallbackId,
+              full_name: u.user_metadata?.full_name || u.user_metadata?.name || 'Candidate',
+              phone: u.user_metadata?.phone || u.phone || '',
+              state_of_origin: u.user_metadata?.state_of_origin || 'Lagos',
+              auth_providers: ['email'],
+              onboarding_completed: false,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'email' }
+          );
+        }
+        verifiedUserCache.add(u.id);
+      }
+    }
+  } catch {
+    // Non-blocking background verification check
+  }
+}
+
+if (hasServiceRoleKey) {
+  syncAndVerifyPendingSupabaseUsers();
+  setInterval(syncAndVerifyPendingSupabaseUsers, 2500);
+}
+
 // -------------------------------------------------------------
 // API Endpoints: Auth, Unique SABI ID & Supabase Profile Sync
 // -------------------------------------------------------------
 
-// 0a. Register or Sync Candidate in Supabase Auth (auth.users) + public.profiles
+// 0a. Register & Immediately Verify Candidate in Supabase Auth (auth.users) + public.profiles
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { fullName, email, password, phone, stateOfOrigin, provider = 'email', authUserId: clientAuthUserId } = req.body;
+    const {
+      fullName,
+      email,
+      password,
+      phone,
+      stateOfOrigin,
+      provider = 'email',
+      authUserId: clientAuthUserId,
+    } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!normalizedEmail || !normalizedEmail.includes('@')) {
       return res.status(400).json({ error: 'A valid email address is required.' });
@@ -124,30 +198,79 @@ app.post('/api/auth/register', async (req, res) => {
     const uniqueId = existingProfile?.sabi_unique_id || fallbackUniqueId;
     let userId: string | undefined = clientAuthUserId || existingProfile?.id;
 
-    // 2. Ensure user exists in Supabase Auth (auth.users -> Authentication > Users tab)
-    if (!userId && hasServiceRoleKey) {
-      const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-        email: normalizedEmail,
-        password: String(password),
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName || existingProfile?.full_name || '',
-          phone: phone || existingProfile?.phone || '',
-          state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
-          sabi_unique_id: uniqueId,
-        },
-      });
+    // 2. Create or Confirm User in Supabase Auth with email_confirm: true
+    //    Using admin.createUser({ email_confirm: true }) verifies the user immediately under SABI
+    //    and prevents Supabase from sending a generic "Supabase" email with a broken localhost link.
+    if (hasServiceRoleKey) {
+      if (userId) {
+        // Confirm existing or client-created user immediately
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          email_confirm: true,
+          password: String(password),
+          user_metadata: {
+            full_name: fullName || existingProfile?.full_name || '',
+            phone: phone || existingProfile?.phone || '',
+            state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+            sabi_unique_id: uniqueId,
+            email_verified: true,
+            issuer: 'SABI',
+          },
+        });
+      } else {
+        const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+          email: normalizedEmail,
+          password: String(password),
+          email_confirm: true,
+          user_metadata: {
+            full_name: fullName || existingProfile?.full_name || '',
+            phone: phone || existingProfile?.phone || '',
+            state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+            sabi_unique_id: uniqueId,
+            email_verified: true,
+            issuer: 'SABI',
+          },
+        });
 
-      if (authData?.user?.id) {
-        userId = authData.user.id;
-      } else if (createErr) {
-        const errMsg = (createErr.message || '').toLowerCase();
-        if (errMsg.includes('already') || errMsg.includes('registered') || errMsg.includes('exists')) {
-          return res.status(409).json({
-            error: `An account with ${normalizedEmail} is already registered. Please Sign In or use Forgot Password with your Unique SABI ID.`,
+        if (authData?.user?.id) {
+          userId = authData.user.id;
+        } else if (createErr) {
+          // Check if user exists in auth.users but was unconfirmed
+          const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
+            page: 1,
+            perPage: 100,
           });
+          const matchedAuthUser = (listData?.users as any[])?.find(
+            (u: any) => (u.email || '').trim().toLowerCase() === normalizedEmail
+          );
+
+          if (matchedAuthUser) {
+            if (!matchedAuthUser.email_confirmed_at || !existingProfile?.onboarding_completed) {
+              userId = matchedAuthUser.id;
+              await supabaseAdmin.auth.admin.updateUserById(userId, {
+                email_confirm: true,
+                password: String(password),
+                user_metadata: {
+                  ...matchedAuthUser.user_metadata,
+                  full_name: fullName || existingProfile?.full_name || '',
+                  phone: phone || existingProfile?.phone || '',
+                  state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+                  sabi_unique_id: uniqueId,
+                  email_verified: true,
+                  issuer: 'SABI',
+                },
+              });
+            } else {
+              return res.status(409).json({
+                error: `An account with ${normalizedEmail} is already registered (Unique ID: ${uniqueId}). Please Sign In or use Forgot Password.`,
+                sabi_unique_id: uniqueId,
+              });
+            }
+          } else {
+            return res.status(400).json({
+              error: createErr.message || 'Failed to create user in Supabase Auth.',
+            });
+          }
         }
-        return res.status(400).json({ error: createErr.message || 'Failed to create user in Supabase Auth.' });
       }
     } else if (!userId) {
       const { data: signUpData, error: signUpErr } = await supabaseAdmin.auth.signUp({
@@ -159,6 +282,7 @@ app.post('/api/auth/register', async (req, res) => {
             phone: phone || '',
             state_of_origin: stateOfOrigin || 'Lagos',
             sabi_unique_id: uniqueId,
+            issuer: 'SABI',
           },
         },
       });
@@ -208,6 +332,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     return res.json({
       status: 'created',
+      verified: true,
       auth_user_id: userId,
       profile: savedProfile,
       sabi_unique_id: savedProfile.sabi_unique_id,
@@ -219,7 +344,88 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// 0a-2. Login Candidate (Email or Phone + Password) & Verify Against Supabase Auth
+// 0a-1. Verify Candidate Account by Email or SABI Unique ID (Instant SABI Verification)
+app.post('/api/auth/verify', async (req, res) => {
+  try {
+    const { email, uniqueId, authUserId } = req.body;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+
+    if (!normalizedEmail && !authUserId) {
+      return res.status(400).json({ verified: false, error: 'Email or User ID is required.' });
+    }
+
+    let targetProfile: any = null;
+    if (normalizedEmail) {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+      targetProfile = data;
+    }
+
+    let resolvedUserId = authUserId || targetProfile?.id;
+    const resolvedUniqueId =
+      targetProfile?.sabi_unique_id ||
+      (uniqueId && /^\d{4}[A-Z]$/i.test(uniqueId) ? String(uniqueId).toUpperCase() : '') ||
+      generateDeterministicSabiId(normalizedEmail);
+
+    if (hasServiceRoleKey) {
+      if (!resolvedUserId && normalizedEmail) {
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 100,
+        });
+        const matched = (listData?.users as any[])?.find(
+          (u: any) => (u.email || '').trim().toLowerCase() === normalizedEmail
+        );
+        if (matched) resolvedUserId = matched.id;
+      }
+
+      if (resolvedUserId) {
+        await supabaseAdmin.auth.admin.updateUserById(resolvedUserId, {
+          email_confirm: true,
+          user_metadata: {
+            sabi_unique_id: resolvedUniqueId,
+            email_verified: true,
+            issuer: 'SABI',
+          },
+        });
+      }
+    }
+
+    if (resolvedUserId && normalizedEmail && !targetProfile) {
+      const { data: upserted } = await supabaseAdmin
+        .from('profiles')
+        .upsert(
+          {
+            id: resolvedUserId,
+            email: normalizedEmail,
+            sabi_unique_id: resolvedUniqueId,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'email' }
+        )
+        .select('*')
+        .maybeSingle();
+      targetProfile = upserted;
+    }
+
+    return res.json({
+      verified: true,
+      auth_user_id: resolvedUserId,
+      sabi_unique_id: resolvedUniqueId,
+      profile: targetProfile,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      verified: false,
+      error: err?.message || 'Verification failed.',
+    });
+  }
+});
+
+// 0a-2. Login Candidate (Email or Phone + Password) & Auto-Confirm Unverified Users in Supabase Auth
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { identifier, password, method = 'email' } = req.body;
@@ -249,21 +455,44 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // 2. Authenticate password strictly against Supabase Auth
-    const { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
+    // 2. Authenticate password against Supabase Auth
+    let { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
       email: targetEmail,
       password: String(password),
     });
 
-    if (signInErr || !signInData?.user) {
-      const msg = (signInErr?.message || '').toLowerCase();
-      if (msg.includes('email not confirmed')) {
-        return res.status(403).json({
-          error: `Please confirm your email (${targetEmail}) first! Check your inbox or spam folder for the verification link.`,
-          code: 'EMAIL_NOT_CONFIRMED',
-          email: targetEmail,
+    // If user was stuck unconfirmed from an earlier signup, auto-confirm them with Admin API and retry sign-in!
+    if (
+      signInErr &&
+      (signInErr.message || '').toLowerCase().includes('email not confirmed') &&
+      hasServiceRoleKey
+    ) {
+      let confirmUserId = profile?.id;
+      if (!confirmUserId) {
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 100,
         });
+        const matched = (listData?.users as any[])?.find(
+          (u: any) => (u.email || '').trim().toLowerCase() === targetEmail
+        );
+        if (matched) confirmUserId = matched.id;
       }
+
+      if (confirmUserId) {
+        await supabaseAdmin.auth.admin.updateUserById(confirmUserId, {
+          email_confirm: true,
+        });
+        const retryResult = await supabaseAdmin.auth.signInWithPassword({
+          email: targetEmail,
+          password: String(password),
+        });
+        signInData = retryResult.data;
+        signInErr = retryResult.error;
+      }
+    }
+
+    if (signInErr || !signInData?.user) {
       return res.status(401).json({
         error: 'Incorrect email or password. If you forgot your password, click "Forgot Password" and verify with your 5-character Unique SABI ID.',
       });
@@ -295,6 +524,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     return res.json({
       status: 'authenticated',
+      verified: true,
       auth_user_id: signInData.user.id,
       profile: finalProfile,
       sabi_unique_id: finalProfile?.sabi_unique_id || generateDeterministicSabiId(targetEmail),

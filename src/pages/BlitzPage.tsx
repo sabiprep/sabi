@@ -172,8 +172,8 @@ export function BlitzPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping inline-block" />
-              <h1 className="text-lg sm:text-xl font-black tracking-tight text-blue-900 dark:text-amber-400">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping inline-block" />
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-blue-900 dark:text-white">
                 SABI BLITZ Z-PATH
               </h1>
             </div>
@@ -184,14 +184,14 @@ export function BlitzPage() {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-black">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 text-amber-700 dark:text-yellow-200 text-xs font-black">
             <Flame size={14} />
             <span>{userProgress.streakDays}d Streak</span>
           </div>
 
           <Link
             to="/subscription"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-500 dark:text-amber-300 text-xs font-black"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs font-black"
           >
             <Coins size={14} />
             <span>{userProgress.diamonds} 💎</span>
@@ -200,7 +200,7 @@ export function BlitzPage() {
           <button
             type="button"
             onClick={() => setIsCalculatorOpen(true)}
-            className="p-2 rounded-xl bg-amber-400 text-slate-950 hover:bg-amber-300 transition cursor-pointer"
+            className="p-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer shadow-sm"
             title="Open Moveable Scientific Calculator"
           >
             <Calculator size={17} />
@@ -222,7 +222,7 @@ export function BlitzPage() {
       {/* ======================================================== */}
       <section
         className={`px-4 py-3 border-b ${
-          isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-slate-100/70 border-slate-200'
+          isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-200'
         }`}
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar py-1">
@@ -239,16 +239,16 @@ export function BlitzPage() {
                 }}
                 className={`flex-1 min-w-[140px] sm:min-w-0 py-3 px-3 rounded-2xl font-bold text-xs sm:text-sm transition-all duration-300 flex items-center justify-between gap-2 border-2 cursor-pointer ${
                   isSelected
-                    ? 'bg-gradient-to-r from-blue-700 to-blue-600 text-white border-amber-400 shadow-[0_4px_16px_rgba(245,158,11,0.25)] scale-[1.02]'
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 scale-[1.01]'
                     : isDark
                     ? 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-200 shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 shadow-xs'
                 }`}
               >
                 <div className="flex items-center gap-2 truncate">
                   <span
                     className={`w-2 h-2 rounded-full shrink-0 ${
-                      isSelected ? 'bg-amber-400' : 'bg-slate-400'
+                      isSelected ? 'bg-yellow-200' : 'bg-slate-400'
                     }`}
                   />
                   <span className="truncate">{subject}</span>
@@ -256,8 +256,8 @@ export function BlitzPage() {
                 <span
                   className={`text-[10px] font-black px-1.5 py-0.5 rounded-md ${
                     isSelected
-                      ? 'bg-amber-400 text-slate-950'
-                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                      ? 'bg-white text-blue-700'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
                   }`}
                 >
                   {rate}%
@@ -272,18 +272,18 @@ export function BlitzPage() {
       {/* MAIN BLITZ ARENA: VISIBLE Z-LINE + ACTIVE SET 1 + LOCKED SET 2 */}
       {/* ======================================================== */}
       <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-8 flex flex-col items-center space-y-10">
-        {/* Top Hero Banner with Eagle Mascot */}
-        <div className="w-full rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 flex items-center justify-between gap-4 shadow-xl">
+        {/* Top Hero Banner with Eagle Mascot — Primary Blue & Clean White */}
+        <div className="w-full rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white flex items-center justify-between gap-4 shadow-xl shadow-blue-900/15">
           <div className="flex-1 space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[11px] font-black uppercase tracking-wider">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50/15 border border-yellow-200/30 text-yellow-100 text-[11px] font-black uppercase tracking-wider">
               <Zap size={13} />
               <span>Set 1 Active · {activeSubject}</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-950">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
               Conquer Set 1 & Pass the General Test
             </h2>
-            <p className="text-xs sm:text-sm text-slate-900 font-semibold leading-relaxed">
-              Follow the sharp <strong>Z-Line Track</strong> below. Answer 10 or 15 KaTeX questions per level, review full worked solutions + AI verifications at the end of every level, and pass the <strong>Set 1 General Test</strong> to unlock Set 2!
+            <p className="text-xs sm:text-sm text-blue-100 font-medium leading-relaxed">
+              Follow the sharp <strong className="text-white">Z-Line Track</strong> below. Answer 10 or 15 KaTeX questions per level, review full worked solutions + AI verifications at the end of every level, and pass the <strong className="text-yellow-100">Set 1 General Test</strong> to unlock Set 2!
             </p>
           </div>
 
@@ -300,16 +300,16 @@ export function BlitzPage() {
         {/* SET 1: ACTIVE Z-LINE PATH (LEVELS 1 TO 6 + GENERAL TEST) */}
         {/* ==================================================== */}
         <section className="w-full flex flex-col items-center">
-          <div className="w-full max-w-md mb-4 flex items-center justify-between px-4 py-2.5 rounded-2xl bg-blue-950 border-2 border-amber-400 text-white shadow-lg">
+          <div className="w-full max-w-md mb-4 flex items-center justify-between px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border-2 border-blue-600/30 text-slate-900 dark:text-white shadow-sm">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400 block">
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 block">
                 SET 1 · ACTIVE CITADEL TRACK
               </span>
               <h3 className="text-sm sm:text-base font-black">
                 Levels 1–5 + Set 1 General Test Checkpoint
               </h3>
             </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black">
+            <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/20 border border-emerald-200 dark:border-emerald-400/40 text-emerald-700 dark:text-emerald-300 text-xs font-black">
               UNLOCKED
             </span>
           </div>
@@ -321,7 +321,7 @@ export function BlitzPage() {
               viewBox="0 0 380 700"
               fill="none"
             >
-              {/* Outer Royal Blue Glow Track */}
+              {/* Outer Royal Blue Track */}
               <path
                 d="M 190 55 L 75 165 L 305 275 L 75 385 L 305 495 L 190 615"
                 stroke="#1E3A8A"
@@ -329,19 +329,19 @@ export function BlitzPage() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* Inner Bright Yellow/Amber Sharp Z-Line */}
+              {/* Inner Vibrant Blue Sharp Z-Line */}
               <path
                 d="M 190 55 L 75 165 L 305 275 L 75 385 L 305 495 L 190 615"
-                stroke="#F59E0B"
+                stroke="#2563EB"
                 strokeWidth="10"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
-              {/* Animated Dashed Center Highlight */}
+              {/* Light Yellow Dashed Center Highlight */}
               <path
                 d="M 190 55 L 75 165 L 305 275 L 75 385 L 305 495 L 190 615"
                 stroke="#FEF08A"
-                strokeWidth="4"
+                strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeDasharray="12 10"
@@ -367,7 +367,7 @@ export function BlitzPage() {
                         alt="Active Eagle"
                         className="w-full h-full object-contain filter drop-shadow-md"
                       />
-                      <div className="absolute -bottom-1 -left-2 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black uppercase whitespace-nowrap shadow-sm">
+                      <div className="absolute -bottom-1 -left-2 px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-blue-950 text-[9px] font-black uppercase whitespace-nowrap shadow-xs">
                         START!
                       </div>
                     </div>
@@ -383,9 +383,9 @@ export function BlitzPage() {
                       !level.unlocked
                         ? 'bg-slate-800 border-4 border-slate-700 text-slate-500 cursor-not-allowed'
                         : level.completed
-                        ? 'bg-gradient-to-b from-amber-400 to-amber-500 text-slate-950 border-4 border-yellow-200 shadow-[0_6px_0_#B45309] hover:-translate-y-1'
+                        ? 'bg-white text-blue-700 border-4 border-blue-600 shadow-[0_6px_0_#1D4ED8] hover:-translate-y-1'
                         : isCurrent
-                        ? 'bg-gradient-to-b from-yellow-300 via-amber-400 to-amber-500 text-slate-950 border-4 border-white shadow-[0_8px_0_#B45309] scale-110 ring-4 ring-amber-400/50 hover:-translate-y-1'
+                        ? 'bg-gradient-to-b from-blue-600 to-blue-700 text-white border-4 border-yellow-200 shadow-[0_8px_0_#1E3A8A] scale-110 ring-4 ring-blue-500/30 hover:-translate-y-1'
                         : 'bg-blue-600 text-white border-4 border-blue-300 shadow-[0_6px_0_#1E3A8A] hover:-translate-y-1'
                     }`}
                   >
@@ -406,14 +406,14 @@ export function BlitzPage() {
                         className="w-16 h-16 object-contain drop-shadow"
                       />
                     ) : level.type === 'speed' ? (
-                      <Zap size={28} className={level.completed ? 'text-slate-950' : 'text-amber-300'} />
+                      <Zap size={28} className={level.completed ? 'text-blue-600' : 'text-yellow-200'} />
                     ) : (
                       <span className="font-display font-black text-2xl">{level.id}</span>
                     )}
                   </button>
 
                   {/* Node Label & Stars Badge */}
-                  <div className="mt-2 px-2.5 py-1 rounded-xl bg-slate-950/90 border border-slate-800 text-center shadow-md">
+                  <div className="mt-2 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-sm">
                     {level.completed && (
                       <div className="flex items-center justify-center gap-0.5 mb-0.5">
                         {[1, 2, 3].map(s => (
@@ -421,7 +421,7 @@ export function BlitzPage() {
                             key={s}
                             size={11}
                             className={
-                              s <= level.stars ? 'text-amber-400 fill-amber-400' : 'text-slate-600'
+                              s <= level.stars ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'
                             }
                           />
                         ))}
@@ -429,7 +429,7 @@ export function BlitzPage() {
                     )}
                     <span
                       className={`text-[10px] font-black uppercase tracking-wider block whitespace-nowrap ${
-                        isGeneralTest ? 'text-amber-400' : 'text-slate-200'
+                        isGeneralTest ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-200'
                       }`}
                     >
                       {level.title} ({level.questionCount}Q)
@@ -446,40 +446,40 @@ export function BlitzPage() {
         {/* ==================================================== */}
         <section className="w-full flex flex-col items-center pt-4">
           {/* Locked Gatekeeper Banner */}
-          <div className="w-full max-w-xl rounded-3xl p-6 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-950 border-2 border-amber-500/70 text-white shadow-2xl space-y-4">
+          <div className="w-full max-w-xl rounded-3xl p-6 bg-white dark:bg-slate-900 border-2 border-blue-200 dark:border-blue-800 text-slate-900 dark:text-white shadow-xl space-y-4">
             <div className="flex flex-col sm:flex-row items-center gap-5">
               <div className="flex items-center gap-3 shrink-0">
                 <img
                   src="/assets/environment/locked_gatekeeper.svg"
                   alt="Locked Set 2 Gate"
-                  className="w-20 h-20 object-contain drop-shadow-xl"
+                  className="w-20 h-20 object-contain drop-shadow-md"
                 />
                 <img
                   src="/assets/mascots/blitz/eagle_sleeping_locked.svg"
                   alt="Sleeping Eagle Locked"
-                  className="w-20 h-20 object-contain drop-shadow-xl"
+                  className="w-20 h-20 object-contain drop-shadow-md"
                 />
               </div>
 
               <div className="space-y-2 text-center sm:text-left">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 text-amber-800 dark:text-yellow-200 font-black text-[10px] uppercase tracking-wider">
                   <Lock size={12} />
                   <span>SET 2 · ADVANCED UTME MASTERY CITADEL</span>
                 </div>
-                <h3 className="text-lg sm:text-xl font-black text-white">
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
                   {isSet2Unlocked
                     ? 'Set 2 Unlocked! Continue Your Z-Path Below'
                     : 'Finish Set 1 & Pass the General Test or Unlock 5,000 💎 Pass'}
                 </h3>
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                   To unlock Set 2 (Levels 7–11 + Set 2 General Test), complete Set 1 above, pass the <strong>Set 1 General Test</strong> at the end of the set, and activate your <strong>₦10,000 One-Time Pass (5,000 💎 Vault)</strong>.
                 </p>
               </div>
             </div>
 
             {!isSet2Unlocked && (
-              <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
-                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
                   <ShieldCheck size={15} />
                   <span>
                     Set 1 General Test:{' '}
@@ -488,7 +488,7 @@ export function BlitzPage() {
                 </span>
                 <Link
                   to="/subscription"
-                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider transition shadow-md"
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition shadow-sm"
                 >
                   Unlock ₦10,000 Pass (5,000 💎) →
                 </Link>
@@ -505,14 +505,14 @@ export function BlitzPage() {
             >
               <path
                 d="M 190 55 L 80 165 L 300 275 L 80 385 L 190 500"
-                stroke="#1E293B"
+                stroke="#CBD5E1"
                 strokeWidth="20"
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
               <path
                 d="M 190 55 L 80 165 L 300 275 L 80 385 L 190 500"
-                stroke={isSet2Unlocked ? '#F59E0B' : '#475569'}
+                stroke={isSet2Unlocked ? '#2563EB' : '#64748B'}
                 strokeWidth="8"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -538,8 +538,8 @@ export function BlitzPage() {
                       isGeneralTest ? 'w-24 h-24 rounded-3xl' : 'w-20 h-20 rounded-full'
                     } flex flex-col items-center justify-center border-4 transition ${
                       level.unlocked
-                        ? 'bg-amber-400 text-slate-950 border-white shadow-lg cursor-pointer'
-                        : 'bg-slate-900 border-slate-700 text-slate-500 cursor-not-allowed shadow-md'
+                        ? 'bg-blue-600 text-white border-white shadow-lg cursor-pointer'
+                        : 'bg-slate-800 border-slate-600 text-slate-400 cursor-not-allowed shadow-md'
                     }`}
                   >
                     {!level.unlocked ? (
@@ -559,8 +559,8 @@ export function BlitzPage() {
                     )}
                   </button>
 
-                  <div className="mt-2 px-2.5 py-1 rounded-xl bg-slate-950/90 border border-slate-800 text-center">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                  <div className="mt-2 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block whitespace-nowrap">
                       {level.title} ({level.questionCount}Q)
                     </span>
                   </div>
@@ -593,18 +593,18 @@ export function BlitzPage() {
       {/* ======================================================== */}
       {showChestModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0E172A] border-2 border-amber-400 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-2xl">
+          <div className="bg-white dark:bg-[#0E172A] border-2 border-blue-600 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center text-slate-900 dark:text-white shadow-2xl">
             <div className="w-28 h-28 mx-auto mb-4">
               <img
                 src="/assets/environment/treasure_chest_open.svg"
                 alt="Treasure Chest Open"
-                className="w-full h-full object-contain filter drop-shadow-[0_8px_16px_rgba(245,158,11,0.5)]"
+                className="w-full h-full object-contain filter drop-shadow-md"
               />
             </div>
-            <h3 className="text-xl font-black text-amber-400 mb-1">
+            <h3 className="text-xl font-black text-blue-700 dark:text-blue-400 mb-1">
               Milestone Vault Cleared!
             </h3>
-            <p className="text-xs text-slate-300 mb-6">
+            <p className="text-xs text-slate-600 dark:text-slate-300 mb-6">
               You unlocked Milestone Vault Level {claimedChestLevel}! Continue down the Z-path toward the Set 1 General Test.
             </p>
             <button
@@ -616,7 +616,7 @@ export function BlitzPage() {
                 }
                 setShowChestModal(false);
               }}
-              className="w-full py-3.5 rounded-xl font-black text-sm bg-amber-400 text-slate-950 hover:bg-amber-300 transition cursor-pointer"
+              className="w-full py-3.5 rounded-xl font-black text-sm bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer"
             >
               Unlock Next Level →
             </button>
@@ -654,7 +654,7 @@ export function BlitzPage() {
                       onClick={() => setTimerSecondsPerQuestion(sec)}
                       className={`py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer ${
                         timerSecondsPerQuestion === sec
-                          ? 'bg-amber-500 text-slate-950 border-amber-500'
+                          ? 'bg-blue-600 text-white border-blue-600'
                           : 'border-slate-200 dark:border-slate-800'
                       }`}
                     >

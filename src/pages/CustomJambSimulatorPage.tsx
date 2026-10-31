@@ -21,13 +21,13 @@ export function CustomJambSimulatorPage() {
         <div>
           <button
             onClick={() => navigate('/home')}
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-amber-500 transition mb-2"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 transition mb-2 cursor-pointer"
           >
             <ArrowLeft size={16} />
             <span>Back to Dashboard</span>
           </button>
           <div className="flex items-center gap-3">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm shadow-amber-500/50" />
+            <span className="w-3 h-3 rounded-full bg-blue-600 inline-block shadow-sm shadow-blue-600/50" />
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               Custom JAMB Simulator
             </h1>
@@ -38,7 +38,7 @@ export function CustomJambSimulatorPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="px-3.5 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-black text-amber-500 flex items-center gap-2">
+          <div className="px-3.5 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 text-xs font-black text-blue-700 dark:text-blue-300 flex items-center gap-2">
             <Sparkles size={14} />
             <span>Simulator Directory Active</span>
           </div>
@@ -53,12 +53,12 @@ export function CustomJambSimulatorPage() {
         {/* Subtle Ambient Background Gradients */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-gradient-to-tr from-amber-500/20 to-blue-500/20 border-2 border-amber-500/40 flex items-center justify-center text-amber-500 shadow-xl shadow-amber-500/10">
+        <div className="relative z-10 w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-blue-50 dark:bg-blue-500/15 border-2 border-blue-200 dark:border-blue-500/30 flex items-center justify-center text-blue-600 dark:text-blue-400 shadow-lg shadow-blue-600/10">
           <Sliders size={40} className="animate-pulse" />
         </div>
 
         <div className="relative z-10 max-w-lg space-y-2">
-          <span className="px-3 py-1 rounded-full bg-blue-600/10 text-blue-500 border border-blue-500/20 text-[11px] font-black uppercase tracking-wider inline-block">
+          <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-500/10 text-amber-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-500/20 text-[11px] font-black uppercase tracking-wider inline-block">
             Workspace Reserved
           </span>
           <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
@@ -74,25 +74,25 @@ export function CustomJambSimulatorPage() {
           <div className={`p-4 rounded-2xl border text-left ${
             isDark ? 'bg-slate-950/60 border-slate-800/80' : 'bg-slate-50 border-slate-200'
           }`}>
-            <Clock size={18} className="text-amber-500 mb-2" />
+            <Clock size={18} className="text-blue-600 mb-2" />
             <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Custom Timing</h4>
-            <p className="text-[11px] text-slate-400 mt-1">15m, 30m, 60m, or unlimited drills</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">15m, 30m, 60m, or unlimited drills</p>
           </div>
 
           <div className={`p-4 rounded-2xl border text-left ${
             isDark ? 'bg-slate-950/60 border-slate-800/80' : 'bg-slate-50 border-slate-200'
           }`}>
-            <Layers size={18} className="text-blue-500 mb-2" />
+            <Layers size={18} className="text-blue-600 mb-2" />
             <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Topic Filter</h4>
-            <p className="text-[11px] text-slate-400 mt-1">Select specific syllabus subtopics</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Select specific syllabus subtopics</p>
           </div>
 
           <div className={`p-4 rounded-2xl border text-left ${
             isDark ? 'bg-slate-950/60 border-slate-800/80' : 'bg-slate-50 border-slate-200'
           }`}>
-            <Cpu size={18} className="text-emerald-500 mb-2" />
+            <Cpu size={18} className="text-emerald-600 mb-2" />
             <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Engine Calibration</h4>
-            <p className="text-[11px] text-slate-400 mt-1">Hard questions only or mixed UTME</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Hard questions only or mixed UTME</p>
           </div>
         </div>
 
@@ -100,19 +100,19 @@ export function CustomJambSimulatorPage() {
         <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
             to="/home"
-            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-amber-400 hover:text-slate-950 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-blue-600/20"
+            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-blue-600/20"
           >
             Return to Dashboard
           </Link>
           <Link
             to="/blitz"
-            className="px-6 py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-300 font-bold text-xs uppercase tracking-wider transition"
+            className="px-6 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-400 text-slate-700 dark:text-slate-200 font-bold text-xs uppercase tracking-wider transition"
           >
             Launch Blitz 60s
           </Link>
           <Link
             to="/smart"
-            className="px-6 py-3 rounded-xl border border-slate-700 hover:border-slate-500 text-slate-300 font-bold text-xs uppercase tracking-wider transition"
+            className="px-6 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-400 text-slate-700 dark:text-slate-200 font-bold text-xs uppercase tracking-wider transition"
           >
             Smart Practice
           </Link>

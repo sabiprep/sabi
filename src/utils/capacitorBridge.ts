@@ -42,19 +42,36 @@ export function initCapacitorAndroidBridge(): void {
     document.body?.classList.add('is-android-view');
   }
 
-  // 1. Intercept relative `/api/*` calls inside the native Android WebView or static frontend hosts (e.g. Vercel)
-  const isStaticFrontendHost =
-    typeof window !== 'undefined' &&
-    (window.location.hostname.endsWith('.vercel.app') ||
-      window.location.hostname.endsWith('.netlify.app') ||
-      window.location.hostname.endsWith('.github.io'));
-
-  if ((isNative || isStaticFrontendHost) && DEFAULT_NATIVE_API_BASE) {
+  // 1. Intercept relative `/api/*` calls inside the native Android WebView
+  if (isNative && DEFAULT_NATIVE_API_BASE) {
     const originalFetch = window.fetch.bind(window);
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (typeof input === 'string' && input.startsWith('/api/')) {
         const resolvedUrl = `${DEFAULT_NATIVE_API_BASE}${input}`;
-        return originalFetch(resolvedUrl, init);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 4500);
+        try {
+          const resp = await originalFetch(resolvedUrl, {
+            ...init,
+            signal: init?.signal || controller.signal,
+          });
+          clearTimeout(timer);
+          const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+          // If the remote preview URL returned an HTML login page instead of JSON API, signal clean fallback
+          if (!contentType.includes('application/json')) {
+            return new Response(
+              JSON.stringify({ fallbackToSupabase: true }),
+              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+          return resp;
+        } catch {
+          clearTimeout(timer);
+          return new Response(
+            JSON.stringify({ fallbackToSupabase: true }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
       }
       return originalFetch(input, init);
     };
@@ -72,11 +89,10 @@ export function initCapacitorAndroidBridge(): void {
     document.documentElement.classList.contains('dark');
   syncAndroidStatusBar(initialDark);
 
-  // 4. Handle Android Deep Links (sabi://auth for Supabase email verification & Google Auth)
+  // 4. Handle Android Deep Links (sabi://auth for SABI account verification & Google Auth)
   CapApp.addListener('appUrlOpen', async ({ url }) => {
     if (!url) return;
     try {
-      // Extract access_token & refresh_token if present in hash or query
       const hashIndex = url.indexOf('#');
       const queryIndex = url.indexOf('?');
       const rawParams =
@@ -103,7 +119,7 @@ export function initCapacitorAndroidBridge(): void {
       }
 
       if (url.startsWith('sabi://auth')) {
-        window.location.href = '/auth/sign-in';
+        window.location.href = '/auth/verify?verified=true';
       }
     } catch {
       // Ignore malformed deep link URLs

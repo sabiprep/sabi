@@ -224,13 +224,13 @@ export function SmartPracticePage() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/subscription"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-500 dark:text-amber-300 text-xs font-black"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300 text-xs font-black"
           >
             <Coins size={14} />
             <span>{userProgress.diamonds} 💎</span>
           </Link>
 
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs font-black">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 text-amber-700 dark:text-yellow-200 text-xs font-black">
             <Flame size={14} />
             <span>Level {userProgress.smartUnlockedLevel}</span>
           </div>
@@ -238,7 +238,7 @@ export function SmartPracticePage() {
           <button
             type="button"
             onClick={() => setIsCalculatorOpen(true)}
-            className="p-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 transition cursor-pointer"
+            className="p-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white transition cursor-pointer shadow-sm"
             title="Open Moveable Scientific Calculator"
           >
             <Calculator size={17} />
@@ -257,7 +257,7 @@ export function SmartPracticePage() {
         <div className="max-w-4xl mx-auto space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-amber-400 block">
+              <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block">
                 Subject Road Structure
               </span>
               <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -275,7 +275,7 @@ export function SmartPracticePage() {
                 }}
                 className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
                   subjectMode === 'merged'
-                    ? 'bg-blue-700 text-white shadow-md'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -291,7 +291,7 @@ export function SmartPracticePage() {
                 }}
                 className={`px-4 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition cursor-pointer ${
                   subjectMode === 'unmerged'
-                    ? 'bg-amber-400 text-slate-950 shadow-md'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -317,7 +317,7 @@ export function SmartPracticePage() {
                     }}
                     className={`py-2.5 px-3 rounded-xl font-black text-xs flex items-center justify-between border-2 transition cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-700 text-white border-amber-400 shadow-md'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                         : isDark
                         ? 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'
                         : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-blue-300'
@@ -327,7 +327,7 @@ export function SmartPracticePage() {
                     <span
                       className={`text-[10px] px-1.5 py-0.5 rounded ${
                         isSelected
-                          ? 'bg-amber-400 text-slate-950'
+                          ? 'bg-white text-blue-700'
                           : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                       }`}
                     >
@@ -345,10 +345,10 @@ export function SmartPracticePage() {
       {/* TRUE VISUAL HIGHWAY ROAD WITH FORWARD LEFT & RIGHT BRANCHES */}
       {/* ======================================================== */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-8 flex flex-col items-center space-y-10">
-        {/* Yellow + Blue Standard Intro Card */}
-        <div className="w-full rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-amber-400 via-amber-400 to-amber-500 border-2 border-amber-500 text-slate-950 flex items-center justify-between gap-4 shadow-xl">
+        {/* Primary Blue + Secondary White Intro Card */}
+        <div className="w-full rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white flex items-center justify-between gap-4 shadow-xl shadow-blue-900/15">
           <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-950 text-amber-400 text-[11px] font-black uppercase tracking-wider">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50/15 border border-yellow-200/30 text-yellow-100 text-[11px] font-black uppercase tracking-wider">
               <Compass size={13} />
               <span>
                 {subjectMode === 'merged'
@@ -356,10 +356,10 @@ export function SmartPracticePage() {
                   : `Single-Subject Road: ${activeSingleSubject}`}
               </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
               Follow the Forward-Branching Campus Road
             </h2>
-            <p className="text-xs sm:text-sm font-semibold text-slate-900 max-w-xl">
+            <p className="text-xs sm:text-sm font-medium text-blue-100 max-w-xl">
               The highway splits forward into West Quad and East Faculty branches before rejoining at the Central Roundabout and Set 1 General Test Archway.
             </p>
           </div>
@@ -434,16 +434,16 @@ export function SmartPracticePage() {
               strokeLinecap="round"
             />
 
-            {/* Golden Yellow Dashed Highway Lane Markings */}
+            {/* Crisp White & Soft Light Yellow Dashed Highway Lane Markings */}
             <path
               d="M 340 30 L 340 760"
-              stroke="#F59E0B"
-              strokeWidth="4"
+              stroke="#FEF08A"
+              strokeWidth="3.5"
               strokeDasharray="14 12"
             />
             <path
               d="M 340 70 C 260 110, 150 135, 150 205 C 150 310, 260 390, 340 465"
-              stroke="#FACC15"
+              stroke="#93C5FD"
               strokeWidth="3.5"
               strokeDasharray="12 10"
             />
@@ -455,7 +455,7 @@ export function SmartPracticePage() {
             />
             <path
               d="M 340 465 C 250 505, 165 535, 165 595 C 165 655, 250 695, 340 735"
-              stroke="#FACC15"
+              stroke="#FEF08A"
               strokeWidth="3.5"
               strokeDasharray="12 10"
             />
@@ -490,7 +490,7 @@ export function SmartPracticePage() {
 
                 <div className="flex flex-col items-center">
                   {isCurrent && (
-                    <div className="mb-1.5 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-md animate-bounce">
+                    <div className="mb-1.5 px-2.5 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-blue-950 font-black text-[9px] uppercase tracking-wider flex items-center gap-1 shadow-xs animate-bounce">
                       <GraduationCap size={11} />
                       <span>ACTIVE STOP</span>
                     </div>
@@ -504,9 +504,9 @@ export function SmartPracticePage() {
                       !lvl.unlocked
                         ? 'bg-slate-900 border-slate-700 text-slate-500 cursor-not-allowed'
                         : lvl.completed
-                        ? 'bg-gradient-to-tr from-amber-400 to-amber-500 text-slate-950 border-white shadow-[0_6px_0_#B45309] hover:-translate-y-1'
+                        ? 'bg-white text-blue-700 border-blue-600 shadow-[0_6px_0_#1D4ED8] hover:-translate-y-1'
                         : isCurrent
-                        ? 'bg-gradient-to-tr from-blue-600 to-blue-500 text-white border-amber-400 shadow-[0_8px_0_#1E3A8A] scale-110 ring-4 ring-amber-400/40 hover:-translate-y-1'
+                        ? 'bg-gradient-to-tr from-blue-600 to-blue-500 text-white border-yellow-200 shadow-[0_8px_0_#1E3A8A] scale-110 ring-4 ring-blue-500/30 hover:-translate-y-1'
                         : 'bg-blue-700 text-white border-blue-300 shadow-[0_6px_0_#1E3A8A]'
                     }`}
                   >
@@ -529,7 +529,7 @@ export function SmartPracticePage() {
                   </button>
 
                   {/* Road Checkpoint Signplate */}
-                  <div className="mt-1.5 px-3 py-1 rounded-xl bg-slate-950/95 border border-slate-800 text-center shadow-lg max-w-[190px]">
+                  <div className="mt-1.5 px-3 py-1 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center shadow-md max-w-[190px]">
                     {lvl.completed && (
                       <div className="flex items-center justify-center gap-0.5 mb-0.5">
                         {[1, 2, 3].map(s => (
@@ -537,16 +537,16 @@ export function SmartPracticePage() {
                             key={s}
                             size={10}
                             className={
-                              s <= lvl.stars ? 'text-amber-400 fill-amber-400' : 'text-slate-600'
+                              s <= lvl.stars ? 'text-amber-400 fill-amber-400' : 'text-slate-300 dark:text-slate-600'
                             }
                           />
                         ))}
                       </div>
                     )}
-                    <span className="text-[10px] font-black text-white block truncate">
+                    <span className="text-[10px] font-black text-slate-900 dark:text-white block truncate">
                       {lvl.title}
                     </span>
-                    <span className="text-[9px] font-bold text-amber-400 block truncate">
+                    <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 block truncate">
                       {subjectMode === 'merged' ? '4 Subjects Merged' : lvl.subjectTag}
                     </span>
                   </div>
@@ -566,7 +566,7 @@ export function SmartPracticePage() {
         </div>
 
         {/* Locked Set 2 Campus Road Notice */}
-        <div className="w-full max-w-xl rounded-3xl p-6 bg-gradient-to-br from-slate-900 via-blue-950 to-slate-950 border-2 border-amber-500/70 text-white shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div className="w-full max-w-xl rounded-3xl p-6 bg-white dark:bg-slate-900 border-2 border-blue-200 dark:border-blue-800 text-slate-900 dark:text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-5">
           <div className="flex items-center gap-4">
             <img
               src="/assets/environment/locked_gatekeeper.svg"
@@ -574,14 +574,14 @@ export function SmartPracticePage() {
               className="w-20 h-20 object-contain shrink-0"
             />
             <div className="space-y-1">
-              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase">
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-500/30 text-amber-800 dark:text-yellow-200 font-black text-[10px] uppercase">
                 <Lock size={11} />
                 <span>SET 2 CAMPUS HIGHWAY LOCKED</span>
               </div>
               <h3 className="text-base sm:text-lg font-black">
                 Pass Set 1 General Test or Unlock 5,000 💎 Vault
               </h3>
-              <p className="text-xs text-slate-300">
+              <p className="text-xs text-slate-600 dark:text-slate-300">
                 Complete all 6 stops on Set 1 Highway and activate your ₦10,000 One-Time Pass to open Set 2 Senate Laboratories.
               </p>
             </div>
@@ -589,7 +589,7 @@ export function SmartPracticePage() {
 
           <Link
             to="/subscription"
-            className="px-5 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider shrink-0 shadow-md"
+            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 shadow-sm"
           >
             5,000 💎 Vault →
           </Link>

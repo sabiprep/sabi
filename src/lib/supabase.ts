@@ -30,6 +30,35 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
   },
 });
 
+/**
+ * Resolves a public non-localhost SABI redirect URL for email verification & OAuth links.
+ * Prevents links in candidate emails from ever pointing to http://localhost:3000 or https://localhost.
+ */
+export function getSabiAuthRedirectUrl(path = '/auth/verify'): string {
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const configuredPublicUrl = (
+    import.meta.env.VITE_PUBLIC_APP_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    ''
+  )
+    .trim()
+    .replace(/\/+$/, '');
+
+  if (configuredPublicUrl && !configuredPublicUrl.includes('localhost')) {
+    return `${configuredPublicUrl}${cleanPath}`;
+  }
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    const origin = window.location.origin.replace(/\/+$/, '');
+    const host = window.location.hostname;
+    if (host && host !== 'localhost' && host !== '127.0.0.1' && !host.startsWith('192.168.')) {
+      return `${origin}${cleanPath}`;
+    }
+  }
+
+  return `https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app${cleanPath}`;
+}
+
 export interface SabiCandidateProfile {
   id?: string;
   email: string;
