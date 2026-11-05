@@ -31,16 +31,19 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey, {
 });
 
 /**
- * Resolves a public non-localhost SABI redirect URL for email verification & OAuth links.
- * Prevents links in candidate emails from ever pointing to http://localhost:3000 or https://localhost.
+ * Resolves the absolute app URL Supabase should send a candidate back to after
+ * email confirmation or OAuth ('' when this deployment cannot determine one).
+ *
+ * Phase 0 fix: this used to fall back to `VITE_API_BASE_URL` and finally to an
+ * AI Studio preview proxy (`https://ais-pre-….run.app`), which answers with a
+ * `/__cookie_check.html` redirect — so every confirmation link led to a dead
+ * page. The API base is deliberately not consulted here: it is a different
+ * origin from the app. An empty result means "use the Supabase Auth Site URL"
+ * (docs/runbooks/phase0-rollout.md §4a), which stays the single source of truth.
  */
 export function getSabiAuthRedirectUrl(path = '/auth/verify'): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const configuredPublicUrl = (
-    import.meta.env.VITE_PUBLIC_APP_URL ||
-    import.meta.env.VITE_API_BASE_URL ||
-    ''
-  )
+  const configuredPublicUrl = (import.meta.env.VITE_PUBLIC_APP_URL || '')
     .trim()
     .replace(/\/+$/, '');
 
@@ -51,12 +54,16 @@ export function getSabiAuthRedirectUrl(path = '/auth/verify'): string {
   if (typeof window !== 'undefined' && window.location?.origin) {
     const origin = window.location.origin.replace(/\/+$/, '');
     const host = window.location.hostname;
-    if (host && host !== 'localhost' && host !== '127.0.0.1' && !host.startsWith('192.168.')) {
+    const isPrivateLan =
+      host.startsWith('192.168.') || /^10\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    const isPublicHost =
+      Boolean(host) && host !== 'localhost' && host !== '127.0.0.1' && !isPrivateLan;
+    if (isPublicHost) {
       return `${origin}${cleanPath}`;
     }
   }
 
-  return `https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app${cleanPath}`;
+  return '';
 }
 
 export interface SabiCandidateProfile {

@@ -511,6 +511,7 @@ message:
 | `…The SABI API could not be reached at <url> (Failed to fetch)…` | `fetch` never completed: DNS/TLS failure, API down, or the browser blocked the response because CORS headers were missing | Check the API is up (`/api/health`); add the app origin to `ALLOWED_ORIGINS` |
 | `…Origin <origin> is not allowed to call the SABI API…` (HTTP 403) | The server reachable, but your browser origin is not allow-listed | Add that exact origin to `ALLOWED_ORIGINS` and redeploy, or set `SABI_APP_URL` to it (that origin is trusted automatically) |
 | `…answered HTTP <code> with an HTML page instead of the SABI API at <url>…` | The app is calling a static host / SPA fallback (or a preview proxy) instead of the Express API | Point `VITE_API_BASE_URL` at the API host, or serve the API and SPA from the same origin; then rebuild the client |
+| `…<url> is an AI Studio preview proxy, not the SABI API…` | The API base is an AI Studio preview URL (`https://ais-pre-….run.app`), which answers `/api/*` with `302 → /__cookie_check.html` | See §8b — leave `VITE_API_BASE_URL` empty for a same-origin deployment, otherwise use the host that runs `server.ts`; the APK needs an absolute URL |
 | `…Invalid request body. (…)` | Real validation failure — the message now lists the offending fields | Check the form values (e.g. phone format, state of origin) |
 | `…Too many requests. Please slow down and try again shortly.` | `authLimiter` tripped (10 attempts / 15 min per IP) | Wait, or raise `AUTH_RATE_LIMIT_MAX` for testing |
 | `…An account with <email> is already registered…` (HTTP 409) | Expected | Use Sign In or Forgot Password |
@@ -554,4 +555,42 @@ Deployment-shape checks that cause the HTML case:
 * If the API and SPA share one origin (the current Cloud Run deployment), leave
   `VITE_API_BASE_URL` **empty**; same-origin requests are always allowed and no
   CORS configuration is involved.
+
+### 8b. Spotting a static host or a preview proxy (verified signature)
+
+The AI Studio preview URL (`https://ais-pre-….run.app`) is a proxied *static*
+preview, not your Express app. Every `/api/*` request there looks like this:
+
+```bash
+$ curl -sS -i "https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app/api/health" | head -5
+HTTP/2 302
+content-type: text/html
+location: /__cookie_check.html?return_url=…
+server: Google Frontend
+```
+
+A host genuinely running `server.ts` answers JSON instead:
+
+```bash
+$ curl -sS "https://<real-api-host>/api/health"
+{"status":"ok","phase":"phase0","supabase_url_configured":true,"service_role_configured":true,…}
+```
+
+So: `302` + `text/html` + `__cookie_check.html` + `server: Google Frontend`
+means **wrong host**; `200` + `application/json` + `service_role_configured`
+means right host. Nothing else about the deployment can be trusted until this
+check passes, because a wrong host answers `200 text/html` for every path.
+
+Where the value can hide — check all of them:
+
+| Place | Correct value |
+| --- | --- |
+| Build env of the web app (CI, Vercel, local `.env`) | **empty** for a same-origin deployment (`vercel.json` routes `/api/*` to `api/index.ts`), otherwise the host running `server.ts` |
+| Cloud Run service env | `SABI_APP_URL` = the web app origin (auto-trusted by CORS); `ALLOWED_ORIGINS` only for any *other* origin |
+| GitHub Actions secret `VITE_API_BASE_URL` (APK) | the real API origin — the build now **fails** when it is empty or a preview host, because an APK cannot use a relative path |
+| `capacitorBridge` / `getSabiAuthRedirectUrl` | resolved at build time from `VITE_API_BASE_URL` / `VITE_PUBLIC_APP_URL`; there is no hardcoded fallback any more |
+
+The client logs `[SABI] VITE_API_BASE_URL points at an AI Studio preview proxy…`
+at start-up and `describeApiFailure()` names the proxy in the UI message, so a
+mis-built bundle identifies itself instead of blaming the candidate's network.
 

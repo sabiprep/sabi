@@ -359,12 +359,14 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     if (!targetEmail) return;
     setAuthLoading(true);
     try {
+      // Only override the redirect when this deployment knows its public URL;
+      // otherwise Supabase falls back to the Auth Site URL (runbook §4a) instead
+      // of a preview proxy that 302s to /__cookie_check.html.
+      const redirectTo = getSabiAuthRedirectUrl('/auth/verify');
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: targetEmail,
-        options: {
-          emailRedirectTo: getSabiAuthRedirectUrl('/auth/verify'),
-        },
+        ...(redirectTo ? { options: { emailRedirectTo: redirectTo } } : {}),
       });
       setAuthLoading(false);
       if (error) {

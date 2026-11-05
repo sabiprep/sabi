@@ -28,11 +28,27 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install --legacy-peer-deps || npm install
 
+      - name: Verify the APK has an absolute API base URL
+        env:
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+        run: |
+          if [ -z "$VITE_API_BASE_URL" ]; then
+            echo "::error::Repository secret VITE_API_BASE_URL is not set. An APK cannot call a relative /api path, so it must be built against the deployed API origin (e.g. https://sabi-api-xxxx.europe-west1.run.app)."
+            exit 1
+          fi
+          case "$VITE_API_BASE_URL" in
+            *ais-pre-*|*ais-dev-*)
+              echo "::error::VITE_API_BASE_URL points at an AI Studio preview proxy, which does not serve the SABI API (it redirects /api/* to /__cookie_check.html). Set the secret to the real API origin."
+              exit 1
+              ;;
+          esac
+          echo "APK will call the SABI API at: $VITE_API_BASE_URL"
+
       - name: Build Production Web Bundle, Ensure Android Wrapper & Sync Capacitor
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || 'https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app' }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: npm run android:sync
 
       - name: Grant Execute Permission to Gradle Wrapper

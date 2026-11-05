@@ -20,6 +20,18 @@ import { supabase } from '../lib/supabase';
  * an HTML page (the SPA shell) for every POST and surfaced it as
  * "check your internet connection". Resolution now happens for every call.
  */
+/**
+ * AI Studio preview hosts (`https://ais-pre-….run.app`, `https://ais-dev-….run.app`)
+ * are proxied *static* previews: they answer `/api/*` with `302 → /__cookie_check.html`
+ * and an HTML body, never with the Express API. Pointing the app at one is the single
+ * most common cause of a "sign-up failed" report, so it is detected explicitly instead
+ * of being reported as a generic connectivity problem.
+ */
+export function isPreviewProxyHost(url: string): boolean {
+  const match = /^https?:\/\/([^/:?#]+)/i.exec((url || '').trim());
+  return Boolean(match && /^ais-(pre|dev)-/i.test(match[1]));
+}
+
 const CONFIGURED_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
   .trim()
   .replace(/\/+$/, '');
@@ -27,6 +39,15 @@ const CONFIGURED_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
 /** The configured API base URL ('' when the API is served from the same origin). */
 export function getApiBaseUrl(): string {
   return CONFIGURED_API_BASE;
+}
+
+if (CONFIGURED_API_BASE && isPreviewProxyHost(CONFIGURED_API_BASE)) {
+  console.warn(
+    `[SABI] VITE_API_BASE_URL points at an AI Studio preview proxy (${CONFIGURED_API_BASE}). ` +
+      'That host does not serve the SABI API: /api/* is answered with an HTML redirect to ' +
+      '__cookie_check.html. Rebuild with VITE_API_BASE_URL empty (same-origin deployment) or ' +
+      'set it to the host that runs server.ts.'
+  );
 }
 
 /**
@@ -173,6 +194,9 @@ export function describeApiFailure(result: ApiResult, fallback: string): string 
     result.contentType.includes('text/html') || /^<!doctype html/i.test(result.snippet);
 
   if (looksLikeHtml) {
+    if (isPreviewProxyHost(result.url)) {
+      return `${fallback} ${result.url} is an AI Studio preview proxy, not the SABI API: it answers /api/* with an HTML redirect to __cookie_check.html. Serve /api/* from server.ts on the app's own origin, or set VITE_API_BASE_URL to the real API host, then rebuild the client.`;
+    }
     if (result.status >= 500) {
       return `${fallback} The SABI API at ${result.url} returned a hosting error page (HTTP ${result.status}), which usually means the server failed to start or crashed (missing SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL). Check ${result.url.replace(/\/api\/.*$/, '')}/api/health and the server logs.`;
     }

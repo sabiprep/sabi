@@ -11,7 +11,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { describeApiFailure, resolveApiUrl, type ApiResult } from './apiClient';
+import {
+  describeApiFailure,
+  isPreviewProxyHost,
+  resolveApiUrl,
+  type ApiResult,
+} from './apiClient';
 
 function result(overrides: Partial<ApiResult> = {}): ApiResult {
   return {
@@ -46,6 +51,24 @@ describe('resolveApiUrl', () => {
 
   it('keeps same-origin relative paths when no base is configured', () => {
     expect(resolveApiUrl('/api/auth/register', '')).toBe('/api/auth/register');
+  });
+});
+
+describe('isPreviewProxyHost', () => {
+  it('recognises AI Studio preview proxies', () => {
+    expect(
+      isPreviewProxyHost('https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app')
+    ).toBe(true);
+    expect(
+      isPreviewProxyHost('https://ais-dev-abc123def.europe-west1.run.app/api/health')
+    ).toBe(true);
+  });
+
+  it('does not flag a real API, app host or relative path', () => {
+    expect(isPreviewProxyHost('https://sabi-api-abc.europe-west1.run.app')).toBe(false);
+    expect(isPreviewProxyHost('https://sabi.vercel.app')).toBe(false);
+    expect(isPreviewProxyHost('/api/auth/register')).toBe(false);
+    expect(isPreviewProxyHost('')).toBe(false);
   });
 });
 
@@ -96,6 +119,22 @@ describe('describeApiFailure', () => {
 
     expect(message).toContain('HTML page');
     expect(message).toContain('VITE_API_BASE_URL');
+  });
+
+  it('names an AI Studio preview proxy as the problem', () => {
+    const message = describeApiFailure(
+      result({
+        status: 200,
+        contentType: 'text/html',
+        snippet: '<html><head><title>302 Found</title>',
+        url: 'https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app/api/auth/register',
+      }),
+      'Could not create your account.'
+    );
+
+    expect(message).toContain('preview proxy');
+    expect(message).toContain('__cookie_check.html');
+    expect(message).toContain('server.ts');
   });
 
   it('never loses the status code for an unexplained failure', () => {

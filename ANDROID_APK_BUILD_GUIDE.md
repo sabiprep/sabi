@@ -74,8 +74,19 @@ GEMINI_API_KEY=your-gemini-api-key
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-or-secret-key
-VITE_API_BASE_URL=https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app
+VITE_API_BASE_URL=https://sabi-api-your-project.europe-west1.run.app
 ```
+
+> **`VITE_API_BASE_URL` must be the host that runs `server.ts`** — the one that
+> answers JSON on `/api/health`. Never use the AI Studio preview URL
+> (`https://ais-pre-….run.app`): it is a static preview proxy that answers
+> `/api/*` with a `302` to `/__cookie_check.html`, so the APK can neither
+> register nor sign in. The GitHub Actions build now fails if the secret is
+> missing or looks like a preview host.
+>
+> If you serve the web app and the API from the same origin (the normal Vercel
+> deployment, where `vercel.json` routes `/api/*` to `api/index.ts`), leave this
+> variable **empty** for the web build — only the APK needs an absolute URL.
 
 ### Step 3: Build Web Assets & Sync with Capacitor Android
 Run:

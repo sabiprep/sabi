@@ -5,13 +5,17 @@ import { SplashScreen } from '@capacitor/splash-screen';
 import { supabase } from '../lib/supabase';
 
 /**
- * Default Production Backend Base URL when running inside the compiled Android APK.
- * Can be overridden at build time via VITE_API_BASE_URL in .env.
+ * Remote API base URL for the compiled Android APK, which cannot use a relative
+ * `/api/*` path (its WebView origin is `https://localhost`).
+ *
+ * Phase 0 fix: the old fallback was an AI Studio preview proxy
+ * (`https://ais-pre-….run.app`) that answers `/api/*` with an HTML redirect to
+ * `/__cookie_check.html`. Every APK built without an explicit VITE_API_BASE_URL
+ * therefore could not register or sign in. There is no safe default here: the
+ * value must be supplied at build time (see .github/workflows/build-android-apk.yml,
+ * which now refuses to build an APK without it).
  */
-const DEFAULT_NATIVE_API_BASE = (
-  import.meta.env.VITE_API_BASE_URL ||
-  'https://ais-pre-hexoysblc7dzfjy3yyprez-26118416277.europe-west1.run.app'
-)
+const DEFAULT_NATIVE_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
   .trim()
   .replace(/\/+$/, '');
 
@@ -42,14 +46,28 @@ export function initCapacitorAndroidBridge(): void {
     document.body?.classList.add('is-android-view');
   }
 
-  // 1. Intercept relative `/api/*` calls inside the native Android WebView
+  // 1. Intercept relative `/api/*` calls inside the native Android WebView.
+  //    Phase 0 fix: this used to fall back to an HTML answer turned into a fake
+  //    503 `{ fallbackToSupabase: true }` (which nothing consumed), so a broken
+  //    API base URL looked like an anonymous network error. The real response is
+  //    now returned and apiClient.describeApiFailure explains the cause.
+  if (isNative && !DEFAULT_NATIVE_API_BASE) {
+    console.error(
+      '[SABI] This APK was built without VITE_API_BASE_URL, so /api/* cannot be reached from the ' +
+        'WebView. Rebuild with VITE_API_BASE_URL set to the deployed API origin ' +
+        '(e.g. https://sabi-api-xxxx.europe-west1.run.app).'
+    );
+  }
+
   if (isNative && DEFAULT_NATIVE_API_BASE) {
     const originalFetch = window.fetch.bind(window);
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (typeof input === 'string' && input.startsWith('/api/')) {
         const resolvedUrl = `${DEFAULT_NATIVE_API_BASE}${input}`;
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 4500);
+        // Mobile networks can be slow; a short abort made real registrations look
+        // like failures. Only the network budget is bounded, never correctness.
+        const timer = setTimeout(() => controller.abort(), 15000);
         try {
           const resp = await originalFetch(resolvedUrl, {
             ...init,
@@ -57,20 +75,16 @@ export function initCapacitorAndroidBridge(): void {
           });
           clearTimeout(timer);
           const contentType = (resp.headers.get('content-type') || '').toLowerCase();
-          // If the remote preview URL returned an HTML login page instead of JSON API, signal clean fallback
           if (!contentType.includes('application/json')) {
-            return new Response(
-              JSON.stringify({ fallbackToSupabase: true }),
-              { status: 503, headers: { 'Content-Type': 'application/json' } }
+            console.warn(
+              `[SABI] ${resolvedUrl} answered "${contentType || 'no content-type'}" instead of ` +
+                'JSON. Check that VITE_API_BASE_URL is the host running server.ts.'
             );
           }
           return resp;
-        } catch {
+        } catch (err) {
           clearTimeout(timer);
-          return new Response(
-            JSON.stringify({ fallbackToSupabase: true }),
-            { status: 503, headers: { 'Content-Type': 'application/json' } }
-          );
+          throw err;
         }
       }
       return originalFetch(input, init);
