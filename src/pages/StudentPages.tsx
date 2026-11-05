@@ -107,30 +107,26 @@ export function AppShell() {
   const userName =
     (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
 
-  // Ensure any active session actually exists in Supabase public.profiles (clears localStorage-only accounts)
+  // Guard: a real Supabase session is required to use the app shell.
+  // Phase 0: identity is proven by the session token, not by a localStorage email.
   useEffect(() => {
-    const savedEmail = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
     const isSigned = localStorage.getItem('sabi_user_signed_in') === 'true';
-    if (!isSigned || !savedEmail) {
-      localStorage.removeItem('sabi_user_signed_in');
+    if (!isSigned) {
       navigate('/auth/choice', { replace: true });
       return;
     }
 
     let cancelled = false;
-    supabase
-      .from('profiles')
-      .select('id, email, full_name, sabi_unique_id')
-      .eq('email', savedEmail)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled || error) return;
-        if (!data || !data.email) {
-          // Account was only in localStorage and does not exist in Supabase -> force real registration
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        if (!data.session?.user) {
           localStorage.removeItem('sabi_user_signed_in');
           navigate('/auth/choice', { replace: true });
         }
-      });
+      })
+      .catch(() => {});
 
     return () => {
       cancelled = true;

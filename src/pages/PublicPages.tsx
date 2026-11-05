@@ -23,6 +23,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
 import { supabase, getSabiAuthRedirectUrl } from '../lib/supabase';
+import { apiFetch, apiPostJson } from '../utils/apiClient';
 import { saveRealUserProgress } from '../utils/userProgressStore';
 
 const NIGERIAN_STATES = [
@@ -93,25 +94,18 @@ export function SplashPage() {
 
   const handleComplete = async () => {
     const isSigned = typeof window !== 'undefined' && localStorage.getItem('sabi_user_signed_in') === 'true';
-    const savedEmail = typeof window !== 'undefined' ? (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase() : '';
 
-    if (isSigned && savedEmail) {
+    if (isSigned) {
+      // Phase 0: the app shell trusts a real Supabase session, not a localStorage flag.
       try {
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id, email, sabi_unique_id')
-          .eq('email', savedEmail)
-          .maybeSingle();
-
-        if (existingProfile?.email) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session?.user) {
           navigate('/home');
           return;
-        } else {
-          // Clear any stale localStorage-only session that does not exist in Supabase
-          localStorage.removeItem('sabi_user_signed_in');
         }
+        localStorage.removeItem('sabi_user_signed_in');
       } catch {
-        navigate('/home');
+        navigate('/welcome');
         return;
       }
     }
@@ -281,9 +275,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
   const [generatedUniqueId, setGeneratedUniqueId] = useState<string>('');
   const [copiedId, setCopiedId] = useState(false);
 
-  // Recovery / Reset Password fields (requires Unique SABI ID grant)
+  // Recovery / Reset Password fields (Phase 0: emailed 6-digit recovery code)
   const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
-  const [recoveryUniqueId, setRecoveryUniqueId] = useState('');
+  const [recoveryOtp, setRecoveryOtp] = useState('');
+  const [recoveryStep, setRecoveryStep] = useState<'request' | 'confirm'>('request');
   const [newResetPassword, setNewResetPassword] = useState('');
   const [recoveryFeedback, setRecoveryFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
@@ -348,15 +343,9 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       // Clean URL bar so no broken token or error hash remains visible
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      const targetEmail = (emailInput || savedMail || '').trim().toLowerCase();
-      if (targetEmail) {
-        fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: targetEmail }),
-        }).catch(() => {});
-      }
-
+      // Phase 0: confirmation is performed by the server against the caller's own
+      // session token (POST /api/auth/verify). A signed-out browser can no longer
+      // confirm arbitrary accounts from a URL fragment.
       setAuthFeedback({
         type: 'success',
         message: '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in or proceed.',
@@ -364,31 +353,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
   }, []);
 
-  // Instant SABI Account Verification (confirms user directly in Supabase Auth via /api/auth/verify)
+  // Resend the Supabase confirmation email (verification is never bypassed client-side)
   const handleResendVerificationEmail = async () => {
     const targetEmail = (unconfirmedEmailForResend || emailInput).trim().toLowerCase();
     if (!targetEmail) return;
     setAuthLoading(true);
     try {
-      // 1. Verify directly via SABI Server Admin API so the user doesn't need any email link
-      const verifyResp = await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: targetEmail }),
-      });
-      const verifyData = await verifyResp.json().catch(() => ({}));
-
-      if (verifyResp.ok && verifyData?.verified) {
-        setAuthLoading(false);
-        setUnconfirmedEmailForResend('');
-        setAuthFeedback({
-          type: 'success',
-          message: `✓ SABI has verified your account (${targetEmail})! Tap "Sign In to Dashboard" below to continue immediately.`,
-        });
-        return;
-      }
-
-      // 2. Fallback: Resend with public non-localhost SABI URL
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: targetEmail,
@@ -442,13 +412,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
     setAuthLoading(true);
     try {
-      // Auto-verify via SABI backend first if needed
-      await fetch('/api/auth/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: rawEmail }),
-      }).catch(() => {});
-
       const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
         email: rawEmail,
         password: passwordInput,
@@ -463,36 +426,22 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         return;
       }
 
-      const uniqueId = getOrGenerateSabiUniqueId(rawEmail);
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('email', rawEmail)
-        .maybeSingle();
+      // Phase 0: profiles are never written from the browser. The server resolves
+      // (and creates, if needed) the row for the token's own user.
+      let syncedProfile: any = null;
+      try {
+        const verifyResp = await apiFetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: rawEmail, authProviders: ['email', 'google'] }),
+        });
+        const verifyData = await verifyResp.json().catch(() => ({}));
+        syncedProfile = verifyData?.profile || null;
+      } catch {
+        // The next authenticated request will sync the profile.
+      }
 
-      const updatedProviders = Array.from(
-        new Set([...(existing?.auth_providers || ['email']), 'google'])
-      );
-
-      const { data: syncedProfile } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            id: signInData.user.id,
-            email: rawEmail,
-            sabi_unique_id: existing?.sabi_unique_id || uniqueId,
-            full_name: existing?.full_name || signInData.user.user_metadata?.full_name || rawEmail.split('@')[0],
-            phone: existing?.phone || signInData.user.user_metadata?.phone || '',
-            state_of_origin: existing?.state_of_origin || signInData.user.user_metadata?.state_of_origin || 'Lagos',
-            auth_providers: updatedProviders,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'email' }
-        )
-        .select('*')
-        .maybeSingle();
-
-      applySyncedProfileToLocal(syncedProfile || existing, rawEmail);
+      applySyncedProfileToLocal(syncedProfile, rawEmail);
       localStorage.setItem('sabi_auth_provider', 'google+email');
       localStorage.setItem('sabi_user_signed_in', 'true');
       setAuthLoading(false);
@@ -544,15 +493,13 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     setAuthLoading(true);
     let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
     let syncedProfile: any = null;
-    let authUserId: string | undefined;
-    let lastErrorMessage = '';
+    let requiresEmailVerification = false;
 
-    // 1. Primary Path: Call SABI Backend /api/auth/register FIRST!
-    //    This creates the user via supabaseAdmin.auth.admin.createUser({ email_confirm: true })
-    //    so the candidate is immediately verified under SABI and Supabase NEVER sends a "Supabase"
-    //    email with a broken localhost:3000 link!
+    // Phase 0: /api/auth/register is the ONLY way an account is created. The
+    // server writes auth.users + public.profiles with the service role, and the
+    // client never supplies an auth user id or upserts a profile directly.
     try {
-      const resp = await fetch('/api/auth/register', {
+      const resp = await apiFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -565,6 +512,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         }),
       });
       const data = await resp.json().catch(() => ({}));
+
       if (resp.status === 409) {
         setAuthLoading(false);
         setAuthFeedback({
@@ -575,150 +523,63 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         });
         return;
       }
-      if (resp.ok && data?.auth_user_id) {
-        authUserId = data.auth_user_id;
-        if (data.sabi_unique_id) {
-          uniqueId = data.sabi_unique_id;
-        }
-        if (data.profile) {
-          syncedProfile = data.profile;
-        }
-      } else if (data?.error) {
-        lastErrorMessage = data.error;
-      }
-    } catch {
-      // Fallback to direct Supabase Auth below if backend route was unreachable
-    }
 
-    // 2. Fallback Path (only if /api/auth/register didn't already create the user):
-    //    Uses public non-localhost SABI redirect URL and then calls /api/auth/verify to auto-confirm.
-    if (!authUserId) {
-      try {
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password: passwordInput,
-          options: {
-            emailRedirectTo: getSabiAuthRedirectUrl('/auth/verify'),
-            data: {
-              full_name: cleanedName,
-              phone: cleanedPhone,
-              state_of_origin: stateOfOriginInput,
-              sabi_unique_id: uniqueId,
-              issuer: 'SABI',
-            },
-          },
+      if (!resp.ok) {
+        setAuthLoading(false);
+        setAuthFeedback({
+          type: 'error',
+          message:
+            data?.error ||
+            'Could not create your account. Please check your internet connection and try again.',
         });
-
-        if (signUpError) {
-          lastErrorMessage = signUpError.message;
-          const lowerErr = signUpError.message.toLowerCase();
-          if (lowerErr.includes('already registered') || lowerErr.includes('already exists')) {
-            setAuthLoading(false);
-            setAuthFeedback({
-              type: 'error',
-              message: `An account with ${normalizedEmail} already exists in SABI. Please switch to "Sign In".`,
-            });
-            return;
-          }
-        } else if (signUpData?.user) {
-          if (Array.isArray(signUpData.user.identities) && signUpData.user.identities.length === 0) {
-            setAuthLoading(false);
-            setAuthFeedback({
-              type: 'error',
-              message: `An account with ${normalizedEmail} is already registered. Please Sign In instead.`,
-            });
-            return;
-          }
-          authUserId = signUpData.user.id;
-
-          // Request instant verification from backend if reachable
-          try {
-            const verifyResp = await fetch('/api/auth/verify', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: normalizedEmail,
-                uniqueId,
-                authUserId,
-              }),
-            });
-            const verifyData = await verifyResp.json().catch(() => ({}));
-            if (verifyData?.profile) {
-              syncedProfile = verifyData.profile;
-              uniqueId = verifyData.sabi_unique_id || uniqueId;
-            }
-          } catch {
-            // PostgreSQL trigger on_auth_user_created handles profile creation
-          }
-        }
-      } catch (err: any) {
-        lastErrorMessage = err?.message || 'Account creation request failed.';
+        return;
       }
-    }
 
-    if (!authUserId) {
+      uniqueId = data?.sabi_unique_id || uniqueId;
+      syncedProfile = data?.profile || null;
+      requiresEmailVerification = Boolean(data?.requires_email_verification);
+    } catch {
       setAuthLoading(false);
       setAuthFeedback({
         type: 'error',
         message:
-          lastErrorMessage ||
-          'Could not create your account. Please check your internet connection and try again.',
+          'Unable to reach the SABI registration server. Please check your internet connection and try again.',
       });
       return;
     }
 
-    // 3. Establish active authenticated Supabase session on the client now that user is confirmed
+    // Establish the client session so every authenticated API call works at once.
+    if (requiresEmailVerification) {
+      setAuthLoading(false);
+      setUnconfirmedEmailForResend(normalizedEmail);
+      setAuthFeedback({
+        type: 'info',
+        message: `Your SABI account was created. Check ${normalizedEmail} for the verification link, then sign in.`,
+      });
+      return;
+    }
+
     try {
-      const { error: firstSignInErr } = await supabase.auth.signInWithPassword({
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password: passwordInput,
       });
-      if (firstSignInErr && (firstSignInErr.message || '').toLowerCase().includes('email not confirmed')) {
-        // Wait briefly for the 2.5s SABI verification guardian to confirm the user in Supabase Auth, then retry
-        await new Promise((r) => setTimeout(r, 2600));
-        await supabase.auth.signInWithPassword({
-          email: normalizedEmail,
-          password: passwordInput,
+      if (signInErr) {
+        setAuthLoading(false);
+        setUnconfirmedEmailForResend(normalizedEmail);
+        setAuthFeedback({
+          type: 'info',
+          message: `Your SABI account was created. Check ${normalizedEmail} for the verification link, then sign in.`,
         });
+        return;
       }
     } catch {
-      // Session will also be synced on next login
-    }
-
-    // 4. Sync or construct verified profile (PostgreSQL trigger on_auth_user_created already inserts public.profiles)
-    if (!syncedProfile) {
-      try {
-        const { data: upsertedProfile } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: authUserId,
-              email: normalizedEmail,
-              sabi_unique_id: uniqueId,
-              full_name: cleanedName,
-              phone: cleanedPhone,
-              state_of_origin: stateOfOriginInput,
-              auth_providers: authProvider === 'google' ? ['google', 'email'] : ['email'],
-              onboarding_completed: false,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'email' }
-          )
-          .select('*')
-          .maybeSingle();
-
-        if (upsertedProfile) {
-          syncedProfile = upsertedProfile;
-          uniqueId = upsertedProfile.sabi_unique_id || uniqueId;
-        }
-      } catch {
-        // Ignore RLS error if session is still propagating; trigger already created the row in public.profiles
-      }
+      // The session will be established on the next sign in.
     }
 
     if (!syncedProfile) {
       syncedProfile = {
-        id: authUserId,
+        id: '',
         email: normalizedEmail,
         sabi_unique_id: uniqueId,
         full_name: cleanedName,
@@ -822,19 +683,16 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     let authenticatedUserId: string | undefined;
     let signInErrorMessage = '';
 
-    // 1. Authenticate via SABI Backend /api/auth/login first (auto-confirms any unconfirmed user & resolves phone numbers)
+    // 1. Authenticate via the SABI API first: it confirms any unconfirmed account,
+    //    resolves phone numbers to emails and is the only place that knows the
+    //    canonical profile row. Identity is never taken from a localStorage email.
     try {
-      const resp = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier,
-          password: passwordInput,
-          method: authMethod,
-        }),
+      const { ok, data } = await apiPostJson('/api/auth/login', {
+        identifier,
+        password: passwordInput,
+        method: authMethod,
       });
-      const data = await resp.json().catch(() => ({}));
-      if (resp.ok && data?.auth_user_id) {
+      if (ok && data?.auth_user_id) {
         authenticatedUserId = data.auth_user_id;
         matchedProfile = data.profile || matchedProfile;
         resolvedEmail = matchedProfile?.email || resolvedEmail;
@@ -845,22 +703,8 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       // Fall back to direct Supabase Auth below
     }
 
-    // 1b. If on Android APK without backend and user signed in via Phone Number, resolve email directly from Supabase profiles
-    if (!resolvedEmail) {
-      try {
-        const { data: phoneProfile } = await supabase
-          .from('profiles')
-          .select('*')
-          .or(`phone.eq.${identifier},email.eq.${identifier}`)
-          .maybeSingle();
-        if (phoneProfile?.email) {
-          matchedProfile = phoneProfile;
-          resolvedEmail = phoneProfile.email.trim().toLowerCase();
-        }
-      } catch {
-        // Ignore lookup error
-      }
-    }
+    // 1b. Phone numbers are resolved to an email by /api/auth/login above. The
+    //     browser can no longer look profiles up by phone/email (RLS is own-row only).
 
     // 2. Also establish client-side Supabase Auth session (or authenticate directly if backend wasn't reached)
     if (resolvedEmail) {
@@ -870,15 +714,11 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           password: passwordInput,
         });
 
-        // If client received "Email not confirmed", trigger /api/auth/verify, wait for SABI guardian, and retry immediately!
+        // The server (/api/auth/login) owns account confirmation. If the client
+        // still races it, retry once after a short pause instead of trying to
+        // confirm the account from the browser.
         if (signInErr && (signInErr.message || '').toLowerCase().includes('email not confirmed')) {
-          await fetch('/api/auth/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: resolvedEmail }),
-          }).catch(() => {});
-
-          await new Promise((r) => setTimeout(r, 2600));
+          await new Promise((r) => setTimeout(r, 400));
 
           const retry = await supabase.auth.signInWithPassword({
             email: resolvedEmail,
@@ -961,17 +801,66 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
   };
 
-  // Handle Password Reset verified by 5-character Unique SABI ID (4 digits + 1 letter)
-  const handlePasswordResetWithUniqueId = async (e: React.FormEvent) => {
+  // Handle Password Reset — Phase 0 (defect B5): step 1 emails a 6-digit recovery
+  // code, step 2 exchanges that code for a new password. The public 5-character
+  // Unique SABI ID is no longer accepted as a recovery credential.
+  const handleRecoveryRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecoveryFeedback(null);
-    const cleanedId = recoveryUniqueId.trim().toUpperCase();
-    const cleanIdent = recoveryIdentifier.trim().toLowerCase();
 
-    if (!/^\d{4}[A-Z]$/.test(cleanedId)) {
+    const cleanIdent = recoveryIdentifier.trim().toLowerCase();
+    if (!cleanIdent) {
       setRecoveryFeedback({
         type: 'error',
-        message: 'Invalid format. Your Unique SABI ID must be 4 numbers followed by 1 letter (e.g., 4829K).'
+        message: 'Enter the email address or phone number registered on your SABI account.',
+      });
+      return;
+    }
+
+    setAuthLoading(true);
+    const { ok, data } = await apiPostJson('/api/auth/reset-password/request', {
+      identifier: cleanIdent,
+    });
+    setAuthLoading(false);
+
+    if (!ok) {
+      setRecoveryFeedback({
+        type: 'error',
+        message:
+          data?.error ||
+          'Unable to send a recovery code right now. Please check your connection and try again.',
+      });
+      return;
+    }
+
+    setRecoveryStep('confirm');
+    setRecoveryFeedback({
+      type: 'success',
+      message:
+        data?.message ||
+        'If that account exists, a 6-digit recovery code has been emailed to it. Enter the code below to choose a new password.',
+    });
+  };
+
+  const handleRecoveryConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRecoveryFeedback(null);
+
+    const cleanIdent = recoveryIdentifier.trim().toLowerCase();
+    const cleanOtp = recoveryOtp.replace(/\D/g, '');
+
+    if (!cleanIdent.includes('@')) {
+      setRecoveryFeedback({
+        type: 'error',
+        message: 'Enter the email address that received the recovery code.',
+      });
+      return;
+    }
+
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      setRecoveryFeedback({
+        type: 'error',
+        message: 'Enter the 6-digit recovery code from your email.',
       });
       return;
     }
@@ -985,69 +874,27 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
 
     setAuthLoading(true);
+    const { ok, data } = await apiPostJson('/api/auth/reset-password/confirm', {
+      email: cleanIdent,
+      otp: cleanOtp,
+      newPassword: newResetPassword,
+    });
+    setAuthLoading(false);
 
-    // 1. Verify account & Unique SABI ID in Supabase public.profiles
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .or(`email.eq.${cleanIdent},phone.eq.${cleanIdent}`)
-        .maybeSingle();
-
-      if (!profile) {
-        setAuthLoading(false);
-        setRecoveryFeedback({
-          type: 'error',
-          message: 'No registered SABI account found in Supabase for that email or phone number.',
-        });
-        return;
-      }
-
-      if (String(profile.sabi_unique_id).toUpperCase() !== cleanedId) {
-        setAuthLoading(false);
-        setRecoveryFeedback({
-          type: 'error',
-          message: 'Verification failed: The Unique SABI ID provided does not match this account.',
-        });
-        return;
-      }
-    } catch {
-      // Proceed to backend verification
-    }
-
-    // 2. Call Backend /api/auth/reset-password to update password in Supabase Auth
-    try {
-      const resp = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: cleanIdent,
-          uniqueId: cleanedId,
-          newPassword: newResetPassword,
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok || data?.verified === false) {
-        setAuthLoading(false);
-        setRecoveryFeedback({
-          type: 'error',
-          message: data?.error || 'Verification failed: Could not update password in Supabase.',
-        });
-        return;
-      }
-    } catch {
-      setAuthLoading(false);
+    if (!ok || data?.verified === false) {
       setRecoveryFeedback({
         type: 'error',
-        message: 'Unable to reach password reset server. Please check your internet connection.',
+        message: data?.error || 'That recovery code is invalid or has expired. Please request a new code.',
       });
       return;
     }
 
-    setAuthLoading(false);
+    setRecoveryOtp('');
+    setNewResetPassword('');
+    setRecoveryStep('request');
     setRecoveryFeedback({
       type: 'success',
-      message: `Unique ID (${cleanedId}) verified! Your password has been updated in Supabase. Redirecting to Sign In...`
+      message: 'Password updated! Redirecting you to Sign In...',
     });
 
     setTimeout(() => {
@@ -1610,15 +1457,15 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
               {/* ========================================== */}
               {/* 5. FORGOT PASSWORD (REQUIRES UNIQUE ID)    */}
               {/* ========================================== */}
-              {currentMode === 'forgot-password' && (
-                <form onSubmit={handlePasswordResetWithUniqueId} className="space-y-4 animate-fade-in">
+              {currentMode === 'forgot-password' && recoveryStep === 'request' && (
+                <form onSubmit={handleRecoveryRequest} className="space-y-4 animate-fade-in">
                   <div className={`p-3.5 rounded-2xl border text-xs font-semibold leading-relaxed ${
                     isDark ? 'bg-blue-950/40 border-blue-800/60 text-slate-200' : 'bg-yellow-50/80 border-yellow-200 text-slate-700'
                   }`}>
                     <span className="font-black text-blue-700 dark:text-blue-300 uppercase tracking-wider block mb-0.5">
-                      Mandatory Security Grant
+                      Emailed Recovery Code
                     </span>
-                    To reset your password or recover your account, you must enter the <strong>5-character Unique SABI ID (4 numbers + 1 letter)</strong> issued to you at registration.
+                    Enter the email address or phone number on your account and SABI will email you a <strong>6-digit recovery code</strong>. Your Unique SABI ID is no longer used to reset passwords.
                   </div>
 
                   {recoveryFeedback && (
@@ -1647,20 +1494,52 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                     />
                   </div>
 
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 font-black text-white text-sm transition-all cursor-pointer shadow-lg shadow-blue-700/25 active:scale-95"
+                  >
+                    {authLoading ? 'Sending recovery code…' : 'Send 6-Digit Recovery Code'}
+                  </button>
+                </form>
+              )}
+
+              {currentMode === 'forgot-password' && recoveryStep === 'confirm' && (
+                <form onSubmit={handleRecoveryConfirm} className="space-y-4 animate-fade-in">
+                  <div className={`p-3.5 rounded-2xl border text-xs font-semibold leading-relaxed ${
+                    isDark ? 'bg-blue-950/40 border-blue-800/60 text-slate-200' : 'bg-yellow-50/80 border-yellow-200 text-slate-700'
+                  }`}>
+                    <span className="font-black text-blue-700 dark:text-blue-300 uppercase tracking-wider block mb-0.5">
+                      Check Your Inbox
+                    </span>
+                    Enter the 6-digit code sent to <strong>{recoveryIdentifier}</strong>, then choose a new password. The code expires shortly, so request a fresh one if it does not arrive.
+                  </div>
+
+                  {recoveryFeedback && (
+                    <div className={`p-3.5 rounded-xl text-xs font-bold border ${
+                      recoveryFeedback.type === 'success'
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
+                        : 'bg-rose-500/15 border-rose-500/40 text-rose-400'
+                    }`}>
+                      {recoveryFeedback.message}
+                    </div>
+                  )}
+
                   <div>
                     <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      5-Character Unique SABI ID (4 Numbers + 1 Letter)
+                      6-Digit Recovery Code
                     </label>
                     <div className="relative">
                       <KeyRound size={18} className="absolute left-3.5 top-3.5 text-blue-600" />
                       <input
                         type="text"
-                        maxLength={5}
-                        value={recoveryUniqueId}
-                        onChange={(e) => setRecoveryUniqueId(e.target.value.toUpperCase())}
-                        placeholder="e.g. 4829K"
+                        inputMode="numeric"
+                        maxLength={6}
+                        value={recoveryOtp}
+                        onChange={(e) => setRecoveryOtp(e.target.value.replace(/\D/g, ''))}
+                        placeholder="123456"
                         required
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-xl border-2 text-base font-mono font-black tracking-widest uppercase ${
+                        className={`w-full pl-11 pr-4 py-3.5 rounded-xl border-2 text-base font-mono font-black tracking-widest ${
                           isDark ? 'bg-slate-950 border-blue-500/50 text-blue-300' : 'bg-blue-50/40 border-blue-300 text-slate-950'
                         } outline-none`}
                       />
@@ -1685,9 +1564,22 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
                   <button
                     type="submit"
-                    className="w-full py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 font-black text-white text-sm transition-all cursor-pointer shadow-lg shadow-blue-700/25 active:scale-95"
+                    disabled={authLoading}
+                    className="w-full py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 font-black text-white text-sm transition-all cursor-pointer shadow-lg shadow-blue-700/25 active:scale-95"
                   >
-                    Verify Unique ID & Reset Password
+                    {authLoading ? 'Resetting password…' : 'Verify Code & Reset Password'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRecoveryStep('request');
+                      setRecoveryOtp('');
+                      setRecoveryFeedback(null);
+                    }}
+                    className={`w-full py-2 rounded-xl text-xs font-bold ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
+                  >
+                    Use a different email or phone number
                   </button>
                 </form>
               )}

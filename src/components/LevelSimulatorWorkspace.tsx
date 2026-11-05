@@ -25,6 +25,7 @@ import {
   UserRealProgress,
 } from '../utils/userProgressStore';
 import { saveMistake } from '../utils/mistakeStore';
+import { apiFetch } from '../utils/apiClient';
 
 interface LevelSimulatorWorkspaceProps {
   mode: 'blitz' | 'smart';
@@ -209,7 +210,7 @@ export default function LevelSimulatorWorkspace({
   const fetchAiVerification = async (q: Question, customPrompt?: string) => {
     setAiLoading(true);
     try {
-      const res = await fetch('/api/explain', {
+      const res = await apiFetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

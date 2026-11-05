@@ -1,5 +1,5 @@
 import type { SubjectName } from '../types';
-import { supabase } from '../lib/supabase';
+import { apiFetch } from './apiClient';
 
 export interface SubjectProgressStat {
   solved: number;
@@ -158,37 +158,12 @@ export function saveRealUserProgress(next: UserRealProgress): UserRealProgress {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     window.dispatchEvent(new Event('sabi-progress-updated'));
 
-    const email = localStorage.getItem('sabi_user_email');
-    if (email) {
-      const normalizedEmail = email.trim().toLowerCase();
-      fetch('/api/profile/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: normalizedEmail, progress: normalized }),
-      }).catch(() => {});
-
-      // Also sync directly to Supabase public.profiles when configured (for Android APK & Vercel)
-      if (supabase) {
-        (async () => {
-          const { data: existing } = await supabase
-            .from('profiles')
-            .select('onboarding_answers')
-            .eq('email', normalizedEmail)
-            .maybeSingle();
-          const mergedAnswers = {
-            ...(existing?.onboarding_answers || {}),
-            live_progress: normalized,
-          };
-          await supabase
-            .from('profiles')
-            .update({
-              onboarding_answers: mergedAnswers,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('email', normalizedEmail);
-        })().catch(() => {});
-      }
-    }
+    // Phase 0: the server derives the caller from the bearer token, so no email is
+    // sent. Signed-out callers get a 401, which is ignored silently.
+    apiFetch('/api/profile/progress', {
+      method: 'POST',
+      body: JSON.stringify({ progress: normalized }),
+    }).catch(() => {});
   } catch {
     // ignore storage errors
   }

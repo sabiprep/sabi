@@ -6,6 +6,7 @@ import type { SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
 import { useTheme } from '../app/ThemeProvider';
 import { supabase } from '../lib/supabase';
+import { apiPostJson } from '../utils/apiClient';
 
 const STORAGE_KEY = 'sabi_onboarding_v2_10q';
 const CLASS_OPTIONS = ['SS2 Candidate', 'SS3 Candidate', 'Post-Secondary / Resitter'];
@@ -56,6 +57,8 @@ export function OnboardingPage() {
 
   const [answers, setAnswers] = useState<Answers>(readAnswers);
   const [audioEnabled, setAudioEnabled] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const selectedSubjects = (answers.chosenSubjects as string[] | undefined) ?? ['English Language'];
   const confidence = (answers.subjectConfidence as Record<string, number> | undefined) ?? {};
@@ -124,37 +127,36 @@ export function OnboardingPage() {
     }
   }, [answers, confidence, question.id, selectedSubjects]);
 
-  // Guard: Ensure candidate actually created a Supabase account before accessing Onboarding
+  // Guard: Ensure the candidate has a live Supabase session before onboarding.
+  // Phase 0: identity comes from the session token, not from a localStorage email.
   useEffect(() => {
-    const email = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
-    if (!email) {
-      navigate('/auth/sign-up', { replace: true });
-      return;
-    }
     let cancelled = false;
-    supabase
-      .from('profiles')
-      .select('id, email')
-      .eq('email', email)
-      .maybeSingle()
-      .then(({ data, error }) => {
-        if (cancelled || error) return;
-        if (!data || !data.email) {
-          localStorage.removeItem('sabi_user_signed_in');
-          navigate('/auth/sign-up', { replace: true });
-        }
-      });
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled) return;
+      if (!data?.user) {
+        localStorage.removeItem('sabi_user_signed_in');
+        navigate('/auth/sign-up', { replace: true });
+      }
+    });
     return () => {
       cancelled = true;
     };
   }, [navigate]);
 
   const handleNext = async () => {
-    if (!canContinue) return;
+    if (!canContinue || isSubmitting) return;
     sound.playCorrect();
-    if (question.id === totalSteps) {
-      const email = (localStorage.getItem('sabi_user_email') || '').trim().toLowerCase();
-      if (!email) {
+
+    if (question.id !== totalSteps) {
+      navigate(`/onboarding/${question.id + 1}`);
+      return;
+    }
+
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getUser();
+      if (!sessionData?.user) {
         navigate('/auth/sign-up', { replace: true });
         return;
       }
@@ -162,35 +164,24 @@ export function OnboardingPage() {
       localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(answers));
       localStorage.setItem('sabi_user_signed_in', 'true');
 
-      try {
-        await supabase
-          .from('profiles')
-          .update({
-            onboarding_completed: true,
-            onboarding_answers: answers,
-            registered_subjects: selectedSubjects,
-            target_score: Number(answers.targetScore) || 320,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('email', email);
-      } catch {
-        // Backend sync fallback below
+      // Phase 0: the server writes onboarding data for the token's own user, so
+      // no email is sent and the direct profiles write is no longer needed.
+      const { ok, data } = await apiPostJson('/api/profile/onboarding', {
+        onboardingAnswers: answers,
+        registeredSubjects: selectedSubjects,
+        targetScore: Number(answers.targetScore) || 320,
+      });
+
+      if (!ok) {
+        setSubmitError(
+          data?.error || 'Could not save your onboarding answers. Please try again.'
+        );
+        return;
       }
 
-      fetch('/api/profile/onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          onboardingAnswers: answers,
-          registeredSubjects: selectedSubjects,
-          targetScore: answers.targetScore || 320,
-        }),
-      }).catch(() => {});
-
       navigate('/home');
-    } else {
-      navigate(`/onboarding/${question.id + 1}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -632,6 +623,20 @@ export function OnboardingPage() {
           </div>
         </section>
 
+        {/* Save error (only appears if the onboarding sync request fails) */}
+        {submitError && (
+          <p
+            role="alert"
+            className={`shrink-0 px-4 py-3 rounded-2xl text-xs font-bold border ${
+              isDark
+                ? 'bg-rose-950/50 border-rose-800 text-rose-300'
+                : 'bg-rose-50 border-rose-200 text-rose-700'
+            }`}
+          >
+            {submitError}
+          </p>
+        )}
+
         {/* ===================================================================== */}
         {/* SIMPLE BOTTOM NAVIGATION BAR (Blue Primary Button + White Back)       */}
         {/* ===================================================================== */}
@@ -651,7 +656,7 @@ export function OnboardingPage() {
 
           <button
             type="button"
-            disabled={!canContinue}
+            disabled={!canContinue || isSubmitting}
             onClick={handleNext}
             className={`flex-1 py-4 px-6 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 border transition cursor-pointer ${
               canContinue
@@ -661,7 +666,13 @@ export function OnboardingPage() {
                 : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
             }`}
           >
-            <span>{question.id === totalSteps ? 'Complete Setup & Enter Dashboard' : 'Continue'}</span>
+            <span>
+              {question.id === totalSteps
+                ? isSubmitting
+                  ? 'Saving your setup…'
+                  : 'Complete Setup & Enter Dashboard'
+                : 'Continue'}
+            </span>
             <ArrowRight size={18} />
           </button>
         </footer>

@@ -6,69 +6,86 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import helmet from 'helmet';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
-import { createClient } from '@supabase/supabase-js';
 import { SEED_QUESTIONS, KNOWLEDGE_BASE, SYLLABUS_FREQUENCY } from './src/data/questions.ts';
 import { Question, SubjectName } from './src/types';
+import { config, isOriginAllowed } from './server/config';
+import { hasServiceRoleKey, supabaseAdmin } from './server/lib/supabaseAdmin';
+import { requireAuth, type AuthenticatedRequest } from './server/middleware/requireAuth';
+import { requireRole } from './server/middleware/requireRole';
+import { aiLimiter, authLimiter, globalLimiter } from './server/middleware/rateLimit';
+import { validateBody } from './server/middleware/validate';
+import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
+import { generateDeterministicSabiId } from './server/utils/sabiId';
+import {
+  chatSchema,
+  explainSchema,
+  generateQuestionSchema,
+  loginSchema,
+  onboardingSchema,
+  progressSchema,
+  registerSchema,
+  resetPasswordConfirmSchema,
+  resetPasswordRequestSchema,
+  verifyAccountSchema,
+} from './server/validation/schemas';
 
 const app = express();
-const PORT = 3000;
+const PORT = config.port;
 
-app.use(express.json());
+// Vercel and other reverse proxies terminate TLS in front of the API. Trusting
+// exactly one hop lets rate limiting see the real client IP.
+app.set('trust proxy', 1);
 
-// Allow cross-origin requests from the native SABI Android APK (Capacitor WebView)
+// Do not advertise the framework.
+app.disable('x-powered-by');
+
+app.use(
+  helmet({
+    // The SPA relies on inline styles, Google Fonts and remote mascot SVGs, so a
+    // strict Content-Security-Policy would break the app. A full CSP lands in the
+    // web-hardening phase; the remaining helmet defaults are safe today.
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+app.use(express.json({ limit: config.maxJsonBody }));
+
+// CORS: an explicit allow-list (local development, the Capacitor Android WebView
+// and any origin configured through ALLOWED_ORIGINS) instead of a wildcard.
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+  const origin = req.headers.origin;
+  const allowed = isOriginAllowed(origin);
+
+  if (allowed) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+    );
+    res.header('Access-Control-Max-Age', '600');
   }
+
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(allowed ? 204 : 403);
+    return;
+  }
+
   next();
 });
 
-// -------------------------------------------------------------
-// Supabase Server Client (Supports both new Secret Key & legacy service_role key)
-// -------------------------------------------------------------
-const rawSupabaseUrl =
-  process.env.VITE_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  'https://dnrzixaasphxiswjyglj.supabase.co';
-const supabaseUrl = rawSupabaseUrl
-  .trim()
-  .replace(/\/rest\/v1\/?$/i, '')
-  .replace(/\/+$/, '');
+// Global throttle for the entire API surface.
+app.use('/api', globalLimiter);
 
-const supabaseServerKey = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SECRET_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRucnppeGFhc3BoeGlzd2p5Z2xqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMyOTg3MzQsImV4cCI6MjEwODg3NDczNH0.B0SXI_Ds7MaVvtwcBnfQqZl8x8PNKen-UZkYrTnMzk4'
-).trim();
 
-const hasServiceRoleKey = Boolean(
-  (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim()
-);
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServerKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-
-// Deterministic 5-character Unique SABI ID generator (4 digits + 1 uppercase letter, e.g. 4829K)
-function generateDeterministicSabiId(email: string): string {
-  const normalized = (email || 'scholar@sabi.ng').trim().toLowerCase();
-  let hash = 2166136261;
-  for (let i = 0; i < normalized.length; i++) {
-    hash ^= normalized.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  const absHash = Math.abs(hash);
-  const fourDigits = String((absHash % 9000) + 1000);
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const oneLetter = letters[absHash % letters.length];
-  return `${fourDigits}${oneLetter}`;
-}
+// Deterministic Unique SABI ID generation lives in ./server/utils/sabiId.ts so it
+// can be unit tested; it is imported above.
 
 // Initialize Gemini SDK with telemetry header requested in the skill guide
 const apiKey = process.env.GEMINI_API_KEY;
@@ -96,212 +113,80 @@ async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
 }
 
-// Helper: Automatically confirm any unverified users in Supabase Auth & sync public.profiles
-const verifiedUserCache = new Set<string>();
-
-async function syncAndVerifyPendingSupabaseUsers(): Promise<void> {
-  if (!hasServiceRoleKey) return;
-  try {
-    const { data: usersData, error } = await supabaseAdmin.auth.admin.listUsers({
-      page: 1,
-      perPage: 50,
-    });
-    if (error || !usersData?.users) return;
-
-    for (const u of usersData.users as any[]) {
-      if (!u.email) continue;
-      const cleanEmail = u.email.trim().toLowerCase();
-      const fallbackId =
-        u.user_metadata?.sabi_unique_id || generateDeterministicSabiId(cleanEmail);
-
-      if (!u.email_confirmed_at) {
-        await supabaseAdmin.auth.admin.updateUserById(u.id, {
-          email_confirm: true,
-          user_metadata: {
-            ...u.user_metadata,
-            sabi_unique_id: fallbackId,
-            email_verified: true,
-            issuer: 'SABI',
-          },
-        });
-      }
-
-      if (!verifiedUserCache.has(u.id)) {
-        const { data: existingProf } = await supabaseAdmin
-          .from('profiles')
-          .select('id, sabi_unique_id')
-          .eq('email', cleanEmail)
-          .maybeSingle();
-
-        if (!existingProf) {
-          await supabaseAdmin.from('profiles').upsert(
-            {
-              id: u.id,
-              email: cleanEmail,
-              sabi_unique_id: fallbackId,
-              full_name: u.user_metadata?.full_name || u.user_metadata?.name || 'Candidate',
-              phone: u.user_metadata?.phone || u.phone || '',
-              state_of_origin: u.user_metadata?.state_of_origin || 'Lagos',
-              auth_providers: ['email'],
-              onboarding_completed: false,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'email' }
-          );
-        }
-        verifiedUserCache.add(u.id);
-      }
-    }
-  } catch {
-    // Non-blocking background verification check
-  }
-}
-
-if (hasServiceRoleKey) {
-  syncAndVerifyPendingSupabaseUsers();
-  setInterval(syncAndVerifyPendingSupabaseUsers, 2500);
-}
+// PHASE 0 (defect B2): the 2.5s "verification guardian" that confirmed EVERY
+// pending Supabase user in the project has been removed. It turned account
+// verification into a no-op and made every RLS/role check meaningless.
+// Account confirmation now happens only through POST /api/auth/verify, which is
+// authenticated and can only ever confirm the caller's own account.
 
 // -------------------------------------------------------------
 // API Endpoints: Auth, Unique SABI ID & Supabase Profile Sync
 // -------------------------------------------------------------
 
-// 0a. Register & Immediately Verify Candidate in Supabase Auth (auth.users) + public.profiles
-app.post('/api/auth/register', async (req, res) => {
+// 0a. Register a candidate.
+//     Phase 0 (defects B1/B4): the client can no longer supply `authUserId`, and
+//     an existing account can never have its password rewritten by a stranger who
+//     merely knows the email address. Instant confirmation is gated by
+//     config.instantVerify so Phase 1 can swap in a real OTP flow.
+app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async (req, res) => {
   try {
-    const {
-      fullName,
-      email,
-      password,
-      phone,
-      stateOfOrigin,
-      provider = 'email',
-      authUserId: clientAuthUserId,
-    } = req.body;
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (!normalizedEmail || !normalizedEmail.includes('@')) {
-      return res.status(400).json({ error: 'A valid email address is required.' });
-    }
-    if (!password || String(password).length < 6) {
-      return res.status(400).json({ error: 'Password is required and must be at least 6 characters.' });
-    }
+    const { fullName, email, password, phone, stateOfOrigin, provider = 'email' } = req.body;
+    const normalizedEmail = String(email).trim().toLowerCase();
 
-    const fallbackUniqueId = generateDeterministicSabiId(normalizedEmail);
-
-    // 1. Check if profile already exists for this email
+    // 1. Look up an existing SABI profile for this address.
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
-    const uniqueId = existingProfile?.sabi_unique_id || fallbackUniqueId;
-    let userId: string | undefined = clientAuthUserId || existingProfile?.id;
+    const uniqueId =
+      existingProfile?.sabi_unique_id || generateDeterministicSabiId(normalizedEmail);
 
-    // 2. Create or Confirm User in Supabase Auth with email_confirm: true
-    //    Using admin.createUser({ email_confirm: true }) verifies the user immediately under SABI
-    //    and prevents Supabase from sending a generic "Supabase" email with a broken localhost link.
-    if (hasServiceRoleKey) {
-      if (userId) {
-        // Confirm existing or client-created user immediately
-        await supabaseAdmin.auth.admin.updateUserById(userId, {
-          email_confirm: true,
-          password: String(password),
-          user_metadata: {
-            full_name: fullName || existingProfile?.full_name || '',
-            phone: phone || existingProfile?.phone || '',
-            state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
-            sabi_unique_id: uniqueId,
-            email_verified: true,
-            issuer: 'SABI',
-          },
-        });
-      } else {
-        const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-          email: normalizedEmail,
-          password: String(password),
-          email_confirm: true,
-          user_metadata: {
-            full_name: fullName || existingProfile?.full_name || '',
-            phone: phone || existingProfile?.phone || '',
-            state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
-            sabi_unique_id: uniqueId,
-            email_verified: true,
-            issuer: 'SABI',
-          },
-        });
+    // 2. Create the Supabase Auth user. A caller-supplied user id is never trusted.
+    let userId: string | undefined = existingProfile?.id;
 
-        if (authData?.user?.id) {
-          userId = authData.user.id;
-        } else if (createErr) {
-          // Check if user exists in auth.users but was unconfirmed
-          const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
-            page: 1,
-            perPage: 100,
-          });
-          const matchedAuthUser = (listData?.users as any[])?.find(
-            (u: any) => (u.email || '').trim().toLowerCase() === normalizedEmail
-          );
-
-          if (matchedAuthUser) {
-            if (!matchedAuthUser.email_confirmed_at || !existingProfile?.onboarding_completed) {
-              userId = matchedAuthUser.id;
-              await supabaseAdmin.auth.admin.updateUserById(userId, {
-                email_confirm: true,
-                password: String(password),
-                user_metadata: {
-                  ...matchedAuthUser.user_metadata,
-                  full_name: fullName || existingProfile?.full_name || '',
-                  phone: phone || existingProfile?.phone || '',
-                  state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
-                  sabi_unique_id: uniqueId,
-                  email_verified: true,
-                  issuer: 'SABI',
-                },
-              });
-            } else {
-              return res.status(409).json({
-                error: `An account with ${normalizedEmail} is already registered (Unique ID: ${uniqueId}). Please Sign In or use Forgot Password.`,
-                sabi_unique_id: uniqueId,
-              });
-            }
-          } else {
-            return res.status(400).json({
-              error: createErr.message || 'Failed to create user in Supabase Auth.',
-            });
-          }
-        }
-      }
-    } else if (!userId) {
-      const { data: signUpData, error: signUpErr } = await supabaseAdmin.auth.signUp({
+    if (!userId) {
+      const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: normalizedEmail,
         password: String(password),
-        options: {
-          data: {
-            full_name: fullName || '',
-            phone: phone || '',
-            state_of_origin: stateOfOrigin || 'Lagos',
-            sabi_unique_id: uniqueId,
-            issuer: 'SABI',
-          },
+        email_confirm: config.instantVerify,
+        user_metadata: {
+          full_name: fullName || '',
+          phone: phone || '',
+          state_of_origin: stateOfOrigin || 'Lagos',
+          sabi_unique_id: uniqueId,
+          email_verified: config.instantVerify,
+          issuer: 'SABI',
         },
       });
-      if (signUpErr) {
-        return res.status(400).json({ error: signUpErr.message });
-      }
-      if (signUpData?.user?.identities && signUpData.user.identities.length === 0) {
-        return res.status(409).json({
-          error: `An account with ${normalizedEmail} is already registered. Please Sign In instead.`,
+
+      if (authData?.user?.id) {
+        userId = authData.user.id;
+      } else if (createErr) {
+        const reason = String(createErr.message || '').toLowerCase();
+        const alreadyRegistered =
+          reason.includes('already') || reason.includes('exists') || reason.includes('registered');
+
+        if (alreadyRegistered) {
+          // Never touch the credentials of an account we did not just create.
+          return res.status(409).json({
+            error: `An account with ${normalizedEmail} is already registered (Unique ID: ${uniqueId}). Please Sign In or use Forgot Password.`,
+            sabi_unique_id: uniqueId,
+          });
+        }
+
+        return res.status(400).json({
+          error: createErr.message || 'Failed to create the candidate account in Supabase Auth.',
         });
       }
-      userId = signUpData?.user?.id;
     }
 
     if (!userId) {
       return res.status(500).json({ error: 'Supabase Auth did not return a valid user ID.' });
     }
 
-    // 3. Upsert into public.profiles linked to auth.users ID
+    // 3. Upsert the candidate profile, keyed to the auth user id (service role only).
     const updatedProviders = Array.from(
       new Set([...(existingProfile?.auth_providers || []), provider, 'email'])
     );
@@ -326,96 +211,121 @@ app.post('/api/auth/register', async (req, res) => {
 
     if (profileErr || !savedProfile) {
       return res.status(500).json({
-        error: profileErr?.message || 'Failed to save candidate profile in Supabase.',
+        error: profileErr?.message || 'Failed to save the candidate profile in Supabase.',
       });
     }
 
     return res.json({
       status: 'created',
-      verified: true,
+      verified: config.instantVerify,
       auth_user_id: userId,
       profile: savedProfile,
       sabi_unique_id: savedProfile.sabi_unique_id,
+      requires_email_verification: !config.instantVerify,
     });
   } catch (err: any) {
     return res.status(500).json({
-      error: err?.message || 'Account registration failed on server.',
+      error: err?.message || 'Account registration failed on the server.',
     });
   }
 });
 
-// 0a-1. Verify Candidate Account by Email or SABI Unique ID (Instant SABI Verification)
-app.post('/api/auth/verify', async (req, res) => {
+// 0a-1. Confirm the caller's own account (defect B1/B2).
+//       Requires a valid Supabase access token and can only ever affect the
+//       authenticated user. An `email` in the body is cross-checked against the
+//       token and rejected when it names somebody else.
+app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccountSchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const user = authReq.user!;
+  const { email, uniqueId, authProviders } = req.body;
+
+  if (email && String(email).trim().toLowerCase() !== user.email) {
+    return res.status(403).json({
+      verified: false,
+      error: 'You can only verify your own SABI account.',
+    });
+  }
+
   try {
-    const { email, uniqueId, authUserId } = req.body;
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+    let { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .maybeSingle();
 
-    if (!normalizedEmail && !authUserId) {
-      return res.status(400).json({ verified: false, error: 'Email or User ID is required.' });
-    }
-
-    let targetProfile: any = null;
-    if (normalizedEmail) {
-      const { data } = await supabaseAdmin
+    if (!profile && user.email) {
+      const { data: byEmail } = await supabaseAdmin
         .from('profiles')
         .select('*')
-        .eq('email', normalizedEmail)
+        .eq('email', user.email)
         .maybeSingle();
-      targetProfile = data;
+      profile = byEmail;
     }
 
-    let resolvedUserId = authUserId || targetProfile?.id;
     const resolvedUniqueId =
-      targetProfile?.sabi_unique_id ||
-      (uniqueId && /^\d{4}[A-Z]$/i.test(uniqueId) ? String(uniqueId).toUpperCase() : '') ||
-      generateDeterministicSabiId(normalizedEmail);
+      profile?.sabi_unique_id || generateDeterministicSabiId(user.email || email || '');
 
-    if (hasServiceRoleKey) {
-      if (!resolvedUserId && normalizedEmail) {
-        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
-          page: 1,
-          perPage: 100,
-        });
-        const matched = (listData?.users as any[])?.find(
-          (u: any) => (u.email || '').trim().toLowerCase() === normalizedEmail
-        );
-        if (matched) resolvedUserId = matched.id;
-      }
+    if (config.instantVerify) {
+      const { error: confirmErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+        email_confirm: true,
+        user_metadata: {
+          sabi_unique_id: resolvedUniqueId,
+          email_verified: true,
+          issuer: 'SABI',
+        },
+      });
 
-      if (resolvedUserId) {
-        await supabaseAdmin.auth.admin.updateUserById(resolvedUserId, {
-          email_confirm: true,
-          user_metadata: {
-            sabi_unique_id: resolvedUniqueId,
-            email_verified: true,
-            issuer: 'SABI',
-          },
+      if (confirmErr) {
+        return res.status(500).json({
+          verified: false,
+          error: confirmErr.message || 'Could not confirm the SABI account.',
         });
       }
     }
 
-    if (resolvedUserId && normalizedEmail && !targetProfile) {
+    if (!profile) {
+      const metadata = user.metadata || {};
       const { data: upserted } = await supabaseAdmin
         .from('profiles')
         .upsert(
           {
-            id: resolvedUserId,
-            email: normalizedEmail,
-            sabi_unique_id: resolvedUniqueId,
+            id: user.id,
+            email: user.email || email,
+            sabi_unique_id: uniqueId || resolvedUniqueId,
+            full_name: metadata.full_name || metadata.name || '',
+            phone: metadata.phone || user.phone || '',
+            state_of_origin: metadata.state_of_origin || 'Lagos',
+            auth_providers:
+              authProviders ??
+              (metadata.provider ? ['email', String(metadata.provider)] : ['email']),
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'email' }
         )
         .select('*')
         .maybeSingle();
-      targetProfile = upserted;
+      profile = upserted;
+    } else if (authProviders) {
+      // Merge newly linked providers (e.g. Google -> email) without ever
+      // letting the client write identity columns itself.
+      const mergedProviders = Array.from(
+        new Set([...(profile.auth_providers || ['email']), ...authProviders])
+      );
+      const { data: updated } = await supabaseAdmin
+        .from('profiles')
+        .update({ auth_providers: mergedProviders, updated_at: new Date().toISOString() })
+        .eq('id', profile.id)
+        .select('*')
+        .maybeSingle();
+      if (updated) profile = updated;
     }
 
     return res.json({
       verified: true,
-      auth_user_id: resolvedUserId,
-      sabi_unique_id: resolvedUniqueId,
-      profile: targetProfile,
+      email_verified: config.instantVerify,
+      auth_user_id: user.id,
+      sabi_unique_id: profile?.sabi_unique_id || resolvedUniqueId,
+      profile,
     });
   } catch (err: any) {
     return res.status(500).json({
@@ -425,19 +335,15 @@ app.post('/api/auth/verify', async (req, res) => {
   }
 });
 
-// 0a-2. Login Candidate (Email or Phone + Password) & Auto-Confirm Unverified Users in Supabase Auth
-app.post('/api/auth/login', async (req, res) => {
+// 0a-2. Sign in a candidate (email or phone + password).
+//       Session tokens are issued by Supabase on the client; this endpoint only
+//       resolves the profile and reports the result.
+app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, res) => {
   try {
     const { identifier, password, method = 'email' } = req.body;
-    const cleanIdentifier = String(identifier || '').trim().toLowerCase();
-    if (!cleanIdentifier) {
-      return res.status(400).json({ error: 'Email or phone number is required.' });
-    }
-    if (!password) {
-      return res.status(400).json({ error: 'Password is required to sign in.' });
-    }
+    const cleanIdentifier = String(identifier).trim().toLowerCase();
 
-    // 1. Find candidate profile by email or phone in public.profiles
+    // 1. Resolve the profile by email or phone.
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('*')
@@ -451,38 +357,29 @@ app.post('/api/auth/login', async (req, res) => {
     const targetEmail = profile?.email || (cleanIdentifier.includes('@') ? cleanIdentifier : '');
     if (!targetEmail) {
       return res.status(404).json({
-        error: 'No SABI account found with that phone number. Please Create an Account first or sign in with your registered email.',
+        error:
+          'No SABI account found with that phone number. Please Create an Account first or sign in with your registered email.',
       });
     }
 
-    // 2. Authenticate password against Supabase Auth
+    // 2. Verify the password against Supabase Auth.
     let { data: signInData, error: signInErr } = await supabaseAdmin.auth.signInWithPassword({
       email: targetEmail,
       password: String(password),
     });
 
-    // If user was stuck unconfirmed from an earlier signup, auto-confirm them with Admin API and retry sign-in!
+    // 3. Accounts created before Phase 0 may still be unconfirmed. Only when the
+    //    instant-verify product flag is on do we confirm them after a successful
+    //    password sign-in (never for an anonymous caller).
     if (
       signInErr &&
       (signInErr.message || '').toLowerCase().includes('email not confirmed') &&
+      config.instantVerify &&
       hasServiceRoleKey
     ) {
-      let confirmUserId = profile?.id;
-      if (!confirmUserId) {
-        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({
-          page: 1,
-          perPage: 100,
-        });
-        const matched = (listData?.users as any[])?.find(
-          (u: any) => (u.email || '').trim().toLowerCase() === targetEmail
-        );
-        if (matched) confirmUserId = matched.id;
-      }
-
+      const confirmUserId = profile?.id;
       if (confirmUserId) {
-        await supabaseAdmin.auth.admin.updateUserById(confirmUserId, {
-          email_confirm: true,
-        });
+        await supabaseAdmin.auth.admin.updateUserById(confirmUserId, { email_confirm: true });
         const retryResult = await supabaseAdmin.auth.signInWithPassword({
           email: targetEmail,
           password: String(password),
@@ -493,12 +390,21 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     if (signInErr || !signInData?.user) {
+      const notConfirmed = (signInErr?.message || '').toLowerCase().includes('email not confirmed');
+      if (notConfirmed) {
+        return res.status(403).json({
+          error:
+            'Your email address has not been confirmed yet. Check your inbox for the SABI verification link, then sign in again.',
+          requires_email_verification: true,
+        });
+      }
       return res.status(401).json({
-        error: 'Incorrect email or password. If you forgot your password, click "Forgot Password" and verify with your 5-character Unique SABI ID.',
+        error:
+          'Incorrect email or password. If you forgot your password, use "Forgot Password" to receive a 6-digit recovery code.',
       });
     }
 
-    // 3. Ensure public.profiles row exists and is linked to signInData.user.id
+    // 4. Ensure the profile row is linked to the authenticated user id.
     let finalProfile = profile;
     if (!finalProfile || !finalProfile.id) {
       const fallbackId = finalProfile?.sabi_unique_id || generateDeterministicSabiId(targetEmail);
@@ -534,112 +440,148 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 0b. Reset Password Verified by 5-Character Unique SABI ID (4 numbers + 1 letter)
-app.post('/api/auth/reset-password', async (req, res) => {
-  try {
-    const { identifier, uniqueId, newPassword } = req.body;
-    const cleanId = String(uniqueId || '').trim().toUpperCase();
-    const cleanIdentifier = String(identifier || '').trim().toLowerCase();
+// 0b. Password recovery step 1: send a 6-digit recovery code.
+//     Phase 0 (defect B5): the previous flow let anyone reset a password with the
+//     public 5-character SABI ID, which was also printed on screen and enumerable.
+//     The response is intentionally identical whether or not the account exists.
+app.post(
+  '/api/auth/reset-password/request',
+  authLimiter,
+  validateBody(resetPasswordRequestSchema),
+  async (req, res) => {
+      const genericResponse = {
+        status: 'sent',
+        message:
+          'If a SABI account matches those details, a 6-digit recovery code has been emailed to it.',
+      };
 
-    if (!/^\d{4}[A-Z]$/.test(cleanId)) {
-      return res.status(400).json({
-        verified: false,
-        error: 'Unique SABI ID must be 4 numbers followed by 1 uppercase letter (e.g., 4829K).',
-      });
+      try {
+        const cleanIdentifier = String(req.body.identifier).trim().toLowerCase();
+        let targetEmail = cleanIdentifier.includes('@') ? cleanIdentifier : '';
+
+        if (!targetEmail) {
+          const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('email')
+            .eq('phone', cleanIdentifier)
+            .maybeSingle();
+          targetEmail = String(profile?.email || '').toLowerCase();
+        }
+
+        if (targetEmail && targetEmail.includes('@')) {
+          const { error } = await supabaseAdmin.auth.resetPasswordForEmail(targetEmail, {
+            redirectTo: process.env.SABI_APP_URL || undefined,
+          });
+          if (error) {
+            // Logged, never surfaced: the response must not reveal account existence.
+            console.warn('[SABI] Recovery email dispatch failed:', error.message);
+          }
+        }
+      } catch (err: any) {
+        console.warn('[SABI] Recovery request failed:', err?.message || err);
+      }
+
+      return res.json(genericResponse);
     }
-    if (!newPassword || String(newPassword).length < 6) {
-      return res.status(400).json({
-        verified: false,
-        error: 'New password must be at least 6 characters long.',
-      });
-    }
+  );
 
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .or(`email.eq.${cleanIdentifier},phone.eq.${cleanIdentifier}`)
-      .maybeSingle();
+  // 0b-2. Password recovery step 2: exchange the emailed code for a new password.
+  app.post(
+    '/api/auth/reset-password/confirm',
+    authLimiter,
+    validateBody(resetPasswordConfirmSchema),
+    async (req, res) => {
+      const { email, otp, newPassword } = req.body;
 
-    if (!profile) {
-      return res.status(404).json({
-        verified: false,
-        error: 'No registered SABI candidate account found for that email or phone number.',
-      });
-    }
+      try {
+        const { data: verifyData, error: verifyErr } = await supabaseAdmin.auth.verifyOtp({
+          email: String(email).trim().toLowerCase(),
+          token: String(otp),
+          type: 'recovery',
+        });
 
-    if (String(profile.sabi_unique_id).toUpperCase() !== cleanId) {
-      return res.status(403).json({
-        verified: false,
-        error: 'Verification denied: Unique SABI ID does not match this account.',
-      });
-    }
+        if (verifyErr || !verifyData?.user?.id) {
+          return res.status(400).json({
+            verified: false,
+            error: 'That recovery code is invalid or has expired. Please request a new code.',
+          });
+        }
 
-    if (profile.id && hasServiceRoleKey) {
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(profile.id, {
-        password: String(newPassword),
-        email_confirm: true,
-      });
-      if (updateErr) {
+        const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(
+          verifyData.user.id,
+          { password: String(newPassword) }
+        );
+
+        if (updateErr) {
+          return res.status(500).json({
+            verified: false,
+            error: 'Could not update the password. Please request a new code and try again.',
+          });
+        }
+
+        return res.json({
+          verified: true,
+          message: 'Password updated. You can now sign in with your new password.',
+        });
+      } catch (err: any) {
         return res.status(500).json({
           verified: false,
-          error: updateErr.message || 'Failed to update password in Supabase Auth.',
+          error: err?.message || 'Could not process the password reset.',
         });
       }
-    } else {
-      return res.status(500).json({
-        verified: false,
-        error: 'Password reset requires server admin connection to Supabase Auth.',
-      });
     }
+  );
 
-    return res.json({
-      verified: true,
-      message: `Unique ID (${cleanId}) verified! Password updated in Supabase.`,
-    });
-  } catch (err: any) {
-    return res.status(500).json({
+  // 0b-3. The Unique-SABI-ID recovery endpoint is retired (defect B5).
+  //       Kept as an explicit 410 so out-of-date installed apps fail loudly.
+  app.post('/api/auth/reset-password', (_req, res) => {
+    res.status(410).json({
       verified: false,
-      error: err?.message || 'Could not process password reset.',
+      error:
+        'This recovery method has been retired for security reasons. Update the SABI app and use "Forgot Password" to receive a 6-digit recovery code.',
     });
-  }
-});
+  });
 
-// 0c. Save 10-Question Onboarding Diagnostic Answers to Supabase
-app.post('/api/profile/onboarding', async (req, res) => {
-  try {
-    const { email, onboardingAnswers, registeredSubjects, targetScore } = req.body;
-    const normalizedEmail = String(email || '').trim().toLowerCase();
+  // 0c. Save the 10-question onboarding diagnostic for the authenticated candidate.
+  //     Phase 0 (defect B1): the row is addressed by the verified auth user id,
+  //     never by an email supplied in the request body.
+  app.post('/api/profile/onboarding', requireAuth, validateBody(onboardingSchema), async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const { onboardingAnswers, registeredSubjects, targetScore } = req.body;
 
-    if (supabaseAdmin && normalizedEmail) {
-      await supabaseAdmin
+    try {
+      const { error } = await supabaseAdmin
         .from('profiles')
         .update({
           onboarding_completed: true,
-          onboarding_answers: onboardingAnswers || {},
-          registered_subjects: registeredSubjects || ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+          onboarding_answers: onboardingAnswers ?? {},
+          registered_subjects:
+            registeredSubjects ?? ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
           target_score: Number(targetScore) || 320,
           updated_at: new Date().toISOString(),
         })
-        .eq('email', normalizedEmail);
+        .eq('id', user.id);
+
+      if (error) {
+        return res.status(500).json({ error: error.message || 'Failed to save onboarding answers.' });
+      }
+
+      return res.json({ status: 'saved' });
+    } catch (err: any) {
+      return res.status(500).json({ error: err?.message || 'Failed to save onboarding answers.' });
     }
+  });
 
-    return res.json({ status: 'saved' });
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || 'Failed to save onboarding answers.' });
-  }
-});
+  // 0d. Sync real candidate progress (diamond balance starts at 0) to Supabase.
+  app.post('/api/profile/progress', requireAuth, validateBody(progressSchema), async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const { progress } = req.body;
 
-// 0d. Sync Real Student Progress & Verified Diamond Balance (Starts at 0) to Supabase
-app.post('/api/profile/progress', async (req, res) => {
-  try {
-    const { email, progress } = req.body;
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-
-    if (supabaseAdmin && normalizedEmail && progress) {
+    try {
       const { data: existing } = await supabaseAdmin
         .from('profiles')
         .select('onboarding_answers')
-        .eq('email', normalizedEmail)
+        .eq('id', user.id)
         .maybeSingle();
 
       const mergedAnswers = {
@@ -647,327 +589,351 @@ app.post('/api/profile/progress', async (req, res) => {
         live_progress: progress,
       };
 
-      await supabaseAdmin
+      const { error } = await supabaseAdmin
         .from('profiles')
         .update({
           onboarding_answers: mergedAnswers,
           updated_at: new Date().toISOString(),
         })
-        .eq('email', normalizedEmail);
+        .eq('id', user.id);
+
+      if (error) {
+        return res.json({ status: 'synced_locally' });
+      }
+
+      return res.json({ status: 'synced' });
+    } catch {
+      return res.json({ status: 'synced_locally' });
+    }
+  });
+
+  // 1. Get seed questions (public, static payload: safe to cache).
+  app.get('/api/questions', (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=300');
+    res.json({ status: 'success', questions: SEED_QUESTIONS });
+  });
+
+  // 2. Explain a question on-demand (API proxy to protect key)
+  app.post('/api/explain', aiLimiter, requireAuth, validateBody(explainSchema), async (req, res) => {
+    const { questionId, preference, language, userCustomPrompt, subject, topic } = req.body;
+    const question = SEED_QUESTIONS.find(q => q.id === questionId);
+  
+    if (!question && !userCustomPrompt) {
+      return res.status(404).json({ error: 'Question not found' });
     }
 
-    return res.json({ status: 'synced' });
-  } catch {
-    return res.json({ status: 'synced_locally' });
-  }
-});
+    // Choose the best pre-written explanation if it matches preference, otherwise ask AI
+    if (!ai) {
+      const mockExp = question
+        ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
+        : `Here is the key breakdown for ${topic || subject || 'this topic'}: Focus on the core definitions, formulas, and common exam traps in the JAMB syllabus.`;
+      return res.json({ explanation: mockExp, isMock: true });
+    }
 
-// 1. Get seed questions
-app.get('/api/questions', (req, res) => {
-  res.json({ status: 'success', questions: SEED_QUESTIONS });
-});
-
-// 2. Explain a question on-demand (API proxy to protect key)
-app.post('/api/explain', async (req, res) => {
-  const { questionId, preference, language, userCustomPrompt, subject, topic } = req.body;
-  const question = SEED_QUESTIONS.find(q => q.id === questionId);
-  
-  if (!question && !userCustomPrompt) {
-    return res.status(404).json({ error: 'Question not found' });
-  }
-
-  // Choose the best pre-written explanation if it matches preference, otherwise ask AI
-  if (!ai) {
-    const mockExp = question
-      ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
-      : `Here is the key breakdown for ${topic || subject || 'this topic'}: Focus on the core definitions, formulas, and common exam traps in the JAMB syllabus.`;
-    return res.json({ explanation: mockExp, isMock: true });
-  }
-
-  try {
-    const prompt = question
-      ? `
-      You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
-      Explain and verify this UTME question in detail:
-      Subject: ${question.subject} (${question.topic})
-      Question: ${question.question}
-      Options: A) ${question.options.A}, B) ${question.options.B}, C) ${question.options.C}, D) ${question.options.D}
-      Correct Answer: Option ${question.answer}
-      Our database worked solution: ${question.explanation}
-      ${userCustomPrompt ? `\nStudent's specific verification question: "${userCustomPrompt}"\nPlease directly answer the student's question while verifying why Option ${question.answer} is correct.` : ''}
+    try {
+      const prompt = question
+        ? `
+        You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
+        Explain and verify this UTME question in detail:
+        Subject: ${question.subject} (${question.topic})
+        Question: ${question.question}
+        Options: A) ${question.options.A}, B) ${question.options.B}, C) ${question.options.C}, D) ${question.options.D}
+        Correct Answer: Option ${question.answer}
+        Our database worked solution: ${question.explanation}
+        ${userCustomPrompt ? `\nStudent's specific verification question: "${userCustomPrompt}"\nPlease directly answer the student's question while verifying why Option ${question.answer} is correct.` : ''}
       
-      The student has specific preferences:
-      - Explanation length/detail: ${preference === 'short' ? 'Concise/Short summary' : 'Step-by-step detailed breakdown'}
-      - Language: ${language === 'pidgin' ? 'West African Pidgin English (e.g. "for this question, you go find...")' : language === 'mixed' ? 'Nigerian English mixed with light Pidgin vibes' : 'Plain formal English'}
+        The student has specific preferences:
+        - Explanation length/detail: ${preference === 'short' ? 'Concise/Short summary' : 'Step-by-step detailed breakdown'}
+        - Language: ${language === 'pidgin' ? 'West African Pidgin English (e.g. "for this question, you go find...")' : language === 'mixed' ? 'Nigerian English mixed with light Pidgin vibes' : 'Plain formal English'}
       
-      Generate a warm, encouraging, and accurate study explanation reflecting these precise stylistic guidelines. Format equations as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$).
-    `
-      : `
-      You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
-      The student asks: "${userCustomPrompt}"
-      Subject: ${subject || 'JAMB Prep'}
-      Topic: ${topic || 'General Practice'}
+        Generate a warm, encouraging, and accurate study explanation reflecting these precise stylistic guidelines. Format equations as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$).
+      `
+        : `
+        You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
+        The student asks: "${userCustomPrompt}"
+        Subject: ${subject || 'JAMB Prep'}
+        Topic: ${topic || 'General Practice'}
       
-      Provide a clear, pedagogical, step-by-step explanation suitable for a Nigerian UTME candidate. Format equations in LaTeX using single $ delimiters.
+        Provide a clear, pedagogical, step-by-step explanation suitable for a Nigerian UTME candidate. Format equations in LaTeX using single $ delimiters.
+      `;
+
+      const response = await callAiWithTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            temperature: 0.7,
+          }
+        }),
+        8000
+      );
+
+      res.json({ explanation: response.text || (question ? question.explanation : 'Review the core definitions and formulas for this topic.') });
+    } catch (error: any) {
+      console.warn('Fallback: Error generating explanation:', error?.message || error);
+      const fallbackExp = question
+        ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
+        : `Here is the key concept to remember for ${topic || subject || 'your JAMB exam'}: Focus on the fundamental definitions and standard UTME question patterns. Practice with step-by-step calculations and verify each option systematically.`;
+      res.json({ explanation: fallbackExp });
+    }
+  });
+
+  // 3. AI Smart Tutor Open Chat (Ask Me Anything) with RAG and 3-Tier memory updates
+  //    Phase 0 (defect B7): authenticated + throttled + schema-validated, so the
+  //    Gemini key cannot be drained by anonymous callers.
+  app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (req, res) => {
+    const { messages, currentTopic, currentSubject, studentProfile, topicMemory } = req.body;
+
+    // Simple RAG implementation: search locally mapped concept notes or seed questions
+    let retrievedContext = '';
+    if (currentSubject) {
+      const relatedQuestions = SEED_QUESTIONS.filter(
+        q => q.subject.toLowerCase() === currentSubject.toLowerCase() &&
+             (!currentTopic || q.topic.toLowerCase().includes(currentTopic.toLowerCase()))
+      ).slice(0, 2);
+      if (relatedQuestions.length > 0) {
+        retrievedContext = `Syllabus Exemplars: ` + relatedQuestions.map(q => `[${q.topic} - ${q.subtopic}]: ${q.question} (Key concept: ${q.concepts.join(', ')})`).join('; ');
+      }
+    }
+
+    const lastUserMsg = (messages || []).slice().reverse().find((m: any) => m.sender === 'user' || m.role === 'user')?.text || '';
+
+    if (!ai) {
+      return res.json({
+        reply: `Sabi Tutor: You are asking about "${currentTopic || currentSubject || 'your studies'}". Key syllabus takeaway: Ensure you master the underlying definitions, formulas, and past questions for ${currentTopic || 'this topic'}. Keep up the great practice!`,
+        topicMemoryUpdate: `User practiced ${currentTopic || currentSubject || 'JAMB topics'}.`,
+        isMock: true
+      });
+    }
+
+    const systemInstruction = `
+      You are Sabi AI Tutor, the highly intelligent, friendly, and expert Nigerian JAMB tutor.
+      Your mission is to guide students to achieve high scores (300+) in the Unified Tertiary Matriculation Examination (UTME).
+    
+      You have direct access to three layers of student context:
+      1. Student Profile (Tier 1 - Permanent):
+         - Name: ${studentProfile?.name || 'Student'}
+         - Class Level: ${studentProfile?.classLevel || 'Senior Candidate'}
+         - 4 Chosen Subjects: ${studentProfile?.chosenSubjects?.join(', ') || 'JAMB Subjects'}
+         - Target Course & University: ${studentProfile?.targetCourse || 'Medicine'} at ${studentProfile?.targetUniversity || 'University'}
+         - Explanation preference: ${studentProfile?.explanationPreference === 'short' ? 'Brief and straight to the point' : 'Detailed step-by-step'}
+         - Language preference: ${studentProfile?.languagePreference || 'english'}
+         - Motivation: ${studentProfile?.motivation || 'General excellence'}
+       
+      2. Topic Summary Memory (Tier 2):
+         - Existing rolling memory about the topic "${currentTopic || 'General studies'}": "${topicMemory || 'No prior conversation summary has been recorded for this topic yet.'}"
+       
+      3. Grounding Knowledge Base (RAG context):
+         - ${retrievedContext || 'Rely on official JAMB syllabus principles.'}
+       
+      Behavioral Directives:
+      - Never give answers immediately on a platter of gold. Ask scaffolding, thought-provoking questions if they seem stuck.
+      - Reference their target course/university or mock performance naturally.
+      - Be warm, extremely knowledgeable about the JAMB syllabus, and maintain steady, high-morale guidance.
+    
+      Return your outputs strictly as a JSON object adhering to this schema:
+      {
+        "reply": "tutor's message supporting the user, with helpful hints/feedback or explanations, structured in markdown with equations formatted as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$)",
+        "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic."
+      }
     `;
 
-    const response = await callAiWithTimeout(
-      ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          temperature: 0.7,
-        }
-      }),
-      8000
-    );
+    try {
+      // Format conversation history and ensure it begins with a user message
+      let rawHistory = (messages || [])
+        .filter((m: any) => m && (m.text || m.content))
+        .slice(-6)
+        .map((m: any) => ({
+          role: ((m.sender === 'user' || m.role === 'user') ? 'user' : 'model') as 'user' | 'model',
+          parts: [{ text: String(m.text || m.content) }]
+        }));
 
-    res.json({ explanation: response.text || (question ? question.explanation : 'Review the core definitions and formulas for this topic.') });
-  } catch (error: any) {
-    console.warn('Fallback: Error generating explanation:', error?.message || error);
-    const fallbackExp = question
-      ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
-      : `Here is the key concept to remember for ${topic || subject || 'your JAMB exam'}: Focus on the fundamental definitions and standard UTME question patterns. Practice with step-by-step calculations and verify each option systematically.`;
-    res.json({ explanation: fallbackExp });
-  }
-});
+      // CRITICAL: Gemini requires the first turn in contents to have role: 'user'
+      while (rawHistory.length > 0 && rawHistory[0].role !== 'user') {
+        rawHistory.shift();
+      }
 
-// 3. AI Smart Tutor Open Chat (Ask Me Anything) with RAG and 3-Tier memory updates
-app.post('/api/chat', async (req, res) => {
-  const { messages, currentTopic, currentSubject, studentProfile, topicMemory } = req.body;
+      if (rawHistory.length === 0) {
+        rawHistory = [{
+          role: 'user',
+          parts: [{ text: lastUserMsg || `Explain the core concepts for ${currentTopic || currentSubject || 'this topic'}.` }]
+        }];
+      }
 
-  // Simple RAG implementation: search locally mapped concept notes or seed questions
-  let retrievedContext = '';
-  if (currentSubject) {
-    const relatedQuestions = SEED_QUESTIONS.filter(
-      q => q.subject.toLowerCase() === currentSubject.toLowerCase() &&
-           (!currentTopic || q.topic.toLowerCase().includes(currentTopic.toLowerCase()))
-    ).slice(0, 2);
-    if (relatedQuestions.length > 0) {
-      retrievedContext = `Syllabus Exemplars: ` + relatedQuestions.map(q => `[${q.topic} - ${q.subtopic}]: ${q.question} (Key concept: ${q.concepts.join(', ')})`).join('; ');
-    }
-  }
-
-  const lastUserMsg = (messages || []).slice().reverse().find((m: any) => m.sender === 'user' || m.role === 'user')?.text || '';
-
-  if (!ai) {
-    return res.json({
-      reply: `Sabi Tutor: You are asking about "${currentTopic || currentSubject || 'your studies'}". Key syllabus takeaway: Ensure you master the underlying definitions, formulas, and past questions for ${currentTopic || 'this topic'}. Keep up the great practice!`,
-      topicMemoryUpdate: `User practiced ${currentTopic || currentSubject || 'JAMB topics'}.`,
-      isMock: true
-    });
-  }
-
-  const systemInstruction = `
-    You are Sabi AI Tutor, the highly intelligent, friendly, and expert Nigerian JAMB tutor.
-    Your mission is to guide students to achieve high scores (300+) in the Unified Tertiary Matriculation Examination (UTME).
-    
-    You have direct access to three layers of student context:
-    1. Student Profile (Tier 1 - Permanent):
-       - Name: ${studentProfile?.name || 'Student'}
-       - Class Level: ${studentProfile?.classLevel || 'Senior Candidate'}
-       - 4 Chosen Subjects: ${studentProfile?.chosenSubjects?.join(', ') || 'JAMB Subjects'}
-       - Target Course & University: ${studentProfile?.targetCourse || 'Medicine'} at ${studentProfile?.targetUniversity || 'University'}
-       - Explanation preference: ${studentProfile?.explanationPreference === 'short' ? 'Brief and straight to the point' : 'Detailed step-by-step'}
-       - Language preference: ${studentProfile?.languagePreference || 'english'}
-       - Motivation: ${studentProfile?.motivation || 'General excellence'}
-       
-    2. Topic Summary Memory (Tier 2):
-       - Existing rolling memory about the topic "${currentTopic || 'General studies'}": "${topicMemory || 'No prior conversation summary has been recorded for this topic yet.'}"
-       
-    3. Grounding Knowledge Base (RAG context):
-       - ${retrievedContext || 'Rely on official JAMB syllabus principles.'}
-       
-    Behavioral Directives:
-    - Never give answers immediately on a platter of gold. Ask scaffolding, thought-provoking questions if they seem stuck.
-    - Reference their target course/university or mock performance naturally.
-    - Be warm, extremely knowledgeable about the JAMB syllabus, and maintain steady, high-morale guidance.
-    
-    Return your outputs strictly as a JSON object adhering to this schema:
-    {
-      "reply": "tutor's message supporting the user, with helpful hints/feedback or explanations, structured in markdown with equations formatted as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$)",
-      "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic."
-    }
-  `;
-
-  try {
-    // Format conversation history and ensure it begins with a user message
-    let rawHistory = (messages || [])
-      .filter((m: any) => m && (m.text || m.content))
-      .slice(-6)
-      .map((m: any) => ({
-        role: ((m.sender === 'user' || m.role === 'user') ? 'user' : 'model') as 'user' | 'model',
-        parts: [{ text: String(m.text || m.content) }]
-      }));
-
-    // CRITICAL: Gemini requires the first turn in contents to have role: 'user'
-    while (rawHistory.length > 0 && rawHistory[0].role !== 'user') {
-      rawHistory.shift();
-    }
-
-    if (rawHistory.length === 0) {
-      rawHistory = [{
-        role: 'user',
-        parts: [{ text: lastUserMsg || `Explain the core concepts for ${currentTopic || currentSubject || 'this topic'}.` }]
-      }];
-    }
-
-    const response = await callAiWithTimeout(
-      ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: rawHistory,
-        config: {
-          systemInstruction: systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              reply: { 
-                type: Type.STRING, 
-                description: 'The supportive conversational reply to the student.' 
+      const response = await callAiWithTimeout(
+        ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: rawHistory,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                reply: { 
+                  type: Type.STRING, 
+                  description: 'The supportive conversational reply to the student.' 
+                },
+                topicMemoryUpdate: { 
+                  type: Type.STRING, 
+                  description: 'The updated rolling summary of what the student understands or struggles with in this topic, to be stored for subsequent turns.' 
+                }
               },
-              topicMemoryUpdate: { 
-                type: Type.STRING, 
-                description: 'The updated rolling summary of what the student understands or struggles with in this topic, to be stored for subsequent turns.' 
-              }
+              required: ['reply', 'topicMemoryUpdate']
             },
-            required: ['reply', 'topicMemoryUpdate']
-          },
-          temperature: 0.7,
-        }
-      }),
-      8000
-    );
+            temperature: 0.7,
+          }
+        }),
+        8000
+      );
 
-    const parsed = JSON.parse(response.text?.trim() || '{}');
-    res.json({
-      reply: parsed.reply || "Let's keep our momentum going! Ask me anything about your syllabus or practice questions.",
-      topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory
-    });
-  } catch (error: any) {
-    console.warn('Fallback: Error in AI Tutor chat endpoint:', error?.message || error);
-    // Graceful pedagogical fallback so user never gets stuck or sees an error
-    const friendlyReply = currentTopic
-      ? `Under **${currentTopic}** (${currentSubject || 'JAMB'}), key rules to always remember include knowing the fundamental definitions, the working formulas, and identifying the trap options JAMB frequently sets. What specific sub-question or calculation are you currently tackling?`
-      : `I am right here with you! Let us keep our focus sharp on mastering your 4 JAMB subjects. What topic or concept would you like us to break down next?`;
-    res.json({
-      reply: friendlyReply,
-      topicMemoryUpdate: topicMemory || `Practiced ${currentTopic || 'JAMB concepts'}.`,
-    });
-  }
-});
+      const parsed = JSON.parse(response.text?.trim() || '{}');
+      res.json({
+        reply: parsed.reply || "Let's keep our momentum going! Ask me anything about your syllabus or practice questions.",
+        topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory
+      });
+    } catch (error: any) {
+      console.warn('Fallback: Error in AI Tutor chat endpoint:', error?.message || error);
+      // Graceful pedagogical fallback so user never gets stuck or sees an error
+      const friendlyReply = currentTopic
+        ? `Under **${currentTopic}** (${currentSubject || 'JAMB'}), key rules to always remember include knowing the fundamental definitions, the working formulas, and identifying the trap options JAMB frequently sets. What specific sub-question or calculation are you currently tackling?`
+        : `I am right here with you! Let us keep our focus sharp on mastering your 4 JAMB subjects. What topic or concept would you like us to break down next?`;
+      res.json({
+        reply: friendlyReply,
+        topicMemoryUpdate: topicMemory || `Practiced ${currentTopic || 'JAMB concepts'}.`,
+      });
+    }
+  });
 
-// 4. Pipeline 5: AI-Generated Questions Generator (Question Pool Expansion for weak topics)
-app.post('/api/generate-question', async (req, res) => {
-  const { subject, topic, subtopic } = req.body;
+  // 4. Pipeline 5: AI-generated question drafts (question pool expansion for weak topics).
+  //    Phase 0: AI output is never auto-published. It is returned with
+  //    status 'draft' and only CONTENT_MANAGER / ADMIN / MASTER_ADMIN may request it.
+  app.post(
+    '/api/generate-question',
+    aiLimiter,
+    requireAuth,
+    requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'),
+    validateBody(generateQuestionSchema),
+    async (req, res) => {
+    const { subject, topic, subtopic } = req.body;
 
-  if (!ai) {
-    // Generate a simulated question if AI is not connected
-    const randId = `AI-GEN-${Math.floor(1000 + Math.random() * 9000)}`;
-    const mockQuestion: Question = {
-      id: randId,
-      exam_type: 'AI-Generated',
-      subject: subject || 'Mathematics',
-      topic: topic || 'Algebra',
-      subtopic: subtopic || 'General Practice',
-      year: new Date().getFullYear(),
-      question: `Determine the sum of the roots of a simulated quadratic equation $2x^2 - 12x + 10 = 0$.`,
-      options: {
-        A: '6',
-        B: '5',
-        C: '-6',
-        D: '12'
-      },
-      answer: 'A',
-      explanation: 'For any quadratic equation $ax^2 + bx + c = 0$, the sum of roots is given by $-b/a$.\nHere, $a = 2$, $b = -12$, and $c = 10$.\nSum of roots = $-(-12) / 2 = 12 / 2 = 6$.',
-      explanation_short: 'The sum of roots is $-b/a = -(-12)/2 = 6$.',
-      explanation_pidgin: 'To find sum of roots, use the formula $-b/a$. Our b na -12, and a na 2. So $-(-12)/2 = 6$. No shaking!',
-      difficulty: 'medium',
-      concepts: ['roots of quadratic', 'sum of roots'],
-      source: 'Sabi AI Pipeline 5',
-      status: 'verified',
-      confidence_score: 0.95,
-      created_at: new Date().toISOString()
-    };
-    return res.json({ question: mockQuestion, isMock: true });
-  }
-
-  const existingSubset = SEED_QUESTIONS.filter(q => q.subject === subject && q.topic === topic).slice(0, 2);
-  const sampleData = existingSubset.length > 0
-    ? `Here are examples of existing verified questions of this type:\n${JSON.stringify(existingSubset)}`
-    : `Ensure the style matches official JAMB multiple-choice question format.`;
-
-  const instructionPrompt = `
-    You are an AI-powered JAMB question-generation engine (Sabi Pipeline 5).
-    Your task is to generate a new, high-quality, syllabus-aligned multiple choice question for:
-    Subject: ${subject}
-    Topic: ${topic}
-    Subtopic: ${subtopic}
-    
-    ${sampleData}
-    
-    Stricter Rules:
-    - Solve and review the question yourself to ensure exactly ONE option is correctly mathematical aligned.
-    - Write a detailed step-by-step worked explanation, a concise short summary explanation, and an encouraging West African Pidgin English explanation.
-    - Set difficulty to 'easy', 'medium', or 'hard' depending on the concept's cognitive depth.
-    - Use appropriate LaTeX notation for math/technical symbols wrapped inside single $ signs (e.g., $x^2 + 5x + 6$). Make sure it parses beautifully.
-    
-    Structure the response strictly as a JSON object matching this schema:
-    {
-      "question": {
-        "id": "A unique alpha-numeric string, e.g. MTH-ALG-2026-X",
-        "exam_type": "AI-Generated",
-        "subject": "${subject}",
-        "topic": "${topic}",
-        "subtopic": "${subtopic}",
-        "year": 2026,
-        "question": "The question text, styled elegantly with LaTeX math",
-        "options": {
-          "A": "Option text A",
-          "B": "Option text B",
-          "C": "Option text C",
-          "D": "Option text D"
+    if (!ai) {
+      // Generate a simulated question if AI is not connected
+      const randId = `AI-GEN-${Math.floor(1000 + Math.random() * 9000)}`;
+      const mockQuestion: Question = {
+        id: randId,
+        exam_type: 'AI-Generated',
+        subject: subject || 'Mathematics',
+        topic: topic || 'Algebra',
+        subtopic: subtopic || 'General Practice',
+        year: new Date().getFullYear(),
+        question: `Determine the sum of the roots of a simulated quadratic equation $2x^2 - 12x + 10 = 0$.`,
+        options: {
+          A: '6',
+          B: '5',
+          C: '-6',
+          D: '12'
         },
-        "answer": "A, B, C, or D (strictly the correct option)",
-        "explanation": "Clear double-pass verified step-by-step worked solution",
-        "explanation_short": "Brief, concise summary solution",
-        "explanation_pidgin": "Laidback Nigerian Pidgin solution starting warmly and keeping the logic super plain",
-        "difficulty": "easy, medium, or hard",
-        "concepts": ["analytical concepts"],
-        "common_wrong_answer": "Why students usually fail this and which option represents that trap"
-      }
+        answer: 'A',
+        explanation: 'For any quadratic equation $ax^2 + bx + c = 0$, the sum of roots is given by $-b/a$.\nHere, $a = 2$, $b = -12$, and $c = 10$.\nSum of roots = $-(-12) / 2 = 12 / 2 = 6$.',
+        explanation_short: 'The sum of roots is $-b/a = -(-12)/2 = 6$.',
+        explanation_pidgin: 'To find sum of roots, use the formula $-b/a$. Our b na -12, and a na 2. So $-(-12)/2 = 6$. No shaking!',
+        difficulty: 'medium',
+        concepts: ['roots of quadratic', 'sum of roots'],
+        source: 'Sabi AI Pipeline 5',
+        status: 'ai-draft',
+        confidence_score: 0.95,
+        created_at: new Date().toISOString()
+      };
+      return res.json({ question: mockQuestion, isMock: true, requires_review: true });
     }
-  `;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: instructionPrompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.8,
-      }
-    });
+    const existingSubset = SEED_QUESTIONS.filter(q => q.subject === subject && q.topic === topic).slice(0, 2);
+    const sampleData = existingSubset.length > 0
+      ? `Here are examples of existing verified questions of this type:\n${JSON.stringify(existingSubset)}`
+      : `Ensure the style matches official JAMB multiple-choice question format.`;
 
-    const parsed = JSON.parse(response.text?.trim() || '{}');
-    const questionObj = parsed.question;
+    const instructionPrompt = `
+      You are an AI-powered JAMB question-generation engine (Sabi Pipeline 5).
+      Your task is to generate a new, high-quality, syllabus-aligned multiple choice question for:
+      Subject: ${subject}
+      Topic: ${topic}
+      Subtopic: ${subtopic}
     
-    if (questionObj) {
-      // Add required boilerplate
-      questionObj.status = 'verified';
-      questionObj.confidence_score = 0.94;
-      questionObj.source = 'AI Pipeline 5';
-      questionObj.created_at = new Date().toISOString();
-      res.json({ question: questionObj });
-    } else {
-      throw new Error('Could not parse question object from AI response.');
+      ${sampleData}
+    
+      Stricter Rules:
+      - Solve and review the question yourself to ensure exactly ONE option is correctly mathematical aligned.
+      - Write a detailed step-by-step worked explanation, a concise short summary explanation, and an encouraging West African Pidgin English explanation.
+      - Set difficulty to 'easy', 'medium', or 'hard' depending on the concept's cognitive depth.
+      - Use appropriate LaTeX notation for math/technical symbols wrapped inside single $ signs (e.g., $x^2 + 5x + 6$). Make sure it parses beautifully.
+    
+      Structure the response strictly as a JSON object matching this schema:
+      {
+        "question": {
+          "id": "A unique alpha-numeric string, e.g. MTH-ALG-2026-X",
+          "exam_type": "AI-Generated",
+          "subject": "${subject}",
+          "topic": "${topic}",
+          "subtopic": "${subtopic}",
+          "year": 2026,
+          "question": "The question text, styled elegantly with LaTeX math",
+          "options": {
+            "A": "Option text A",
+            "B": "Option text B",
+            "C": "Option text C",
+            "D": "Option text D"
+          },
+          "answer": "A, B, C, or D (strictly the correct option)",
+          "explanation": "Clear double-pass verified step-by-step worked solution",
+          "explanation_short": "Brief, concise summary solution",
+          "explanation_pidgin": "Laidback Nigerian Pidgin solution starting warmly and keeping the logic super plain",
+          "difficulty": "easy, medium, or hard",
+          "concepts": ["analytical concepts"],
+          "common_wrong_answer": "Why students usually fail this and which option represents that trap"
+        }
+      }
+    `;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: instructionPrompt,
+        config: {
+          responseMimeType: 'application/json',
+          temperature: 0.8,
+        }
+      });
+
+      const parsed = JSON.parse(response.text?.trim() || '{}');
+      const questionObj = parsed.question;
+    
+      if (questionObj) {
+        // AI output is a DRAFT. A human (CONTENT_MANAGER / ADMIN) must verify it
+        // before it can be shown to candidates as a graded question.
+        questionObj.status = 'ai-draft';
+        questionObj.review_required = true;
+        questionObj.confidence_score = 0.94;
+        questionObj.source = 'AI Pipeline 5';
+        questionObj.created_at = new Date().toISOString();
+        res.json({ question: questionObj, requires_review: true });
+      } else {
+        throw new Error('Could not parse question object from AI response.');
+      }
+    } catch (error: any) {
+      console.error('Error generating AI question:', error);
+      // Return a robust backup question
+      res.status(500).json({ error: 'AI generation failed', message: error.message });
     }
-  } catch (error: any) {
-    console.error('Error generating AI question:', error);
-    // Return a robust backup question
-    res.status(500).json({ error: 'AI generation failed', message: error.message });
   }
-});
+);
+
+// -------------------------------------------------------------
+// API fallbacks: JSON 404s for unknown API routes, then structured errors.
+// Mounted before Vite/static so `/api/*` never falls through to the SPA shell.
+// -------------------------------------------------------------
+app.use(apiNotFoundHandler);
+app.use(errorHandler);
 
 // -------------------------------------------------------------
 // Vite and Static Assets Orchestration
