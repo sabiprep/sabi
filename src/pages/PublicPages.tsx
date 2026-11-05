@@ -23,7 +23,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
 import { supabase, getSabiAuthRedirectUrl } from '../lib/supabase';
-import { apiFetch, apiPostJson } from '../utils/apiClient';
+import { apiPostJson, describeApiFailure } from '../utils/apiClient';
 import { saveRealUserProgress } from '../utils/userProgressStore';
 
 const NIGERIAN_STATES = [
@@ -430,13 +430,18 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       // (and creates, if needed) the row for the token's own user.
       let syncedProfile: any = null;
       try {
-        const verifyResp = await apiFetch('/api/auth/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: rawEmail, authProviders: ['email', 'google'] }),
+        const verifyResult = await apiPostJson('/api/auth/verify', {
+          email: rawEmail,
+          authProviders: ['email', 'google'],
         });
-        const verifyData = await verifyResp.json().catch(() => ({}));
-        syncedProfile = verifyData?.profile || null;
+        if (verifyResult.ok) {
+          syncedProfile = verifyResult.data?.profile || null;
+        } else {
+          console.warn(
+            '[SABI] Profile sync after sign-in failed:',
+            describeApiFailure(verifyResult, 'Verify failed.')
+          );
+        }
       } catch {
         // The next authenticated request will sync the profile.
       }
@@ -499,51 +504,55 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     // server writes auth.users + public.profiles with the service role, and the
     // client never supplies an auth user id or upserts a profile directly.
     try {
-      const resp = await apiFetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: cleanedName,
-          email: normalizedEmail,
-          password: passwordInput,
-          phone: cleanedPhone,
-          stateOfOrigin: stateOfOriginInput,
-          provider: authProvider === 'google' ? 'google' : 'email',
-        }),
+      const result = await apiPostJson('/api/auth/register', {
+        fullName: cleanedName,
+        email: normalizedEmail,
+        password: passwordInput,
+        phone: cleanedPhone,
+        stateOfOrigin: stateOfOriginInput,
+        provider: authProvider === 'google' ? 'google' : 'email',
       });
-      const data = await resp.json().catch(() => ({}));
 
-      if (resp.status === 409) {
+      if (result.status === 409) {
         setAuthLoading(false);
         setAuthFeedback({
           type: 'error',
           message:
-            data?.error ||
+            result.data?.error ||
             `An account with ${normalizedEmail} is already registered. Please switch to "Sign In" or use "Forgot Password".`,
         });
         return;
       }
 
-      if (!resp.ok) {
+      if (!result.ok) {
+        // Phase 0: never collapse a failure into "check your connection". The
+        // message now carries the HTTP status, the server's own error text, or
+        // the fact that the host returned HTML instead of the SABI API.
+        console.error(
+          '[SABI] Registration failed:',
+          result.status,
+          result.url,
+          result.data || result.snippet
+        );
         setAuthLoading(false);
         setAuthFeedback({
           type: 'error',
-          message:
-            data?.error ||
-            'Could not create your account. Please check your internet connection and try again.',
+          message: describeApiFailure(result, 'Could not create your account.'),
         });
         return;
       }
 
-      uniqueId = data?.sabi_unique_id || uniqueId;
-      syncedProfile = data?.profile || null;
-      requiresEmailVerification = Boolean(data?.requires_email_verification);
-    } catch {
+      const data = result.data || {};
+      uniqueId = data.sabi_unique_id || uniqueId;
+      syncedProfile = data.profile || null;
+      requiresEmailVerification = Boolean(data.requires_email_verification);
+    } catch (err: any) {
       setAuthLoading(false);
       setAuthFeedback({
         type: 'error',
-        message:
-          'Unable to reach the SABI registration server. Please check your internet connection and try again.',
+        message: `Unable to create your SABI account: ${
+          err?.message || 'unexpected client error'
+        }. Please try again.`,
       });
       return;
     }
@@ -687,20 +696,22 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     //    resolves phone numbers to emails and is the only place that knows the
     //    canonical profile row. Identity is never taken from a localStorage email.
     try {
-      const { ok, data } = await apiPostJson('/api/auth/login', {
+      const loginResult = await apiPostJson('/api/auth/login', {
         identifier,
         password: passwordInput,
         method: authMethod,
       });
-      if (ok && data?.auth_user_id) {
-        authenticatedUserId = data.auth_user_id;
-        matchedProfile = data.profile || matchedProfile;
+      if (loginResult.ok && loginResult.data?.auth_user_id) {
+        authenticatedUserId = loginResult.data.auth_user_id;
+        matchedProfile = loginResult.data.profile || matchedProfile;
         resolvedEmail = matchedProfile?.email || resolvedEmail;
-      } else if (data?.error) {
-        signInErrorMessage = data.error;
+      } else if (loginResult.data?.error) {
+        signInErrorMessage = loginResult.data.error;
+      } else if (!loginResult.ok) {
+        signInErrorMessage = describeApiFailure(loginResult, 'Sign in failed.');
       }
-    } catch {
-      // Fall back to direct Supabase Auth below
+    } catch (err: any) {
+      signInErrorMessage = err?.message || 'Sign in failed.';
     }
 
     // 1b. Phone numbers are resolved to an email by /api/auth/login above. The
@@ -818,17 +829,18 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
 
     setAuthLoading(true);
-    const { ok, data } = await apiPostJson('/api/auth/reset-password/request', {
+    const requestResult = await apiPostJson('/api/auth/reset-password/request', {
       identifier: cleanIdent,
     });
     setAuthLoading(false);
 
-    if (!ok) {
+    if (!requestResult.ok) {
       setRecoveryFeedback({
         type: 'error',
-        message:
-          data?.error ||
-          'Unable to send a recovery code right now. Please check your connection and try again.',
+        message: describeApiFailure(
+          requestResult,
+          'Unable to send a recovery code right now.'
+        ),
       });
       return;
     }
@@ -837,7 +849,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     setRecoveryFeedback({
       type: 'success',
       message:
-        data?.message ||
+        requestResult.data?.message ||
         'If that account exists, a 6-digit recovery code has been emailed to it. Enter the code below to choose a new password.',
     });
   };
@@ -874,17 +886,22 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
 
     setAuthLoading(true);
-    const { ok, data } = await apiPostJson('/api/auth/reset-password/confirm', {
+    const confirmResult = await apiPostJson('/api/auth/reset-password/confirm', {
       email: cleanIdent,
       otp: cleanOtp,
       newPassword: newResetPassword,
     });
     setAuthLoading(false);
 
-    if (!ok || data?.verified === false) {
+    if (!confirmResult.ok || confirmResult.data?.verified === false) {
       setRecoveryFeedback({
         type: 'error',
-        message: data?.error || 'That recovery code is invalid or has expired. Please request a new code.',
+        message: confirmResult.data?.error
+          ? describeApiFailure(
+              confirmResult,
+              'That recovery code is invalid or has expired.'
+            )
+          : 'That recovery code is invalid or has expired. Please request a new code.',
       });
       return;
     }

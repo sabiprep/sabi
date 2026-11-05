@@ -6,7 +6,7 @@ import type { SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
 import { useTheme } from '../app/ThemeProvider';
 import { supabase } from '../lib/supabase';
-import { apiPostJson } from '../utils/apiClient';
+import { apiPostJson, describeApiFailure } from '../utils/apiClient';
 
 const STORAGE_KEY = 'sabi_onboarding_v2_10q';
 const CLASS_OPTIONS = ['SS2 Candidate', 'SS3 Candidate', 'Post-Secondary / Resitter'];
@@ -166,15 +166,18 @@ export function OnboardingPage() {
 
       // Phase 0: the server writes onboarding data for the token's own user, so
       // no email is sent and the direct profiles write is no longer needed.
-      const { ok, data } = await apiPostJson('/api/profile/onboarding', {
+      const onboardingResult = await apiPostJson('/api/profile/onboarding', {
         onboardingAnswers: answers,
         registeredSubjects: selectedSubjects,
         targetScore: Number(answers.targetScore) || 320,
       });
 
-      if (!ok) {
+      if (!onboardingResult.ok) {
         setSubmitError(
-          data?.error || 'Could not save your onboarding answers. Please try again.'
+          describeApiFailure(
+            onboardingResult,
+            'Could not save your onboarding answers.'
+          )
         );
         return;
       }

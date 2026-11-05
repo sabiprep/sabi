@@ -62,7 +62,20 @@ caller does not control.
 * always allowed: `localhost` on 3000/4173/5173, `127.0.0.1`, the Capacitor
   WebViews (`capacitor://localhost`, `https://localhost`, `ionic://localhost`),
   and `https://sabi*.vercel.app`;
+* always allowed: the origin of `SABI_APP_URL` and any request whose `Origin`
+  matches the host that is serving it (same-origin), so a missing
+  `ALLOWED_ORIGINS` entry can never lock the real app out of its own API;
 * anything else must be listed in `ALLOWED_ORIGINS` (comma separated);
+* a cross-origin request from a non-allow-listed origin is **rejected with 403
+  JSON before any route runs** (fail closed: no Supabase call, no side effect)
+  and logged as `[SABI] Blocked request from disallowed origin "…"` so the
+  misconfiguration is visible in the deploy logs instead of surfacing in the UI
+  as an opaque "network error".
+
+`GET /api/health` reports the deployment's configuration state as booleans
+(`service_role_configured`, `supabase_url_configured`, `instant_verify`,
+`ai_configured`) and never a secret. It is the first call to make when a deployed
+build misbehaves — see `docs/runbooks/phase0-rollout.md` §8.
 
 ## 2. Environment variables
 

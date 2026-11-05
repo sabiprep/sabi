@@ -11,7 +11,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { SEED_QUESTIONS, KNOWLEDGE_BASE, SYLLABUS_FREQUENCY } from './src/data/questions.ts';
 import { Question, SubjectName } from './src/types';
-import { config, isOriginAllowed } from './server/config';
+import { config, isOriginAllowed, SUPABASE_URL } from './server/config';
 import { hasServiceRoleKey, supabaseAdmin } from './server/lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from './server/middleware/requireAuth';
 import { requireRole } from './server/middleware/requireRole';
@@ -55,10 +55,13 @@ app.use(
 app.use(express.json({ limit: config.maxJsonBody }));
 
 // CORS: an explicit allow-list (local development, the Capacitor Android WebView
-// and any origin configured through ALLOWED_ORIGINS) instead of a wildcard.
+// and any origin configured through ALLOWED_ORIGINS / SABI_APP_URL) instead of a
+// wildcard. Requests served by this very process are always same-origin-allowed.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowed = isOriginAllowed(origin);
+  const selfOrigin = `${req.protocol}://${req.headers.host || ''}`;
+  const isSameOrigin = Boolean(origin) && origin === selfOrigin;
+  const allowed = isOriginAllowed(origin) || isSameOrigin;
 
   if (allowed) {
     res.header('Access-Control-Allow-Origin', origin || '*');
@@ -72,7 +75,28 @@ app.use((req, res, next) => {
   }
 
   if (req.method === 'OPTIONS') {
-    res.sendStatus(allowed ? 204 : 403);
+    if (!allowed) {
+      res.status(403).json({
+        error: `Origin ${origin} is not allowed to call the SABI API. Add it to ALLOWED_ORIGINS.`,
+      });
+      return;
+    }
+    res.sendStatus(204);
+    return;
+  }
+
+  // Fail closed on a cross-origin call we do not trust: never run a route (and
+  // never touch Supabase) for it, and make the misconfiguration visible in logs.
+  // Without this, the browser reports a bare "network error" and the UI can only
+  // say "check your internet connection".
+  if (origin && !allowed) {
+    console.warn(
+      `[SABI] Blocked request from disallowed origin "${origin}". ` +
+        `Add it to ALLOWED_ORIGINS (comma separated) or set SABI_APP_URL to the deployed app origin.`
+    );
+    res.status(403).json({
+      error: `Origin ${origin} is not allowed to call the SABI API. Add it to ALLOWED_ORIGINS.`,
+    });
     return;
   }
 
@@ -605,6 +629,23 @@ app.post(
     } catch {
       return res.json({ status: 'synced_locally' });
     }
+  });
+
+  // 0. Deployment self-check. Exposes only booleans (never a secret) so a
+  //    developer can confirm which build is live and whether the server is
+  //    configured — the fastest way to diagnose "sign-up fails on the deployed app".
+  app.get('/api/health', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      status: 'ok',
+      phase: 'phase0',
+      timestamp: new Date().toISOString(),
+      supabase_url_configured: Boolean(SUPABASE_URL),
+      service_role_configured: hasServiceRoleKey,
+      instant_verify: config.instantVerify,
+      ai_configured: Boolean(process.env.GEMINI_API_KEY),
+      extra_cors_origins: config.allowedOrigins.length,
+    });
   });
 
   // 1. Get seed questions (public, static payload: safe to cache).

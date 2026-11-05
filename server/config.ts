@@ -81,13 +81,31 @@ export const DEFAULT_ALLOWED_ORIGINS = [
 ];
 
 /**
+ * Origin of the deployed web app (`SABI_APP_URL`). Always trusted, so a missing
+ * `ALLOWED_ORIGINS` entry can never lock the real app out of its own API.
+ */
+export const APP_ORIGIN = (() => {
+  const raw = (process.env.SABI_APP_URL || process.env.VITE_PUBLIC_APP_URL || '').trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+})();
+
+/**
  * Returns true when a browser Origin header may be echoed back in
  * Access-Control-Allow-Origin. Requests without an Origin (native fetch,
  * server-to-server, same-origin navigation) are always allowed.
  */
 export function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return true;
-  const allowList = [...DEFAULT_ALLOWED_ORIGINS, ...config.allowedOrigins];
+  const allowList = [
+    ...DEFAULT_ALLOWED_ORIGINS,
+    ...config.allowedOrigins,
+    ...(APP_ORIGIN ? [APP_ORIGIN] : []),
+  ];
   if (allowList.includes(origin)) return true;
   // Vercel deployments/previews of the SABI project itself.
   if (/^https:\/\/sabi[a-z0-9-]*\.vercel\.app$/i.test(origin)) return true;

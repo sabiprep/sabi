@@ -11,6 +11,48 @@
 
 import { supabase } from '../lib/supabase';
 
+/**
+ * Optional cross-origin API base URL (e.g. the API on Cloud Run while the web
+ * app is served from Vercel).
+ *
+ * Phase 0 fix: this used to be honoured only by the Capacitor bridge, so a web
+ * deployment that did not serve `/api/*` from the same origin silently received
+ * an HTML page (the SPA shell) for every POST and surfaced it as
+ * "check your internet connection". Resolution now happens for every call.
+ */
+const CONFIGURED_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
+  .trim()
+  .replace(/\/+$/, '');
+
+/** The configured API base URL ('' when the API is served from the same origin). */
+export function getApiBaseUrl(): string {
+  return CONFIGURED_API_BASE;
+}
+
+/**
+ * Absolute URLs pass through untouched. Relative `/api/...` paths get the
+ * configured base prefix, except when that base is this very origin (in which
+ * case the relative path is already correct and no cross-origin call is needed).
+ */
+export function resolveApiUrl(input: string, base: string = CONFIGURED_API_BASE): string {
+  if (/^https?:\/\//i.test(input)) return input;
+  const normalizedBase = (base || '').trim().replace(/\/+$/, '');
+  if (!normalizedBase) return input;
+
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    let baseOrigin = normalizedBase;
+    try {
+      baseOrigin = new URL(normalizedBase).origin;
+    } catch {
+      // Not an absolute URL: fall through and use it as a prefix.
+    }
+    if (baseOrigin === window.location.origin) return input;
+  }
+
+  return `${normalizedBase}${input.startsWith('/') ? '' : '/'}${input}`;
+}
+
+
 /** Returns the current Supabase access token, or null when signed out. */
 export async function getAccessToken(): Promise<string | null> {
   try {
@@ -22,8 +64,8 @@ export async function getAccessToken(): Promise<string | null> {
 }
 
 /**
- * `fetch` wrapper that attaches the caller's bearer token.
- * Behaviour is otherwise identical, so existing call sites keep working.
+ * `fetch` wrapper that attaches the caller's bearer token and resolves the API
+ * base URL. Behaviour is otherwise identical, so existing call sites keep working.
  */
 export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
@@ -36,26 +78,106 @@ export async function apiFetch(input: string, init: RequestInit = {}): Promise<R
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  return fetch(input, { ...init, headers });
+  return fetch(resolveApiUrl(input), { ...init, headers });
 }
 
-/** Convenience wrapper that posts JSON and tolerates non-JSON error bodies. */
-export async function apiPostJson(
-  input: string,
-  payload: unknown
-): Promise<{ ok: boolean; status: number; data: any }> {
-  const response = await apiFetch(input, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+/** Outcome of a JSON API call, with enough detail to explain a failure. */
+export interface ApiResult<T = any> {
+  ok: boolean;
+  status: number;
+  data: T | null;
+  /** Response `content-type` ('' when the request never completed). */
+  contentType: string;
+  /** First ~140 characters of a non-JSON body, for diagnostics. */
+  snippet: string;
+  /** The absolute URL that was called. */
+  url: string;
+  /** Set when `fetch` itself failed (offline, DNS, CORS block, timeout). */
+  networkError?: string;
+}
+
+function summarizeSnippet(raw: string): string {
+  return raw.replace(/\s+/g, ' ').trim().slice(0, 140);
+}
+
+/**
+ * Posts JSON and never throws for transport failures: the caller gets a
+ * structured result so the UI can explain what actually went wrong.
+ */
+export async function apiPostJson(input: string, payload: unknown): Promise<ApiResult> {
+  const url = resolveApiUrl(input);
+
+  let response: Response;
+  try {
+    response = await apiFetch(input, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  } catch (err: any) {
+    return {
+      ok: false,
+      status: 0,
+      data: null,
+      contentType: '',
+      snippet: '',
+      url,
+      networkError: err?.message || 'Network request failed',
+    };
+  }
+
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  const rawBody = await response.text().catch(() => '');
 
   let data: any = null;
   try {
-    data = await response.json();
+    data = rawBody ? JSON.parse(rawBody) : null;
   } catch {
     data = null;
   }
 
-  return { ok: response.ok, status: response.status, data };
+  return {
+    ok: response.ok,
+    status: response.status,
+    data,
+    contentType,
+    snippet: data ? '' : summarizeSnippet(rawBody),
+    url,
+  };
+}
+
+/**
+ * Turns an `ApiResult` into a message a candidate (or a developer on support)
+ * can act on. Never returns the old "check your internet connection" line
+ * without the underlying reason attached.
+ */
+export function describeApiFailure(result: ApiResult, fallback: string): string {
+  if (result.networkError) {
+    return `${fallback} The SABI API could not be reached at ${result.url} (${result.networkError}). Check your connection, the API deployment and ALLOWED_ORIGINS.`;
+  }
+
+  const serverMessage = typeof result.data?.error === 'string' ? result.data.error : '';
+  const issues = Array.isArray(result.data?.details)
+    ? result.data.details
+        .map((issue: { message?: string }) => issue?.message)
+        .filter(Boolean)
+        .slice(0, 3)
+        .join(' ')
+    : '';
+
+  if (serverMessage) {
+    return `${fallback} ${serverMessage}${issues ? ` (${issues})` : ''}`.trim();
+  }
+
+  const looksLikeHtml =
+    result.contentType.includes('text/html') || /^<!doctype html/i.test(result.snippet);
+
+  if (looksLikeHtml) {
+    if (result.status >= 500) {
+      return `${fallback} The SABI API at ${result.url} returned a hosting error page (HTTP ${result.status}), which usually means the server failed to start or crashed (missing SUPABASE_SERVICE_ROLE_KEY / SUPABASE_URL). Check ${result.url.replace(/\/api\/.*$/, '')}/api/health and the server logs.`;
+    }
+    return `${fallback} The server answered HTTP ${result.status} with an HTML page instead of the SABI API at ${result.url}. Either the API is not served from this host (set VITE_API_BASE_URL to the API host) or /api is falling through to the SPA.`;
+  }
+
+  return `${fallback} (HTTP ${result.status}${result.snippet ? `: ${result.snippet}` : ''})`;
 }

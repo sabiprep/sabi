@@ -168,8 +168,28 @@ gcloud run services update sabi-api --region europe-west1 \
 ### 3d. Confirm the boot guard
 
 ```bash
-curl -sS -i "$API_BASE_URL/api/questions" | head -1      # expect HTTP/2 200
+curl -sS -i "$API_BASE_URL/api/health" | head -1      # expect HTTP/2 200
+curl -sS "$API_BASE_URL/api/health"                   # must be JSON, not HTML
+curl -sS -i "$API_BASE_URL/api/questions" | head -1   # expect HTTP/2 200
 ```
+
+`/api/health` returns only booleans, so it is safe to hit from anywhere:
+
+```json
+{
+  "status": "ok",
+  "phase": "phase0",
+  "supabase_url_configured": true,
+  "service_role_configured": true,
+  "instant_verify": true,
+  "ai_configured": true,
+  "extra_cors_origins": 1
+}
+```
+
+If any `*_configured` flag is `false`, stop: the deployment is missing an env var
+(§3a). If the response is **HTML** instead of JSON, `$API_BASE_URL` is pointing at
+a static/SPA host or a preview proxy rather than this Express app — see §8.
 
 Then check the logs: there must be **no**
 `[SABI] SUPABASE_SERVICE_ROLE_KEY is not set` line, and no `x-powered-by`
@@ -473,3 +493,65 @@ Copy into the PR / release notes and tick each box:
 3. No second factor for staff accounts; roles are the only privilege boundary.
 4. `audit_logs` exists but is not yet written to by the API — wiring it up is
    Phase 1.
+
+---
+
+## 8. Troubleshooting
+
+### 8a. "Could not create your account…" on the deployed app
+
+Before Phase 0's last fix, *every* failed sign-up rendered the same line
+("please check your internet connection"), whatever the real cause was — an
+unreachable API, a CORS block, a 400 from validation, an HTML page returned by a
+static host. The client now reports the actual reason, so start by reading the
+message:
+
+| Message you see | Meaning | Fix |
+| --- | --- | --- |
+| `…The SABI API could not be reached at <url> (Failed to fetch)…` | `fetch` never completed: DNS/TLS failure, API down, or the browser blocked the response because CORS headers were missing | Check the API is up (`/api/health`); add the app origin to `ALLOWED_ORIGINS` |
+| `…Origin <origin> is not allowed to call the SABI API…` (HTTP 403) | The server reachable, but your browser origin is not allow-listed | Add that exact origin to `ALLOWED_ORIGINS` and redeploy, or set `SABI_APP_URL` to it (that origin is trusted automatically) |
+| `…answered HTTP <code> with an HTML page instead of the SABI API at <url>…` | The app is calling a static host / SPA fallback (or a preview proxy) instead of the Express API | Point `VITE_API_BASE_URL` at the API host, or serve the API and SPA from the same origin; then rebuild the client |
+| `…Invalid request body. (…)` | Real validation failure — the message now lists the offending fields | Check the form values (e.g. phone format, state of origin) |
+| `…Too many requests. Please slow down and try again shortly.` | `authLimiter` tripped (10 attempts / 15 min per IP) | Wait, or raise `AUTH_RATE_LIMIT_MAX` for testing |
+| `…An account with <email> is already registered…` (HTTP 409) | Expected | Use Sign In or Forgot Password |
+
+Fast triage, in order:
+
+```bash
+# 1. Is the API alive and configured? (JSON, service_role_configured: true)
+curl -sS "$API_BASE_URL/api/health"
+
+# 2. Does the API accept a browser POST from the app's origin?
+curl -sS -i -X OPTIONS "$API_BASE_URL/api/auth/register" \
+  -H "Origin: $APP_ORIGIN" | head -8       # expect 204 + Access-Control-Allow-Origin
+
+# 3. What does the API itself say about this payload?
+curl -sS -i -X POST "$API_BASE_URL/api/auth/register" \
+  -H 'Content-Type: application/json' -H "Origin: $APP_ORIGIN" \
+  -d '{"fullName":"Test Candidate","email":"test+1@example.com","password":"secret123","phone":"+2348000000000","stateOfOrigin":"Lagos","provider":"email"}'
+```
+
+Response codes from `POST /api/auth/register`:
+
+| Code | Meaning |
+| --- | --- |
+| 200 / 201 | Created (or resumed); body carries `sabi_unique_id` + `profile` |
+| 400 | Schema validation failed — `details[]` names the field |
+| 403 | Origin blocked by CORS, or `MASTER_ADMIN`-only route |
+| 409 | Email already registered |
+| 429 | Rate limited |
+| 500 | Check the server log: `[SABI] POST /api/auth/register failed: …` (usually a Supabase/service-role problem — `/api/health` will show `service_role_configured: false` if the key is missing) |
+| 502 / 503 / 504 with HTML | You are not talking to this Express app at all (proxy/static host) |
+
+Deployment-shape checks that cause the HTML case:
+
+* If the SPA is static (Vercel/Netlify) and the API runs elsewhere, the build
+  **must** have `VITE_API_BASE_URL` set to the API host. Without it, `/api/*`
+  resolves against the static host, which answers with `index.html`.
+* `VITE_API_BASE_URL` must be the host that runs `server.ts`. An AI Studio
+  preview URL (`https://ais-pre-….run.app`) is a proxied preview that can answer
+  with a `__cookie_check.html` redirect — never use it as a production API base.
+* If the API and SPA share one origin (the current Cloud Run deployment), leave
+  `VITE_API_BASE_URL` **empty**; same-origin requests are always allowed and no
+  CORS configuration is involved.
+

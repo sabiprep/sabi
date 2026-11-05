@@ -19,6 +19,8 @@ process.env.NODE_ENV = 'test';
 process.env.VERCEL = '1';
 process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://test-project.supabase.co';
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-role-key';
+// The deployed app origin must be trusted even when ALLOWED_ORIGINS is empty.
+process.env.SABI_APP_URL = 'https://sabi-test-app.example.com';
 
 import request from 'supertest';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -136,6 +138,20 @@ describe('request validation', () => {
 });
 
 
+describe('deployment self-check', () => {
+  it('reports configuration state without leaking any secret', async () => {
+    const response = await request(app).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.phase).toBe('phase0');
+    expect(response.body.service_role_configured).toBe(true);
+    expect(response.body.supabase_url_configured).toBe(true);
+    expect(JSON.stringify(response.body)).not.toMatch(/test-service-role-key/);
+    expect(response.headers['cache-control']).toMatch(/no-store/);
+  });
+});
+
 describe('CORS allow-list and security headers', () => {
   it('allows the Capacitor WebView origin', async () => {
     const response = await request(app).options('/api/chat').set('Origin', 'capacitor://localhost');
@@ -156,6 +172,36 @@ describe('CORS allow-list and security headers', () => {
 
     expect(response.status).toBe(403);
     expect(response.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('refuses to run a route for a disallowed origin and explains why', async () => {
+    const response = await request(app)
+      .post('/api/auth/register')
+      .set('Origin', 'https://evil.example')
+      .send({ fullName: 'Ada Obi', email: 'ada@example.com', password: 'secret123' });
+
+    expect(response.status).toBe(403);
+    expect(response.headers['access-control-allow-origin']).toBeUndefined();
+    expect(response.body.error).toMatch(/not allowed/i);
+  });
+
+  it('always allows the deployed app origin from SABI_APP_URL', async () => {
+    const response = await request(app)
+      .options('/api/auth/register')
+      .set('Origin', 'https://sabi-test-app.example.com');
+
+    expect(response.status).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe('https://sabi-test-app.example.com');
+  });
+
+  it('allows same-origin calls served by this process', async () => {
+    const response = await request(app)
+      .options('/api/auth/register')
+      .set('Host', 'api.sabi.example.com')
+      .set('Origin', 'http://api.sabi.example.com');
+
+    expect(response.status).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe('http://api.sabi.example.com');
   });
 
   it('does not advertise the framework and keeps helmet defaults', async () => {
