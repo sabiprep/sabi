@@ -208,8 +208,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
         if (alreadyRegistered) {
           // Never touch the credentials of an account we did not just create.
           return res.status(409).json({
-            error: `An account with ${normalizedEmail} is already registered (Unique ID: ${uniqueId}). Please Sign In or use Forgot Password.`,
-            sabi_unique_id: uniqueId,
+            error: 'An account with this email is already registered. Please sign in or use Forgot Password.',
           });
         }
 
@@ -347,7 +346,7 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
 
     if (!profile) {
       const metadata = user.metadata || {};
-      const { data: upserted } = await supabaseAdmin
+      const { data: upserted, error: upsertError } = await supabaseAdmin
         .from('profiles')
         .upsert(
           {
@@ -364,19 +363,31 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
         )
         .select('*')
         .maybeSingle();
+      if (upsertError || !upserted) {
+        console.error('[SABI] Verification profile creation failed:', upsertError?.message || 'No profile returned');
+        return res.status(503).json({ verified: false, error: 'Profile verification is temporarily unavailable. Please try again.' });
+      }
       profile = upserted;
     } else if (user.providers.length) {
       // Provider metadata comes from the verified Auth user, never the request body.
       const mergedProviders = Array.from(
         new Set([...(profile.auth_providers || ['email']), ...user.providers])
       );
-      const { data: updated } = await supabaseAdmin
+      const { data: updated, error: providerUpdateError } = await supabaseAdmin
         .from('profiles')
         .update({ auth_providers: mergedProviders, updated_at: new Date().toISOString() })
         .eq('id', profile.id)
         .select('*')
         .maybeSingle();
-      if (updated) profile = updated;
+      if (providerUpdateError || !updated) {
+        console.error('[SABI] Verification provider sync failed:', providerUpdateError?.message || 'No profile returned');
+        return res.status(503).json({ verified: false, error: 'Profile verification is temporarily unavailable. Please try again.' });
+      }
+      profile = updated;
+    }
+
+    if (!profile) {
+      return res.status(503).json({ verified: false, error: 'Profile verification is temporarily unavailable. Please try again.' });
     }
 
     return res.json({
@@ -403,7 +414,7 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     const cleanIdentifier = String(identifier).trim().toLowerCase();
 
     // 1. Resolve the profile by email or phone.
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .or(
@@ -412,6 +423,11 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
           : `email.eq.${cleanIdentifier}`
       )
       .maybeSingle();
+
+    if (profileLookupError) {
+      console.error('[SABI] Login profile lookup failed:', profileLookupError.message);
+      return res.status(503).json({ error: 'Sign-in is temporarily unavailable. Please try again.' });
+    }
 
     const targetEmail = profile?.email || (cleanIdentifier.includes('@') ? cleanIdentifier : '');
     if (!targetEmail) {
@@ -438,7 +454,11 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     ) {
       const confirmUserId = profile?.id;
       if (confirmUserId) {
-        await supabaseAdmin.auth.admin.updateUserById(confirmUserId, { email_confirm: true });
+        const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(confirmUserId, { email_confirm: true });
+        if (confirmError) {
+          console.error('[SABI] Legacy account confirmation failed:', confirmError.message);
+          return res.status(503).json({ error: 'Sign-in is temporarily unavailable. Please try again.' });
+        }
         const retryResult = await supabaseAdmin.auth.signInWithPassword({
           email: targetEmail,
           password: String(password),
@@ -476,7 +496,7 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     let finalProfile = profile;
     if (!finalProfile || !finalProfile.id) {
       const fallbackId = finalProfile?.sabi_unique_id || generateDeterministicSabiId(targetEmail);
-      const { data: syncedProfile } = await supabaseAdmin
+      const { data: syncedProfile, error: syncError } = await supabaseAdmin
         .from('profiles')
         .upsert(
           {
@@ -493,7 +513,11 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
         )
         .select('*')
         .single();
-      finalProfile = syncedProfile || finalProfile;
+      if (syncError || !syncedProfile) {
+        console.error('[SABI] Login profile synchronization failed:', syncError?.message || 'No profile returned');
+        return res.status(503).json({ error: 'Your account profile could not be synchronized. Please try again.' });
+      }
+      finalProfile = syncedProfile;
     }
 
     return res.json({
