@@ -59,10 +59,13 @@ jobs:
       - name: Prepare disposable Phase 0 schema
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_fixture.sql
       - name: Apply Phase 1 migration
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
       - name: Verify Phase 1 schema and security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
       - name: Verify migration is idempotent
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
