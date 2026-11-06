@@ -58,6 +58,27 @@ Expected: authenticated users can SELECT only their own profile; UPDATE remains 
 to their own profile with the existing protected-column trigger; there should be no
 public `ALL` policy and no public SELECT policy with `USING (true)`.
 
+Verify the Phase 0 trigger-function hardening:
+
+```sql
+select p.proname, p.prosecdef, p.proconfig,
+       has_function_privilege('anon', p.oid, 'EXECUTE') as anon_can_execute,
+       has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'enforce_profile_protected_columns',
+    'handle_new_or_linked_user',
+    'generate_sabi_unique_id'
+  )
+order by p.proname;
+```
+
+Expected: all three functions pin `search_path` to `pg_catalog, public`; the two
+trigger functions are not executable by anon or authenticated. Their trigger
+attachments must remain present, and registration/profile-update smoke tests must pass.
+
 Test using both an authenticated candidate token and an anonymous key:
 - Candidate can read exactly their own profile.
 - Candidate cannot read another candidate's profile.
