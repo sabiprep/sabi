@@ -329,6 +329,40 @@ describe('request validation', () => {
     }
   });
 
+  it('fails closed when login cannot synchronize the authenticated profile', async () => {
+    const missingProfileQuery = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const failedUpsertQuery = {
+      upsert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: { message: 'write rejected' } }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(missingProfileQuery as any)
+      .mockReturnValueOnce(failedUpsertQuery as any);
+    const signInSpy = vi.spyOn(supabaseAdminClient.auth, 'signInWithPassword').mockResolvedValue({
+      data: {
+        user: { id: '55555555-5555-4555-8555-555555555555', email: 'candidate@example.com', user_metadata: {} },
+        session: {} as any,
+      } as any,
+      error: null,
+    } as any);
+    try {
+      const response = await request(app).post('/api/auth/login').send({
+        identifier: 'candidate@example.com',
+        password: 'correct-password',
+      });
+      expect(response.status).toBe(503);
+      expect(response.body.profile).toBeUndefined();
+    } finally {
+      fromSpy.mockRestore();
+      signInSpy.mockRestore();
+    }
+  });
+
 describe('deployment self-check', () => {
   it('reports configuration state without leaking any secret', async () => {
     const response = await request(app).get('/api/health');
