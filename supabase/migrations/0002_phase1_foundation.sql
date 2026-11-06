@@ -91,13 +91,13 @@ CREATE INDEX IF NOT EXISTS course_combination_subjects_subject_idx
 
 -- Seed the currently approved product catalogue; names align with onboarding UI.
 INSERT INTO public.jamb_subjects(slug, display_name, category, aliases) VALUES
-  ('use-of-english','English Language','Languages',ARRAY['Use of English']),
-  ('mathematics','Mathematics','Science','{}'),
+  ('use-of-english','English Language','Compulsory',ARRAY['Use of English']),
+  ('mathematics','Mathematics','General','{}'),
   ('physics','Physics','Science','{}'),
   ('chemistry','Chemistry','Science','{}'),
   ('biology','Biology','Science','{}'),
   ('literature-in-english','Literature-in-English','Arts',ARRAY['Literature in English']),
-  ('government','Government','Arts','{}'),
+  ('government','Government','Social Sciences','{}'),
   ('economics','Economics','Social Sciences','{}'),
   ('christian-religious-studies','Christian Religious Studies','Arts',ARRAY['CRS','C.R.S']),
   ('islamic-religious-studies','Islamic Religious Studies','Arts',ARRAY['IRS']),
