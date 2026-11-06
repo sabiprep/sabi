@@ -24,12 +24,14 @@ process.env.SABI_APP_URL = 'https://sabi-test-app.example.com';
 
 import request from 'supertest';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { supabaseAdmin } from './lib/supabaseAdmin';
 
 let app: import('express').Express;
+let supabaseAdminClient: typeof import('./lib/supabaseAdmin').supabaseAdmin;
 
 beforeAll(async () => {
-  ({ app } = await import('../server'));
+  const [server, admin] = await Promise.all([import('../server'), import('./lib/supabaseAdmin')]);
+  app = server.app;
+  supabaseAdminClient = admin.supabaseAdmin;
 });
 
 describe('authentication gate', () => {
@@ -94,7 +96,7 @@ describe('request validation', () => {
       }),
       upsert: vi.fn(),
     };
-    const fromSpy = vi.spyOn(supabaseAdmin, 'from').mockReturnValueOnce(query as any);
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(query as any);
 
     try {
       const response = await request(app).post('/api/auth/register').send({
