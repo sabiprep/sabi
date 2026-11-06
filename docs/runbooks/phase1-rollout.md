@@ -14,13 +14,21 @@ users, or the existing question import process.
 
 1. Confirm a recent recoverable Supabase backup exists.
 2. Confirm the application release that uses the canonical onboarding contract is ready.
-3. Run the migration in a staging project first.
-4. Confirm the current project schema still has the two policy names referenced below:
+3. Reconcile migration history before applying anything. The connected project currently
+   reports only `create_question_bank`, while this repository also contains
+   `0001_phase0_security.sql`. Confirm whether Phase 0 was applied manually and compare
+   its effects with the live schema. Do not blindly rerun Phase 0 or mark it applied in
+   migration history until that comparison is complete.
+4. Run the migration in a staging project first. If no staging environment is available
+   at no additional cost, keep production migration blocked until an isolated validation
+   path is approved; do not create a paid branch or apply directly to production as a
+   shortcut.
+5. Confirm the current project schema still has the two policy names referenced below:
    - `Allow insert and update via server`
    - `Allow read access to own profile`
-5. Check whether any production client still writes directly to `profiles`. Candidate
+6. Check whether any production client still writes directly to `profiles`. Candidate
    profile writes should use the authenticated API; server service-role writes bypass RLS.
-6. Obtain explicit production rollout approval.
+7. Obtain explicit production rollout approval.
 
 Do not run this migration automatically from application startup.
 
