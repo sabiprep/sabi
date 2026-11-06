@@ -29,6 +29,24 @@ describe('UTME onboarding subject validation', () => {
     expect(onboardingSchema.safeParse({ registeredSubjects: ['Mathematics', 'Physics', 'Chemistry', 'Biology'] }).success).toBe(false);
   });
 
+
+  it('accepts legacy onboardingAnswers.chosenSubjects and canonicalizes them', () => {
+    const result = onboardingSchema.safeParse({
+      onboardingAnswers: { chosenSubjects: ['Use of English', 'Mathematics', 'Physics', 'Chemistry'] },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.registeredSubjects).toEqual(['English Language', 'Mathematics', 'Physics', 'Chemistry']);
+    }
+  });
+
+  it('rejects missing or invalid subjects instead of silently substituting defaults', () => {
+    expect(onboardingSchema.safeParse({ onboardingAnswers: { targetCourse: 'Engineering' } }).success).toBe(false);
+    expect(onboardingSchema.safeParse({
+      onboardingAnswers: { chosenSubjects: ['Mathematics', 'Physics', 'Chemistry', 'Biology'] },
+    }).success).toBe(false);
+  });
+
   it('stores canonical display names after validation', () => {
     const result = onboardingSchema.safeParse({ registeredSubjects: valid });
     expect(result.success).toBe(true);
