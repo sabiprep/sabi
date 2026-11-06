@@ -463,6 +463,15 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
       });
     }
 
+    // Never return a profile row unless it belongs to the Auth identity
+    // that just passed password verification. Email/phone lookup alone is
+    // not proof that two legacy identity records are the same account.
+    if (profile && profile.id !== signInData.user.id) {
+      return res.status(409).json({
+        error: 'Your sign-in identity and SABI profile need reconciliation. Please contact support.',
+      });
+    }
+
     // 4. Ensure the profile row is linked to the authenticated user id.
     let finalProfile = profile;
     if (!finalProfile || !finalProfile.id) {
