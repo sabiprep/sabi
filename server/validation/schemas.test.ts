@@ -121,8 +121,9 @@ describe('resetPasswordConfirmSchema', () => {
 
 describe('onboardingSchema', () => {
   it('does not coerce strings into the numeric target score', () => {
-    expect(onboardingSchema.safeParse({ targetScore: '320' }).success).toBe(false);
-    expect(onboardingSchema.safeParse({ targetScore: 320 }).success).toBe(true);
+    const registeredSubjects = ['English Language', 'Mathematics', 'Physics', 'Chemistry'];
+    expect(onboardingSchema.safeParse({ targetScore: '320', registeredSubjects }).success).toBe(false);
+    expect(onboardingSchema.safeParse({ targetScore: 320, registeredSubjects }).success).toBe(true);
   });
 
   it('caps the registered subject list', () => {
