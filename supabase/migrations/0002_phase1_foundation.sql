@@ -181,6 +181,60 @@ GRANT SELECT ON public.jamb_subjects, public.jamb_topics, public.exam_configurat
   public.exam_configuration_subjects, public.course_subject_combinations,
   public.course_subject_combination_subjects TO anon, authenticated;
 
+-- Replace the Phase 0 guard with a SECURITY DEFINER-safe implementation.
+-- current_user is the function owner inside SECURITY DEFINER; session_user
+-- identifies trusted direct DB sessions, while PostgREST privilege is read
+-- from the verified request JWT role.
+CREATE OR REPLACE FUNCTION public.enforce_profile_protected_columns()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  jwt_role TEXT;
+BEGIN
+  -- SECURITY DEFINER changes current_user to the function owner. Use
+  -- session_user for trusted direct database sessions instead; PostgREST
+  -- requests retain the authenticator session and are identified by JWT role.
+  IF session_user IN ('postgres', 'supabase_admin', 'supabase_auth_admin', 'service_role') THEN
+    RETURN NEW;
+  END IF;
+
+  jwt_role := current_setting('request.jwt.claim.role', true);
+
+  IF jwt_role IS NULL THEN
+    BEGIN
+      jwt_role := (current_setting('request.jwt.claims', true))::jsonb ->> 'role';
+    EXCEPTION WHEN others THEN
+      jwt_role := NULL;
+    END;
+  END IF;
+
+  IF jwt_role = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.id IS DISTINCT FROM OLD.id THEN
+    RAISE EXCEPTION 'profiles.id is immutable';
+  END IF;
+
+  IF NEW.role IS DISTINCT FROM OLD.role THEN
+    RAISE EXCEPTION 'profiles.role can only be changed by SABI administrators';
+  END IF;
+
+  IF NEW.sabi_unique_id IS DISTINCT FROM OLD.sabi_unique_id THEN
+    RAISE EXCEPTION 'profiles.sabi_unique_id is immutable';
+  END IF;
+
+  IF NEW.email IS DISTINCT FROM OLD.email THEN
+    RAISE EXCEPTION 'profiles.email must be changed through SABI account support';
+  END IF;
+
+  RETURN NEW;
+END;
+$;
+
 -- Trigger functions should only be invoked by their attached database triggers,
 -- never exposed as callable client RPC endpoints.
 ALTER FUNCTION public.enforce_profile_protected_columns()
