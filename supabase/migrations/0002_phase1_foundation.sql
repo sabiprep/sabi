@@ -180,4 +180,15 @@ GRANT SELECT ON public.jamb_subjects, public.jamb_topics, public.exam_configurat
   public.exam_configuration_subjects, public.course_subject_combinations,
   public.course_subject_combination_subjects TO anon, authenticated;
 
+-- Trigger functions should only be invoked by their attached database triggers,
+-- never exposed as callable client RPC endpoints.
+ALTER FUNCTION public.enforce_profile_protected_columns()
+  SET search_path = pg_catalog, public;
+ALTER FUNCTION public.handle_new_or_linked_user()
+  SET search_path = pg_catalog, public;
+REVOKE EXECUTE ON FUNCTION public.enforce_profile_protected_columns() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.handle_new_or_linked_user() FROM PUBLIC, anon, authenticated;
+ALTER FUNCTION public.generate_sabi_unique_id()
+  SET search_path = pg_catalog, public;
+
 COMMIT;
