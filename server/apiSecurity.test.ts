@@ -86,6 +86,59 @@ describe('request validation', () => {
     expect(response.body.details.some((issue: { path: string }) => issue.path === 'email')).toBe(true);
   });
 
+  it('refuses to attach a verified Auth user to a different profile with the same email', async () => {
+    const tokenUser = {
+      id: '22222222-2222-4222-8222-222222222222',
+      email: 'legacy@example.com',
+      user_metadata: {},
+      app_metadata: { providers: ['email'] },
+    };
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+
+    const byIdQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const byEmailQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: '33333333-3333-4333-8333-333333333333',
+          email: 'legacy@example.com',
+          sabi_unique_id: '1234A',
+          auth_providers: ['email'],
+        },
+        error: null,
+      }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(byIdQuery as any)
+      .mockReturnValueOnce(byEmailQuery as any);
+    const confirmSpy = vi.spyOn(supabaseAdminClient.auth.admin, 'updateUserById');
+
+    try {
+      const response = await request(app)
+        .post('/api/auth/verify')
+        .set('Authorization', 'Bearer valid-test-token')
+        .send({ email: 'legacy@example.com', uniqueId: '9999Z', authProviders: ['email', 'google'] });
+
+      expect(response.status).toBe(409);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.auth_user_id).toBeUndefined();
+      expect(response.body.sabi_unique_id).toBeUndefined();
+      expect(confirmSpy).not.toHaveBeenCalled();
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+      confirmSpy.mockRestore();
+    }
+  });
+
   it('does not expose or modify an existing profile through public registration', async () => {
     const query = {
       select: vi.fn().mockReturnThis(),
