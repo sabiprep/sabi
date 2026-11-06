@@ -169,6 +169,44 @@ describe('request validation', () => {
     }
   });
 
+  it('does not return a profile whose id differs from the authenticated login user', async () => {
+    const profileQuery = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: '33333333-3333-4333-8333-333333333333',
+          email: 'legacy@example.com',
+          sabi_unique_id: '1234A',
+          auth_providers: ['email'],
+        },
+        error: null,
+      }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(profileQuery as any);
+    const signInSpy = vi.spyOn(supabaseAdminClient.auth, 'signInWithPassword').mockResolvedValue({
+      data: {
+        user: { id: '22222222-2222-4222-8222-222222222222', email: 'legacy@example.com' },
+        session: {} as any,
+      } as any,
+      error: null,
+    } as any);
+
+    try {
+      const response = await request(app).post('/api/auth/login').send({
+        identifier: 'legacy@example.com',
+        password: 'correct-password',
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.auth_user_id).toBeUndefined();
+    } finally {
+      fromSpy.mockRestore();
+      signInSpy.mockRestore();
+    }
+  });
+
   it('rejects identity fields smuggled into a sign-up', async () => {
     const response = await request(app).post('/api/auth/register').send({
       fullName: 'Ada Obi',
