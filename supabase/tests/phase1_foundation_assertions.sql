@@ -54,6 +54,24 @@ BEGIN
     RAISE EXCEPTION 'Owner-scoped profile SELECT policy is missing';
   END IF;
 
+  -- RLS does not protect TRUNCATE; client grants must be least-privilege.
+  IF has_table_privilege('anon', 'public.profiles', 'SELECT')
+     OR has_table_privilege('anon', 'public.profiles', 'TRUNCATE')
+     OR has_table_privilege('anon', 'public.profiles', 'INSERT')
+     OR has_table_privilege('anon', 'public.profiles', 'UPDATE')
+     OR has_table_privilege('anon', 'public.profiles', 'DELETE') THEN
+    RAISE EXCEPTION 'Anonymous role retains a client privilege on profiles';
+  END IF;
+
+  IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
+     OR NOT has_table_privilege('authenticated', 'public.profiles', 'UPDATE')
+     OR has_table_privilege('authenticated', 'public.profiles', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.profiles', 'DELETE')
+     OR has_table_privilege('authenticated', 'public.profiles', 'TRUNCATE')
+     OR has_table_privilege('authenticated', 'public.profiles', 'TRIGGER') THEN
+    RAISE EXCEPTION 'Authenticated profile grants are not least-privilege';
+  END IF;
+
   FOREACH rel IN ARRAY ARRAY[
     'jamb_subjects','jamb_topics','exam_configurations',
     'exam_configuration_subjects','course_subject_combinations',
