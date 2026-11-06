@@ -262,6 +262,73 @@ describe('request validation', () => {
 });
 
 
+
+  it('fails closed when login cannot read the profile record', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { message: 'database unavailable' } }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(query as any);
+    const signInSpy = vi.spyOn(supabaseAdminClient.auth, 'signInWithPassword');
+    try {
+      const response = await request(app).post('/api/auth/login').send({
+        identifier: 'candidate@example.com',
+        password: 'correct-password',
+      });
+      expect(response.status).toBe(503);
+      expect(signInSpy).not.toHaveBeenCalled();
+    } finally {
+      fromSpy.mockRestore();
+      signInSpy.mockRestore();
+    }
+  });
+
+  it('fails closed when verification cannot create the matching profile', async () => {
+    const tokenUser = {
+      id: '44444444-4444-4444-8444-444444444444',
+      email: 'new-candidate@example.com',
+      user_metadata: { full_name: 'New Candidate' },
+      app_metadata: { providers: ['email'] },
+    };
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    const missingProfileQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const failedUpsertQuery = {
+      upsert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { message: 'write rejected' } }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(missingProfileQuery as any)
+      .mockReturnValueOnce(missingProfileQuery as any)
+      .mockReturnValueOnce(failedUpsertQuery as any);
+    const confirmSpy = vi.spyOn(supabaseAdminClient.auth.admin, 'updateUserById').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    try {
+      const response = await request(app)
+        .post('/api/auth/verify')
+        .set('Authorization', 'Bearer valid-test-token')
+        .send({});
+      expect(response.status).toBe(503);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.verified).toBe(false);
+      expect(confirmSpy).toHaveBeenCalledWith(tokenUser.id, expect.any(Object));
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+      confirmSpy.mockRestore();
+    }
+  });
+
 describe('deployment self-check', () => {
   it('reports configuration state without leaking any secret', async () => {
     const response = await request(app).get('/api/health');
