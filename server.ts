@@ -572,8 +572,9 @@ app.post(
   app.post('/api/profile/onboarding', requireAuth, validateBody(onboardingSchema), async (req, res) => {
     const user = (req as AuthenticatedRequest).user!;
     const { onboardingAnswers, registeredSubjects, targetScore } = req.body;
-    const canonicalSubjects =
-      registeredSubjects ?? ['English Language', 'Mathematics', 'Physics', 'Chemistry'];
+    // onboardingSchema normalizes either the current API field or the legacy
+    // onboardingAnswers.chosenSubjects field into this canonical array.
+    const canonicalSubjects = registeredSubjects;
     // Keep the legacy onboarding_answers snapshot aligned with the canonical
     // server-validated profile field. Downstream clients still read chosenSubjects.
     const normalizedAnswers = {
