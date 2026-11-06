@@ -10,6 +10,39 @@ project and replaces profile SELECT with authenticated owner-only access.
 It does not modify `question_bank` rows, existing student profile data, authentication
 users, or the existing question import process.
 
+## Live schema reconciliation snapshot (2026-11-06)
+
+A read-only inspection of the connected project found:
+
+- Migration history contains only `20261105140638 / create_question_bank`.
+- The Phase 0 effects are present: `profiles.role`, its role check and index, `audit_logs`, and the `enforce_profile_protected_columns` trigger on `public.profiles`.
+- The Phase 0 function definitions exist, but no user-defined trigger is attached to `auth.users` for `handle_new_or_linked_user`. The API currently creates and synchronizes profiles directly.
+- None of the six Phase 1 catalogue/configuration tables exists yet.
+- The existing `profiles` policies are still the broad `ALL` policy and public `SELECT USING (true)` policy listed above.
+- `question_bank` contains 3,740 rows and is intentionally outside this migration.
+
+**Critical Phase 0 guard defect found during code audit:** the live
+`enforce_profile_protected_columns()` is `SECURITY DEFINER`, owned by
+`postgres`, and checks `current_user` for trusted roles. Inside a
+`SECURITY DEFINER` function, `current_user` is the function owner, so the
+trusted-role branch can return before checking protected columns. With the
+current broad profile policies, do not assume candidate role changes are blocked.
+The corrected implementation checks `session_user` for trusted direct database
+sessions and the verified PostgREST JWT role for service-role requests. It is
+included in both the corrected Phase 0 migration (for clean installs) and the
+Phase 1 migration (to repair existing installs).
+
+The absence of an `auth.users` trigger is not fixed by Phase 1: registration
+currently creates the Auth user and profile through the API. Do not attach the
+trigger as a shortcut; first choose and test one authoritative profile-creation
+path to avoid duplicate or conflicting profile writes.
+
+The migration history mismatch remains unresolved. The presence of Phase 0
+objects is evidence that its effects were applied, not proof that the recorded
+migration history is complete. Do not insert a history row or rerun Phase 0
+blindly. Reconcile the SQL objects and deployment history with the project
+owner before adopting the migration ledger.
+
 ## Before applying to a live project
 
 1. Confirm a recent recoverable Supabase backup exists.
