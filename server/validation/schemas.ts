@@ -8,11 +8,11 @@
 import { z } from 'zod';
 import { canonicalizeJambSubject, COMPULSORY_JAMB_SUBJECT } from '../config/jamb';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$/;
 export const emailSchema = z.string().trim().toLowerCase().min(3).max(254).regex(EMAIL_REGEX, 'A valid email address is required.');
 export const passwordSchema = z.string().min(6, 'Password must be at least 6 characters long.').max(72, 'Password must be 72 characters or fewer.');
 const phoneSchema = z.string().trim().max(20);
-export const uniqueSabiIdSchema = z.string().trim().toUpperCase().regex(/^\d{4}[A-Z]$/, 'Unique SABI ID must be 4 numbers followed by 1 letter (e.g. 4829K).');
+export const uniqueSabiIdSchema = z.string().trim().toUpperCase().regex(/^\\d{4}[A-Z]$/, 'Unique SABI ID must be 4 numbers followed by 1 letter (e.g. 4829K).');
 
 export const registerSchema = z.strictObject({
   fullName: z.string().trim().min(1).max(120), email: emailSchema, password: passwordSchema,
@@ -31,7 +31,7 @@ export const resetPasswordRequestSchema = z.strictObject({
   identifier: z.string().trim().min(3).max(254),
 });
 export const resetPasswordConfirmSchema = z.strictObject({
-  email: emailSchema, otp: z.string().trim().regex(/^\d{6}$/), newPassword: passwordSchema,
+  email: emailSchema, otp: z.string().trim().regex(/^\\d{6}$/), newPassword: passwordSchema,
 });
 
 const registeredSubjectsSchema = z.array(z.string().trim().min(1).max(60))
@@ -54,11 +54,29 @@ const registeredSubjectsSchema = z.array(z.string().trim().min(1).max(60))
     return normalized;
   });
 
-export const onboardingSchema = z.strictObject({
+const onboardingBaseSchema = z.strictObject({
   onboardingAnswers: z.record(z.string(), z.unknown()).default({}),
   registeredSubjects: registeredSubjectsSchema.optional(),
   targetScore: z.number().min(0).max(400).optional(),
 });
+
+// Older clients submitted the selected subjects only inside onboardingAnswers.
+// Validate that legacy shape too, then return one canonical registeredSubjects
+// field so the API never has to guess or silently replace a candidate's choices.
+export const onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
+  const submittedSubjects = input.registeredSubjects ?? input.onboardingAnswers.chosenSubjects;
+  const parsedSubjects = registeredSubjectsSchema.safeParse(submittedSubjects);
+  if (!parsedSubjects.success) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['registeredSubjects'],
+      message: 'Submit exactly four valid JAMB subjects, including English Language.',
+    });
+    return z.NEVER;
+  }
+  return { ...input, registeredSubjects: parsedSubjects.data };
+});
+
 export const progressSchema = z.strictObject({ progress: z.record(z.string(), z.unknown()) });
 export const explainSchema = z.strictObject({
   questionId: z.string().trim().max(80).optional(), preference: z.enum(['short', 'detailed']).optional(),
