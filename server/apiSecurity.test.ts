@@ -351,10 +351,13 @@ describe('auth profile synchronization fail-closed behavior', () => {
       error: null,
     } as any);
     try {
-      const response = await request(app).post('/api/auth/login').send({
-        identifier: 'candidate@example.com',
-        password: 'correct-password',
-      });
+      const response = await request(app)
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', '198.51.100.77')
+        .send({
+          identifier: 'candidate@example.com',
+          password: 'correct-password',
+        });
       expect(response.status).toBe(503);
       expect(response.body.profile).toBeUndefined();
     } finally {
