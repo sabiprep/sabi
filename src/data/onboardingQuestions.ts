@@ -1,4 +1,5 @@
 import { SubjectName } from '../types';
+import { JAMB_SUBJECTS } from '../../shared/jamb';
 
 export interface OnboardingQuestion {
   id: number;
@@ -10,31 +11,9 @@ export interface OnboardingQuestion {
   fieldName: string;
 }
 
-export const SUBJECTS_POOL: { name: SubjectName; category: string }[] = [
-  { name: 'English Language', category: 'Compulsory' },
-  { name: 'Mathematics', category: 'General' },
-  { name: 'Physics', category: 'Science' },
-  { name: 'Chemistry', category: 'Science' },
-  { name: 'Biology', category: 'Science' },
-  { name: 'Literature-in-English', category: 'Arts' },
-  { name: 'Government', category: 'Social Sciences' },
-  { name: 'Economics', category: 'Social Sciences' },
-  { name: 'Christian Religious Studies', category: 'Arts' },
-  { name: 'Islamic Religious Studies', category: 'Arts' },
-  { name: 'Agricultural Science', category: 'Science' },
-  { name: 'Geography', category: 'General' },
-  { name: 'Commerce', category: 'Social Sciences' },
-  { name: 'Financial Accounting', category: 'Social Sciences' },
-  { name: 'History', category: 'Arts' },
-  { name: 'Yoruba', category: 'Languages' },
-  { name: 'Igbo', category: 'Languages' },
-  { name: 'Hausa', category: 'Languages' },
-  { name: 'Music', category: 'Arts' },
-  { name: 'Fine Art', category: 'Arts' },
-  { name: 'French', category: 'Languages' },
-  { name: 'Arabic', category: 'Languages' },
-  { name: 'Home Economics', category: 'General' }
-];
+export const SUBJECTS_POOL: { name: SubjectName; category: string }[] = JAMB_SUBJECTS.map(
+  (subject) => ({ name: subject.name as SubjectName, category: subject.category })
+);
 
 export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
   {
