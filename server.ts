@@ -158,17 +158,30 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
     const normalizedEmail = String(email).trim().toLowerCase();
 
     // 1. Look up an existing SABI profile for this address.
-    const { data: existingProfile } = await supabaseAdmin
+    const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select('id')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
-    const uniqueId =
-      existingProfile?.sabi_unique_id || generateDeterministicSabiId(normalizedEmail);
+    if (profileLookupError) {
+      console.error('[SABI] Registration profile lookup failed:', profileLookupError.message);
+      return res.status(503).json({ error: 'Registration is temporarily unavailable. Please try again.' });
+    }
+
+    // An existing profile is not proof that this caller owns its Auth identity.
+    // Never reuse its ID, mutate its profile, or return its private fields from
+    // this public endpoint. Account linking must happen through an authenticated flow.
+    if (existingProfile) {
+      return res.status(409).json({
+        error: 'An account with this email is already registered. Please sign in or use Forgot Password.',
+      });
+    }
+
+    const uniqueId = generateDeterministicSabiId(normalizedEmail);
 
     // 2. Create the Supabase Auth user. A caller-supplied user id is never trusted.
-    let userId: string | undefined = existingProfile?.id;
+    let userId: string | undefined;
 
     if (!userId) {
       const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
@@ -211,9 +224,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
     }
 
     // 3. Upsert the candidate profile, keyed to the auth user id (service role only).
-    const updatedProviders = Array.from(
-      new Set([...(existingProfile?.auth_providers || []), provider, 'email'])
-    );
+    const updatedProviders = Array.from(new Set([provider, 'email']));
 
     const { data: savedProfile, error: profileErr } = await supabaseAdmin
       .from('profiles')
@@ -222,9 +233,9 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
           id: userId,
           email: normalizedEmail,
           sabi_unique_id: uniqueId,
-          full_name: fullName || existingProfile?.full_name || '',
-          phone: phone || existingProfile?.phone || '',
-          state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+          full_name: fullName || '',
+          phone: phone || '',
+          state_of_origin: stateOfOrigin || 'Lagos',
           auth_providers: updatedProviders,
           updated_at: new Date().toISOString(),
         },
