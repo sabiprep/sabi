@@ -233,7 +233,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$;
+$$;
 
 -- Trigger functions should only be invoked by their attached database triggers,
 -- never exposed as callable client RPC endpoints.
