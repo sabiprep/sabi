@@ -92,7 +92,7 @@ BEGIN
     RAISE EXCEPTION 'Profile protection trigger still trusts current_user inside SECURITY DEFINER';
   END IF;
 END
-$;
+$$;
 
 -- Prove an authenticated PostgREST-style caller cannot promote their own role.
 INSERT INTO public.profiles (id, email, sabi_unique_id)
@@ -104,7 +104,7 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.role', 'authenticated', false);
 SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
 
-DO $
+DO $$
 DECLARE
   role_change_blocked boolean := false;
 BEGIN
@@ -124,7 +124,7 @@ BEGIN
     RAISE EXCEPTION 'SECURITY FAILURE: authenticated candidate promoted their own profile role';
   END IF;
 END
-$;
+$$;
 
 RESET ROLE;
 RESET SESSION AUTHORIZATION;
