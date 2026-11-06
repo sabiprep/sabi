@@ -54,13 +54,24 @@ BEGIN
     RAISE EXCEPTION 'Owner-scoped profile SELECT policy is missing';
   END IF;
 
-  -- RLS does not protect TRUNCATE; client grants must be least-privilege.
+  -- RLS does not protect TRUNCATE; check direct and inherited client privileges.
   IF has_table_privilege('anon', 'public.profiles', 'SELECT')
      OR has_table_privilege('anon', 'public.profiles', 'TRUNCATE')
      OR has_table_privilege('anon', 'public.profiles', 'INSERT')
      OR has_table_privilege('anon', 'public.profiles', 'UPDATE')
      OR has_table_privilege('anon', 'public.profiles', 'DELETE') THEN
-    RAISE EXCEPTION 'Anonymous role retains a client privilege on profiles';
+    RAISE EXCEPTION 'Anonymous role retains a direct or inherited client privilege on profiles';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_class c
+    CROSS JOIN LATERAL aclexplode(COALESCE(c.relacl, acldefault('r', c.relowner))) a
+    WHERE c.oid = 'public.profiles'::regclass
+      AND a.grantee = 0
+      AND a.privilege_type IN ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER')
+  ) THEN
+    RAISE EXCEPTION 'PUBLIC retains table-level privileges on profiles';
   END IF;
 
   IF NOT has_table_privilege('authenticated', 'public.profiles', 'SELECT')
@@ -147,4 +158,4 @@ $$;
 RESET ROLE;
 RESET SESSION AUTHORIZATION;
 
--- Re-running the migration must remain safe and must not duplicate seed rows.
+-- Re-running the migrations must remain safe and must not duplicate seed rows.
