@@ -5,6 +5,7 @@ BEGIN;
 -- A permissive ALL policy would override narrower profile policies.
 DROP POLICY IF EXISTS "Allow insert and update via server" ON public.profiles;
 DROP POLICY IF EXISTS "Allow read access to own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Candidates can read their own profile" ON public.profiles;
 CREATE POLICY "Candidates can read their own profile"
   ON public.profiles FOR SELECT TO authenticated
   USING (auth.uid() = id);
