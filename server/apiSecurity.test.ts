@@ -262,7 +262,7 @@ describe('request validation', () => {
 });
 
 
-
+describe('auth profile synchronization fail-closed behavior', () => {
   it('fails closed when login cannot read the profile record', async () => {
     const query = {
       select: vi.fn().mockReturnThis(),
@@ -362,6 +362,7 @@ describe('request validation', () => {
       signInSpy.mockRestore();
     }
   });
+});
 
 describe('deployment self-check', () => {
   it('reports configuration state without leaking any secret', async () => {
