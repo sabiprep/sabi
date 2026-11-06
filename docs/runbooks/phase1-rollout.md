@@ -19,7 +19,7 @@ A read-only inspection of the connected project found:
 - The Phase 0 function definitions exist, but no user-defined trigger is attached to `auth.users` for `handle_new_or_linked_user`. The API currently creates and synchronizes profiles directly.
 - None of the six Phase 1 catalogue/configuration tables exists yet.
 - The existing `profiles` policies are still the broad `ALL` policy and public `SELECT USING (true)` policy listed above.
-- The live `anon` and `authenticated` roles also have table-level `SELECT` and `UPDATE` grants on `profiles`. Grants alone do not bypass RLS, but in combination with the current public `ALL USING (true)` policy they permit broad row access and updates. Treat this as a critical exposure until the policy correction is applied and verified.
+- The live `anon` and `authenticated` roles also have table-level `SELECT` and `UPDATE` grants on `profiles`. Grants alone do not bypass RLS, but in combination with the current public `ALL USING (true)` policy they permit broad row reads, inserts, updates and deletes. Treat this as a critical exposure until the policy correction is applied and verified.
 - The security-definer guard's `current_user` check can return early as the `postgres` function owner. In combination with the permissive UPDATE policy, clients may be able to alter protected identity and role columns. Do not use the current live profile role as an authorization boundary until remediation is deployed.
 - Supabase's security advisor also reports leaked-password protection disabled. This is an Auth project setting, separate from the SQL migration.
 - `question_bank` contains 3,740 rows and is intentionally outside this migration.
