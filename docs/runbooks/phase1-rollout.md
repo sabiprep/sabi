@@ -15,6 +15,7 @@ Post-application checks confirmed:
 - `authenticated` has only SELECT and UPDATE on `profiles`; RLS restricts both to the caller's own row.
 - The only profile SELECT policy is owner-scoped; the UPDATE policy remains owner-scoped.
 - The protected-column trigger uses `session_user`, pins `search_path` to `pg_catalog, public`, and is not directly executable by anon/authenticated.
+- SQL `PUBLIC` has no profile table privileges; no direct or inherited anon profile privileges remain.
 - An unrelated authenticated user sees zero profile rows.
 - The JAMB catalogue contains 23 subjects; Full Mock is 180 questions / 7,200 seconds and Quick Mock is 40 questions / 1,800 seconds.
 - `jamb_topics` contains zero rows pending approved syllabus taxonomy.
@@ -25,6 +26,7 @@ The remote migration history now contains:
 - `20261105140638 / create_question_bank`
 - `20261106185031 / profile_privilege_hardening`
 - `20261106185050 / phase1_foundation`
+- `20261106185843 / profile_public_acl_hardening`
 
 **Migration-ledger follow-up:** Phase 0 schema effects were present before this work but were not recorded in migration history. They were not rerun or falsely marked applied. The repository currently has legacy numbered migration filenames (`0001`, `0002`, `0003`) while the remote history uses timestamp versions. Reconcile/standardize local migration filenames and the Phase 0 baseline before relying on `supabase migration list`, automated deploys, or additional CLI migrations. Do not blindly repair history or rerun Phase 0.
 
@@ -91,8 +93,9 @@ Do not run these migrations automatically from application startup.
 Apply the migrations in dependency order using the approved Supabase migration workflow:
 1. `supabase/migrations/0002_phase1_foundation.sql`
 2. `supabase/migrations/0003_profile_privilege_hardening.sql`
+3. `supabase/migrations/0004_profile_public_acl_hardening.sql`
 
-The live project was remediated through the remote migration entries listed in the production application log. Resolve the repository/remote migration filename-version mismatch before using automated CLI migration status or subsequent deployments.
+The live project was remediated through the remote migration entries listed in the production application log. The SQL source files are retained as historical manual rollout scripts; see `supabase/migrations/README.md`. Resolve the repository/remote migration filename-version mismatch before using automated CLI migration status or subsequent deployments.
 
 ## Post-migration verification
 
