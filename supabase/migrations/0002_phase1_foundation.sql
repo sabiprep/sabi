@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS public.course_subject_combinations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_name TEXT NOT NULL,
   institution_name TEXT,
-  required_subjects TEXT[] NOT NULL,
   source_url TEXT,
   effective_year INTEGER,
   verification_status TEXT NOT NULL DEFAULT 'draft'
@@ -76,6 +75,19 @@ CREATE TABLE IF NOT EXISTS public.course_subject_combinations (
 );
 CREATE INDEX IF NOT EXISTS course_subject_combinations_lookup_idx
   ON public.course_subject_combinations(course_name, institution_name, effective_year);
+
+-- Keep subject references relational so typos and retired catalogue values cannot
+-- silently enter admission requirements.
+CREATE TABLE IF NOT EXISTS public.course_subject_combination_subjects (
+  combination_id UUID NOT NULL REFERENCES public.course_subject_combinations(id) ON DELETE CASCADE,
+  subject_slug TEXT NOT NULL REFERENCES public.jamb_subjects(slug) ON UPDATE CASCADE ON DELETE RESTRICT,
+  requirement_type TEXT NOT NULL DEFAULT 'required'
+    CHECK (requirement_type IN ('compulsory', 'required', 'alternative')),
+  alternative_group TEXT,
+  PRIMARY KEY (combination_id, subject_slug)
+);
+CREATE INDEX IF NOT EXISTS course_combination_subjects_subject_idx
+  ON public.course_subject_combination_subjects(subject_slug, combination_id);
 
 -- Seed the currently approved product catalogue; names align with onboarding UI.
 INSERT INTO public.jamb_subjects(slug, display_name, category, aliases) VALUES
@@ -134,6 +146,7 @@ ALTER TABLE public.jamb_topics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exam_configurations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exam_configuration_subjects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.course_subject_combinations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.course_subject_combination_subjects ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public can read active JAMB subjects" ON public.jamb_subjects;
 CREATE POLICY "Public can read active JAMB subjects"
@@ -155,7 +168,16 @@ DROP POLICY IF EXISTS "Public can read verified course combinations" ON public.c
 CREATE POLICY "Public can read verified course combinations"
   ON public.course_subject_combinations FOR SELECT TO anon, authenticated USING (verification_status = 'verified');
 
+DROP POLICY IF EXISTS "Public can read verified combination subjects" ON public.course_subject_combination_subjects;
+CREATE POLICY "Public can read verified combination subjects"
+  ON public.course_subject_combination_subjects FOR SELECT TO anon, authenticated
+  USING (EXISTS (
+    SELECT 1 FROM public.course_subject_combinations c
+    WHERE c.id = combination_id AND c.verification_status = 'verified'
+  ));
+
 GRANT SELECT ON public.jamb_subjects, public.jamb_topics, public.exam_configurations,
-  public.exam_configuration_subjects, public.course_subject_combinations TO anon, authenticated;
+  public.exam_configuration_subjects, public.course_subject_combinations,
+  public.course_subject_combination_subjects TO anon, authenticated;
 
 COMMIT;
