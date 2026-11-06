@@ -23,7 +23,8 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 process.env.SABI_APP_URL = 'https://sabi-test-app.example.com';
 
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { supabaseAdmin } from './lib/supabaseAdmin';
 
 let app: import('express').Express;
 
@@ -81,6 +82,36 @@ describe('request validation', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/invalid request body/i);
     expect(response.body.details.some((issue: { path: string }) => issue.path === 'email')).toBe(true);
+  });
+
+  it('does not expose or modify an existing profile through public registration', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: '11111111-1111-4111-8111-111111111111' },
+        error: null,
+      }),
+      upsert: vi.fn(),
+    };
+    const fromSpy = vi.spyOn(supabaseAdmin, 'from').mockReturnValueOnce(query as any);
+
+    try {
+      const response = await request(app).post('/api/auth/register').send({
+        fullName: 'Someone Else',
+        email: 'existing@example.com',
+        password: 'secret123',
+        phone: '+2348000000000',
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.auth_user_id).toBeUndefined();
+      expect(response.body.sabi_unique_id).toBeUndefined();
+      expect(query.upsert).not.toHaveBeenCalled();
+    } finally {
+      fromSpy.mockRestore();
+    }
   });
 
   it('rejects identity fields smuggled into a sign-up', async () => {
