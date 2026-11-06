@@ -272,7 +272,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
 app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccountSchema), async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   const user = authReq.user!;
-  const { email, uniqueId, authProviders } = req.body;
+  const { email } = req.body;
 
   if (email && String(email).trim().toLowerCase() !== user.email) {
     return res.status(403).json({
@@ -282,12 +282,21 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
   }
 
   try {
-    let { data: profile } = await supabaseAdmin
+    const { data: profileById, error: profileByIdError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
 
+    if (profileByIdError) {
+      console.error('[SABI] Verification profile lookup failed:', profileByIdError.message);
+      return res.status(503).json({
+        verified: false,
+        error: 'Profile verification is temporarily unavailable. Please try again.',
+      });
+    }
+
+    let profile = profileById;
     if (!profile && user.email) {
       const { data: byEmail, error: emailLookupError } = await supabaseAdmin
         .from('profiles')
@@ -348,9 +357,7 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
             full_name: metadata.full_name || metadata.name || '',
             phone: metadata.phone || user.phone || '',
             state_of_origin: metadata.state_of_origin || 'Lagos',
-            auth_providers: Array.isArray((user as any).providers) && (user as any).providers.length
-              ? (user as any).providers
-              : ['email'],
+            auth_providers: user.providers.length ? user.providers : ['email'],
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'email' }
@@ -358,10 +365,10 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
         .select('*')
         .maybeSingle();
       profile = upserted;
-    } else if (Array.isArray((user as any).providers) && (user as any).providers.length) {
+    } else if (user.providers.length) {
       // Provider metadata comes from the verified Auth user, never the request body.
       const mergedProviders = Array.from(
-        new Set([...(profile.auth_providers || ['email']), ...(user as any).providers])
+        new Set([...(profile.auth_providers || ['email']), ...user.providers])
       );
       const { data: updated } = await supabaseAdmin
         .from('profiles')
