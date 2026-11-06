@@ -289,11 +289,29 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
       .maybeSingle();
 
     if (!profile && user.email) {
-      const { data: byEmail } = await supabaseAdmin
+      const { data: byEmail, error: emailLookupError } = await supabaseAdmin
         .from('profiles')
         .select('*')
         .eq('email', user.email)
         .maybeSingle();
+
+      if (emailLookupError) {
+        console.error('[SABI] Verification profile lookup failed:', emailLookupError.message);
+        return res.status(503).json({
+          verified: false,
+          error: 'Profile verification is temporarily unavailable. Please try again.',
+        });
+      }
+
+      // A matching email is not sufficient to take over a profile linked to a
+      // different Auth user. Legacy mismatches require a separately verified
+      // support/reconciliation flow; never return or mutate that profile here.
+      if (byEmail && byEmail.id !== user.id) {
+        return res.status(409).json({
+          verified: false,
+          error: 'This email is linked to a different SABI profile. Contact support to reconcile your account.',
+        });
+      }
       profile = byEmail;
     }
 
@@ -326,13 +344,13 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
           {
             id: user.id,
             email: user.email || email,
-            sabi_unique_id: uniqueId || resolvedUniqueId,
+            sabi_unique_id: resolvedUniqueId,
             full_name: metadata.full_name || metadata.name || '',
             phone: metadata.phone || user.phone || '',
             state_of_origin: metadata.state_of_origin || 'Lagos',
-            auth_providers:
-              authProviders ??
-              (metadata.provider ? ['email', String(metadata.provider)] : ['email']),
+            auth_providers: Array.isArray((user as any).providers) && (user as any).providers.length
+              ? (user as any).providers
+              : ['email'],
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'email' }
@@ -340,11 +358,10 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
         .select('*')
         .maybeSingle();
       profile = upserted;
-    } else if (authProviders) {
-      // Merge newly linked providers (e.g. Google -> email) without ever
-      // letting the client write identity columns itself.
+    } else if (Array.isArray((user as any).providers) && (user as any).providers.length) {
+      // Provider metadata comes from the verified Auth user, never the request body.
       const mergedProviders = Array.from(
-        new Set([...(profile.auth_providers || ['email']), ...authProviders])
+        new Set([...(profile.auth_providers || ['email']), ...(user as any).providers])
       );
       const { data: updated } = await supabaseAdmin
         .from('profiles')
