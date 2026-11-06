@@ -82,7 +82,51 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Unique ID function search_path was not hardened';
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_proc p
+    WHERE p.oid = 'public.enforce_profile_protected_columns()'::regprocedure
+      AND pg_get_functiondef(p.oid) LIKE '%session_user IN%'
+      AND pg_get_functiondef(p.oid) NOT LIKE '%IF current_user IN%'
+  ) THEN
+    RAISE EXCEPTION 'Profile protection trigger still trusts current_user inside SECURITY DEFINER';
+  END IF;
 END
-$$;
+$;
+
+-- Prove an authenticated PostgREST-style caller cannot promote their own role.
+INSERT INTO public.profiles (id, email, sabi_unique_id)
+VALUES ('22222222-2222-4222-8222-222222222222', 'rls-regression@sabi.test', '9876Z')
+ON CONFLICT (id) DO NOTHING;
+
+SET SESSION AUTHORIZATION authenticator;
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.role', 'authenticated', false);
+SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
+
+DO $
+DECLARE
+  role_change_blocked boolean := false;
+BEGIN
+  BEGIN
+    UPDATE public.profiles
+    SET role = 'ADMIN'
+    WHERE id = '22222222-2222-4222-8222-222222222222';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM = 'profiles.role can only be changed by SABI administrators' THEN
+      role_change_blocked := true;
+    ELSE
+      RAISE;
+    END IF;
+  END;
+
+  IF NOT role_change_blocked THEN
+    RAISE EXCEPTION 'SECURITY FAILURE: authenticated candidate promoted their own profile role';
+  END IF;
+END
+$;
+
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
 
 -- Re-running the migration must remain safe and must not duplicate seed rows.
