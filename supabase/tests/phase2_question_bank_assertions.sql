@@ -97,8 +97,8 @@ $$;
 DO $
 DECLARE
   reviewer UUID := '00000000-0000-4000-8000-000000000001';
-  topic_id UUID;
-  subtopic_id UUID;
+  target_topic_id UUID;
+  target_subtopic_id UUID;
   result JSONB;
   old_question TEXT;
 BEGIN
@@ -106,13 +106,13 @@ BEGIN
   VALUES (reviewer, 'phase2-review-test@example.com')
   ON CONFLICT (id) DO NOTHING;
 
-  SELECT id INTO topic_id
+  SELECT id INTO target_topic_id
   FROM public.jamb_topics
   WHERE subject_slug = 'biology' AND name = 'Adaptation'
   LIMIT 1;
-  SELECT id INTO subtopic_id
+  SELECT id INTO target_subtopic_id
   FROM public.jamb_subtopics
-  WHERE topic_id = topic_id AND name = 'Adaptations in animals'
+  WHERE topic_id = target_topic_id AND name = 'Adaptations in animals'
   LIMIT 1;
 
   SELECT question INTO old_question FROM public.question_bank WHERE id = 'BIO-001';
@@ -120,8 +120,8 @@ BEGIN
     'BIO-001',
     jsonb_build_object(
       'subjectSlug', 'biology',
-      'topicId', topic_id,
-      'subtopicId', subtopic_id,
+      'topicId', target_topic_id,
+      'subtopicId', target_subtopic_id,
       'year', 2020,
       'question', 'Which characteristic protects a camel from blowing sand?',
       'options', jsonb_build_object('A','Long eyelashes','B','Webbed feet','C','Thin fur','D','Gills'),
