@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpenCheck, CircleAlert, Flag, LoaderCircle, RefreshCw, ShieldCheck } from 'lucide-react';
 import { apiFetch } from '../utils/apiClient';
@@ -8,7 +8,7 @@ type EligibleQuestion = {
   question: string; option_a: string; option_b: string; option_c: string; option_d: string;
   difficulty?: string;
 };
-type Evaluation = { is_correct: boolean; correct_answer: string; explanation: string };
+type Evaluation = { is_correct: boolean; correct_answer: string; explanation: string; mastery_state: string; mastery_score: number; evidence_confidence: number };
 const subjects = [
   { label: 'All subjects', value: '' },
   { label: 'English Language', value: 'use-of-english' },
@@ -42,6 +42,8 @@ export function VerifiedQuestionPracticePage() {
   const [flagOpen, setFlagOpen] = useState(false);
   const [flagReason, setFlagReason] = useState('wrong_answer');
   const [flagDetails, setFlagDetails] = useState('');
+  const sessionId = useRef<string | null>(null);
+  const questionStartedAt = useRef(Date.now());
 
   const loadQuestions = useCallback(async () => {
     setLoading(true); setError(''); setNotice(''); setEvaluation(null); setAnswer(''); setIndex(0);
@@ -49,7 +51,21 @@ export function VerifiedQuestionPracticePage() {
       const params = new URLSearchParams({ limit: '30' });
       if (subject) params.set('subject', subject);
       const data = await requestJson(`/api/question-bank/eligible?${params}`);
-      setQuestions(data.questions || []);
+      const previousSession = sessionId.current;
+      sessionId.current = null;
+      if (previousSession) {
+        await requestJson(`/api/learning/sessions/${previousSession}/complete`, {
+          method: 'POST', body: JSON.stringify({ status: 'abandoned' }),
+        }).catch(() => undefined);
+      }
+      const nextQuestions = data.questions || [];
+      setQuestions(nextQuestions);
+      if (nextQuestions.length > 0) {
+        const session = await requestJson('/api/learning/sessions', {
+          method: 'POST', body: JSON.stringify({ mode: 'smart', subjectSlug: subject || undefined }),
+        });
+        sessionId.current = session.sessionId;
+      }
     } catch (err) { setQuestions([]); setError(err instanceof Error ? err.message : 'Verified questions could not be loaded.'); }
     finally { setLoading(false); }
   }, [subject]);
@@ -58,21 +74,34 @@ export function VerifiedQuestionPracticePage() {
 
   const current = questions[index];
 
+  useEffect(() => { questionStartedAt.current = Date.now(); }, [current?.id]);
+
   async function submitAnswer() {
-    if (!current || !answer) return;
+    if (!current || !answer || !sessionId.current) return;
     setLoading(true); setError('');
     try {
-      const data = await requestJson(`/api/question-bank/eligible/${current.id}/answer`, {
-        method: 'POST', body: JSON.stringify({ answer }),
+      const data = await requestJson(`/api/learning/sessions/${sessionId.current}/attempts`, {
+        method: 'POST', body: JSON.stringify({
+          eventId: crypto.randomUUID(),
+          questionId: current.id,
+          answer,
+          responseTimeMs: Math.max(0, Date.now() - questionStartedAt.current),
+        }),
       });
       setEvaluation(data.result);
     } catch (err) { setError(err instanceof Error ? err.message : 'Your answer could not be evaluated.'); }
     finally { setLoading(false); }
   }
 
-  function nextQuestion() {
+  async function nextQuestion() {
     if (index + 1 >= questions.length) {
-      setNotice('You have reached the end of this verified question set.');
+      if (sessionId.current) {
+        await requestJson(`/api/learning/sessions/${sessionId.current}/complete`, {
+          method: 'POST', body: JSON.stringify({ status: 'completed' }),
+        }).catch(() => undefined);
+        sessionId.current = null;
+      }
+      setNotice('You have reached the end of this verified question set. Your learning evidence has been saved.');
       return;
     }
     setIndex(value => value + 1); setAnswer(''); setEvaluation(null); setFlagOpen(false); setFlagDetails(''); setNotice('');
@@ -116,12 +145,12 @@ export function VerifiedQuestionPracticePage() {
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">{current.subject}</span><span className="text-xs text-slate-500">{current.topic} · {current.subtopic}{current.year ? ` · ${current.year}` : ''}</span></div>
           <h2 className="mt-6 text-lg font-bold leading-relaxed sm:text-xl">{current.question}</h2>
           <div className="mt-5 space-y-3">{options.map(letter=><button key={letter} disabled={Boolean(evaluation)||loading} onClick={()=>setAnswer(letter)} className={`flex w-full items-start gap-3 rounded-2xl border p-4 text-left text-sm transition ${evaluation?.correct_answer===letter?'border-emerald-400 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30':answer===letter?'border-blue-500 bg-blue-50 dark:bg-blue-950/40':'border-slate-200 hover:border-blue-300 dark:border-slate-700'} `}><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border font-black">{letter}</span><span className="pt-1">{current[optionKey[letter]]}</span></button>)}</div>
-          {!evaluation ? <button onClick={()=>void submitAnswer()} disabled={!answer||loading} className="mt-6 w-full rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-black text-white disabled:opacity-40">{loading?'Checking…':'Submit answer'}</button> : <div className={`mt-6 rounded-2xl border p-4 ${evaluation.is_correct?'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30':'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'}`}><div className="flex items-center gap-2 font-black">{evaluation.is_correct?<BookOpenCheck size={18}/>:<CircleAlert size={18}/>} {evaluation.is_correct?'Correct answer':'Not quite'}</div><p className="mt-2 text-sm">Correct option: <b>{evaluation.correct_answer}</b></p><p className="mt-2 text-sm leading-relaxed">{evaluation.explanation}</p><button onClick={nextQuestion} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white">Next question <ArrowRight size={16}/></button></div>}
+          {!evaluation ? <button onClick={()=>void submitAnswer()} disabled={!answer||loading} className="mt-6 w-full rounded-xl bg-blue-700 px-4 py-3.5 text-sm font-black text-white disabled:opacity-40">{loading?'Checking…':'Submit answer'}</button> : <div className={`mt-6 rounded-2xl border p-4 ${evaluation.is_correct?'border-emerald-300 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30':'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30'}`}><div className="flex items-center gap-2 font-black">{evaluation.is_correct?<BookOpenCheck size={18}/>:<CircleAlert size={18}/>} {evaluation.is_correct?'Correct answer':'Not quite'}</div><p className="mt-2 text-sm">Correct option: <b>{evaluation.correct_answer}</b></p><p className="mt-2 text-sm leading-relaxed">{evaluation.explanation}</p><div className="mt-3 rounded-xl bg-white/70 p-3 text-xs dark:bg-slate-900/60"><b>Learning evidence saved</b><span className="ml-2">{evaluation.mastery_state.replace('_', ' ')} · {Math.round(evaluation.mastery_score * 100)}% mastery estimate · {Math.round(evaluation.evidence_confidence * 100)}% evidence confidence</span></div><button onClick={()=>void nextQuestion()} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white">Next question <ArrowRight size={16}/></button></div>}
           <div className="mt-5 border-t border-slate-200 pt-4 dark:border-slate-700">
             {!flagOpen ? <button onClick={()=>setFlagOpen(true)} className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600"><Flag size={14}/> Report a problem with this question</button> : <div className="space-y-3"><label className="block text-xs font-bold">Problem type<select value={flagReason} onChange={e=>setFlagReason(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-transparent p-2.5 text-sm dark:border-slate-700">{[['wrong_answer','Wrong answer'],['ambiguous','Ambiguous question'],['typo','Typographical error'],['bad_explanation','Incorrect explanation'],['wrong_topic','Wrong topic'],['duplicate','Duplicate question'],['source_issue','Source issue'],['other','Other']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><textarea rows={2} value={flagDetails} onChange={e=>setFlagDetails(e.target.value)} placeholder="Optional details" className="w-full rounded-xl border border-slate-200 bg-transparent p-3 text-sm dark:border-slate-700"/><div className="flex gap-2"><button onClick={()=>void submitFlag()} disabled={loading} className="rounded-xl bg-blue-700 px-4 py-2 text-xs font-bold text-white">Send report</button><button onClick={()=>setFlagOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold dark:border-slate-700">Cancel</button></div></div>}
           </div>
         </section>}
-        <p className="mt-5 text-center text-[11px] text-slate-500">Phase 2 verified-question delivery. Attempt history, mastery updates and adaptive recommendations are handled in the next learning-evidence phase.</p>
+        <p className="mt-5 text-center text-[11px] text-slate-500">Phase 3 learning evidence: submitted answers are saved against their approved question version and update your topic mastery record.</p>
       </div>
     </main>
   );
