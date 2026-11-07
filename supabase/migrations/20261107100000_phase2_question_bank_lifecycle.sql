@@ -263,7 +263,22 @@ BEGIN
       INTO topic_state, subtopic_state
     FROM public.jamb_topics t
     JOIN public.jamb_subtopics st ON st.topic_id = t.id
-    WHERE t.id = q.topic_id AND st.id = q.subtopic_id;
+    WHERE t.id = q.topic_id
+      AND st.id = q.subtopic_id
+      AND t.is_active = TRUE
+      AND st.is_active = TRUE
+      AND EXISTS (
+        SELECT 1
+        FROM public.jamb_subjects js
+        WHERE js.slug = t.subject_slug
+          AND (
+            lower(btrim(q.subject)) = lower(js.display_name)
+            OR EXISTS (
+              SELECT 1 FROM unnest(js.aliases) AS aliases(alias_value)
+              WHERE lower(btrim(q.subject)) = lower(btrim(alias_value))
+            )
+          )
+      );
 
     IF topic_state IS DISTINCT FROM 'verified' OR subtopic_state IS DISTINCT FROM 'verified' THEN
       RAISE EXCEPTION 'Question topic and subtopic must be verified before approval'
