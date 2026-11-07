@@ -522,4 +522,93 @@ REVOKE ALL ON FUNCTION public.get_eligible_question_bank(TEXT, INTEGER, INTEGER)
 GRANT EXECUTE ON FUNCTION public.get_eligible_question_bank(TEXT, INTEGER, INTEGER)
   TO service_role;
 
+
+-- Provenance verification is an explicit, auditable human action. It is
+-- version-bound so a concurrent content revision cannot inherit verification.
+CREATE OR REPLACE FUNCTION public.verify_question_provenance(
+  p_question_id TEXT,
+  p_source_label TEXT,
+  p_source_url TEXT,
+  p_source_type TEXT,
+  p_attribution TEXT,
+  p_evidence_note TEXT,
+  p_actor_id UUID,
+  p_actor_role TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  q public.question_bank%ROWTYPE;
+  p public.question_provenance%ROWTYPE;
+  verification JSONB;
+BEGIN
+  IF p_actor_id IS NULL OR p_actor_role IS NULL
+     OR p_actor_role NOT IN ('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN') THEN
+    RAISE EXCEPTION 'Provenance verifier is not authorized' USING ERRCODE = '42501';
+  END IF;
+  IF p_source_label IS NULL OR btrim(p_source_label) = ''
+     OR p_source_url IS NULL OR p_source_url !~ '^https?://'
+     OR p_source_type IS NULL OR p_source_type NOT IN ('official_exam', 'publisher', 'contributor', 'ai_generated', 'other')
+     OR p_attribution IS NULL OR btrim(p_attribution) = ''
+     OR p_evidence_note IS NULL OR length(btrim(p_evidence_note)) < 20 THEN
+    RAISE EXCEPTION 'Source label, valid HTTP(S) URL, source type, attribution and evidence note are required'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO q FROM public.question_bank
+  WHERE id = p_question_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Question not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT * INTO p FROM public.question_provenance
+  WHERE question_id = p_question_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Question provenance record not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  verification := jsonb_build_object(
+    'version_number', q.current_version,
+    'verified_by', p_actor_id,
+    'verified_role', p_actor_role,
+    'verified_at', NOW(),
+    'source_label', btrim(p_source_label),
+    'source_url', p_source_url,
+    'source_type', p_source_type,
+    'attribution', btrim(p_attribution),
+    'evidence_note', btrim(p_evidence_note)
+  );
+
+  UPDATE public.question_provenance
+  SET source_label = btrim(p_source_label),
+      source_url = p_source_url,
+      source_type = p_source_type,
+      attribution = btrim(p_attribution),
+      provenance_status = 'verified',
+      evidence = COALESCE(evidence, '{}'::JSONB) ||
+        jsonb_build_object(
+          'verification_history',
+          COALESCE(evidence->'verification_history', '[]'::JSONB) || jsonb_build_array(verification),
+          'verified_version', q.current_version,
+          'verified_at', NOW()
+        ),
+      updated_at = NOW()
+  WHERE question_id = p_question_id;
+
+  RETURN jsonb_build_object(
+    'question_id', p_question_id,
+    'version_number', q.current_version,
+    'provenance_status', 'verified'
+  );
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.verify_question_provenance(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, UUID, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.verify_question_provenance(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, UUID, TEXT)
+  TO service_role;
+
 COMMIT;
