@@ -23,6 +23,7 @@ const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module =
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 const QuestionBankAdminPage = lazy(() => import('./pages/QuestionBankAdminPage').then(module => ({ default: module.QuestionBankAdminPage })));
 const VerifiedQuestionPracticePage = lazy(() => import('./pages/VerifiedQuestionPracticePage').then(module => ({ default: module.VerifiedQuestionPracticePage })));
+const LearningEvidencePage = lazy(() => import('./pages/LearningEvidencePage').then(module => ({ default: module.LearningEvidencePage })));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -64,6 +65,7 @@ export default function App() {
               <Route path="/cbt/:examId" element={<MainPage page="CBT Simulator" />} />
               <Route path="/cbt/:examId/results" element={<MainPage page="CBT Results" />} />
               <Route path="/progress" element={<ProgressPage />} />
+              <Route path="/learning-progress" element={<LearningEvidencePage />} />
               <Route path="/missions" element={<DailyMissionsPage />} />
               <Route path="/recommendations" element={<MainPage page="Recommendations" />} />
               <Route path="/profile" element={<ProfilePage />} />
