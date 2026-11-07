@@ -66,7 +66,32 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       return res.status(503).json({ error: 'Questions are temporarily unavailable.' });
     }
 
-    const selected = shuffle(candidates || []).slice(0, limit);
+    let orderedCandidates = shuffle(candidates || []);
+
+    // Smart Practice prioritizes due reviews first, then the student's weakest
+    // known topics. Students with no history receive a randomized starter set.
+    if (mode === 'smart_practice') {
+      const { data: masteryRows, error: masteryError } = await supabaseAdmin
+        .from('student_topic_mastery')
+        .select('topic, mastery_score, next_review_at')
+        .eq('user_id', userId);
+      if (masteryError) {
+        console.error('[SABI] Adaptive mastery lookup failed:', masteryError.message);
+        return res.status(503).json({ error: 'Adaptive practice is temporarily unavailable.' });
+      }
+      const masteryByTopic = new Map((masteryRows || []).map((row) => [row.topic, row]));
+      const now = Date.now();
+      orderedCandidates.sort((a, b) => {
+        const aMastery = masteryByTopic.get(a.topic);
+        const bMastery = masteryByTopic.get(b.topic);
+        const aDue = Boolean(aMastery?.next_review_at && new Date(aMastery.next_review_at).getTime() <= now);
+        const bDue = Boolean(bMastery?.next_review_at && new Date(bMastery.next_review_at).getTime() <= now);
+        if (aDue !== bDue) return aDue ? -1 : 1;
+        return (aMastery?.mastery_score ?? 50) - (bMastery?.mastery_score ?? 50);
+      });
+    }
+
+    const selected = orderedCandidates.slice(0, limit);
     if (!selected.length) {
       return res.status(404).json({
         error: 'No approved questions match those filters yet.',
@@ -252,6 +277,91 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
   } catch (error) {
     console.error('[SABI] Unexpected answer submission error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while recording your answer.' });
+  }
+});
+
+
+router.get('/recommendations', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('student_topic_mastery')
+      .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at')
+      .eq('user_id', userId)
+      .order('mastery_score', { ascending: true });
+    if (error) {
+      console.error('[SABI] Recommendation lookup failed:', error.message);
+      return res.status(503).json({ error: 'Recommendations are temporarily unavailable.' });
+    }
+
+    const mastery = data || [];
+    const now = Date.now();
+    const dueReviews = mastery
+      .filter((item) => item.next_review_at && new Date(item.next_review_at).getTime() <= now)
+      .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime());
+    const focusTopics = mastery.filter((item) => item.attempted_count >= 2 && item.mastery_score < 70).slice(0, 5);
+    const weakestTopic = mastery[0] || null;
+
+    return res.json({
+      dueReviews,
+      focusTopics,
+      weakestTopic,
+      nextAction: dueReviews.length
+        ? { type: 'review', subject: dueReviews[0].subject, topic: dueReviews[0].topic }
+        : weakestTopic
+          ? { type: 'practice', subject: weakestTopic.subject, topic: weakestTopic.topic }
+          : { type: 'diagnostic', message: 'Complete a diagnostic session to establish your starting point.' },
+    });
+  } catch (error) {
+    console.error('[SABI] Unexpected recommendation error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while preparing recommendations.' });
+  }
+});
+
+router.get('/diagnostic/latest', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+  try {
+    const { data: diagnostic, error } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('id, subject, status, total_questions, answered_count, correct_count, started_at, completed_at')
+      .eq('user_id', userId)
+      .eq('mode', 'diagnostic')
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.error('[SABI] Diagnostic lookup failed:', error.message);
+      return res.status(503).json({ error: 'Diagnostic results are temporarily unavailable.' });
+    }
+
+    const { data: mastery, error: masteryError } = await supabaseAdmin
+      .from('student_topic_mastery')
+      .select('subject, topic, attempted_count, correct_count, mastery_score')
+      .eq('user_id', userId)
+      .order('mastery_score', { ascending: true });
+    if (masteryError) {
+      console.error('[SABI] Diagnostic mastery lookup failed:', masteryError.message);
+      return res.status(503).json({ error: 'Diagnostic results are temporarily unavailable.' });
+    }
+
+    return res.json({
+      diagnostic: diagnostic ? {
+        ...diagnostic,
+        accuracy: diagnostic.answered_count
+          ? Math.round((diagnostic.correct_count / diagnostic.answered_count) * 100)
+          : 0,
+      } : null,
+      topicStrengths: mastery || [],
+      needsDiagnostic: !diagnostic,
+    });
+  } catch (error) {
+    console.error('[SABI] Unexpected diagnostic lookup error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while loading diagnostic results.' });
   }
 });
 
