@@ -59,7 +59,7 @@ jobs:
           sudo apt-get install --yes postgresql-client
       - name: Prepare disposable Phase 0 schema
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_fixture.sql
-      - name: Apply Phase 1 and Phase 2 migrations
+      - name: Apply Phase 1–4 migrations
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
