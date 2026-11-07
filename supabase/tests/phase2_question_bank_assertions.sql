@@ -207,7 +207,7 @@ DO $$
 DECLARE
   reviewer UUID := '00000000-0000-4000-8000-000000000001';
   result JSONB;
-  evidence JSONB;
+  evidence_doc JSONB;
 BEGIN
   result := public.verify_question_provenance(
     'BIO-001',
@@ -224,14 +224,14 @@ BEGIN
     RAISE EXCEPTION 'Provenance verification did not bind to the current version: %', result;
   END IF;
 
-  SELECT evidence INTO evidence
-  FROM public.question_provenance WHERE question_id = 'BIO-001';
+  SELECT qp.evidence INTO evidence_doc
+  FROM public.question_provenance qp WHERE question_id = 'BIO-001';
 
   IF (SELECT provenance_status FROM public.question_provenance WHERE question_id = 'BIO-001') <> 'verified'
-     OR evidence->'verification_history' IS NULL
-     OR jsonb_array_length(evidence->'verification_history') < 1
-     OR evidence->'verification_history'->0->>'version_number' <> '2'
-     OR evidence->'verification_history'->0->>'verified_by' <> reviewer::TEXT THEN
+     OR evidence_doc->'verification_history' IS NULL
+     OR jsonb_array_length(evidence_doc->'verification_history') < 1
+     OR evidence_doc->'verification_history'->0->>'version_number' <> '2'
+     OR evidence_doc->'verification_history'->0->>'verified_by' <> reviewer::TEXT THEN
     RAISE EXCEPTION 'Provenance evidence history was not recorded against the correct actor/version';
   END IF;
 
