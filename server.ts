@@ -19,6 +19,7 @@ import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import { questionBankRouter } from './server/questionBank/routes';
+import { learningEvidenceRouter } from './server/learningEvidence/routes';
 import {
   chatSchema,
   explainSchema,
@@ -726,6 +727,7 @@ app.post(
 
   // Phase 2 question bank: staff moderation and verified-only student delivery.
   app.use('/api/question-bank', questionBankRouter);
+  app.use('/api/learning', learningEvidenceRouter);
 
   // 1. Get seed questions (public, static payload: safe to cache).
   app.get('/api/questions', (_req, res) => {
