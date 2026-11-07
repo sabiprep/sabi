@@ -156,9 +156,10 @@ REVOKE ALL ON TABLE
   public.question_flags, public.question_import_batches, public.question_import_rows
 FROM PUBLIC, anon, authenticated;
 
+-- Version snapshots and review events are append-only at the application privilege layer.
+GRANT SELECT, INSERT ON TABLE public.question_bank_versions, public.question_review_events TO service_role;
 GRANT ALL ON TABLE
-  public.question_bank_versions, public.question_provenance, public.question_review_events,
-  public.question_flags, public.question_import_batches, public.question_import_rows
+  public.question_provenance, public.question_flags, public.question_import_batches, public.question_import_rows
 TO service_role;
 
 -- Legacy published status is not enough for delivery. review_state defaults all
@@ -280,10 +281,6 @@ BEGIN
       status = CASE WHEN p_decision = 'approved' THEN 'published' ELSE status END,
       updated_at = NOW()
   WHERE id = p_question_id;
-
-  UPDATE public.question_bank_versions
-  SET review_state = next_state
-  WHERE question_id = p_question_id AND version_number = q.current_version;
 
   INSERT INTO public.question_review_events
     (question_id, version_number, decision, reviewer_id, reviewer_role, comments, quality_checks)
