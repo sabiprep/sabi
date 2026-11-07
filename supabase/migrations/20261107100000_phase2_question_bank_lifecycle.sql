@@ -219,7 +219,9 @@ BEGIN
 
   IF p_payload->>'question' IS NULL OR length(btrim(p_payload->>'question')) < 8
      OR p_payload->>'explanation' IS NULL OR length(btrim(p_payload->>'explanation')) < 8
+     OR p_payload->>'answer' IS NULL
      OR lower(p_payload->>'answer') NOT IN ('a', 'b', 'c', 'd')
+     OR p_payload->>'difficulty' IS NULL
      OR p_payload->>'difficulty' NOT IN ('easy', 'medium', 'hard')
      OR p_payload->'options' IS NULL
      OR p_payload->'options'->>'A' IS NULL OR btrim(p_payload->'options'->>'A') = ''
@@ -292,6 +294,17 @@ BEGIN
       updated_at = NOW()
   WHERE id = p_question_id
   RETURNING * INTO q;
+
+  -- A content revision invalidates the previous provenance approval until the
+  -- source is rechecked against the new version.
+  UPDATE public.question_provenance
+  SET provenance_status = 'unverified',
+      updated_at = NOW(),
+      evidence = evidence || jsonb_build_object(
+        'provenance_recheck_required', TRUE,
+        'last_content_revision_version', next_version
+      )
+  WHERE question_id = p_question_id;
 
   INSERT INTO public.question_bank_versions
     (question_id, version_number, payload, content_hash, legacy_status, review_state, change_reason, created_by)
