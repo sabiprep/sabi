@@ -277,6 +277,27 @@ router.post('/import/validate', requireAuth, requireRole(...contentRoles), valid
   return res.status(201).json({ status: 'validated', batchId: batch.id, ...summary, rows: report.rows });
 });
 
+
+router.post('/import/:batchId/commit', requireAuth, requireRole(...contentRoles), async (req, res) => {
+  const batchId = z.string().uuid().safeParse(req.params.batchId);
+  if (!batchId.success) return res.status(400).json({ error: 'A valid import batch ID is required.' });
+  const authReq = req as AuthenticatedRequest;
+  const { data, error } = await supabaseAdmin.rpc('commit_question_import_batch', {
+    p_batch_id: batchId.data,
+    p_actor_id: authReq.user!.id,
+    p_actor_role: authReq.role!,
+  });
+  if (error) {
+    const status = error.code === 'P0002' ? 404
+      : error.code === '42501' ? 403
+      : error.code === '23505' || error.code === '23514' ? 409
+      : error.code === '22023' ? 400
+      : 503;
+    return res.status(status).json({ error: error.message || 'The import batch could not be committed.' });
+  }
+  return res.status(201).json({ status: 'committed', ...data });
+});
+
 router.get('/flag-queue', requireAuth, requireRole(...contentRoles), async (req, res) => {
   const parsed = listQuerySchema.safeParse(req.query);
   if (!parsed.success) {
