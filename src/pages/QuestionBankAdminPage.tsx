@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Check, ChevronDown, CircleAlert, ClipboardCheck, FileUp, Flag, LoaderCircle, RefreshCw, Search, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Check, CircleAlert, ClipboardCheck, FileUp, Flag, RefreshCw, Search, ShieldCheck, X } from 'lucide-react';
 import { apiFetch } from '../utils/apiClient';
 
 type Question = {
