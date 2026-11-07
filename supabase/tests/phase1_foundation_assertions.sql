@@ -123,6 +123,25 @@ BEGIN
 END
 $$;
 
+
+-- Draft legacy taxonomy must not be presented to clients as verified syllabus data.
+SET ROLE anon;
+DO $
+DECLARE
+  visible_topics integer;
+  visible_subtopics integer;
+  visible_versions integer;
+BEGIN
+  SELECT count(*) INTO visible_topics FROM public.jamb_topics;
+  SELECT count(*) INTO visible_subtopics FROM public.jamb_subtopics;
+  SELECT count(*) INTO visible_versions FROM public.jamb_syllabus_versions;
+  IF visible_topics <> 0 OR visible_subtopics <> 0 OR visible_versions <> 0 THEN
+    RAISE EXCEPTION 'Anonymous client can see unverified syllabus taxonomy';
+  END IF;
+END
+$;
+RESET ROLE;
+
 -- Prove an authenticated PostgREST-style caller cannot promote their own role.
 INSERT INTO public.profiles (id, email, sabi_unique_id)
 VALUES
