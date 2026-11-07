@@ -10,6 +10,10 @@ import { validateQuestionImport } from './importValidation';
 
 const router = Router();
 const contentRoles = ['CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'] as const;
+const questionFlagBodySchema = z.strictObject({
+  reason: z.enum(['wrong_answer', 'ambiguous', 'typo', 'bad_explanation', 'wrong_topic', 'duplicate', 'source_issue', 'other']),
+  details: z.string().trim().max(2000).optional(),
+});
 const importValidationBodySchema = z.strictObject({
   sourceLabel: z.string().trim().min(1).max(500).optional(),
   sourceUrl: z.string().trim().url().max(2000).optional(),
@@ -43,6 +47,45 @@ router.get('/eligible', requireAuth, async (req, res) => {
   return res.json({ status: 'success', questions: data ?? [], limit, offset });
 });
 
+router.post('/:questionId/flag', requireAuth, validateBody(questionFlagBodySchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { data: question, error: questionError } = await supabaseAdmin
+    .from('question_bank')
+    .select('current_version,review_state,status')
+    .eq('id', req.params.questionId)
+    .maybeSingle();
+
+  if (questionError) {
+    console.error('[SABI] Question flag lookup failed:', questionError.message);
+    return res.status(503).json({ error: 'The question could not be checked for flagging.' });
+  }
+  if (!question || question.review_state !== 'approved' || question.status !== 'published') {
+    return res.status(404).json({ error: 'Question not found.' });
+  }
+
+  const { data: flag, error: flagError } = await supabaseAdmin
+    .from('question_flags')
+    .insert({
+      question_id: req.params.questionId,
+      version_number: question.current_version,
+      reporter_id: authReq.user!.id,
+      reason: req.body.reason,
+      details: req.body.details ?? null,
+    })
+    .select('id,question_id,version_number,reason,status,created_at')
+    .single();
+
+  if (flagError) {
+    if (flagError.code === '23505') {
+      return res.status(409).json({ error: 'You have already submitted this flag for the current question version.' });
+    }
+    console.error('[SABI] Question flag could not be saved:', flagError.message);
+    return res.status(503).json({ error: 'Your question report could not be saved.' });
+  }
+
+  return res.status(201).json({ status: 'reported', flag });
+});
+
 router.get('/review-queue', requireAuth, requireRole(...contentRoles), async (req, res) => {
   const parsed = listQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -53,7 +96,7 @@ router.get('/review-queue', requireAuth, requireRole(...contentRoles), async (re
   let query = supabaseAdmin
     .from('question_bank')
     .select('id,subject,topic,subtopic,topic_id,subtopic_id,year,question,option_a,option_b,option_c,option_d,answer,explanation,explanation_short,difficulty,source,status,review_state,current_version,created_at,updated_at', { count: 'exact' })
-    .eq('review_state', 'pending_review')
+    .in('review_state', ['pending_review', 'flagged'])
     .order('created_at', { ascending: true })
     .range(offset, offset + limit - 1);
 
@@ -80,6 +123,7 @@ router.post('/import/validate', requireAuth, requireRole(...contentRoles), valid
     const { data, error } = await supabaseAdmin
       .from('question_bank')
       .select('id,question,option_a,option_b,option_c,option_d,topic:jamb_topics!question_bank_topic_id_fkey(subject_slug)')
+      .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
 
     if (error) {
