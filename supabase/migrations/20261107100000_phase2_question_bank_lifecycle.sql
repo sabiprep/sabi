@@ -166,4 +166,143 @@ TO service_role;
 REVOKE ALL ON TABLE public.question_bank FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.question_bank TO service_role;
 
+
+-- Atomic, server-only review transition. Approval requires a human reviewer
+-- attestation plus verified provenance and syllabus taxonomy in the database.
+CREATE OR REPLACE FUNCTION public.review_question_bank_item(
+  p_question_id TEXT,
+  p_decision TEXT,
+  p_reviewer_id UUID,
+  p_reviewer_role TEXT,
+  p_comments TEXT DEFAULT NULL,
+  p_quality_checks JSONB DEFAULT '{}'::JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  q public.question_bank%ROWTYPE;
+  next_state TEXT;
+  provenance_state TEXT;
+  topic_state TEXT;
+  subtopic_state TEXT;
+  option_count INTEGER;
+BEGIN
+  IF p_reviewer_id IS NULL OR p_reviewer_role NOT IN ('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN') THEN
+    RAISE EXCEPTION 'Reviewer is not authorized' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_decision NOT IN ('approved', 'rejected', 'changes_requested', 'flagged', 'retired') THEN
+    RAISE EXCEPTION 'Unsupported review decision' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO q
+  FROM public.question_bank
+  WHERE id = p_question_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Question not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  IF NOT (
+    (q.review_state = 'pending_review' AND p_decision IN ('approved', 'rejected', 'changes_requested', 'flagged', 'retired'))
+    OR (q.review_state = 'approved' AND p_decision IN ('flagged', 'retired'))
+    OR (q.review_state = 'rejected' AND p_decision IN ('changes_requested', 'retired'))
+    OR (q.review_state = 'flagged' AND p_decision IN ('approved', 'rejected', 'changes_requested', 'retired'))
+  ) THEN
+    RAISE EXCEPTION 'Invalid question review transition: % -> %', q.review_state, p_decision
+      USING ERRCODE = '22023';
+  END IF;
+
+  next_state := CASE p_decision
+    WHEN 'changes_requested' THEN 'pending_review'
+    ELSE p_decision
+  END;
+
+  IF p_decision = 'approved' THEN
+    IF NOT (COALESCE(p_quality_checks, '{}'::JSONB) @> '{"content_reviewed": true, "answer_key_verified": true}'::JSONB) THEN
+      RAISE EXCEPTION 'Approval requires content_reviewed and answer_key_verified reviewer attestations'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF q.question IS NULL OR btrim(q.question) = ''
+       OR q.explanation IS NULL OR btrim(q.explanation) = ''
+       OR q.answer IS NULL OR lower(btrim(q.answer)) NOT IN ('a', 'b', 'c', 'd')
+       OR q.option_a IS NULL OR btrim(q.option_a) = ''
+       OR q.option_b IS NULL OR btrim(q.option_b) = ''
+       OR q.option_c IS NULL OR btrim(q.option_c) = ''
+       OR q.option_d IS NULL OR btrim(q.option_d) = '' THEN
+      RAISE EXCEPTION 'Question content is incomplete or answer key is invalid'
+        USING ERRCODE = '23514';
+    END IF;
+
+    SELECT count(DISTINCT lower(regexp_replace(btrim(value), '\\s+', ' ', 'g')))
+      INTO option_count
+    FROM unnest(ARRAY[q.option_a, q.option_b, q.option_c, q.option_d]) AS value;
+    IF option_count <> 4 THEN
+      RAISE EXCEPTION 'Answer options must be distinct' USING ERRCODE = '23514';
+    END IF;
+
+    SELECT provenance_status INTO provenance_state
+    FROM public.question_provenance
+    WHERE question_id = p_question_id;
+
+    IF provenance_state IS DISTINCT FROM 'verified' THEN
+      RAISE EXCEPTION 'Question provenance must be verified before approval'
+        USING ERRCODE = '23514';
+    END IF;
+
+    SELECT t.verification_status, st.verification_status
+      INTO topic_state, subtopic_state
+    FROM public.jamb_topics t
+    JOIN public.jamb_subtopics st ON st.topic_id = t.id
+    WHERE t.id = q.topic_id AND st.id = q.subtopic_id;
+
+    IF topic_state IS DISTINCT FROM 'verified' OR subtopic_state IS DISTINCT FROM 'verified' THEN
+      RAISE EXCEPTION 'Question topic and subtopic must be verified before approval'
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.question_bank_versions
+      WHERE question_id = p_question_id AND version_number = q.current_version
+    ) THEN
+      RAISE EXCEPTION 'Current question version snapshot is missing'
+        USING ERRCODE = '23514';
+    END IF;
+  END IF;
+
+  UPDATE public.question_bank
+  SET review_state = next_state,
+      status = CASE WHEN p_decision = 'approved' THEN 'published' ELSE status END,
+      updated_at = NOW()
+  WHERE id = p_question_id;
+
+  UPDATE public.question_bank_versions
+  SET review_state = next_state
+  WHERE question_id = p_question_id AND version_number = q.current_version;
+
+  INSERT INTO public.question_review_events
+    (question_id, version_number, decision, reviewer_id, reviewer_role, comments, quality_checks)
+  VALUES
+    (p_question_id, q.current_version, p_decision, p_reviewer_id, p_reviewer_role, p_comments,
+     COALESCE(p_quality_checks, '{}'::JSONB));
+
+  RETURN jsonb_build_object(
+    'question_id', p_question_id,
+    'version_number', q.current_version,
+    'decision', p_decision,
+    'review_state', next_state
+  );
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.review_question_bank_item(TEXT, TEXT, UUID, TEXT, TEXT, JSONB)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.review_question_bank_item(TEXT, TEXT, UUID, TEXT, TEXT, JSONB)
+  TO service_role;
+
 COMMIT;
