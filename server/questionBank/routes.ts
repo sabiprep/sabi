@@ -14,6 +14,13 @@ const questionVersionBodySchema = z.strictObject({
   changeReason: z.string().trim().min(5).max(500),
   question: questionDraftSchema,
 });
+const provenanceVerificationBodySchema = z.strictObject({
+  sourceLabel: z.string().trim().min(1).max(500),
+  sourceUrl: z.string().trim().url().max(2000).refine((value) => /^https?:\\/\\//i.test(value), 'Source URL must use HTTP or HTTPS.'),
+  sourceType: z.enum(['official_exam', 'publisher', 'contributor', 'ai_generated', 'other']),
+  attribution: z.string().trim().min(2).max(1000),
+  evidenceNote: z.string().trim().min(20).max(4000),
+});
 const resolveFlagBodySchema = z.strictObject({
   status: z.enum(['resolved', 'dismissed']),
   resolutionNote: z.string().trim().max(2000).optional(),
@@ -319,7 +326,7 @@ router.post('/flags/:flagId/resolve', requireAuth, requireRole(...contentRoles),
 router.get('/:questionId', requireAuth, requireRole(...contentRoles), async (req, res) => {
   const { data: question, error } = await supabaseAdmin
     .from('question_bank')
-    .select('id,exam_type,subject,topic,subtopic,topic_id,subtopic_id,year,question,option_a,option_b,option_c,option_d,answer,explanation,explanation_short,difficulty,concepts,source,status,review_state,current_version,created_at,updated_at')
+    .select('id,exam_type,subject,topic,subtopic,topic_id,subtopic_id,year,question,option_a,option_b,option_c,option_d,answer,explanation,explanation_short,difficulty,concepts,source,status,review_state,current_version,created_at,updated_at,topic_record:jamb_topics!question_bank_topic_id_fkey(subject_slug)')
     .eq('id', req.params.questionId)
     .maybeSingle();
 
@@ -329,13 +336,38 @@ router.get('/:questionId', requireAuth, requireRole(...contentRoles), async (req
   }
   if (!question) return res.status(404).json({ error: 'Question not found.' });
 
-  const [{ data: provenance }, { data: reviews }, { data: flags }] = await Promise.all([
+  const [{ data: provenance }, { data: reviews }, { data: flags }, { data: versions }] = await Promise.all([
     supabaseAdmin.from('question_provenance').select('*').eq('question_id', req.params.questionId).maybeSingle(),
     supabaseAdmin.from('question_review_events').select('*').eq('question_id', req.params.questionId).order('created_at', { ascending: false }).limit(20),
+    supabaseAdmin.from('question_bank_versions').select('version_number,content_hash,legacy_status,review_state,change_reason,created_at,created_by').eq('question_id', req.params.questionId).order('version_number', { ascending: false }).limit(30),
     supabaseAdmin.from('question_flags').select('*').eq('question_id', req.params.questionId).order('created_at', { ascending: false }).limit(20),
   ]);
 
-  return res.json({ status: 'success', question, provenance, reviews: reviews ?? [], flags: flags ?? [] });
+  return res.json({ status: 'success', question, provenance, reviews: reviews ?? [], flags: flags ?? [], versions: versions ?? [] });
+});
+
+
+router.post('/:questionId/provenance/verify', requireAuth, requireRole(...contentRoles), validateBody(provenanceVerificationBodySchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { sourceLabel, sourceUrl, sourceType, attribution, evidenceNote } = req.body;
+  const { data, error } = await supabaseAdmin.rpc('verify_question_provenance', {
+    p_question_id: req.params.questionId,
+    p_source_label: sourceLabel,
+    p_source_url: sourceUrl,
+    p_source_type: sourceType,
+    p_attribution: attribution,
+    p_evidence_note: evidenceNote,
+    p_actor_id: authReq.user!.id,
+    p_actor_role: authReq.role!,
+  });
+  if (error) {
+    const status = error.code === 'P0002' ? 404
+      : error.code === '42501' ? 403
+      : error.code === '22023' ? 400
+      : 503;
+    return res.status(status).json({ error: error.message || 'Source verification could not be recorded.' });
+  }
+  return res.json({ status: 'verified', provenance: data });
 });
 
 router.post('/:questionId/review', requireAuth, requireRole(...contentRoles), validateBody(questionReviewBodySchema), async (req, res) => {
