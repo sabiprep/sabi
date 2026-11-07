@@ -116,6 +116,7 @@ BEGIN
   LIMIT 1;
 
   SELECT question INTO old_question FROM public.question_bank WHERE id = 'BIO-001';
+  UPDATE public.question_provenance SET provenance_status = 'verified' WHERE question_id = 'BIO-001';
   result := public.create_question_bank_version(
     'BIO-001',
     jsonb_build_object(
@@ -147,6 +148,9 @@ BEGIN
   IF (SELECT payload->>'question' FROM public.question_bank_versions
       WHERE question_id = 'BIO-001' AND version_number = 1) IS DISTINCT FROM old_question THEN
     RAISE EXCEPTION 'Previous question version was modified by correction';
+  END IF;
+  IF (SELECT provenance_status FROM public.question_provenance WHERE question_id = 'BIO-001') <> 'unverified' THEN
+    RAISE EXCEPTION 'Content revision did not invalidate previous provenance verification';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.question_bank_versions
