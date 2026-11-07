@@ -121,7 +121,8 @@ function loadServer(): Promise<LoadedServer> {
   if (!pendingServer) {
     // Vercel's function bundle does not retain the root TypeScript entry as a
     // runtime file. The build script emits this bundled CommonJS server artifact.
-    const serverBundlePath: string = '../dist/server.cjs';
+    const serverBundlePath: string =
+      process.env.NODE_ENV === 'test' ? '../server.ts' : '../dist/server.cjs';
     pendingServer = import(serverBundlePath).then(module => {
       const app = (module as { app?: ExpressApp }).app;
 
