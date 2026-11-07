@@ -41,6 +41,20 @@ function authenticatedUser(req: Request): string | null {
   return (req as AuthenticatedRequest).user?.id || null;
 }
 
+
+router.get('/exam-configurations', requireAuth, async (_req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('exam_configurations')
+    .select('key, title, question_count, duration_seconds, total_subjects, compulsory_subject_slug, optional_subject_count')
+    .eq('is_active', true)
+    .order('question_count', { ascending: true });
+  if (error) {
+    console.error('[SABI] Exam configuration lookup failed:', error.message);
+    return res.status(503).json({ error: 'Exam configurations are temporarily unavailable.' });
+  }
+  return res.json({ configurations: data || [] });
+});
+
 router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (req, res) => {
   const userId = authenticatedUser(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
@@ -103,12 +117,15 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       ];
 
       for (const section of sections) {
+        const questionBankSubject = section.subject.slug === examConfig.compulsory_subject_slug
+          ? 'Use of English'
+          : section.subject.display_name;
         const { data: subjectQuestions, error: subjectError } = await supabaseAdmin
           .from('question_bank')
           .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
           .eq('exam_type', 'UTME')
           .eq('status', 'published')
-          .ilike('subject', section.subject.display_name)
+          .ilike('subject', questionBankSubject)
           .limit(1000);
 
         if (subjectError) {
