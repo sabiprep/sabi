@@ -187,9 +187,9 @@ export function QuestionBankAdminPage() {
     if (!importReport?.batchId || importReport.validRows !== importReport.totalRows || importReport.invalidRows || importReport.duplicateRows) return;
     setBusy(true); setError(''); setNotice('');
     try {
-      const result = await requestJson(\`/api/question-bank/import/\${importReport.batchId}/commit\`, { method: 'POST' });
+      const result = await requestJson(`/api/question-bank/import/${importReport.batchId}/commit`, { method: 'POST' });
       setImportReport((previous: any) => ({ ...previous, commitResult: result }));
-      setNotice(\`Imported \${result.imported_count} questions as drafts. They are not published and still require source verification and human review.\`);
+      setNotice(`Imported ${result.imported_count} questions as drafts. They are not published and still require source verification and human review.`);
     } catch (err) { setError(err instanceof Error ? err.message : 'The validated batch could not be committed.'); }
     finally { setBusy(false); }
   }
