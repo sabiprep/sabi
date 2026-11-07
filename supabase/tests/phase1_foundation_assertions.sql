@@ -188,6 +188,13 @@ BEGIN
     END LOOP;
   END LOOP;
 
+  IF has_table_privilege('anon', 'public.question_bank', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.question_bank', 'SELECT')
+     OR has_table_privilege('anon', 'public.question_bank', 'TRUNCATE')
+     OR has_table_privilege('authenticated', 'public.question_bank', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'Question bank is not server-only';
+  END IF;
+
   IF has_table_privilege('anon', 'public.audit_logs', 'SELECT')
      OR has_table_privilege('authenticated', 'public.audit_logs', 'SELECT')
      OR has_table_privilege('anon', 'public.audit_logs', 'TRUNCATE')
