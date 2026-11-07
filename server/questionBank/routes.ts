@@ -327,7 +327,7 @@ router.post('/flags/:flagId/resolve', requireAuth, requireRole(...contentRoles),
 router.get('/:questionId', requireAuth, requireRole(...contentRoles), async (req, res) => {
   const { data: question, error } = await supabaseAdmin
     .from('question_bank')
-    .select('id,exam_type,subject,topic,subtopic,topic_id,subtopic_id,year,question,option_a,option_b,option_c,option_d,answer,explanation,explanation_short,difficulty,concepts,source,status,review_state,current_version,created_at,updated_at,topic_record:jamb_topics!question_bank_topic_id_fkey(subject_slug)')
+    .select('id,exam_type,subject,topic,subtopic,topic_id,subtopic_id,year,question,option_a,option_b,option_c,option_d,answer,explanation,explanation_short,difficulty,concepts,source,status,review_state,current_version,created_at,updated_at,topic_record:jamb_topics!question_bank_topic_id_fkey(subject_slug,verification_status,is_active),subtopic_record:jamb_subtopics!question_bank_subtopic_id_fkey(verification_status,is_active)')
     .eq('id', req.params.questionId)
     .maybeSingle();
 
