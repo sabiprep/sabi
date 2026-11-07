@@ -1,0 +1,2 @@
+alter table public.learning_sessions drop constraint if exists learning_sessions_total_questions_check;
+alter table public.learning_sessions add constraint learning_sessions_total_questions_check check (total_questions between 1 and 180);
