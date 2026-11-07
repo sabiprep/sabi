@@ -9,7 +9,8 @@ REVOKE ALL PRIVILEGES ON TABLE
   public.exam_configuration_subjects,
   public.course_subject_combinations,
   public.course_subject_combination_subjects,
-  public.audit_logs
+  public.audit_logs,
+  public.question_bank
 FROM PUBLIC, anon, authenticated;
 
 -- Academic catalogues are intentionally public-read only. RLS still filters
