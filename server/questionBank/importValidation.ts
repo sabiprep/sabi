@@ -20,7 +20,8 @@ export type QuestionImportReport = {
  */
 export function validateQuestionImport(
   rows: unknown[],
-  existingFingerprints: ReadonlyMap<string, string> = new Map()
+  existingFingerprints: ReadonlyMap<string, string> = new Map(),
+  validTaxonomyRefs?: ReadonlySet<string>
 ): QuestionImportReport {
   const seenInBatch = new Map<string, number>();
   const results: QuestionImportRowResult[] = rows.map((raw, index) => {
@@ -28,6 +29,19 @@ export function validateQuestionImport(
     const validated = validateQuestionDraft(raw);
     if (!validated.valid) {
       return { rowNumber, outcome: 'invalid', errors: validated.issues };
+    }
+
+    const taxonomyKey = `${validated.value.subjectSlug}:${validated.value.topicId}:${validated.value.subtopicId}`;
+    if (validTaxonomyRefs && !validTaxonomyRefs.has(taxonomyKey)) {
+      return {
+        rowNumber,
+        outcome: 'invalid',
+        errors: [{
+          code: 'invalid_taxonomy_reference',
+          field: 'topicId/subtopicId',
+          message: 'The selected topic and subtopic do not belong to the selected JAMB subject.',
+        }],
+      };
     }
 
     const existingId = existingFingerprints.get(validated.fingerprint);
