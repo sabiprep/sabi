@@ -1,0 +1,66 @@
+-- Phase 2 question-bank lifecycle assertions (disposable PostgreSQL only).
+DO $$
+DECLARE
+  source_count BIGINT;
+  version_count BIGINT;
+  provenance_count BIGINT;
+  pending_count BIGINT;
+  approved_count BIGINT;
+  payload_mismatches BIGINT;
+  rls_missing BIGINT;
+BEGIN
+  SELECT count(*) INTO source_count FROM public.question_bank;
+  SELECT count(*) INTO version_count FROM public.question_bank_versions WHERE version_number = 1;
+  SELECT count(*) INTO provenance_count FROM public.question_provenance;
+  SELECT count(*) INTO pending_count FROM public.question_bank WHERE review_state = 'pending_review';
+  SELECT count(*) INTO approved_count FROM public.question_bank WHERE review_state = 'approved';
+  SELECT count(*) INTO payload_mismatches
+  FROM public.question_bank q
+  JOIN public.question_bank_versions v
+    ON v.question_id = q.id AND v.version_number = 1
+  WHERE v.payload->>'status' IS DISTINCT FROM q.status
+     OR v.content_hash IS DISTINCT FROM md5(v.payload::text);
+
+  SELECT count(*) INTO rls_missing
+  FROM (VALUES
+    ('question_bank_versions'),
+    ('question_provenance'),
+    ('question_review_events'),
+    ('question_flags'),
+    ('question_import_batches'),
+    ('question_import_rows')
+  ) AS expected(table_name)
+  JOIN pg_class c ON c.oid = format('public.%I', expected.table_name)::regclass
+  WHERE NOT c.relrowsecurity;
+
+  IF version_count <> source_count THEN
+    RAISE EXCEPTION 'Expected one baseline version per question: source %, versions %', source_count, version_count;
+  END IF;
+  IF provenance_count <> source_count THEN
+    RAISE EXCEPTION 'Expected one provenance record per legacy question: source %, provenance %', source_count, provenance_count;
+  END IF;
+  IF pending_count <> source_count OR approved_count <> 0 THEN
+    RAISE EXCEPTION 'Legacy questions must remain pending review: pending %, approved %, source %',
+      pending_count, approved_count, source_count;
+  END IF;
+  IF payload_mismatches <> 0 THEN
+    RAISE EXCEPTION 'Baseline snapshots do not match legacy records: % mismatches', payload_mismatches;
+  END IF;
+  IF rls_missing <> 0 THEN
+    RAISE EXCEPTION 'RLS is missing from % Phase 2 tables', rls_missing;
+  END IF;
+
+  IF has_table_privilege('anon', 'public.question_bank', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.question_bank', 'SELECT') THEN
+    RAISE EXCEPTION 'Question bank must remain inaccessible to client roles';
+  END IF;
+  IF has_table_privilege('anon', 'public.question_bank_versions', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.question_bank_versions', 'SELECT') THEN
+    RAISE EXCEPTION 'Question versions must remain inaccessible to client roles';
+  END IF;
+  IF NOT has_table_privilege('service_role', 'public.question_bank', 'SELECT')
+     OR NOT has_table_privilege('service_role', 'public.question_bank_versions', 'SELECT') THEN
+    RAISE EXCEPTION 'service_role must retain question-bank read access';
+  END IF;
+END
+$$;
