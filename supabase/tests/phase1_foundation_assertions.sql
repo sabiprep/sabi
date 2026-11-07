@@ -125,7 +125,9 @@ $$;
 
 -- Prove an authenticated PostgREST-style caller cannot promote their own role.
 INSERT INTO public.profiles (id, email, sabi_unique_id)
-VALUES ('22222222-2222-4222-8222-222222222222', 'rls-regression@sabi.test', '9876Z')
+VALUES
+  ('22222222-2222-4222-8222-222222222222', 'rls-regression@sabi.test', '9876Z'),
+  ('33333333-3333-4333-8333-333333333333', 'other-student@sabi.test', '9876Y')
 ON CONFLICT (id) DO NOTHING;
 
 SET SESSION AUTHORIZATION authenticator;
@@ -136,7 +138,24 @@ SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222
 DO $$
 DECLARE
   role_change_blocked boolean := false;
+  other_visible integer := 0;
+  affected integer := 0;
 BEGIN
+  SELECT count(*) INTO other_visible
+  FROM public.profiles
+  WHERE id = '33333333-3333-4333-8333-333333333333';
+  IF other_visible <> 0 THEN
+    RAISE EXCEPTION 'SECURITY FAILURE: authenticated candidate read another student profile';
+  END IF;
+
+  UPDATE public.profiles
+  SET target_score = 330
+  WHERE id = '33333333-3333-4333-8333-333333333333';
+  GET DIAGNOSTICS affected = ROW_COUNT;
+  IF affected <> 0 THEN
+    RAISE EXCEPTION 'SECURITY FAILURE: authenticated candidate updated another student profile';
+  END IF;
+
   BEGIN
     UPDATE public.profiles
     SET role = 'ADMIN'
