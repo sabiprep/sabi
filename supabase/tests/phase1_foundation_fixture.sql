@@ -6,6 +6,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN BYPASSRLS; END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticator') THEN CREATE ROLE authenticator NOLOGIN; END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_admin') THEN CREATE ROLE supabase_admin NOLOGIN BYPASSRLS; END IF;
 END
 $$;
 GRANT authenticated TO authenticator;
@@ -17,6 +18,17 @@ RETURNS uuid LANGUAGE sql STABLE AS $$
 $$;
 GRANT USAGE ON SCHEMA auth TO PUBLIC;
 GRANT EXECUTE ON FUNCTION auth.uid() TO PUBLIC;
+
+-- Reproduce the overly broad default ACLs observed in the live project so the
+-- hardening migration proves it removes both existing and future exposure.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT ALL ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
+  GRANT ALL ON SEQUENCES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+  GRANT ALL ON TABLES TO anon, authenticated;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public
+  GRANT ALL ON SEQUENCES TO anon, authenticated;
 
 CREATE TABLE auth.users (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,6 +64,31 @@ CREATE TABLE public.profiles (
   role text NOT NULL DEFAULT 'STUDENT',
   CONSTRAINT profiles_role_check CHECK (role IN ('STUDENT','SUPPORT','ANALYST','CONTENT_MANAGER','ADMIN','MASTER_ADMIN'))
 );
+
+CREATE TABLE public.audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  action text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Admins can read audit logs" ON public.audit_logs FOR SELECT TO PUBLIC
+  USING (EXISTS (
+    SELECT 1 FROM public.profiles p WHERE p.id = auth.uid()
+      AND p.role IN ('ADMIN', 'MASTER_ADMIN')
+  ));
+
+CREATE TABLE public.question_bank (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject text NOT NULL,
+  topic text,
+  subtopic text
+);
+ALTER TABLE public.question_bank ENABLE ROW LEVEL SECURITY;
+INSERT INTO public.question_bank(subject, topic, subtopic) VALUES
+  ('Biology', 'Adaptation', 'Adaptations in animals'),
+  ('Chemistry', 'Acids and Bases', 'Acid-base indicators'),
+  ('C.R.S', 'Abraham and the Patriarchs', 'Abraham'),
+  ('Use of English', 'Comprehension', 'Main idea');
 
 CREATE OR REPLACE FUNCTION public.enforce_profile_protected_columns()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
