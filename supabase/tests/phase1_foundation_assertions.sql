@@ -266,7 +266,7 @@ BEGIN
     CROSS JOIN LATERAL aclexplode(d.defaclacl) a
     JOIN pg_roles grantee ON grantee.oid = a.grantee
     WHERE d.defaclnamespace = 'public'::regnamespace
-      AND owner_role.rolname IN ('postgres','supabase_admin')
+      AND owner_role.rolname = 'postgres'
       AND grantee.rolname IN ('anon','authenticated')
       AND d.defaclobjtype IN ('r','S')
   ) THEN
