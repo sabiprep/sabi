@@ -175,6 +175,149 @@ REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE public.question_bank FROM service_
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.question_bank TO service_role;
 
 
+-- Corrections create a new immutable snapshot and return the question to review.
+CREATE OR REPLACE FUNCTION public.create_question_bank_version(
+  p_question_id TEXT,
+  p_payload JSONB,
+  p_change_reason TEXT,
+  p_actor_id UUID,
+  p_actor_role TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  q public.question_bank%ROWTYPE;
+  next_version INTEGER;
+  subject_display TEXT;
+  topic_name TEXT;
+  subtopic_name TEXT;
+  option_count INTEGER;
+BEGIN
+  IF p_actor_id IS NULL OR p_actor_role IS NULL
+     OR p_actor_role NOT IN ('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN') THEN
+    RAISE EXCEPTION 'Question editor is not authorized' USING ERRCODE = '42501';
+  END IF;
+
+  IF p_payload IS NULL OR jsonb_typeof(p_payload) <> 'object'
+     OR p_change_reason IS NULL OR length(btrim(p_change_reason)) < 5
+     OR length(p_change_reason) > 500 THEN
+    RAISE EXCEPTION 'A valid question payload and change reason are required'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT * INTO q
+  FROM public.question_bank
+  WHERE id = p_question_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Question not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  IF p_payload->>'question' IS NULL OR length(btrim(p_payload->>'question')) < 8
+     OR p_payload->>'explanation' IS NULL OR length(btrim(p_payload->>'explanation')) < 8
+     OR lower(p_payload->>'answer') NOT IN ('a', 'b', 'c', 'd')
+     OR p_payload->>'difficulty' NOT IN ('easy', 'medium', 'hard')
+     OR p_payload->'options' IS NULL
+     OR p_payload->'options'->>'A' IS NULL OR btrim(p_payload->'options'->>'A') = ''
+     OR p_payload->'options'->>'B' IS NULL OR btrim(p_payload->'options'->>'B') = ''
+     OR p_payload->'options'->>'C' IS NULL OR btrim(p_payload->'options'->>'C') = ''
+     OR p_payload->'options'->>'D' IS NULL OR btrim(p_payload->'options'->>'D') = '' THEN
+    RAISE EXCEPTION 'Question payload is incomplete or has an invalid answer key'
+      USING ERRCODE = '23514';
+  END IF;
+
+  SELECT count(DISTINCT lower(regexp_replace(btrim(option_value), '[[:space:]]+', ' ', 'g')))
+    INTO option_count
+  FROM unnest(ARRAY[
+    p_payload->'options'->>'A',
+    p_payload->'options'->>'B',
+    p_payload->'options'->>'C',
+    p_payload->'options'->>'D'
+  ]) AS options(option_value);
+  IF option_count <> 4 THEN
+    RAISE EXCEPTION 'Answer options must be distinct' USING ERRCODE = '23514';
+  END IF;
+
+  SELECT js.display_name, t.name, st.name
+    INTO subject_display, topic_name, subtopic_name
+  FROM public.jamb_subjects js
+  JOIN public.jamb_topics t ON t.subject_slug = js.slug
+  JOIN public.jamb_subtopics st ON st.topic_id = t.id
+  WHERE js.slug = p_payload->>'subjectSlug'
+    AND t.id = (p_payload->>'topicId')::UUID
+    AND st.id = (p_payload->>'subtopicId')::UUID
+    AND t.is_active = TRUE
+    AND st.is_active = TRUE;
+
+  IF subject_display IS NULL OR topic_name IS NULL OR subtopic_name IS NULL THEN
+    RAISE EXCEPTION 'Question subject, topic and subtopic must be valid and correctly related'
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.question_bank_versions
+    WHERE question_id = p_question_id AND version_number = q.current_version
+  ) THEN
+    RAISE EXCEPTION 'Current question version snapshot is missing'
+      USING ERRCODE = '23514';
+  END IF;
+
+  next_version := q.current_version + 1;
+
+  UPDATE public.question_bank
+  SET exam_type = COALESCE(p_payload->>'examType', q.exam_type),
+      subject = subject_display,
+      topic = topic_name,
+      subtopic = subtopic_name,
+      year = COALESCE((p_payload->>'year')::INTEGER, q.year),
+      question = p_payload->>'question',
+      option_a = p_payload->'options'->>'A',
+      option_b = p_payload->'options'->>'B',
+      option_c = p_payload->'options'->>'C',
+      option_d = p_payload->'options'->>'D',
+      answer = lower(p_payload->>'answer'),
+      explanation = p_payload->>'explanation',
+      explanation_short = NULLIF(p_payload->>'explanationShort', ''),
+      difficulty = p_payload->>'difficulty',
+      concepts = ARRAY(SELECT jsonb_array_elements_text(COALESCE(p_payload->'concepts', '[]'::JSONB))),
+      topic_id = (p_payload->>'topicId')::UUID,
+      subtopic_id = (p_payload->>'subtopicId')::UUID,
+      current_version = next_version,
+      review_state = 'pending_review',
+      status = 'ai-draft',
+      updated_at = NOW()
+  WHERE id = p_question_id
+  RETURNING * INTO q;
+
+  INSERT INTO public.question_bank_versions
+    (question_id, version_number, payload, content_hash, legacy_status, review_state, change_reason, created_by)
+  VALUES
+    (q.id, next_version, to_jsonb(q), md5(to_jsonb(q)::text), q.status, 'pending_review', p_change_reason, p_actor_id);
+
+  INSERT INTO public.question_review_events
+    (question_id, version_number, decision, reviewer_id, reviewer_role, comments, quality_checks)
+  VALUES
+    (q.id, next_version, 'submitted', p_actor_id, p_actor_role, p_change_reason,
+     '{"content_valid": true, "requires_review": true}'::JSONB);
+
+  RETURN jsonb_build_object(
+    'question_id', q.id,
+    'version_number', next_version,
+    'review_state', 'pending_review',
+    'status', 'ai-draft'
+  );
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.create_question_bank_version(TEXT, JSONB, TEXT, UUID, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_question_bank_version(TEXT, JSONB, TEXT, UUID, TEXT)
+  TO service_role;
+
 -- Atomic, server-only review transition. Approval requires a human reviewer
 -- attestation plus verified provenance and syllabus taxonomy in the database.
 CREATE OR REPLACE FUNCTION public.review_question_bank_item(
