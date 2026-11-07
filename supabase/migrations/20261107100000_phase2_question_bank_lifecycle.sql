@@ -539,7 +539,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $phase2$
 DECLARE
   q public.question_bank%ROWTYPE;
   p public.question_provenance%ROWTYPE;
@@ -604,7 +604,7 @@ BEGIN
     'provenance_status', 'verified'
   );
 END;
-$;
+$phase2$;
 
 REVOKE ALL ON FUNCTION public.verify_question_provenance(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, UUID, TEXT)
   FROM PUBLIC, anon, authenticated;
@@ -627,7 +627,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $phase2$
 DECLARE
   batch_row public.question_import_batches%ROWTYPE;
   import_row public.question_import_rows%ROWTYPE;
@@ -788,7 +788,7 @@ BEGIN
     'review_state', 'pending_review'
   );
 END;
-$;
+$phase2$;
 
 REVOKE ALL ON FUNCTION public.commit_question_import_batch(UUID, UUID, TEXT)
   FROM PUBLIC, anon, authenticated;
@@ -808,7 +808,7 @@ LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $phase2$
 DECLARE
   correct_answer TEXT;
   answer_explanation TEXT;
@@ -844,7 +844,7 @@ BEGIN
     'explanation', answer_explanation
   );
 END;
-$;
+$phase2$;
 
 REVOKE ALL ON FUNCTION public.submit_eligible_question_answer(TEXT, TEXT)
   FROM PUBLIC, anon, authenticated;
