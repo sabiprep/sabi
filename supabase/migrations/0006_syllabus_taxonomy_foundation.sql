@@ -195,6 +195,12 @@ CREATE INDEX IF NOT EXISTS question_bank_subtopic_id_idx ON public.question_bank
 ALTER TABLE public.jamb_syllabus_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.jamb_subtopics ENABLE ROW LEVEL SECURITY;
 
+-- Legacy labels stay private to privileged backend workflows until reviewed.
+DROP POLICY IF EXISTS "Public can read active JAMB topics" ON public.jamb_topics;
+CREATE POLICY "Public can read verified JAMB topics"
+  ON public.jamb_topics FOR SELECT TO anon, authenticated
+  USING (is_active AND verification_status = 'verified');
+
 DROP POLICY IF EXISTS "Public can read verified syllabus versions" ON public.jamb_syllabus_versions;
 CREATE POLICY "Public can read verified syllabus versions"
   ON public.jamb_syllabus_versions FOR SELECT TO anon, authenticated
