@@ -177,7 +177,31 @@ router.post('/import/validate', requireAuth, requireRole(...contentRoles), valid
     if (!data || data.length < pageSize) break;
   }
 
-  const report = validateQuestionImport(rows, existingFingerprints);
+  const validTaxonomyRefs = new Set<string>();
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabaseAdmin
+      .from('jamb_subtopics')
+      .select('id,topic_id,topic:jamb_topics!jamb_subtopics_topic_id_fkey(id,subject_slug)')
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error('[SABI] Question import taxonomy lookup failed:', error.message);
+      return res.status(503).json({ error: 'JAMB topic references could not be validated.' });
+    }
+
+    for (const record of data ?? []) {
+      const row = record as any;
+      const topic = Array.isArray(row.topic) ? row.topic[0] : row.topic;
+      if (topic?.subject_slug && topic?.id && row.id) {
+        validTaxonomyRefs.add(`${topic.subject_slug}:${topic.id}:${row.id}`);
+      }
+    }
+
+    if (!data || data.length < pageSize) break;
+  }
+
+  const report = validateQuestionImport(rows, existingFingerprints, validTaxonomyRefs);
   const { data: batch, error: batchError } = await supabaseAdmin
     .from('question_import_batches')
     .insert({
