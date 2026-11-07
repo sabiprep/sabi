@@ -51,14 +51,25 @@ jobs:
           node --input-type=module -e '
             const rawBase = process.env.VITE_API_BASE_URL;
             const base = rawBase.endsWith("/") ? rawBase.slice(0, -1) : rawBase;
-            const response = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(15000) });
-            const type = response.headers.get("content-type") || "";
-            const body = await response.text();
-            console.log(`SABI API health response: HTTP ${response.status} ${body}`);
-            if (!response.ok || !type.includes("application/json")) {
-              throw new Error(`SABI API health check failed: HTTP ${response.status}, content-type=${type}`);
+            let lastFailure = "No response";
+            for (let attempt = 1; attempt <= 18; attempt += 1) {
+              try {
+                const response = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(15000) });
+                const type = response.headers.get("content-type") || "";
+                const body = await response.text();
+                console.log(`SABI API health attempt ${attempt}: HTTP ${response.status} ${body}`);
+                if (response.ok && type.includes("application/json")) {
+                  console.log(`SABI API health endpoint reachable: ${base}/api/health`);
+                  process.exit(0);
+                }
+                lastFailure = `HTTP ${response.status}, content-type=${type}, body=${body}`;
+              } catch (error) {
+                lastFailure = error instanceof Error ? error.message : String(error);
+                console.log(`SABI API health attempt ${attempt}: ${lastFailure}`);
+              }
+              await new Promise(resolve => setTimeout(resolve, 5000));
             }
-            console.log(`SABI API health endpoint reachable: ${base}/api/health`);
+            throw new Error(`SABI API did not become healthy after waiting for Vercel deployment: ${lastFailure}`);
           '
 
       - name: Build Production Web Bundle, Ensure Android Wrapper & Sync Capacitor
