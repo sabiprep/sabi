@@ -67,7 +67,7 @@ export default function App() {
               <Route path="/progress" element={<ProgressPage />} />
               <Route path="/learning-progress" element={<LearningEvidencePage />} />
               <Route path="/missions" element={<DailyMissionsPage />} />
-              <Route path="/recommendations" element={<MainPage page="Recommendations" />} />
+              <Route path="/recommendations" element={<VerifiedQuestionPracticePage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/menu/:section" element={<MainPage page="SABI" />} />
