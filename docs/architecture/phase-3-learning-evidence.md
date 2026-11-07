@@ -47,11 +47,11 @@ A topic cannot be labelled mastered until at least five attempts. Thresholds are
 
 ## Exit criteria
 
-- [ ] Session lifecycle and ownership tests.
-- [ ] Attempt correctness derives from immutable approved version data.
-- [ ] Idempotency and conflicting event reuse tests.
-- [ ] Topic mastery aggregation and sparse-evidence tests.
-- [ ] RLS/grant and service-only RPC assertions.
-- [ ] Migration application and idempotency pass in disposable PostgreSQL.
-- [ ] API tests prove authentication and client-controlled correctness are rejected.
-- [ ] CI passes; production rollout remains separately gated.
+- [x] Session lifecycle and ownership tests.
+- [x] Attempt correctness derives from immutable approved version data.
+- [x] Idempotency and conflicting event reuse tests.
+- [x] Topic mastery aggregation and sparse-evidence tests.
+- [x] RLS/grant and service-only RPC assertions.
+- [x] Migration application and idempotency pass in disposable PostgreSQL.
+- [x] API tests prove authentication and client-controlled correctness are rejected.
+- [x] CI passes; production rollout remains separately gated.
