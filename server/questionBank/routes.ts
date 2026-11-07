@@ -5,11 +5,15 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAut
 import { requireRole } from '../middleware/requireRole';
 import { validateBody } from '../middleware/validate';
 import { questionReviewBodySchema } from './workflow';
-import { createQuestionFingerprint } from './validation';
+import { createQuestionFingerprint, questionDraftSchema } from './validation';
 import { validateQuestionImport } from './importValidation';
 
 const router = Router();
 const contentRoles = ['CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'] as const;
+const questionVersionBodySchema = z.strictObject({
+  changeReason: z.string().trim().min(5).max(500),
+  question: questionDraftSchema,
+});
 const resolveFlagBodySchema = z.strictObject({
   status: z.enum(['resolved', 'dismissed']),
   resolutionNote: z.string().trim().max(2000).optional(),
@@ -49,6 +53,29 @@ router.get('/eligible', requireAuth, async (req, res) => {
 
   // The RPC deliberately never returns the answer key or explanation.
   return res.json({ status: 'success', questions: data ?? [], limit, offset });
+});
+
+router.post('/:questionId/versions', requireAuth, requireRole(...contentRoles), validateBody(questionVersionBodySchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { changeReason, question } = req.body;
+  const { data, error } = await supabaseAdmin.rpc('create_question_bank_version', {
+    p_question_id: req.params.questionId,
+    p_payload: question,
+    p_change_reason: changeReason,
+    p_actor_id: authReq.user!.id,
+    p_actor_role: authReq.role!,
+  });
+
+  if (error) {
+    const status = error.code === 'P0002' ? 404
+      : error.code === '42501' ? 403
+      : error.code === '22023' ? 400
+      : error.code === '23514' ? 422
+      : 503;
+    return res.status(status).json({ error: error.message || 'A new question version could not be created.' });
+  }
+
+  return res.status(201).json({ status: 'submitted_for_review', version: data });
 });
 
 router.post('/:questionId/flag', requireAuth, validateBody(questionFlagBodySchema), async (req, res) => {
