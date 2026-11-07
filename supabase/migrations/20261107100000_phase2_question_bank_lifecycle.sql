@@ -91,6 +91,9 @@ CREATE TABLE IF NOT EXISTS public.question_flags (
 );
 CREATE INDEX IF NOT EXISTS question_flags_open_created_idx
   ON public.question_flags(status, created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS question_flags_reporter_open_unique_idx
+  ON public.question_flags(question_id, version_number, reporter_id, reason)
+  WHERE status = 'open' AND reporter_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS public.question_import_batches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
