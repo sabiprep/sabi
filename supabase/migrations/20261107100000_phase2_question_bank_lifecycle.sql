@@ -305,4 +305,46 @@ REVOKE ALL ON FUNCTION public.review_question_bank_item(TEXT, TEXT, UUID, TEXT, 
 GRANT EXECUTE ON FUNCTION public.review_question_bank_item(TEXT, TEXT, UUID, TEXT, TEXT, JSONB)
   TO service_role;
 
+
+-- Student-facing retrieval returns only fully approved content and never
+-- includes the authoritative answer key or explanation.
+CREATE OR REPLACE FUNCTION public.get_eligible_question_bank(
+  p_subject_slug TEXT DEFAULT NULL,
+  p_limit INTEGER DEFAULT 20,
+  p_offset INTEGER DEFAULT 0
+)
+RETURNS TABLE (
+  id TEXT, subject TEXT, topic TEXT, subtopic TEXT, year INTEGER,
+  question TEXT, option_a TEXT, option_b TEXT, option_c TEXT, option_d TEXT,
+  difficulty TEXT
+)
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+  SELECT q.id, q.subject, q.topic, q.subtopic, q.year, q.question,
+         q.option_a, q.option_b, q.option_c, q.option_d, q.difficulty
+  FROM public.question_bank q
+  JOIN public.question_provenance p ON p.question_id = q.id
+  JOIN public.jamb_topics t ON t.id = q.topic_id
+  JOIN public.jamb_subtopics st ON st.id = q.subtopic_id AND st.topic_id = t.id
+  WHERE q.status = 'published'
+    AND q.review_state = 'approved'
+    AND p.provenance_status = 'verified'
+    AND t.verification_status = 'verified'
+    AND st.verification_status = 'verified'
+    AND t.is_active = TRUE
+    AND st.is_active = TRUE
+    AND (p_subject_slug IS NULL OR t.subject_slug = p_subject_slug)
+  ORDER BY q.id
+  LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100)
+  OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+$;
+
+REVOKE ALL ON FUNCTION public.get_eligible_question_bank(TEXT, INTEGER, INTEGER)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_eligible_question_bank(TEXT, INTEGER, INTEGER)
+  TO service_role;
+
 COMMIT;
