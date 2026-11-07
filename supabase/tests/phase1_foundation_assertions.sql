@@ -245,6 +245,20 @@ BEGIN
     RAISE EXCEPTION 'Privileged server access was unintentionally removed';
   END IF;
 
+  IF has_sequence_privilege('anon', 'public.audit_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('anon', 'public.audit_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('anon', 'public.audit_logs_id_seq', 'UPDATE')
+     OR has_sequence_privilege('authenticated', 'public.audit_logs_id_seq', 'USAGE')
+     OR has_sequence_privilege('authenticated', 'public.audit_logs_id_seq', 'SELECT')
+     OR has_sequence_privilege('authenticated', 'public.audit_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Client roles retain existing sequence privileges';
+  END IF;
+
+  IF NOT has_sequence_privilege('service_role', 'public.audit_logs_id_seq', 'USAGE')
+     OR NOT has_sequence_privilege('service_role', 'public.audit_logs_id_seq', 'UPDATE') THEN
+    RAISE EXCEPTION 'Privileged sequence access was unintentionally removed';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM pg_default_acl d
