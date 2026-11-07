@@ -6,7 +6,8 @@
   "functions": {
     "api/index.ts": {
       "memory": 1024,
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "dist/server.cjs"
     }
   },
   "rewrites": [
