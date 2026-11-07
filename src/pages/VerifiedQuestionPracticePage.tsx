@@ -9,6 +9,7 @@ type EligibleQuestion = {
   difficulty?: string;
 };
 type Evaluation = { is_correct: boolean; correct_answer: string; explanation: string; mastery_state: string; mastery_score: number; evidence_confidence: number };
+type SessionSummary = { performance: { attempts: number; correct: number; incorrect: number; accuracy: number; averageResponseTimeMs: number | null } };
 const subjects = [
   { label: 'All subjects', value: '' },
   { label: 'English Language', value: 'use-of-english' },
@@ -42,11 +43,12 @@ export function VerifiedQuestionPracticePage() {
   const [flagOpen, setFlagOpen] = useState(false);
   const [flagReason, setFlagReason] = useState('wrong_answer');
   const [flagDetails, setFlagDetails] = useState('');
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const sessionId = useRef<string | null>(null);
   const questionStartedAt = useRef(Date.now());
 
   const loadQuestions = useCallback(async () => {
-    setLoading(true); setError(''); setNotice(''); setEvaluation(null); setAnswer(''); setIndex(0);
+    setLoading(true); setError(''); setNotice(''); setEvaluation(null); setAnswer(''); setIndex(0); setSessionSummary(null);
     try {
       const params = new URLSearchParams({ limit: '30' });
       if (subject) params.set('subject', subject);
@@ -96,10 +98,13 @@ export function VerifiedQuestionPracticePage() {
   async function nextQuestion() {
     if (index + 1 >= questions.length) {
       if (sessionId.current) {
-        await requestJson(`/api/learning/sessions/${sessionId.current}/complete`, {
+        const completedId = sessionId.current;
+        await requestJson(`/api/learning/sessions/${completedId}/complete`, {
           method: 'POST', body: JSON.stringify({ status: 'completed' }),
         }).catch(() => undefined);
         sessionId.current = null;
+        try { setSessionSummary(await requestJson(`/api/learning/sessions/${completedId}/summary`)); }
+        catch { setSessionSummary(null); }
       }
       setNotice('You have reached the end of this verified question set. Your learning evidence has been saved.');
       return;
@@ -139,6 +144,7 @@ export function VerifiedQuestionPracticePage() {
 
         {error && <div role="alert" className="mb-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200"><CircleAlert size={17}/>{error}</div>}
         {notice && <div role="status" className="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200">{notice}</div>}
+        {sessionSummary && <section className="mb-4 rounded-2xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-slate-900"><h2 className="font-black">Session performance</h2><div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">{[['Questions',sessionSummary.performance.attempts],['Correct',sessionSummary.performance.correct],['Incorrect',sessionSummary.performance.incorrect],['Accuracy',`${Math.round(sessionSummary.performance.accuracy * 100)}%`]].map(([label,value])=><div key={label}><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-xl font-black">{value}</p></div>)}</div><p className="mt-3 text-xs text-slate-500">Average response time: {sessionSummary.performance.averageResponseTimeMs === null ? '—' : `${(sessionSummary.performance.averageResponseTimeMs / 1000).toFixed(1)}s`}</p></section>}
         {loading && !current && <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center dark:border-slate-800 dark:bg-slate-900"><LoaderCircle className="mx-auto animate-spin"/><p className="mt-3 text-sm text-slate-500">Loading verified questions…</p></div>}
         {!loading && !current && !error && <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-slate-700 dark:bg-slate-900"><ShieldCheck className="mx-auto text-blue-600" size={30}/><h2 className="mt-3 font-black">No verified questions available yet</h2><p className="mt-2 text-sm text-slate-500">The question pool is intentionally strict. Content managers must verify the source and syllabus before a question appears here.</p></div>}
         {current && <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-7">
