@@ -36,11 +36,13 @@ Every existing question receives a version-1 snapshot and provenance record. Exi
 
 - Shared Zod schema rejects unknown/protected fields, validates subject/taxonomy IDs, four distinct options, answer key, explanation and metadata.
 - Normalized SHA-256 fingerprints support duplicate detection without deleting or auto-merging records.
+- Dry-run import validation compares against the existing question bank and within-batch fingerprints, then persists row-level validation/duplicate reports without importing or changing questions.
 - Review transitions are explicit and terminal retirement cannot be reversed.
 - Atomic `review_question_bank_item` RPC writes the decision and history in one transaction.
 - Approval requires reviewer attestations, complete content, a valid answer key, four distinct options, verified provenance and verified topic/subtopic taxonomy.
-- `GET /api/question-bank/review-queue` and `GET /api/question-bank/:questionId` are restricted to content managers and administrators.
-- `POST /api/question-bank/:questionId/review` is restricted to content managers and administrators.
+- `GET /api/question-bank/review-queue`, `GET /api/question-bank/flag-queue` and `GET /api/question-bank/:questionId` are restricted to content managers and administrators.
+- `POST /api/question-bank/:questionId/review`, `POST /api/question-bank/flags/:flagId/resolve` and `POST /api/question-bank/import/validate` are restricted to content managers and administrators.
+- `POST /api/question-bank/:questionId/flag` lets authenticated students report issues against the currently approved question version. Duplicate open flags from the same reporter/reason are blocked.
 - `GET /api/question-bank/eligible` requires authentication and returns only fully approved, provenance-verified and taxonomy-verified questions. It never returns the answer key or explanation.
 
 ## Serving eligibility rule
