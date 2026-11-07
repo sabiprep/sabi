@@ -170,6 +170,7 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
           .from('question_bank')
           .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, answer, explanation_short, explanation')
           .in('id', questionIds)
+          .eq('status', 'published')
       : { data: [], error: null };
     if (questionsError) {
       console.error('[SABI] Session question content lookup failed:', questionsError.message);
