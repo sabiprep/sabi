@@ -4,7 +4,7 @@
  * All routes require a Supabase access token. Question answers are never sent
  * to the client until the database has accepted that student's submission.
  */
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
@@ -36,7 +36,7 @@ function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
-function authenticatedUser(req: Parameters<typeof requireAuth>[0] extends never ? never : any): string | null {
+function authenticatedUser(req: Request): string | null {
   return (req as AuthenticatedRequest).user?.id || null;
 }
 
@@ -128,6 +128,86 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
   } catch (error) {
     console.error('[SABI] Unexpected learning session error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while starting the session.' });
+  }
+});
+
+
+router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const sessionId = String(req.params.sessionId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+    return res.status(400).json({ error: 'A valid session ID is required.' });
+  }
+
+  try {
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (sessionError) {
+      console.error('[SABI] Session lookup failed:', sessionError.message);
+      return res.status(503).json({ error: 'Learning session is temporarily unavailable.' });
+    }
+    if (!session) return res.status(404).json({ error: 'Learning session not found.' });
+
+    const { data: items, error: itemsError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('question_id, position, selected_option, is_correct, elapsed_ms, answered_at')
+      .eq('session_id', sessionId)
+      .eq('user_id', userId)
+      .order('position', { ascending: true });
+    if (itemsError) {
+      console.error('[SABI] Session items lookup failed:', itemsError.message);
+      return res.status(503).json({ error: 'Session questions are temporarily unavailable.' });
+    }
+
+    const questionIds = (items || []).map((item) => item.question_id);
+    const { data: questions, error: questionsError } = questionIds.length
+      ? await supabaseAdmin
+          .from('question_bank')
+          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, answer, explanation_short, explanation')
+          .in('id', questionIds)
+      : { data: [], error: null };
+    if (questionsError) {
+      console.error('[SABI] Session question content lookup failed:', questionsError.message);
+      return res.status(503).json({ error: 'Session questions are temporarily unavailable.' });
+    }
+
+    const questionById = new Map((questions || []).map((question) => [question.id, question]));
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      session,
+      questions: (items || []).flatMap((item) => {
+        const question = questionById.get(item.question_id);
+        if (!question) return [];
+        const answered = Boolean(item.answered_at);
+        return [{
+          id: question.id,
+          position: item.position,
+          subject: question.subject,
+          topic: question.topic,
+          subtopic: question.subtopic,
+          year: question.year,
+          question: question.question,
+          options: { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d },
+          difficulty: question.difficulty,
+          answerState: answered ? {
+            selectedOption: item.selected_option,
+            isCorrect: item.is_correct,
+            correctOption: String(question.answer || '').trim().toUpperCase(),
+            explanation: question.explanation_short || question.explanation || '',
+            elapsedMs: item.elapsed_ms,
+            answeredAt: item.answered_at,
+          } : null,
+        }];
+      }),
+    });
+  } catch (error) {
+    console.error('[SABI] Unexpected session retrieval error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while loading the session.' });
   }
 });
 
