@@ -17,7 +17,8 @@ const createSessionSchema = z.strictObject({
   subject: z.string().trim().min(1).max(80).optional(),
   topic: z.string().trim().min(1).max(160).optional(),
   topics: z.array(z.string().trim().min(1).max(160)).max(20).optional(),
-  limit: z.number().int().min(1).max(100).default(20),
+  limit: z.number().int().min(1).max(180).default(20),
+  configurationKey: z.enum(['quick-mock', 'full-mock']).optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
@@ -44,54 +45,150 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
   const userId = authenticatedUser(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
-  const { mode, subject, topic, topics, limit, metadata } = req.body as z.infer<typeof createSessionSchema>;
+  const { mode, subject, topic, topics, limit, configurationKey, metadata } = req.body as z.infer<typeof createSessionSchema>;
 
   try {
-    let query = supabaseAdmin
-      .from('question_bank')
-      .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
-      .eq('exam_type', 'UTME')
-      .eq('status', 'published');
+    let selected: any[] = [];
+    let sessionSubject = subject || null;
+    let sessionMetadata: Record<string, unknown> = { ...metadata };
 
-    if (subject) {
-      const normalizedSubject = /^english language$/i.test(subject) ? 'Use of English' : subject;
-      query = query.ilike('subject', normalizedSubject);
-    }
-    if (topic) query = query.ilike('topic', topic);
-    if (topics?.length) query = query.in('topic', topics);
+    if (mode === 'cbt') {
+      const configKey = configurationKey || 'quick-mock';
+      const [configurationResult, profileResult, catalogueResult] = await Promise.all([
+        supabaseAdmin.from('exam_configurations')
+          .select('key, title, question_count, duration_seconds, total_subjects, compulsory_subject_slug, optional_subject_count')
+          .eq('key', configKey).eq('is_active', true).maybeSingle(),
+        supabaseAdmin.from('profiles').select('registered_subjects').eq('id', userId).maybeSingle(),
+        supabaseAdmin.from('jamb_subjects').select('slug, display_name, aliases').eq('is_active', true),
+      ]);
 
-    const { data: candidates, error: questionError } = await query.limit(1000);
-    if (questionError) {
-      console.error('[SABI] Learning question retrieval failed:', questionError.message);
-      return res.status(503).json({ error: 'Questions are temporarily unavailable.' });
-    }
-
-    let orderedCandidates = shuffle(candidates || []);
-
-    // Smart Practice prioritizes due reviews first, then the student's weakest
-    // known topics. Students with no history receive a randomized starter set.
-    if (mode === 'smart_practice') {
-      const { data: masteryRows, error: masteryError } = await supabaseAdmin
-        .from('student_topic_mastery')
-        .select('topic, mastery_score, next_review_at')
-        .eq('user_id', userId);
-      if (masteryError) {
-        console.error('[SABI] Adaptive mastery lookup failed:', masteryError.message);
-        return res.status(503).json({ error: 'Adaptive practice is temporarily unavailable.' });
+      if (configurationResult.error || profileResult.error || catalogueResult.error) {
+        console.error('[SABI] CBT configuration lookup failed:',
+          configurationResult.error?.message || profileResult.error?.message || catalogueResult.error?.message);
+        return res.status(503).json({ error: 'CBT configuration is temporarily unavailable.' });
       }
-      const masteryByTopic = new Map((masteryRows || []).map((row) => [row.topic, row]));
-      const now = Date.now();
-      orderedCandidates.sort((a, b) => {
-        const aMastery = masteryByTopic.get(a.topic);
-        const bMastery = masteryByTopic.get(b.topic);
-        const aDue = Boolean(aMastery?.next_review_at && new Date(aMastery.next_review_at).getTime() <= now);
-        const bDue = Boolean(bMastery?.next_review_at && new Date(bMastery.next_review_at).getTime() <= now);
-        if (aDue !== bDue) return aDue ? -1 : 1;
-        return (aMastery?.mastery_score ?? 50) - (bMastery?.mastery_score ?? 50);
+
+      const examConfig = configurationResult.data;
+      const registeredSubjects = profileResult.data?.registered_subjects || [];
+      const catalogue = catalogueResult.data || [];
+      if (!examConfig) return res.status(404).json({ error: 'The selected CBT configuration is unavailable.' });
+      if (registeredSubjects.length !== 4) {
+        return res.status(400).json({ error: 'Complete onboarding and select your four UTME subjects before starting a CBT.' });
+      }
+
+      const canonicalSubjects = registeredSubjects.map((raw: string) => {
+        const normalized = String(raw).trim().toLowerCase();
+        const match = catalogue.find((item: any) =>
+          item.display_name.toLowerCase() === normalized ||
+          (item.aliases || []).some((alias: string) => alias.toLowerCase() === normalized)
+        );
+        return match ? match : null;
       });
+      const compulsory = catalogue.find((item: any) => item.slug === examConfig.compulsory_subject_slug);
+      if (canonicalSubjects.some((item: any) => !item) || !compulsory ||
+          canonicalSubjects.filter((item: any) => item.slug === compulsory.slug).length !== 1) {
+        return res.status(400).json({ error: 'Your saved UTME subject combination is invalid. Please update onboarding.' });
+      }
+
+      const optionalSubjects = canonicalSubjects.filter((item: any) => item.slug !== compulsory.slug);
+      if (optionalSubjects.length !== examConfig.optional_subject_count) {
+        return res.status(400).json({ error: 'Your saved UTME subject combination does not match the exam configuration.' });
+      }
+
+      const compulsoryCount = configKey === 'full-mock' ? 60 : 10;
+      const optionalCount = Math.floor((examConfig.question_count - compulsoryCount) / optionalSubjects.length);
+      const sections = [
+        { subject: compulsory, count: compulsoryCount },
+        ...optionalSubjects.map((item: any) => ({ subject: item, count: optionalCount })),
+      ];
+
+      for (const section of sections) {
+        const { data: subjectQuestions, error: subjectError } = await supabaseAdmin
+          .from('question_bank')
+          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
+          .eq('exam_type', 'UTME')
+          .eq('status', 'published')
+          .ilike('subject', section.subject.display_name)
+          .limit(1000);
+
+        if (subjectError) {
+          console.error('[SABI] CBT subject question retrieval failed:', subjectError.message);
+          return res.status(503).json({ error: 'CBT questions are temporarily unavailable.' });
+        }
+        if ((subjectQuestions || []).length < section.count) {
+          return res.status(409).json({
+            error: 'There are not enough approved questions to build this complete CBT yet.',
+            code: 'CBT_QUESTION_SHORTAGE',
+            subject: section.subject.display_name,
+            required: section.count,
+            available: (subjectQuestions || []).length,
+          });
+        }
+        selected.push(...shuffle(subjectQuestions || []).slice(0, section.count));
+      }
+
+      sessionSubject = sections.map((section) => section.subject.display_name).join(', ');
+      sessionMetadata = {
+        ...metadata,
+        examConfiguration: {
+          key: examConfig.key,
+          title: examConfig.title,
+          durationSeconds: examConfig.duration_seconds,
+          sections: sections.map((section) => ({
+            subject: section.subject.display_name,
+            subjectSlug: section.subject.slug,
+            questionCount: section.count,
+          })),
+        },
+      };
+    } else {
+      let query = supabaseAdmin
+        .from('question_bank')
+        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
+        .eq('exam_type', 'UTME')
+        .eq('status', 'published');
+
+      if (subject) {
+        const normalizedSubject = /^english language$/i.test(subject) ? 'Use of English' : subject;
+        query = query.ilike('subject', normalizedSubject);
+      }
+      if (topic) query = query.ilike('topic', topic);
+      if (topics?.length) query = query.in('topic', topics);
+
+      const { data: candidates, error: questionError } = await query.limit(1000);
+      if (questionError) {
+        console.error('[SABI] Learning question retrieval failed:', questionError.message);
+        return res.status(503).json({ error: 'Questions are temporarily unavailable.' });
+      }
+
+      let orderedCandidates = shuffle(candidates || []);
+
+      // Smart Practice prioritizes due reviews first, then the student's weakest
+      // known topics. Students with no history receive a randomized starter set.
+      if (mode === 'smart_practice') {
+        const { data: masteryRows, error: masteryError } = await supabaseAdmin
+          .from('student_topic_mastery')
+          .select('topic, mastery_score, next_review_at')
+          .eq('user_id', userId);
+        if (masteryError) {
+          console.error('[SABI] Adaptive mastery lookup failed:', masteryError.message);
+          return res.status(503).json({ error: 'Adaptive practice is temporarily unavailable.' });
+        }
+        const masteryByTopic = new Map((masteryRows || []).map((row) => [row.topic, row]));
+        const now = Date.now();
+        orderedCandidates.sort((a, b) => {
+          const aMastery = masteryByTopic.get(a.topic);
+          const bMastery = masteryByTopic.get(b.topic);
+          const aDue = Boolean(aMastery?.next_review_at && new Date(aMastery.next_review_at).getTime() <= now);
+          const bDue = Boolean(bMastery?.next_review_at && new Date(bMastery.next_review_at).getTime() <= now);
+          if (aDue !== bDue) return aDue ? -1 : 1;
+          return (aMastery?.mastery_score ?? 50) - (bMastery?.mastery_score ?? 50);
+        });
+      }
+
+      selected = orderedCandidates.slice(0, limit);
     }
 
-    const selected = orderedCandidates.slice(0, limit);
     if (!selected.length) {
       return res.status(404).json({
         error: 'No approved questions match those filters yet.',
@@ -104,9 +201,9 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       .insert({
         user_id: userId,
         mode,
-        subject: subject || null,
+        subject: sessionSubject,
         total_questions: selected.length,
-        metadata,
+        metadata: sessionMetadata,
       })
       .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at')
       .single();
