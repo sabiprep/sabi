@@ -20,6 +20,7 @@ const provenanceVerificationBodySchema = z.strictObject({
   sourceType: z.enum(['official_exam', 'publisher', 'contributor', 'ai_generated', 'other']),
   attribution: z.string().trim().min(2).max(1000),
   evidenceNote: z.string().trim().min(20).max(4000),
+  verifiedAgainstEvidence: z.literal(true),
 });
 const resolveFlagBodySchema = z.strictObject({
   status: z.enum(['resolved', 'dismissed']),
