@@ -187,7 +187,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $$
 DECLARE
   q public.question_bank%ROWTYPE;
   next_version INTEGER;
@@ -324,7 +324,7 @@ BEGIN
     'status', 'ai-draft'
   );
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.create_question_bank_version(TEXT, JSONB, TEXT, UUID, TEXT)
   FROM PUBLIC, anon, authenticated;
