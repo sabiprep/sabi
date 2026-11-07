@@ -27,7 +27,7 @@ export function validateQuestionImport(
   const results: QuestionImportRowResult[] = rows.map((raw, index) => {
     const rowNumber = index + 1;
     const validated = validateQuestionDraft(raw);
-    if (!validated.valid) {
+    if (validated.valid === false) {
       return { rowNumber, outcome: 'invalid', errors: validated.issues };
     }
 
