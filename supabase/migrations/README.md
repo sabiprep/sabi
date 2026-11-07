@@ -44,7 +44,15 @@ The Phase 2 implementation adds
 timestamped migration and is exercised only against the disposable
 PostgreSQL CI fixture in the Phase 2 branch.
 
-It is **not applied to the production Sabi project**. Production rollout
+It is **not applied to the production Sabi project**.
+
+The Phase 2 migration now includes server-only RPCs for:
+- version-bound source provenance verification with auditable evidence history;
+- atomic clean-batch import into draft/pending-review records only;
+- student answer evaluation after submission, while the eligible-question retrieval response omits answer keys and explanations.
+
+These RPCs are tested in disposable PostgreSQL. The student answer-evaluation assertion uses a transaction that is rolled back, so it does not leave a question eligible or alter the fixture's durable baseline.
+ Production rollout
 requires explicit project-owner approval after CI and migration review.
 The migration is additive: it snapshots existing question rows as
 version 1, preserves source labels as unverified provenance, and places
