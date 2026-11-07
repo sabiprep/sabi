@@ -95,6 +95,11 @@ describe('authentication gate', () => {
     expect(response.status).toBe(401);
   });
 
+  it('rejects unauthenticated adaptive recommendation reads', async () => {
+    const response = await request(app).get('/api/learning/recommendations');
+    expect(response.status).toBe(401);
+  });
+
   it('rejects client-supplied identity and correctness in learning evidence writes', async () => {
     const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
       data: {
