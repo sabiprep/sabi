@@ -8,6 +8,7 @@ DECLARE
   approved_count BIGINT;
   payload_mismatches BIGINT;
   rls_missing BIGINT;
+  eligible_count BIGINT;
 BEGIN
   SELECT count(*) INTO source_count FROM public.question_bank;
   SELECT count(*) INTO version_count FROM public.question_bank_versions WHERE version_number = 1;
@@ -20,6 +21,8 @@ BEGIN
     ON v.question_id = q.id AND v.version_number = 1
   WHERE v.payload->>'status' IS DISTINCT FROM q.status
      OR v.content_hash IS DISTINCT FROM md5(v.payload::text);
+
+  SELECT count(*) INTO eligible_count FROM public.get_eligible_question_bank(NULL, 100, 0);
 
   SELECT count(*) INTO rls_missing
   FROM (VALUES
@@ -45,6 +48,17 @@ BEGIN
   END IF;
   IF payload_mismatches <> 0 THEN
     RAISE EXCEPTION 'Baseline snapshots do not match legacy records: % mismatches', payload_mismatches;
+  END IF;
+  IF eligible_count <> 0 THEN
+    RAISE EXCEPTION 'Unreviewed legacy questions must not be served: eligible %', eligible_count;
+  END IF;
+  IF has_function_privilege('anon', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Client roles must not execute question review RPC';
+  END IF;
+  IF NOT has_function_privilege('service_role', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.get_eligible_question_bank(text,integer,integer)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'service_role must retain server-only question RPC execution';
   END IF;
   IF rls_missing <> 0 THEN
     RAISE EXCEPTION 'RLS is missing from % Phase 2 tables', rls_missing;
