@@ -66,15 +66,17 @@ Allowed subject mappings are centralized in `exam_configuration_subjects`. Cours
 
 ## 6. Migration and deployment discipline
 
-The production migration ledger currently contains four entries:
+The production migration ledger now contains six entries:
 - `20261105140638 / create_question_bank`
 - `20261106185031 / profile_privilege_hardening`
 - `20261106185050 / phase1_foundation`
 - `20261106185843 / profile_public_acl_hardening`
+- `20261107091631 / phase1_3_catalog_acl_hardening`
+- `20261107091641 / phase1_4_syllabus_taxonomy_foundation`
 
-The repository's disposable CI fixture uses numbered SQL filenames. Before production execution, reconcile the timestamp ledger with the checked-in migration contents and verify that no existing migration is replayed. A migration file in Git does not prove it has been applied to the live project.
+The two new migrations were applied to the live Sabi project on 7 November 2026 after reconciling the existing four-entry ledger. Post-apply verification confirmed six ledger entries, 3,740/3,740 question rows mapped to topic and subtopic IDs, 809 draft topics, and 3,006 draft subtopics. Original topic/subtopic text and question content were preserved. No topic or syllabus version is marked verified.
 
-No production migration is applied by this Phase 1 completion branch. The new SQL is intended for review and disposable PostgreSQL CI first. Production application requires explicit approval and post-apply verification.
+The repository still uses ordinal migration filenames (`0001`–`0006`) rather than the timestamp-prefixed filenames expected by the standard Supabase CLI migration workflow. The current CI applies these SQL files directly to disposable PostgreSQL; before adopting `supabase db push`/`migration list`, establish a timestamped baseline and reconcile the repository history with the remote ledger. Do not reset or replay the production database.
 
 ## 7. Remaining decisions and exit gates
 
@@ -83,8 +85,9 @@ These items remain open and must not be silently decided by implementation:
 1. **Email verification policy:** `SABI_INSTANT_VERIFY` currently defaults to enabled unless explicitly set to `false`. Decide whether production registration must require email confirmation.
 2. **Role and permission matrix:** confirm the intended capabilities for `SUPPORT`, `ANALYST`, `CONTENT_MANAGER`, `ADMIN`, and `MASTER_ADMIN`.
 3. **Onboarding contract:** confirm required academic fields and allowed registered-subject combinations.
-4. **Official syllabus source:** select authoritative JAMB syllabus documents/versions and review imported draft topic labels before promotion.
+4. **Official syllabus source:** select authoritative JAMB syllabus documents/versions and review imported draft topic labels before promotion. Current live state is 809 draft topics and 3,006 draft subtopics; zero verified syllabus versions.
 5. **Production database ACL remediation:** existing client grants and `postgres` future defaults are addressed by the approved migration. The `supabase_admin` future defaults remain open because the migration executor cannot alter another role's ACL; resolve that using an authorized `supabase_admin` execution context before declaring the database security gate fully closed.
 6. **Cross-student tests:** SQL and API profile ownership tests are included in this branch; require passing CI evidence and extend the same ownership coverage when learning-record tables are introduced.
+7. **Auth hardening:** enable leaked-password protection after reviewing the production Auth setting; it remains disabled. Supabase advisors also report one profile SELECT RLS init-plan warning that can be optimized separately.
 
 Phase 1 is complete only when the numbered migrations pass the disposable PostgreSQL workflow, application type-check/tests/build pass, cross-student isolation is evidenced, live migration/schema drift is reconciled, and the remaining decisions are resolved or explicitly accepted.
