@@ -22,6 +22,7 @@ const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module =
 const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubscriptionPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 const QuestionBankAdminPage = lazy(() => import('./pages/QuestionBankAdminPage').then(module => ({ default: module.QuestionBankAdminPage })));
+const VerifiedQuestionPracticePage = lazy(() => import('./pages/VerifiedQuestionPracticePage').then(module => ({ default: module.VerifiedQuestionPracticePage })));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/blitz" element={<BlitzPage />} />
             <Route path="/smart" element={<SmartPracticePage />} />
             <Route path="/admin/question-bank" element={<QuestionBankAdminPage />} />
+            <Route path="/verified-practice" element={<VerifiedQuestionPracticePage />} />
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
