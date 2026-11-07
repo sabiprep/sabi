@@ -76,7 +76,7 @@ DECLARE
 BEGIN
   IF p_student_id IS NULL OR p_configuration_key IS NULL
      OR p_subject_slugs IS NULL OR cardinality(p_subject_slugs) <> 4
-     OR (SELECT count(DISTINCT s) FROM unnest(p_subject_slugs) AS s) <> 4 THEN
+     OR (SELECT count(DISTINCT selected.subject_slug) FROM unnest(p_subject_slugs) AS selected(subject_slug)) <> 4 THEN
     RAISE EXCEPTION 'A student, valid configuration and four distinct subjects are required'
       USING ERRCODE = '22023';
   END IF;
