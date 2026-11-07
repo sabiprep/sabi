@@ -155,10 +155,28 @@ jambExamRouter.post('/runs/:runId/questions/:questionId/answer', requireAuth, va
     return res.status(410).json({ error: 'The exam time has ended. Your saved answers are retained.', expired: true });
   }
   const { data: item, error: itemError } = await supabaseAdmin.from('jamb_exam_run_items')
-    .select('id,question_id,subject_slug')
+    .select('id,question_id,subject_slug,question_version_id')
     .eq('exam_run_id', run.id).eq('question_id', req.params.questionId).maybeSingle();
   if (itemError) return res.status(503).json({ error: 'The exam question could not be found.' });
   if (!item) return res.status(404).json({ error: 'Question is not part of this exam.' });
+
+  const [{ data: pinnedVersion, error: pinnedError }, { data: currentQuestion, error: currentError }] = await Promise.all([
+    supabaseAdmin.from('question_bank_versions')
+      .select('id,version_number,review_state')
+      .eq('id', item.question_version_id).maybeSingle(),
+    supabaseAdmin.from('question_bank')
+      .select('current_version,review_state,status')
+      .eq('id', item.question_id).maybeSingle(),
+  ]);
+  if (pinnedError || currentError) {
+    console.error('[SABI] Pinned exam version check failed:', pinnedError?.message || currentError?.message);
+    return res.status(503).json({ error: 'The exam question could not be validated.' });
+  }
+  if (!pinnedVersion || !currentQuestion || pinnedVersion.review_state !== 'approved'
+      || currentQuestion.review_state !== 'approved' || currentQuestion.status !== 'published'
+      || currentQuestion.current_version !== pinnedVersion.version_number) {
+    return res.status(409).json({ error: 'This question version has changed since the exam began. Contact support before continuing.' });
+  }
 
   const { data: prior } = await supabaseAdmin.from('learning_attempts')
     .select('id,submitted_option,is_correct')
