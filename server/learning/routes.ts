@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
 import { validateBody } from '../middleware/validate';
+import { requireRole } from '../middleware/requireRole';
 
 const router = Router();
 
@@ -20,6 +21,11 @@ const createSessionSchema = z.strictObject({
   limit: z.number().int().min(1).max(180).default(20),
   configurationKey: z.enum(['quick-mock', 'full-mock']).optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+const questionReviewSchema = z.strictObject({
+  action: z.enum(['publish', 'needs-review', 'reject']),
+  notes: z.string().trim().max(1000).optional(),
 });
 
 const answerSchema = z.strictObject({
@@ -41,6 +47,98 @@ function authenticatedUser(req: Request): string | null {
   return (req as AuthenticatedRequest).user?.id || null;
 }
 
+
+
+/**
+ * Content review is restricted to trusted content staff. AI-draft questions
+ * never become student-facing until an authorized reviewer explicitly publishes
+ * them after validating the answer and all four options.
+ */
+router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('question_bank')
+    .select('id, exam_type, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, status, confidence_score, flag_count')
+    .in('status', ['ai-draft', 'needs-review'])
+    .order('confidence_score', { ascending: false })
+    .limit(50);
+  if (error) {
+    console.error('[SABI] Content review queue lookup failed:', error.message);
+    return res.status(503).json({ error: 'The content review queue is temporarily unavailable.' });
+  }
+  res.set('Cache-Control', 'no-store');
+  return res.json({ questions: data || [], returned: (data || []).length });
+});
+
+router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), validateBody(questionReviewSchema), async (req, res) => {
+  const userId = authenticatedUser(req);
+  const reviewerRole = (req as AuthenticatedRequest).role || 'CONTENT_MANAGER';
+  const questionId = String(req.params.questionId || '').trim();
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  if (!questionId || questionId.length > 100) return res.status(400).json({ error: 'A valid question ID is required.' });
+
+  const { action, notes } = req.body as z.infer<typeof questionReviewSchema>;
+  try {
+    const { data: question, error: lookupError } = await supabaseAdmin
+      .from('question_bank')
+      .select('id, exam_type, question, option_a, option_b, option_c, option_d, answer, status')
+      .eq('id', questionId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('[SABI] Content review question lookup failed:', lookupError.message);
+      return res.status(503).json({ error: 'The question could not be loaded for review.' });
+    }
+    if (!question) return res.status(404).json({ error: 'Question not found.' });
+    if (!['ai-draft', 'needs-review'].includes(question.status)) {
+      return res.status(409).json({ error: 'Only draft or flagged questions can be reviewed here.' });
+    }
+
+    if (action === 'publish') {
+      const options = [question.option_a, question.option_b, question.option_c, question.option_d];
+      if (question.exam_type !== 'UTME' || !question.question?.trim() ||
+          options.some((option) => !option?.trim()) ||
+          !['a', 'b', 'c', 'd'].includes(String(question.answer || '').trim().toLowerCase())) {
+        return res.status(422).json({
+          error: 'This question is incomplete. Confirm the UTME question text, all four options, and a valid answer key before publishing.',
+        });
+      }
+    }
+
+    const nextStatus = action === 'publish' ? 'published' : action === 'reject' ? 'rejected' : 'needs-review';
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('question_bank')
+      .update({
+        status: nextStatus,
+        verified_by: userId,
+        notes: notes || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', questionId)
+      .in('status', ['ai-draft', 'needs-review'])
+      .select('id, status, verified_by, updated_at')
+      .maybeSingle();
+
+    if (updateError) {
+      console.error('[SABI] Content review update failed:', updateError.message);
+      return res.status(503).json({ error: 'The review decision could not be saved.' });
+    }
+    if (!updated) return res.status(409).json({ error: 'The question changed during review. Reload the queue and try again.' });
+
+    const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+      actor_user_id: userId,
+      actor_role: reviewerRole,
+      action: `question.${action}`,
+      resource_type: 'question_bank',
+      resource_id: questionId,
+      metadata: { notes: notes || null, resulting_status: nextStatus },
+    });
+    if (auditError) console.error('[SABI] Question review audit log failed:', auditError.message);
+
+    return res.json({ status: 'updated', question: updated });
+  } catch (error) {
+    console.error('[SABI] Unexpected content review error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while reviewing the question.' });
+  }
+});
 
 router.get('/exam-configurations', requireAuth, async (_req, res) => {
   const { data, error } = await supabaseAdmin
