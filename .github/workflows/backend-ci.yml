@@ -76,7 +76,6 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_question_bank_assertions.sql
       - name: Verify Phase 3 learning evidence schema and security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_learning_evidence_assertions.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/tests/phase4_adaptive_assertions.sql
       - name: Verify Phase 4 adaptive intelligence schema and security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase4_adaptive_assertions.sql
       - name: Verify migrations are idempotent
@@ -93,3 +92,4 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_question_bank_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_learning_evidence_assertions.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/phase4_adaptive_assertions.sql
