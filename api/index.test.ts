@@ -10,7 +10,7 @@
  * missing SUPABASE_SERVICE_ROLE_KEY made `server.ts` throw at import time, so
  * Express never ran and the SPA could only report "A server error has occurred".
  *
- * `../server` is mocked as a module whose factory throws, which reproduces that
+ * `../server.ts` is mocked as a module whose factory throws, which reproduces that
  * boot failure deterministically. The assertions below pin the property that
  * matters: a broken deployment must still answer a JSON error that names the
  * cause - and it must be readable from the Android WebView, which is cross-origin
@@ -30,7 +30,7 @@ const BOOT_MESSAGE = 'Cannot find package "vite" imported from /var/task/server.
  * survive in production (the import promise rejects and Express never runs) but
  * without Vitest wrapping the error in its own "error when mocking" message.
  */
-vi.mock('../server', () => ({
+vi.mock('../server.ts', () => ({
   get app(): never {
     throw new Error(BOOT_MESSAGE);
   },
