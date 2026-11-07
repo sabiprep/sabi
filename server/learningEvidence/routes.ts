@@ -74,6 +74,70 @@ router.post('/sessions/:sessionId/complete', requireAuth, validateBody(completeS
   return res.json({ status: req.body.status });
 });
 
+router.get('/sessions/:sessionId/summary', requireAuth, async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { data: session, error: sessionError } = await supabaseAdmin
+    .from('learning_sessions')
+    .select('id,mode,status,started_at,completed_at')
+    .eq('id', req.params.sessionId)
+    .eq('student_id', authReq.user!.id)
+    .maybeSingle();
+
+  if (sessionError) {
+    console.error('[SABI] Learning session summary lookup failed:', sessionError.message);
+    return res.status(503).json({ error: 'The session summary is temporarily unavailable.' });
+  }
+  if (!session) return res.status(404).json({ error: 'Learning session not found.' });
+
+  const { data: attempts, error: attemptsError } = await supabaseAdmin
+    .from('learning_attempts')
+    .select('is_correct,response_time_ms,subject_slug,topic_id,subtopic_id')
+    .eq('session_id', session.id)
+    .eq('student_id', authReq.user!.id);
+
+  if (attemptsError) {
+    console.error('[SABI] Learning attempt summary lookup failed:', attemptsError.message);
+    return res.status(503).json({ error: 'The session summary is temporarily unavailable.' });
+  }
+
+  const saved = attempts ?? [];
+  const correct = saved.filter(attempt => attempt.is_correct).length;
+  const responseTimes = saved
+    .map(attempt => attempt.response_time_ms)
+    .filter((value): value is number => typeof value === 'number');
+  const topicMap = new Map<string, { topicId: string; subtopicId: string; attempts: number; correct: number }>();
+  for (const attempt of saved) {
+    const key = `${attempt.topic_id}:${attempt.subtopic_id}`;
+    const current = topicMap.get(key) ?? {
+      topicId: attempt.topic_id,
+      subtopicId: attempt.subtopic_id,
+      attempts: 0,
+      correct: 0,
+    };
+    current.attempts += 1;
+    if (attempt.is_correct) current.correct += 1;
+    topicMap.set(key, current);
+  }
+
+  return res.json({
+    status: 'success',
+    session,
+    performance: {
+      attempts: saved.length,
+      correct,
+      incorrect: saved.length - correct,
+      accuracy: saved.length ? correct / saved.length : 0,
+      averageResponseTimeMs: responseTimes.length
+        ? Math.round(responseTimes.reduce((sum, value) => sum + value, 0) / responseTimes.length)
+        : null,
+    },
+    topics: Array.from(topicMap.values()).map(topic => ({
+      ...topic,
+      accuracy: topic.attempts ? topic.correct / topic.attempts : 0,
+    })),
+  });
+});
+
 router.get('/mastery', requireAuth, async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   const { data, error } = await supabaseAdmin
