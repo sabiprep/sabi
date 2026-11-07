@@ -78,6 +78,9 @@ BEGIN
      OR has_table_privilege('authenticated', 'public.question_bank_versions', 'SELECT') THEN
     RAISE EXCEPTION 'Question versions must remain inaccessible to client roles';
   END IF;
+  IF has_table_privilege('service_role', 'public.question_bank', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'service_role must not have TRUNCATE on the question bank';
+  END IF;
   IF NOT has_table_privilege('service_role', 'public.question_bank', 'SELECT')
      OR NOT has_table_privilege('service_role', 'public.question_bank_versions', 'SELECT') THEN
     RAISE EXCEPTION 'service_role must retain question-bank read access';
