@@ -126,6 +126,13 @@ BEGIN
     RAISE EXCEPTION 'Correct answer was not evaluated and stored from the approved immutable snapshot: %', v_result;
   END IF;
 
+  SELECT * INTO v_schedule FROM public.student_topic_review_schedule
+  WHERE student_id = v_student AND topic_id = v_topic AND subtopic_id = v_subtopic;
+  IF NOT FOUND OR v_schedule.consecutive_correct <> 1
+     OR v_schedule.interval_days <> 1 OR v_schedule.last_result_correct IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'First correct answer did not create the initial spaced-review interval: %', row_to_json(v_schedule);
+  END IF;
+
   -- Replaying the same event and payload is idempotent.
   v_result := public.record_learning_attempt(
     v_student, v_event, v_session, v_question.id, 'a', 12000
