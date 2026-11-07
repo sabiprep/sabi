@@ -20,13 +20,28 @@ process.env.SUPABASE_URL = process.env.SUPABASE_URL || 'https://test-project.sup
 process.env.SUPABASE_SERVICE_ROLE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-role-key';
 
-import { describe, expect, it } from 'vitest';
-import { CONFIGURATION_STATUS, configurationResponse } from './configurationGuard';
-import {
-  MISSING_CONFIG_VARIABLES,
-  SUPABASE_ADMIN_ERROR,
-  hasServiceRoleKey,
-} from '../lib/supabaseAdmin';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+
+let CONFIGURATION_STATUS: number;
+let configurationResponse: typeof import('./configurationGuard').configurationResponse;
+let MISSING_CONFIG_VARIABLES: string[];
+let SUPABASE_ADMIN_ERROR: string | null;
+let hasServiceRoleKey: boolean;
+
+beforeAll(async () => {
+  // These modules capture environment values at import time. Reset the module
+  // registry and import only after the test credentials above are established.
+  vi.resetModules();
+  const [guard, admin] = await Promise.all([
+    import('./configurationGuard'),
+    import('../lib/supabaseAdmin'),
+  ]);
+  CONFIGURATION_STATUS = guard.CONFIGURATION_STATUS;
+  configurationResponse = guard.configurationResponse;
+  MISSING_CONFIG_VARIABLES = admin.MISSING_CONFIG_VARIABLES;
+  SUPABASE_ADMIN_ERROR = admin.SUPABASE_ADMIN_ERROR;
+  hasServiceRoleKey = admin.hasServiceRoleKey;
+});
 
 describe('configurationGuard decision', () => {
   it('stays out of the way when the deployment is complete', () => {
