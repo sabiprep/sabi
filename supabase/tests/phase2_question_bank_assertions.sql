@@ -240,8 +240,13 @@ BEGIN
      OR NOT has_function_privilege('service_role', 'public.verify_question_provenance(text,text,text,text,text,text,uuid,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Provenance verification RPC privileges are not server-only';
   END IF;
+
+  -- Leave the correction fixture in its post-revision state so this assertion
+  -- file can run again after the migration idempotency pass.
+  UPDATE public.question_provenance SET provenance_status = 'unverified'
+  WHERE question_id = 'BIO-001';
 END
-$$;
+$;
 
 -- A clean validated import commits atomically into pending-review drafts only.
 DO $$
