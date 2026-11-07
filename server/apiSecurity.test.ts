@@ -23,12 +23,15 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ||
 process.env.SABI_APP_URL = 'https://sabi-test-app.example.com';
 
 import request from 'supertest';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 let app: import('express').Express;
+let supabaseAdminClient: typeof import('./lib/supabaseAdmin').supabaseAdmin;
 
 beforeAll(async () => {
-  ({ app } = await import('../server'));
+  const [server, admin] = await Promise.all([import('../server'), import('./lib/supabaseAdmin')]);
+  app = server.app;
+  supabaseAdminClient = admin.supabaseAdmin;
 });
 
 describe('authentication gate', () => {
@@ -81,6 +84,127 @@ describe('request validation', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/invalid request body/i);
     expect(response.body.details.some((issue: { path: string }) => issue.path === 'email')).toBe(true);
+  });
+
+  it('refuses to attach a verified Auth user to a different profile with the same email', async () => {
+    const tokenUser = {
+      id: '22222222-2222-4222-8222-222222222222',
+      email: 'legacy@example.com',
+      user_metadata: {},
+      app_metadata: { providers: ['email'] },
+    };
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+
+    const byIdQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const byEmailQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: '33333333-3333-4333-8333-333333333333',
+          email: 'legacy@example.com',
+          sabi_unique_id: '1234A',
+          auth_providers: ['email'],
+        },
+        error: null,
+      }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(byIdQuery as any)
+      .mockReturnValueOnce(byEmailQuery as any);
+    const confirmSpy = vi.spyOn(supabaseAdminClient.auth.admin, 'updateUserById');
+
+    try {
+      const response = await request(app)
+        .post('/api/auth/verify')
+        .set('Authorization', 'Bearer valid-test-token')
+        .send({ email: 'legacy@example.com', uniqueId: '9999Z', authProviders: ['email', 'google'] });
+
+      expect(response.status).toBe(409);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.auth_user_id).toBeUndefined();
+      expect(response.body.sabi_unique_id).toBeUndefined();
+      expect(confirmSpy).not.toHaveBeenCalled();
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it('does not expose or modify an existing profile through public registration', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { id: '11111111-1111-4111-8111-111111111111' },
+        error: null,
+      }),
+      upsert: vi.fn(),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(query as any);
+
+    try {
+      const response = await request(app).post('/api/auth/register').send({
+        fullName: 'Someone Else',
+        email: 'existing@example.com',
+        password: 'secret123',
+        phone: '+2348000000000',
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.auth_user_id).toBeUndefined();
+      expect(response.body.sabi_unique_id).toBeUndefined();
+      expect(query.upsert).not.toHaveBeenCalled();
+    } finally {
+      fromSpy.mockRestore();
+    }
+  });
+
+  it('does not return a profile whose id differs from the authenticated login user', async () => {
+    const profileQuery = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: '33333333-3333-4333-8333-333333333333',
+          email: 'legacy@example.com',
+          sabi_unique_id: '1234A',
+          auth_providers: ['email'],
+        },
+        error: null,
+      }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(profileQuery as any);
+    const signInSpy = vi.spyOn(supabaseAdminClient.auth, 'signInWithPassword').mockResolvedValue({
+      data: {
+        user: { id: '22222222-2222-4222-8222-222222222222', email: 'legacy@example.com' },
+        session: {} as any,
+      } as any,
+      error: null,
+    } as any);
+
+    try {
+      const response = await request(app).post('/api/auth/login').send({
+        identifier: 'legacy@example.com',
+        password: 'correct-password',
+      });
+
+      expect(response.status).toBe(409);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.auth_user_id).toBeUndefined();
+    } finally {
+      fromSpy.mockRestore();
+      signInSpy.mockRestore();
+    }
   });
 
   it('rejects identity fields smuggled into a sign-up', async () => {
@@ -137,6 +261,111 @@ describe('request validation', () => {
   });
 });
 
+
+describe('auth profile synchronization fail-closed behavior', () => {
+  it('fails closed when login cannot read the profile record', async () => {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { message: 'database unavailable' } }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(query as any);
+    const signInSpy = vi.spyOn(supabaseAdminClient.auth, 'signInWithPassword');
+    try {
+      const response = await request(app).post('/api/auth/login').send({
+        identifier: 'candidate@example.com',
+        password: 'correct-password',
+      });
+      expect(response.status).toBe(503);
+      expect(signInSpy).not.toHaveBeenCalled();
+    } finally {
+      fromSpy.mockRestore();
+      signInSpy.mockRestore();
+    }
+  });
+
+  it('fails closed when verification cannot create the matching profile', async () => {
+    const tokenUser = {
+      id: '44444444-4444-4444-8444-444444444444',
+      email: 'new-candidate@example.com',
+      user_metadata: { full_name: 'New Candidate' },
+      app_metadata: { providers: ['email'] },
+    };
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    const missingProfileQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const failedUpsertQuery = {
+      upsert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { message: 'write rejected' } }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(missingProfileQuery as any)
+      .mockReturnValueOnce(missingProfileQuery as any)
+      .mockReturnValueOnce(failedUpsertQuery as any);
+    const confirmSpy = vi.spyOn(supabaseAdminClient.auth.admin, 'updateUserById').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    try {
+      const response = await request(app)
+        .post('/api/auth/verify')
+        .set('Authorization', 'Bearer valid-test-token')
+        .send({});
+      expect(response.status).toBe(503);
+      expect(response.body.profile).toBeUndefined();
+      expect(response.body.verified).toBe(false);
+      expect(confirmSpy).toHaveBeenCalledWith(tokenUser.id, expect.any(Object));
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+      confirmSpy.mockRestore();
+    }
+  });
+
+  it('fails closed when login cannot synchronize the authenticated profile', async () => {
+    const missingProfileQuery = {
+      select: vi.fn().mockReturnThis(),
+      or: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+    const failedUpsertQuery = {
+      upsert: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: { message: 'write rejected' } }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(missingProfileQuery as any)
+      .mockReturnValueOnce(failedUpsertQuery as any);
+    const signInSpy = vi.spyOn(supabaseAdminClient.auth, 'signInWithPassword').mockResolvedValue({
+      data: {
+        user: { id: '55555555-5555-4555-8555-555555555555', email: 'candidate@example.com', user_metadata: {} },
+        session: {} as any,
+      } as any,
+      error: null,
+    } as any);
+    try {
+      const response = await request(app)
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', '198.51.100.77')
+        .send({
+          identifier: 'candidate@example.com',
+          password: 'correct-password',
+        });
+      expect(response.status).toBe(503);
+      expect(response.body.profile).toBeUndefined();
+    } finally {
+      fromSpy.mockRestore();
+      signInSpy.mockRestore();
+    }
+  });
+});
 
 describe('deployment self-check', () => {
   it('reports configuration state without leaking any secret', async () => {

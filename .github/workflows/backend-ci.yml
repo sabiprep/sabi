@@ -1,0 +1,73 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'backend/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sabi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sabi_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: sabi_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Type-check
+        run: npm run lint
+      - name: Run tests
+        run: npm test
+      - name: Build web and API
+        run: npm run build
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+      - name: Prepare disposable Phase 0 schema
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_fixture.sql
+      - name: Apply Phase 1 migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0004_profile_public_acl_hardening.sql
+      - name: Verify Phase 1 schema and security
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
+      - name: Verify migrations are idempotent
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0004_profile_public_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql

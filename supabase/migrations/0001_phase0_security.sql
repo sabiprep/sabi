@@ -44,16 +44,16 @@ CREATE INDEX IF NOT EXISTS profiles_role_idx ON public.profiles (role);
 CREATE OR REPLACE FUNCTION public.enforce_profile_protected_columns()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
+SECURITY DEFINER
+SET search_path = pg_catalog, public
 AS $$
 DECLARE
   jwt_role TEXT;
 BEGIN
-  -- Trusted contexts bypass the guard:
-  --   * the Supabase SQL editor / migrations / psql connect as postgres (no JWT),
-  --   * PostgREST service-role requests carry role = service_role.
-  -- Everything else (anon / authenticated candidates) is checked below.
-  IF current_user IN ('postgres', 'supabase_admin', 'supabase_auth_admin', 'service_role') THEN
+  -- SECURITY DEFINER changes current_user to the function owner. Use
+  -- session_user for trusted direct database sessions instead; PostgREST
+  -- requests retain the authenticator session and are identified by JWT role.
+  IF session_user IN ('postgres', 'supabase_admin', 'supabase_auth_admin', 'service_role') THEN
     RETURN NEW;
   END IF;
 
@@ -71,7 +71,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  IF NEW.id <> OLD.id THEN
+  IF NEW.id IS DISTINCT FROM OLD.id THEN
     RAISE EXCEPTION 'profiles.id is immutable';
   END IF;
 

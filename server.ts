@@ -7,7 +7,6 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { SEED_QUESTIONS, KNOWLEDGE_BASE, SYLLABUS_FREQUENCY } from './src/data/questions.ts';
 import { Question, SubjectName } from './src/types';
@@ -158,17 +157,30 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
     const normalizedEmail = String(email).trim().toLowerCase();
 
     // 1. Look up an existing SABI profile for this address.
-    const { data: existingProfile } = await supabaseAdmin
+    const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select('id')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
-    const uniqueId =
-      existingProfile?.sabi_unique_id || generateDeterministicSabiId(normalizedEmail);
+    if (profileLookupError) {
+      console.error('[SABI] Registration profile lookup failed:', profileLookupError.message);
+      return res.status(503).json({ error: 'Registration is temporarily unavailable. Please try again.' });
+    }
+
+    // An existing profile is not proof that this caller owns its Auth identity.
+    // Never reuse its ID, mutate its profile, or return its private fields from
+    // this public endpoint. Account linking must happen through an authenticated flow.
+    if (existingProfile) {
+      return res.status(409).json({
+        error: 'An account with this email is already registered. Please sign in or use Forgot Password.',
+      });
+    }
+
+    const uniqueId = generateDeterministicSabiId(normalizedEmail);
 
     // 2. Create the Supabase Auth user. A caller-supplied user id is never trusted.
-    let userId: string | undefined = existingProfile?.id;
+    let userId: string | undefined;
 
     if (!userId) {
       const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
@@ -195,8 +207,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
         if (alreadyRegistered) {
           // Never touch the credentials of an account we did not just create.
           return res.status(409).json({
-            error: `An account with ${normalizedEmail} is already registered (Unique ID: ${uniqueId}). Please Sign In or use Forgot Password.`,
-            sabi_unique_id: uniqueId,
+            error: 'An account with this email is already registered. Please sign in or use Forgot Password.',
           });
         }
 
@@ -211,9 +222,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
     }
 
     // 3. Upsert the candidate profile, keyed to the auth user id (service role only).
-    const updatedProviders = Array.from(
-      new Set([...(existingProfile?.auth_providers || []), provider, 'email'])
-    );
+    const updatedProviders = Array.from(new Set([provider, 'email']));
 
     const { data: savedProfile, error: profileErr } = await supabaseAdmin
       .from('profiles')
@@ -222,9 +231,9 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
           id: userId,
           email: normalizedEmail,
           sabi_unique_id: uniqueId,
-          full_name: fullName || existingProfile?.full_name || '',
-          phone: phone || existingProfile?.phone || '',
-          state_of_origin: stateOfOrigin || existingProfile?.state_of_origin || 'Lagos',
+          full_name: fullName || '',
+          phone: phone || '',
+          state_of_origin: stateOfOrigin || 'Lagos',
           auth_providers: updatedProviders,
           updated_at: new Date().toISOString(),
         },
@@ -261,7 +270,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
 app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccountSchema), async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   const user = authReq.user!;
-  const { email, uniqueId, authProviders } = req.body;
+  const { email } = req.body;
 
   if (email && String(email).trim().toLowerCase() !== user.email) {
     return res.status(403).json({
@@ -271,18 +280,45 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
   }
 
   try {
-    let { data: profile } = await supabaseAdmin
+    const { data: profileById, error: profileByIdError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
 
+    if (profileByIdError) {
+      console.error('[SABI] Verification profile lookup failed:', profileByIdError.message);
+      return res.status(503).json({
+        verified: false,
+        error: 'Profile verification is temporarily unavailable. Please try again.',
+      });
+    }
+
+    let profile = profileById;
     if (!profile && user.email) {
-      const { data: byEmail } = await supabaseAdmin
+      const { data: byEmail, error: emailLookupError } = await supabaseAdmin
         .from('profiles')
         .select('*')
         .eq('email', user.email)
         .maybeSingle();
+
+      if (emailLookupError) {
+        console.error('[SABI] Verification profile lookup failed:', emailLookupError.message);
+        return res.status(503).json({
+          verified: false,
+          error: 'Profile verification is temporarily unavailable. Please try again.',
+        });
+      }
+
+      // A matching email is not sufficient to take over a profile linked to a
+      // different Auth user. Legacy mismatches require a separately verified
+      // support/reconciliation flow; never return or mutate that profile here.
+      if (byEmail && byEmail.id !== user.id) {
+        return res.status(409).json({
+          verified: false,
+          error: 'This email is linked to a different SABI profile. Contact support to reconcile your account.',
+        });
+      }
       profile = byEmail;
     }
 
@@ -309,39 +345,48 @@ app.post('/api/auth/verify', authLimiter, requireAuth, validateBody(verifyAccoun
 
     if (!profile) {
       const metadata = user.metadata || {};
-      const { data: upserted } = await supabaseAdmin
+      const { data: upserted, error: upsertError } = await supabaseAdmin
         .from('profiles')
         .upsert(
           {
             id: user.id,
             email: user.email || email,
-            sabi_unique_id: uniqueId || resolvedUniqueId,
+            sabi_unique_id: resolvedUniqueId,
             full_name: metadata.full_name || metadata.name || '',
             phone: metadata.phone || user.phone || '',
             state_of_origin: metadata.state_of_origin || 'Lagos',
-            auth_providers:
-              authProviders ??
-              (metadata.provider ? ['email', String(metadata.provider)] : ['email']),
+            auth_providers: user.providers.length ? user.providers : ['email'],
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'email' }
         )
         .select('*')
         .maybeSingle();
+      if (upsertError || !upserted) {
+        console.error('[SABI] Verification profile creation failed:', upsertError?.message || 'No profile returned');
+        return res.status(503).json({ verified: false, error: 'Profile verification is temporarily unavailable. Please try again.' });
+      }
       profile = upserted;
-    } else if (authProviders) {
-      // Merge newly linked providers (e.g. Google -> email) without ever
-      // letting the client write identity columns itself.
+    } else if (user.providers.length) {
+      // Provider metadata comes from the verified Auth user, never the request body.
       const mergedProviders = Array.from(
-        new Set([...(profile.auth_providers || ['email']), ...authProviders])
+        new Set([...(profile.auth_providers || ['email']), ...user.providers])
       );
-      const { data: updated } = await supabaseAdmin
+      const { data: updated, error: providerUpdateError } = await supabaseAdmin
         .from('profiles')
         .update({ auth_providers: mergedProviders, updated_at: new Date().toISOString() })
         .eq('id', profile.id)
         .select('*')
         .maybeSingle();
-      if (updated) profile = updated;
+      if (providerUpdateError || !updated) {
+        console.error('[SABI] Verification provider sync failed:', providerUpdateError?.message || 'No profile returned');
+        return res.status(503).json({ verified: false, error: 'Profile verification is temporarily unavailable. Please try again.' });
+      }
+      profile = updated;
+    }
+
+    if (!profile) {
+      return res.status(503).json({ verified: false, error: 'Profile verification is temporarily unavailable. Please try again.' });
     }
 
     return res.json({
@@ -368,7 +413,7 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     const cleanIdentifier = String(identifier).trim().toLowerCase();
 
     // 1. Resolve the profile by email or phone.
-    const { data: profile } = await supabaseAdmin
+    const { data: profile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .or(
@@ -377,6 +422,11 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
           : `email.eq.${cleanIdentifier}`
       )
       .maybeSingle();
+
+    if (profileLookupError) {
+      console.error('[SABI] Login profile lookup failed:', profileLookupError.message);
+      return res.status(503).json({ error: 'Sign-in is temporarily unavailable. Please try again.' });
+    }
 
     const targetEmail = profile?.email || (cleanIdentifier.includes('@') ? cleanIdentifier : '');
     if (!targetEmail) {
@@ -403,7 +453,11 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
     ) {
       const confirmUserId = profile?.id;
       if (confirmUserId) {
-        await supabaseAdmin.auth.admin.updateUserById(confirmUserId, { email_confirm: true });
+        const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(confirmUserId, { email_confirm: true });
+        if (confirmError) {
+          console.error('[SABI] Legacy account confirmation failed:', confirmError.message);
+          return res.status(503).json({ error: 'Sign-in is temporarily unavailable. Please try again.' });
+        }
         const retryResult = await supabaseAdmin.auth.signInWithPassword({
           email: targetEmail,
           password: String(password),
@@ -428,11 +482,20 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
       });
     }
 
+    // Never return a profile row unless it belongs to the Auth identity
+    // that just passed password verification. Email/phone lookup alone is
+    // not proof that two legacy identity records are the same account.
+    if (profile && profile.id !== signInData.user.id) {
+      return res.status(409).json({
+        error: 'Your sign-in identity and SABI profile need reconciliation. Please contact support.',
+      });
+    }
+
     // 4. Ensure the profile row is linked to the authenticated user id.
     let finalProfile = profile;
     if (!finalProfile || !finalProfile.id) {
       const fallbackId = finalProfile?.sabi_unique_id || generateDeterministicSabiId(targetEmail);
-      const { data: syncedProfile } = await supabaseAdmin
+      const { data: syncedProfile, error: syncError } = await supabaseAdmin
         .from('profiles')
         .upsert(
           {
@@ -449,7 +512,11 @@ app.post('/api/auth/login', authLimiter, validateBody(loginSchema), async (req, 
         )
         .select('*')
         .single();
-      finalProfile = syncedProfile || finalProfile;
+      if (syncError || !syncedProfile) {
+        console.error('[SABI] Login profile synchronization failed:', syncError?.message || 'No profile returned');
+        return res.status(503).json({ error: 'Your account profile could not be synchronized. Please try again.' });
+      }
+      finalProfile = syncedProfile;
     }
 
     return res.json({
@@ -572,16 +639,24 @@ app.post(
   app.post('/api/profile/onboarding', requireAuth, validateBody(onboardingSchema), async (req, res) => {
     const user = (req as AuthenticatedRequest).user!;
     const { onboardingAnswers, registeredSubjects, targetScore } = req.body;
+    // onboardingSchema normalizes either the current API field or the legacy
+    // onboardingAnswers.chosenSubjects field into this canonical array.
+    const canonicalSubjects = registeredSubjects;
+    // Keep the legacy onboarding_answers snapshot aligned with the canonical
+    // server-validated profile field. Downstream clients still read chosenSubjects.
+    const normalizedAnswers = {
+      ...(onboardingAnswers ?? {}),
+      chosenSubjects: canonicalSubjects,
+    };
 
     try {
       const { error } = await supabaseAdmin
         .from('profiles')
         .update({
           onboarding_completed: true,
-          onboarding_answers: onboardingAnswers ?? {},
-          registered_subjects:
-            registeredSubjects ?? ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
-          target_score: Number(targetScore) || 320,
+          onboarding_answers: normalizedAnswers,
+          registered_subjects: canonicalSubjects,
+          target_score: targetScore ?? 320,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -981,6 +1056,9 @@ app.use(errorHandler);
 // -------------------------------------------------------------
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    // Vite is only needed for local development. Keep it out of the serverless
+    // production module graph so the API does not load Rollup's native binaries.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',

@@ -17,6 +17,8 @@ export interface AuthUser {
   email: string;
   /** Raw Supabase user metadata. Display data only: never used for authorization. */
   metadata: Record<string, any>;
+  /** Auth-provider identities from Supabase-managed app metadata. */
+  providers: string[];
   phone?: string;
 }
 
@@ -57,6 +59,11 @@ export const requireAuth: RequestHandler = async (req, res, next) => {
       id: user.id,
       email: (user.email || '').trim().toLowerCase(),
       metadata: (user.user_metadata || {}) as Record<string, any>,
+      providers: Array.isArray(user.app_metadata?.providers)
+        ? user.app_metadata.providers.filter((provider: unknown): provider is string =>
+            provider === 'email' || provider === 'google'
+          )
+        : [],
       phone: user.phone || undefined,
     };
     next();
@@ -80,6 +87,11 @@ export const optionalAuth: RequestHandler = async (req, _res, next) => {
           id: user.id,
           email: (user.email || '').trim().toLowerCase(),
           metadata: (user.user_metadata || {}) as Record<string, any>,
+          providers: Array.isArray(user.app_metadata?.providers)
+            ? user.app_metadata.providers.filter((provider: unknown): provider is string =>
+                provider === 'email' || provider === 'google'
+              )
+            : [],
           phone: user.phone || undefined,
         };
       }
