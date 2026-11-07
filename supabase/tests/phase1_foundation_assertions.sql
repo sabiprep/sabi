@@ -126,7 +126,7 @@ $$;
 
 -- Draft legacy taxonomy must not be presented to clients as verified syllabus data.
 SET ROLE anon;
-DO $
+DO $taxonomy_visibility$
 DECLARE
   visible_topics integer;
   visible_subtopics integer;
@@ -139,7 +139,7 @@ BEGIN
     RAISE EXCEPTION 'Anonymous client can see unverified syllabus taxonomy';
   END IF;
 END
-$;
+$taxonomy_visibility$;
 RESET ROLE;
 
 -- Prove an authenticated PostgREST-style caller cannot promote their own role.
