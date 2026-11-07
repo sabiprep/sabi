@@ -6,4 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+<<<<<<< HEAD
 server/index.js
+=======
+
+# Scratch space for the local "does the function boot?" simulation documented in
+# docs/runbooks/phase0-rollout.md §8c (esbuild bundle + harness). Never committed.
+.tmp-fn/
+
+>>>>>>> a752955 (fix(api): stop the Vercel function dying on boot and keep the failure diagnosable)

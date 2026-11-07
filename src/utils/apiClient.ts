@@ -177,6 +177,32 @@ export function describeApiFailure(result: ApiResult, fallback: string): string 
     return `${fallback} The SABI API could not be reached at ${result.url} (${result.networkError}). Check your connection, the API deployment and ALLOWED_ORIGINS.`;
   }
 
+  // Deployment-side failures get a candidate-safe sentence first, then the
+  // technical detail, so a candidate is not shown "FUNCTION_INVOCATION_FAILED"
+  // while support still learns exactly which variable is missing.
+  const code = typeof result.data?.code === 'string' ? result.data.code : '';
+
+  if (code === 'API_NOT_CONFIGURED') {
+    const missing = Array.isArray(result.data?.missing)
+      ? result.data.missing.filter((name: unknown) => typeof name === 'string').join(', ')
+      : '';
+
+    return (
+      `${fallback} The SABI API is running but not fully configured` +
+      `${missing ? ` (missing ${missing})` : ''}, so nothing was saved. ` +
+      'This is a deployment issue rather than a problem with your account - please report it and try again once it is fixed. ' +
+      'GET /api/health confirms which variables the deployment can see.'
+    );
+  }
+
+  if (code === 'API_BOOT_FAILED') {
+    return (
+      `${fallback} The SABI API failed to start on this deployment, so nothing was saved. ` +
+      'This is a deployment issue rather than a problem with your account - please report it and try again once it is fixed. ' +
+      'Check the deployment logs for the [SABI] boot error.'
+    );
+  }
+
   const serverMessage = typeof result.data?.error === 'string' ? result.data.error : '';
   const issues = Array.isArray(result.data?.details)
     ? result.data.details

@@ -16,7 +16,7 @@
 
 import type { RequestHandler } from 'express';
 import { config } from '../config';
-import { SUPABASE_ADMIN_ERROR } from '../lib/supabaseAdmin';
+import { MISSING_CONFIG_VARIABLES, SUPABASE_ADMIN_ERROR } from '../lib/supabaseAdmin';
 
 /** Status used when the deployment itself is incomplete. */
 export const CONFIGURATION_STATUS = 503;
@@ -29,10 +29,14 @@ export interface ConfigurationFailure {
 /**
  * Pure decision function, so the message contract can be unit tested without
  * booting Express: returns `null` when the deployment is complete.
+ *
+ * `missing` is a list of *variable names*, never values, so the client can show
+ * "missing SUPABASE_SERVICE_ROLE_KEY" without leaking anything.
  */
 export function configurationResponse(
   adminError: string | null,
-  route = '/api/*'
+  route = '/api/*',
+  missing: readonly string[] = []
 ): ConfigurationFailure | null {
   if (!adminError) return null;
 
@@ -43,7 +47,7 @@ export function configurationResponse(
         `The SABI API is deployed without its Supabase credentials (${adminError}) ` +
         `so ${route} cannot be served.`,
       code: 'API_NOT_CONFIGURED',
-      missing: adminError,
+      missing: [...missing],
       fix:
         'Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for this deployment ' +
         '(Vercel: Project -> Settings -> Environment Variables -> Production), then redeploy. ' +
@@ -68,7 +72,11 @@ export const configurationGuard: RequestHandler = (req, res, next) => {
     return;
   }
 
-  const failure = configurationResponse(SUPABASE_ADMIN_ERROR, `${req.method} ${req.path}`);
+  const failure = configurationResponse(
+    SUPABASE_ADMIN_ERROR,
+    `${req.method} ${req.path}`,
+    MISSING_CONFIG_VARIABLES
+  );
 
   if (!failure) {
     next();

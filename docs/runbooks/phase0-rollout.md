@@ -112,7 +112,7 @@ the host, and both behaviours are deliberate:
 | Host | Behaviour when a variable is missing |
 | --- | --- |
 | Long-running (`npm start`, Cloud Run, Docker) | **Refuses to start** with `[SABI] SUPABASE_URL … is not set` / `[SABI] SUPABASE_SERVICE_ROLE_KEY is not set …` in the log. A crash-loop is the correct signal there. |
-| Serverless (Vercel) | Boots, logs the same `[SABI]` line, and answers every privileged route with **`503` JSON** (`code: "API_NOT_CONFIGURED"`, `missing: "<variable>"`, `fix: "…"`). `/api/health` stays reachable and reports `"status": "degraded"`. |
+| Serverless (Vercel) | Boots, logs the same `[SABI]` line, and answers every privileged route with **`503` JSON** (`code: "API_NOT_CONFIGURED"`, `missing: ["<variable>"]`, `fix: "…"`). `/api/health` stays reachable and reports `"status": "degraded"`. |
 
 The serverless variant exists because an import-time throw in a Vercel function
 is replaced by Vercel's own HTML page (`FUNCTION_INVOCATION_FAILED`), which is
@@ -210,7 +210,7 @@ curl -sS -i -X OPTIONS "$APP_ORIGIN/api/auth/register" \
 The JSON must contain `"service_role_configured": true` and
 `"admin_configured": true`. If you get **HTML**, the request is not reaching
 `api/index.ts` (§8b). If you get `503` with `code: "API_NOT_CONFIGURED"`, read the
-`missing` field — that is the exact variable to add in Step 2. If you get
+`missing` array — it lists the exact variables to add in Step 2. If you get
 `500` with `code: "API_BOOT_FAILED"`, the `detail` field carries the boot error.
 
 **Step 6 — read the function log** when anything still fails: Deployments → the
@@ -713,11 +713,16 @@ What changed so this failure is diagnosable instead of opaque:
   HTML page.
 * `server/lib/supabaseAdmin.ts` no longer throws on a serverless host. It logs the
   same `[SABI]` line and `configurationGuard` answers privileged routes with
-  `503 {code: "API_NOT_CONFIGURED", missing: "SUPABASE_SERVICE_ROLE_KEY", fix: …}`.
+  `503 {code: "API_NOT_CONFIGURED", missing: ["SUPABASE_SERVICE_ROLE_KEY"], fix: …}`.
   Long-running hosts still refuse to start, and the anon key is still never used
   as a fallback.
 * `/api/health` gained `runtime`, `admin_configured`, `configuration_error` and
   `status: "degraded"`, so a single `curl` identifies an incomplete deployment.
+* The sign-up form no longer shows a bare `HTTP 500`. `describeApiFailure()`
+  renders these two codes as a candidate-safe sentence plus the missing variable
+  name — e.g. *"Could not create your account. The SABI API is running but not
+  fully configured (missing SUPABASE_SERVICE_ROLE_KEY), so nothing was saved…"* —
+  so a tester can report the exact cause without reading server logs.
 
 Verification without deploying (mimics a Vercel invocation):
 

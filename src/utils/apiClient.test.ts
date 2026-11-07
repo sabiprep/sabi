@@ -143,4 +143,46 @@ describe('describeApiFailure', () => {
     expect(message).toContain('HTTP 418');
     expect(message).not.toMatch(/internet connection/i);
   });
+
+  it('turns a misconfigured deployment into a candidate-safe message naming the variable', () => {
+    const message = describeApiFailure(
+      result({
+        status: 503,
+        contentType: 'application/json',
+        data: {
+          error: 'The SABI API is deployed without its Supabase credentials…',
+          code: 'API_NOT_CONFIGURED',
+          missing: ['SUPABASE_SERVICE_ROLE_KEY'],
+          fix: 'Set it in Vercel and redeploy.',
+        },
+      }),
+      'Could not create your account.'
+    );
+
+    expect(message).toContain('not fully configured');
+    expect(message).toContain('SUPABASE_SERVICE_ROLE_KEY');
+    expect(message).toMatch(/deployment issue/);
+    expect(message).toContain('/api/health');
+    expect(message).not.toMatch(/internet connection/i);
+  });
+
+  it('explains a boot failure without exposing the hosting error page', () => {
+    const message = describeApiFailure(
+      result({
+        status: 500,
+        contentType: 'application/json',
+        data: {
+          error: 'The SABI API failed to start on this deployment…',
+          code: 'API_BOOT_FAILED',
+          detail: 'Cannot find package "vite" imported from server.ts',
+          hint: 'Check SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY.',
+        },
+      }),
+      'Could not create your account.'
+    );
+
+    expect(message).toContain('failed to start');
+    expect(message).toMatch(/deployment issue/);
+    expect(message).toContain('[SABI]');
+  });
 });

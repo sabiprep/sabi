@@ -22,7 +22,11 @@ process.env.SUPABASE_SERVICE_ROLE_KEY =
 
 import { describe, expect, it } from 'vitest';
 import { CONFIGURATION_STATUS, configurationResponse } from './configurationGuard';
-import { SUPABASE_ADMIN_ERROR, hasServiceRoleKey } from '../lib/supabaseAdmin';
+import {
+  MISSING_CONFIG_VARIABLES,
+  SUPABASE_ADMIN_ERROR,
+  hasServiceRoleKey,
+} from '../lib/supabaseAdmin';
 
 describe('configurationGuard decision', () => {
   it('stays out of the way when the deployment is complete', () => {
@@ -49,11 +53,24 @@ describe('configurationGuard decision', () => {
   it('names the missing variable and the route that was refused', () => {
     const failure = configurationResponse(
       'SUPABASE_SERVICE_ROLE_KEY is not set.',
-      'POST /api/auth/register'
+      'POST /api/auth/register',
+      ['SUPABASE_SERVICE_ROLE_KEY']
     );
 
-    expect(String(failure?.body.missing)).toMatch(/SUPABASE_SERVICE_ROLE_KEY/);
+    expect(failure?.body.missing).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
     expect(String(failure?.body.error)).toContain('POST /api/auth/register');
+  });
+
+  it('defaults to an empty missing list when nothing is passed', () => {
+    const failure = configurationResponse('SUPABASE_SERVICE_ROLE_KEY is not set.');
+
+    expect(failure?.body.missing).toEqual([]);
+  });
+
+  it('reports the variables this deployment is missing', () => {
+    // The test environment sets both variables, so nothing is missing here; the
+    // middleware passes MISSING_CONFIG_VARIABLES through to the response body.
+    expect(MISSING_CONFIG_VARIABLES).toEqual([]);
   });
 
   it('tells the developer exactly where to set the variable', () => {

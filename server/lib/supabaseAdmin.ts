@@ -31,6 +31,16 @@ const isServerless = Boolean(
 
 export const hasServiceRoleKey = Boolean(SUPABASE_SERVICE_ROLE_KEY);
 
+/**
+ * Names (never values) of the variables this deployment is missing, so the API
+ * contract can say exactly what to add: `503 {code:"API_NOT_CONFIGURED",
+ * missing:["SUPABASE_SERVICE_ROLE_KEY"]}`.
+ */
+export const MISSING_CONFIG_VARIABLES: string[] = [
+  ...(SUPABASE_URL ? [] : ['SUPABASE_URL']),
+  ...(hasServiceRoleKey ? [] : ['SUPABASE_SERVICE_ROLE_KEY']),
+];
+
 /** Human readable reason why the privileged client is unusable, or `null`. */
 export const SUPABASE_ADMIN_ERROR: string | null = !SUPABASE_URL
   ? 'SUPABASE_URL (or VITE_SUPABASE_URL) is not set.'
