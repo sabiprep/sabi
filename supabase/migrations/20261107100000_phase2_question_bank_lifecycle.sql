@@ -611,4 +611,188 @@ REVOKE ALL ON FUNCTION public.verify_question_provenance(TEXT, TEXT, TEXT, TEXT,
 GRANT EXECUTE ON FUNCTION public.verify_question_provenance(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, UUID, TEXT)
   TO service_role;
 
+
+-- Validated batches can be committed only as draft content. The commit is
+-- atomic, rechecks taxonomy and duplicates, and never publishes a question.
+ALTER TABLE public.question_import_batches
+  ADD COLUMN IF NOT EXISTS committed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS committed_at TIMESTAMPTZ;
+
+CREATE OR REPLACE FUNCTION public.commit_question_import_batch(
+  p_batch_id UUID,
+  p_actor_id UUID,
+  p_actor_role TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  batch_row public.question_import_batches%ROWTYPE;
+  import_row public.question_import_rows%ROWTYPE;
+  normalized JSONB;
+  source_meta JSONB;
+  subject_display TEXT;
+  topic_name TEXT;
+  subtopic_name TEXT;
+  new_id TEXT;
+  inserted_ids JSONB := '[]'::JSONB;
+  inserted_count INTEGER := 0;
+BEGIN
+  IF p_actor_id IS NULL OR p_actor_role IS NULL
+     OR p_actor_role NOT IN ('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN') THEN
+    RAISE EXCEPTION 'Import committer is not authorized' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO batch_row FROM public.question_import_batches
+  WHERE id = p_batch_id FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Import batch not found' USING ERRCODE = 'P0002';
+  END IF;
+  IF batch_row.status <> 'validated' THEN
+    RAISE EXCEPTION 'Only a validated import batch can be committed' USING ERRCODE = '22023';
+  END IF;
+  IF batch_row.total_rows = 0
+     OR batch_row.valid_rows <> batch_row.total_rows
+     OR batch_row.invalid_rows <> 0
+     OR batch_row.duplicate_rows <> 0
+     OR (SELECT count(*) FROM public.question_import_rows
+         WHERE batch_id = p_batch_id AND outcome = 'valid') <> batch_row.total_rows THEN
+    RAISE EXCEPTION 'Resolve all invalid and duplicate rows, then validate a clean batch before committing'
+      USING ERRCODE = '23514';
+  END IF;
+
+  -- Serialize import commits so concurrent batches cannot race past the
+  -- duplicate check against one another.
+  PERFORM pg_advisory_xact_lock(hashtext('sabi-question-bank-import-commit'));
+
+  FOR import_row IN
+    SELECT * FROM public.question_import_rows
+    WHERE batch_id = p_batch_id AND outcome = 'valid'
+    ORDER BY row_number
+    FOR UPDATE
+  LOOP
+    normalized := import_row.normalized_payload;
+    source_meta := COALESCE(normalized->'provenance', '{}'::JSONB);
+
+    SELECT js.display_name, t.name, st.name
+      INTO subject_display, topic_name, subtopic_name
+    FROM public.jamb_subjects js
+    JOIN public.jamb_topics t ON t.subject_slug = js.slug
+    JOIN public.jamb_subtopics st ON st.topic_id = t.id
+    WHERE js.slug = normalized->>'subjectSlug'
+      AND t.id = (normalized->>'topicId')::UUID
+      AND st.id = (normalized->>'subtopicId')::UUID
+      AND js.is_active = TRUE AND t.is_active = TRUE AND st.is_active = TRUE;
+
+    IF subject_display IS NULL OR topic_name IS NULL OR subtopic_name IS NULL THEN
+      RAISE EXCEPTION 'Taxonomy changed after validation; revalidate batch row %', import_row.row_number
+        USING ERRCODE = '23514';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1 FROM public.question_bank q
+      WHERE lower(btrim(q.subject)) = lower(btrim(subject_display))
+        AND lower(regexp_replace(btrim(q.question), '[[:space:]]+', ' ', 'g')) =
+            lower(regexp_replace(btrim(normalized->>'question'), '[[:space:]]+', ' ', 'g'))
+        AND lower(regexp_replace(btrim(q.option_a), '[[:space:]]+', ' ', 'g')) =
+            lower(regexp_replace(btrim(normalized->'options'->>'A'), '[[:space:]]+', ' ', 'g'))
+        AND lower(regexp_replace(btrim(q.option_b), '[[:space:]]+', ' ', 'g')) =
+            lower(regexp_replace(btrim(normalized->'options'->>'B'), '[[:space:]]+', ' ', 'g'))
+        AND lower(regexp_replace(btrim(q.option_c), '[[:space:]]+', ' ', 'g')) =
+            lower(regexp_replace(btrim(normalized->'options'->>'C'), '[[:space:]]+', ' ', 'g'))
+        AND lower(regexp_replace(btrim(q.option_d), '[[:space:]]+', ' ', 'g')) =
+            lower(regexp_replace(btrim(normalized->'options'->>'D'), '[[:space:]]+', ' ', 'g'))
+    ) THEN
+      RAISE EXCEPTION 'A duplicate appeared after validation; revalidate batch row %', import_row.row_number
+        USING ERRCODE = '23505';
+    END IF;
+
+    new_id := 'Q-' || replace(gen_random_uuid()::TEXT, '-', '');
+    INSERT INTO public.question_bank (
+      id, exam_type, subject, topic, subtopic, year, question,
+      option_a, option_b, option_c, option_d, answer, explanation,
+      explanation_short, difficulty, concepts, source, status,
+      topic_id, subtopic_id, current_version, review_state
+    ) VALUES (
+      new_id,
+      COALESCE(normalized->>'examType', 'UTME'),
+      subject_display, topic_name, subtopic_name,
+      NULLIF(normalized->>'year', '')::INTEGER,
+      normalized->>'question',
+      normalized->'options'->>'A', normalized->'options'->>'B',
+      normalized->'options'->>'C', normalized->'options'->>'D',
+      lower(normalized->>'answer'), normalized->>'explanation',
+      NULLIF(normalized->>'explanationShort', ''),
+      normalized->>'difficulty',
+      ARRAY(SELECT jsonb_array_elements_text(COALESCE(normalized->'concepts', '[]'::JSONB))),
+      COALESCE(NULLIF(source_meta->>'sourceLabel', ''), batch_row.source_label, 'Unverified import'),
+      'ai-draft', (normalized->>'topicId')::UUID, (normalized->>'subtopicId')::UUID,
+      1, 'pending_review'
+    );
+
+    INSERT INTO public.question_provenance (
+      question_id, source_label, source_url, source_type, attribution,
+      provenance_status, evidence
+    ) VALUES (
+      new_id,
+      COALESCE(NULLIF(source_meta->>'sourceLabel', ''), batch_row.source_label),
+      COALESCE(NULLIF(source_meta->>'sourceUrl', ''), batch_row.source_url),
+      CASE WHEN source_meta->>'sourceType' IN ('official_exam','publisher','contributor','ai_generated','other')
+        THEN source_meta->>'sourceType' ELSE 'legacy_unknown' END,
+      NULLIF(source_meta->>'attribution', ''),
+      CASE WHEN COALESCE(NULLIF(source_meta->>'sourceLabel', ''), batch_row.source_label) IS NULL
+             AND COALESCE(NULLIF(source_meta->>'sourceUrl', ''), batch_row.source_url) IS NULL
+        THEN 'unknown' ELSE 'unverified' END,
+      jsonb_build_object('origin', 'question_import_batch', 'batch_id', p_batch_id, 'row_number', import_row.row_number)
+    );
+
+    INSERT INTO public.question_bank_versions (
+      question_id, version_number, payload, content_hash, legacy_status,
+      review_state, change_reason, created_by
+    )
+    SELECT q.id, 1, to_jsonb(q), md5(to_jsonb(q)::TEXT), q.status,
+           'pending_review', 'import_batch:' || p_batch_id::TEXT, p_actor_id
+    FROM public.question_bank q WHERE q.id = new_id;
+
+    INSERT INTO public.question_review_events (
+      question_id, version_number, decision, reviewer_id, reviewer_role,
+      comments, quality_checks
+    ) VALUES (
+      new_id, 1, 'submitted', p_actor_id, p_actor_role,
+      'Imported through validated batch ' || p_batch_id::TEXT,
+      '{"import_validated": true, "requires_human_review": true}'::JSONB
+    );
+
+    UPDATE public.question_import_rows SET outcome = 'imported'
+    WHERE id = import_row.id;
+    inserted_ids := inserted_ids || jsonb_build_array(new_id);
+    inserted_count := inserted_count + 1;
+  END LOOP;
+
+  UPDATE public.question_import_batches
+  SET status = 'committed',
+      committed_by = p_actor_id,
+      committed_at = NOW(),
+      summary = COALESCE(summary, '{}'::JSONB) ||
+        jsonb_build_object('imported_count', inserted_count, 'question_ids', inserted_ids),
+      completed_at = COALESCE(completed_at, NOW())
+  WHERE id = p_batch_id;
+
+  RETURN jsonb_build_object(
+    'batch_id', p_batch_id,
+    'status', 'committed',
+    'imported_count', inserted_count,
+    'question_ids', inserted_ids,
+    'review_state', 'pending_review'
+  );
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.commit_question_import_batch(UUID, UUID, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.commit_question_import_batch(UUID, UUID, TEXT)
+  TO service_role;
+
 COMMIT;
