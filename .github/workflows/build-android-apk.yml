@@ -9,6 +9,10 @@ jobs:
   build-apk:
     name: Compile SABI JAMB CBT Android APK
     runs-on: ubuntu-latest
+    # The API is deployed by Vercel alongside the web app. Allow an explicit
+    # secret/variable override, but keep native builds functional by default.
+    env:
+      VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL || vars.VITE_API_BASE_URL || 'https://sabi-tan.vercel.app' }}
 
     steps:
       - name: Checkout SABI Repository
@@ -29,8 +33,6 @@ jobs:
         run: npm install --legacy-peer-deps || npm install
 
       - name: Verify the APK has an absolute API base URL
-        env:
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: |
           if [ -z "$VITE_API_BASE_URL" ]; then
             echo "::error::Repository secret VITE_API_BASE_URL is not set. An APK cannot call a relative /api path, so it must be built against the deployed API origin (e.g. https://sabi-api-xxxx.europe-west1.run.app)."
@@ -44,11 +46,22 @@ jobs:
           esac
           echo "APK will call the SABI API at: $VITE_API_BASE_URL"
 
+      - name: Verify deployed SABI API health
+        run: |
+          node --input-type=module -e '
+            const base = process.env.VITE_API_BASE_URL.replace(/\\/+$/, "");
+            const response = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(15000) });
+            const type = response.headers.get("content-type") || "";
+            if (!response.ok || !type.includes("application/json")) {
+              throw new Error(`SABI API health check failed: HTTP ${response.status}, content-type=${type}`);
+            }
+            console.log(`SABI API health endpoint reachable: ${base}/api/health`);
+          '
+
       - name: Build Production Web Bundle, Ensure Android Wrapper & Sync Capacitor
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
         run: npm run android:sync
 
       - name: Grant Execute Permission to Gradle Wrapper
