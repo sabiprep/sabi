@@ -47,6 +47,8 @@ Every existing question receives a version-1 snapshot and provenance record. Exi
 - `POST /api/question-bank/:questionId/versions`, `POST /api/question-bank/:questionId/provenance/verify`, `POST /api/question-bank/:questionId/review`, `POST /api/question-bank/flags/:flagId/resolve`, `POST /api/question-bank/import/validate` and `POST /api/question-bank/import/:batchId/commit` are restricted to content managers and administrators.
 - `POST /api/question-bank/:questionId/flag` lets authenticated students report issues against the currently approved question version. Duplicate open flags from the same reporter/reason are blocked.
 - `GET /api/question-bank/eligible` requires authentication and returns only fully approved, provenance-verified and taxonomy-verified questions. It never returns the answer key or explanation.
+- `POST /api/question-bank/eligible/:questionId/answer` evaluates a submitted A–D option only if the question is still eligible; the answer and explanation are returned only after submission.
+- The student `/verified-practice` screen is linked from Practice Hub and consumes the verified-only pool, answer evaluation and student flag endpoint. It deliberately does not write learning evidence; that belongs to Phase 3.
 
 ## Serving eligibility rule
 
@@ -79,7 +81,8 @@ The `/admin/question-bank` workspace provides:
 - Correction editor that creates a new immutable version and resets review/provenance.
 - Version timeline with content hashes, review state and change reason.
 - Student flag moderation and dry-run import reporting.
-- Clean-batch commit action that creates drafts only; a second human review is always required before publishing.
+- Clean-batch commit action that creates drafts only; the database rechecks duplicates and taxonomy in the commit transaction.
+- Student Verified Question Practice experience that withholds answer keys until answer submission and supports issue reporting.
 
 ## Phase 2 exit gate
 
@@ -91,6 +94,7 @@ The `/admin/question-bank` workspace provides:
 - [x] Approval gates reject invalid content and unverified source/taxonomy.
 - [x] Review history and flags are auditable.
 - [x] Student retrieval excludes all pending, rejected, flagged, retired or unverified questions.
+- [x] Student practice evaluates answers server-side only after submission and exposes no answer key in the question-list response.
 - [x] Content-manager authorization and answer-key isolation tests pass.
 - [ ] Production migration is explicitly approved and applied (separate rollout approval required).
 
