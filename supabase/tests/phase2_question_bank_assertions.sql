@@ -60,6 +60,12 @@ BEGIN
      OR NOT has_function_privilege('service_role', 'public.get_eligible_question_bank(text,integer,integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'service_role must retain server-only question RPC execution';
   END IF;
+  IF has_table_privilege('service_role', 'public.question_bank_versions', 'UPDATE')
+     OR has_table_privilege('service_role', 'public.question_bank_versions', 'DELETE')
+     OR has_table_privilege('service_role', 'public.question_review_events', 'UPDATE')
+     OR has_table_privilege('service_role', 'public.question_review_events', 'DELETE') THEN
+    RAISE EXCEPTION 'Question versions and review events must be append-only for service_role';
+  END IF;
   IF rls_missing <> 0 THEN
     RAISE EXCEPTION 'RLS is missing from % Phase 2 tables', rls_missing;
   END IF;
@@ -75,6 +81,32 @@ BEGIN
   IF NOT has_table_privilege('service_role', 'public.question_bank', 'SELECT')
      OR NOT has_table_privilege('service_role', 'public.question_bank_versions', 'SELECT') THEN
     RAISE EXCEPTION 'service_role must retain question-bank read access';
+  END IF;
+END
+$$;
+
+-- Even an authenticated reviewer cannot approve a legacy question while its
+-- provenance remains unverified. The failed call must leave review state intact.
+DO $$
+DECLARE
+  reviewer UUID := '00000000-0000-4000-8000-000000000001';
+BEGIN
+  INSERT INTO auth.users(id, email)
+  VALUES (reviewer, 'phase2-review-test@example.com')
+  ON CONFLICT (id) DO NOTHING;
+
+  BEGIN
+    PERFORM public.review_question_bank_item(
+      'BIO-001', 'approved', reviewer, 'CONTENT_MANAGER', 'CI approval guard test',
+      '{"content_reviewed": true, "answer_key_verified": true}'::JSONB
+    );
+    RAISE EXCEPTION 'Expected approval to fail for unverified provenance';
+  EXCEPTION WHEN check_violation THEN
+    NULL;
+  END;
+
+  IF (SELECT review_state FROM public.question_bank WHERE id = 'BIO-001') <> 'pending_review' THEN
+    RAISE EXCEPTION 'Rejected approval attempt changed the question review state';
   END IF;
 END
 $$;
