@@ -39,3 +39,10 @@ Database files, in the order they are applied to a fresh project:
 
 1. `supabase_schema.sql` — base schema (profiles, signup trigger, generator)
 2. `supabase/migrations/0001_phase0_security.sql` — Phase 0 hardening
+
+
+
+
+
+lets get the work started 
+
