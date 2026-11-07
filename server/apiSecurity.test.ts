@@ -74,6 +74,26 @@ describe('authentication gate', () => {
 
     expect(response.status).toBe(401);
   });
+
+  it('protects Phase 3 session and attempt endpoints', async () => {
+    const start = await request(app).post('/api/learning/sessions').send({ mode: 'smart' });
+    const attempt = await request(app)
+      .post('/api/learning/sessions/11111111-1111-4111-8111-111111111111/attempts')
+      .send({
+        eventId: '22222222-2222-4222-8222-222222222222',
+        questionId: 'MTH-001',
+        answer: 'A',
+        isCorrect: true,
+      });
+
+    expect(start.status).toBe(401);
+    expect(attempt.status).toBe(401);
+  });
+
+  it('rejects unauthenticated mastery reads', async () => {
+    const response = await request(app).get('/api/learning/mastery');
+    expect(response.status).toBe(401);
+  });
 });
 
 
