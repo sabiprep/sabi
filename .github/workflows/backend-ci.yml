@@ -59,7 +59,7 @@ jobs:
           sudo apt-get install --yes postgresql-client
       - name: Prepare disposable Phase 0 schema
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_fixture.sql
-      - name: Apply Phase 1–4 migrations
+      - name: Apply Phase 1–5 migrations
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
@@ -70,6 +70,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107100000_phase2_question_bank_lifecycle.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_phase3_learning_evidence.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107120000_phase4_adaptive_intelligence.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_phase5_jamb_exam_runs.sql
       - name: Verify Phase 1 schema and security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
       - name: Verify Phase 2 question bank lifecycle
@@ -78,6 +79,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_learning_evidence_assertions.sql
       - name: Verify Phase 4 adaptive intelligence schema and security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase4_adaptive_assertions.sql
+      - name: Verify Phase 5 JAMB exam run schema and security
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase5_jamb_exam_assertions.sql
       - name: Verify migrations are idempotent
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
@@ -89,7 +92,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107100000_phase2_question_bank_lifecycle.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107110000_phase3_learning_evidence.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107120000_phase4_adaptive_intelligence.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107130000_phase5_jamb_exam_runs.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_question_bank_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase3_learning_evidence_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase4_adaptive_assertions.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/phase5_jamb_exam_assertions.sql
