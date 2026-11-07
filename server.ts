@@ -7,7 +7,6 @@ import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import { SEED_QUESTIONS, KNOWLEDGE_BASE, SYLLABUS_FREQUENCY } from './src/data/questions.ts';
 import { Question, SubjectName } from './src/types';
@@ -1057,6 +1056,9 @@ app.use(errorHandler);
 // -------------------------------------------------------------
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    // Vite is only needed for local development. Keep it out of the serverless
+    // production module graph so the API does not load Rollup's native binaries.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
