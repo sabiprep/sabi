@@ -1,9 +1,9 @@
-import { validateQuestionDraft } from './validation';
+import { validateQuestionDraft, type NormalizedQuestionDraft } from './validation';
 
 export type QuestionImportRowResult =
-  | { rowNumber: number; outcome: 'valid'; fingerprint: string; normalized: ReturnType<typeof validateQuestionDraft> extends { valid: true; value: infer T } ? T : never }
+  | { rowNumber: number; outcome: 'valid'; fingerprint: string; normalized: NormalizedQuestionDraft }
   | { rowNumber: number; outcome: 'invalid'; errors: { field: string; code: string; message: string }[] }
-  | { rowNumber: number; outcome: 'duplicate'; duplicateOfRow: number; fingerprint: string };
+  | { rowNumber: number; outcome: 'duplicate'; duplicateOfRow: number | null; duplicateQuestionId?: string; fingerprint: string };
 
 export type QuestionImportReport = {
   totalRows: number;
@@ -32,7 +32,7 @@ export function validateQuestionImport(
 
     const existingId = existingFingerprints.get(validated.fingerprint);
     if (existingId) {
-      return { rowNumber, outcome: 'duplicate', duplicateOfRow: 0, fingerprint: validated.fingerprint };
+      return { rowNumber, outcome: 'duplicate', duplicateOfRow: null, duplicateQuestionId: existingId, fingerprint: validated.fingerprint };
     }
 
     const priorRow = seenInBatch.get(validated.fingerprint);
