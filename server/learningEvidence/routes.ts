@@ -225,7 +225,6 @@ router.get('/recommendations', requireAuth, async (req, res) => {
     limit,
   });
 
-  const recommendationById = new Map(ranked.map(item => [item.question.id, item]));
   const recommendations = ranked.map(item => ({
     question: item.question,
     reason: item.reason,
