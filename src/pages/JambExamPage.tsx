@@ -26,7 +26,7 @@ export function JambExamPage() {
   const [runId, setRunId] = useState('');
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [index, setIndex] = useState(0);
-  const [remaining, setRemaining] = useState(0);
+  const [remaining, setRemaining] = useState<number | null>(null);
   const [result, setResult] = useState<ExamResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -69,15 +69,15 @@ export function JambExamPage() {
   }, []);
 
   useEffect(() => {
-    if (!runId || result) return;
-    const timer = window.setInterval(() => setRemaining(value => Math.max(0, value - 1)), 1000);
+    if (!runId || result || remaining === null) return;
+    const timer = window.setInterval(() => setRemaining(value => value === null ? null : Math.max(0, value - 1)), 1000);
     return () => window.clearInterval(timer);
   }, [runId, result]);
 
   useEffect(() => {
-    if (runId && remaining === 0 && !result) void submitExam();
+    if (runId && remaining === 0 && !result && !loading) void submitExam();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, runId, result]);
+  }, [remaining, runId, result, loading]);
 
   async function startExam() {
     setLoading(true); setError(''); setNotice('');
@@ -133,7 +133,7 @@ export function JambExamPage() {
             {result.subjects.map(s=><div key={s.subjectSlug} className="flex items-center justify-between gap-3 py-3"><span className="font-semibold">{subjects.find(x=>x.slug===s.subjectSlug)?.display_name || s.subjectSlug}</span><span className="text-sm text-slate-500">{s.correct}/{s.attempted} correct · {Math.round(s.accuracy*100)}%</span></div>)}
           </div>
           <p className="mt-6 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">{result.readiness.reason}</p>
-          <button onClick={()=>{setRunId('');setQuestions([]);setResult(null);setRemaining(0);setIndex(0);}} className="mt-6 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">Start another mock</button>
+          <button onClick={()=>{setRunId('');setQuestions([]);setResult(null);setRemaining(null);setIndex(0);}} className="mt-6 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">Start another mock</button>
         </div>
       </section>
     </main>
