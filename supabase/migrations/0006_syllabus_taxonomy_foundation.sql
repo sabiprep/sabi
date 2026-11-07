@@ -197,6 +197,7 @@ ALTER TABLE public.jamb_subtopics ENABLE ROW LEVEL SECURITY;
 
 -- Legacy labels stay private to privileged backend workflows until reviewed.
 DROP POLICY IF EXISTS "Public can read active JAMB topics" ON public.jamb_topics;
+DROP POLICY IF EXISTS "Public can read verified JAMB topics" ON public.jamb_topics;
 CREATE POLICY "Public can read verified JAMB topics"
   ON public.jamb_topics FOR SELECT TO anon, authenticated
   USING (is_active AND verification_status = 'verified');
