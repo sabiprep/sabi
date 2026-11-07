@@ -45,7 +45,7 @@ describe('validateQuestionDraft', () => {
       options: { A: '3', B: '3', C: '4', D: '5' },
     });
     expect(result.valid).toBe(false);
-    if (!result.valid) expect(result.issues[0].code).toBe('duplicate_option');
+    if (result.valid === false) expect(result.issues[0].code).toBe('duplicate_option');
   });
 
   it('rejects invalid answer keys and empty explanations', () => {
