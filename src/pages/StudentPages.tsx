@@ -30,11 +30,13 @@ const MAIN_NAV = [
   { to: '/practice', label: 'Practice Hub', Icon: BookOpen },
   { to: '/cbt', label: 'CBT Simulator', Icon: FileQuestion },
   { to: '/progress', label: 'Progress', Icon: Activity },
+  { to: '/learning-progress', label: 'Topic Mastery', Icon: Target },
 ];
 
 const MENU_ITEMS = [
   { to: '/subscription', label: 'Subscription & 5,000 💎 Vault', Icon: Coins, description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus' },
   { to: '/subject-rates', label: 'Subject Rates (100% Rule)', Icon: Activity, description: 'Full-screen mastery ratings earned from 100% flawless levels' },
+  { to: '/learning-progress', label: 'Topic Mastery', Icon: Target, description: 'Accuracy, mastery estimates and learning evidence by topic' },
   { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests & Streak Bonus Diamonds' },
   { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review missed questions with step-by-step solutions' },
   { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet, brochure & syllabus heatmap' },
