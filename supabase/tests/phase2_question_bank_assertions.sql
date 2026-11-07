@@ -53,10 +53,13 @@ BEGIN
     RAISE EXCEPTION 'Unreviewed legacy questions must not be served: eligible %', eligible_count;
   END IF;
   IF has_function_privilege('anon', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE')
-     OR has_function_privilege('authenticated', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE') THEN
+     OR has_function_privilege('authenticated', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.create_question_bank_version(text,jsonb,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.create_question_bank_version(text,jsonb,text,uuid,text)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Client roles must not execute question review RPC';
   END IF;
   IF NOT has_function_privilege('service_role', 'public.review_question_bank_item(text,text,uuid,text,text,jsonb)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.create_question_bank_version(text,jsonb,text,uuid,text)', 'EXECUTE')
      OR NOT has_function_privilege('service_role', 'public.get_eligible_question_bank(text,integer,integer)', 'EXECUTE') THEN
     RAISE EXCEPTION 'service_role must retain server-only question RPC execution';
   END IF;
@@ -87,6 +90,75 @@ BEGIN
   END IF;
 END
 $$;
+
+
+-- Corrections must create a new snapshot and force the current record back
+-- through review without mutating its previous version.
+DO $
+DECLARE
+  reviewer UUID := '00000000-0000-4000-8000-000000000001';
+  topic_id UUID;
+  subtopic_id UUID;
+  result JSONB;
+  old_question TEXT;
+BEGIN
+  INSERT INTO auth.users(id, email)
+  VALUES (reviewer, 'phase2-review-test@example.com')
+  ON CONFLICT (id) DO NOTHING;
+
+  SELECT id INTO topic_id
+  FROM public.jamb_topics
+  WHERE subject_slug = 'biology' AND name = 'Adaptation'
+  LIMIT 1;
+  SELECT id INTO subtopic_id
+  FROM public.jamb_subtopics
+  WHERE topic_id = topic_id AND name = 'Adaptations in animals'
+  LIMIT 1;
+
+  SELECT question INTO old_question FROM public.question_bank WHERE id = 'BIO-001';
+  result := public.create_question_bank_version(
+    'BIO-001',
+    jsonb_build_object(
+      'subjectSlug', 'biology',
+      'topicId', topic_id,
+      'subtopicId', subtopic_id,
+      'year', 2020,
+      'question', 'Which characteristic protects a camel from blowing sand?',
+      'options', jsonb_build_object('A','Long eyelashes','B','Webbed feet','C','Thin fur','D','Gills'),
+      'answer', 'A',
+      'explanation', 'Long eyelashes help prevent blowing sand from entering the camel eyes.',
+      'explanationShort', 'Long eyelashes protect the eyes.',
+      'difficulty', 'easy',
+      'concepts', jsonb_build_array('adaptation')
+    ),
+    'CI correction version test',
+    reviewer,
+    'CONTENT_MANAGER'
+  );
+
+  IF result->>'version_number' <> '2' THEN
+    RAISE EXCEPTION 'Expected question version 2, got %', result;
+  END IF;
+  IF (SELECT current_version FROM public.question_bank WHERE id = 'BIO-001') <> 2
+     OR (SELECT review_state FROM public.question_bank WHERE id = 'BIO-001') <> 'pending_review'
+     OR (SELECT status FROM public.question_bank WHERE id = 'BIO-001') <> 'ai-draft' THEN
+    RAISE EXCEPTION 'Question correction did not reset the current record to pending review';
+  END IF;
+  IF (SELECT payload->>'question' FROM public.question_bank_versions
+      WHERE question_id = 'BIO-001' AND version_number = 1) IS DISTINCT FROM old_question THEN
+    RAISE EXCEPTION 'Previous question version was modified by correction';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.question_bank_versions
+    WHERE question_id = 'BIO-001' AND version_number = 2
+  ) OR NOT EXISTS (
+    SELECT 1 FROM public.question_review_events
+    WHERE question_id = 'BIO-001' AND version_number = 2 AND decision = 'submitted'
+  ) THEN
+    RAISE EXCEPTION 'New version snapshot or submission review event is missing';
+  END IF;
+END
+$;
 
 -- Even an authenticated reviewer cannot approve a legacy question while its
 -- provenance remains unverified. The failed call must leave review state intact.
