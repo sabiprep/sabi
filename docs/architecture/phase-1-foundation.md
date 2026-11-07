@@ -54,7 +54,7 @@ The question bank remains server-only with RLS enabled and no client policy. Pri
 
 Existing server code verifies Supabase bearer tokens, derives user IDs from the verified token, checks roles server-side, validates request bodies, and prevents ordinary profile updates from changing protected role fields. Existing tests cover unauthenticated access to protected routes, fabricated identity fields, invalid tokens, registration validation, and account-linking conflicts.
 
-The profile policies are owner-scoped. A complete Phase 1 exit still requires CI evidence for cross-student isolation at the API/data layer, including both reads and writes, rather than relying only on inspection of route filters and SQL policy text.
+The profile policies are owner-scoped. This branch adds SQL-level RLS tests proving a student cannot read or update another student's profile, plus API-level tests proving onboarding and progress routes scope both reads and writes to the verified token identity. These checks must pass in CI before the exit gate is accepted.
 
 ## 5. JAMB configuration
 
@@ -85,6 +85,6 @@ These items remain open and must not be silently decided by implementation:
 3. **Onboarding contract:** confirm required academic fields and allowed registered-subject combinations.
 4. **Official syllabus source:** select authoritative JAMB syllabus documents/versions and review imported draft topic labels before promotion.
 5. **Production database ACL remediation:** approve and apply the reviewed least-privilege migration only after migration-ledger reconciliation.
-6. **Cross-student tests:** add/confirm tests proving one authenticated student cannot read or mutate another student's profile or learning records.
+6. **Cross-student tests:** SQL and API profile ownership tests are included in this branch; require passing CI evidence and extend the same ownership coverage when learning-record tables are introduced.
 
 Phase 1 is complete only when the numbered migrations pass the disposable PostgreSQL workflow, application type-check/tests/build pass, cross-student isolation is evidenced, live migration/schema drift is reconciled, and the remaining decisions are resolved or explicitly accepted.
