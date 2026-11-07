@@ -70,4 +70,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0004_profile_public_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0005_catalog_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0006_syllabus_taxonomy_foundation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
