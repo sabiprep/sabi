@@ -247,7 +247,7 @@ $$;
 DO $$
 DECLARE
   reviewer UUID := '00000000-0000-4000-8000-000000000001';
-  batch_id UUID := '00000000-0000-4000-8000-000000000022';
+  v_batch_id UUID := '00000000-0000-4000-8000-000000000022';
   v_topic_id UUID;
   v_subtopic_id UUID;
   batch_state TEXT;
@@ -290,26 +290,26 @@ BEGIN
   INSERT INTO public.question_import_batches(
     id, source_label, source_url, created_by, status, total_rows, valid_rows, invalid_rows, duplicate_rows
   ) VALUES (
-    batch_id, 'Phase 2 CI import', 'https://www.jamb.gov.ng/', reviewer, 'validated', 1, 1, 0, 0
+    v_batch_id, 'Phase 2 CI import', 'https://www.jamb.gov.ng/', reviewer, 'validated', 1, 1, 0, 0
   ) ON CONFLICT (id) DO NOTHING;
 
   INSERT INTO public.question_import_rows(
     batch_id, row_number, raw_payload, normalized_payload, outcome
-  ) VALUES (batch_id, 1, normalized, normalized, 'valid')
+  ) VALUES (v_batch_id, 1, normalized, normalized, 'valid')
   ON CONFLICT (batch_id, row_number) DO NOTHING;
 
-  SELECT status INTO batch_state FROM public.question_import_batches WHERE id = batch_id;
+  SELECT status INTO batch_state FROM public.question_import_batches WHERE id = v_batch_id;
   IF batch_state = 'validated' THEN
-    result := public.commit_question_import_batch(batch_id, reviewer, 'CONTENT_MANAGER');
+    result := public.commit_question_import_batch(v_batch_id, reviewer, 'CONTENT_MANAGER');
   ELSE
-    SELECT summary INTO result FROM public.question_import_batches WHERE id = batch_id;
+    SELECT summary INTO result FROM public.question_import_batches WHERE id = v_batch_id;
   END IF;
 
   SELECT summary->'question_ids'->>0 INTO imported_id
-  FROM public.question_import_batches WHERE id = batch_id;
+  FROM public.question_import_batches WHERE id = v_batch_id;
 
-  IF (SELECT status FROM public.question_import_batches WHERE id = batch_id) <> 'committed'
-     OR (SELECT outcome FROM public.question_import_rows WHERE batch_id = batch_id AND row_number = 1) <> 'imported'
+  IF (SELECT status FROM public.question_import_batches WHERE id = v_batch_id) <> 'committed'
+     OR (SELECT outcome FROM public.question_import_rows WHERE batch_id = v_batch_id AND row_number = 1) <> 'imported'
      OR imported_id IS NULL THEN
     RAISE EXCEPTION 'Validated import batch did not reach committed state';
   END IF;
