@@ -18,6 +18,7 @@ import { aiLimiter, authLimiter, globalLimiter } from './server/middleware/rateL
 import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
+import { questionBankRouter } from './server/questionBank/routes';
 import {
   chatSchema,
   explainSchema,
@@ -722,6 +723,9 @@ app.post(
       extra_cors_origins: config.allowedOrigins.length,
     });
   });
+
+  // Phase 2 question bank: staff moderation and verified-only student delivery.
+  app.use('/api/question-bank', questionBankRouter);
 
   // 1. Get seed questions (public, static payload: safe to cache).
   app.get('/api/questions', (_req, res) => {
