@@ -157,6 +157,9 @@ REVOKE ALL ON TABLE
 FROM PUBLIC, anon, authenticated;
 
 -- Version snapshots and review events are append-only at the application privilege layer.
+-- Explicitly revoke broader default privileges before granting only SELECT/INSERT.
+REVOKE UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON TABLE public.question_bank_versions, public.question_review_events FROM service_role;
 GRANT SELECT, INSERT ON TABLE public.question_bank_versions, public.question_review_events TO service_role;
 GRANT ALL ON TABLE
   public.question_provenance, public.question_flags, public.question_import_batches, public.question_import_rows
