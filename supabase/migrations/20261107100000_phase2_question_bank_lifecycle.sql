@@ -240,9 +240,9 @@ BEGIN
         USING ERRCODE = '23514';
     END IF;
 
-    SELECT count(DISTINCT lower(regexp_replace(btrim(value), '\\s+', ' ', 'g')))
+    SELECT count(DISTINCT lower(regexp_replace(btrim(option_value), '[[:space:]]+', ' ', 'g')))
       INTO option_count
-    FROM unnest(ARRAY[q.option_a, q.option_b, q.option_c, q.option_d]) AS value;
+    FROM unnest(ARRAY[q.option_a, q.option_b, q.option_c, q.option_d]) AS options(option_value);
     IF option_count <> 4 THEN
       RAISE EXCEPTION 'Answer options must be distinct' USING ERRCODE = '23514';
     END IF;
