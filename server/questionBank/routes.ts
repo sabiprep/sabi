@@ -16,7 +16,7 @@ const questionVersionBodySchema = z.strictObject({
 });
 const provenanceVerificationBodySchema = z.strictObject({
   sourceLabel: z.string().trim().min(1).max(500),
-  sourceUrl: z.string().trim().url().max(2000).refine((value) => /^https?:\\/\\//i.test(value), 'Source URL must use HTTP or HTTPS.'),
+  sourceUrl: z.string().trim().url().max(2000).refine((value) => value.startsWith('https://') || value.startsWith('http://'), 'Source URL must use HTTP or HTTPS.'),
   sourceType: z.enum(['official_exam', 'publisher', 'contributor', 'ai_generated', 'other']),
   attribution: z.string().trim().min(2).max(1000),
   evidenceNote: z.string().trim().min(20).max(4000),
