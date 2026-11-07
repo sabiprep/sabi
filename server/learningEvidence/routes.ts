@@ -1,0 +1,92 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { supabaseAdmin } from '../lib/supabaseAdmin';
+import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
+import { validateBody } from '../middleware/validate';
+
+const router = Router();
+
+const startSessionSchema = z.strictObject({
+  mode: z.enum(['diagnostic', 'smart', 'blitz', 'custom', 'cbt']),
+  subjectSlug: z.string().trim().min(1).max(80).optional(),
+});
+const attemptSchema = z.strictObject({
+  eventId: z.string().uuid(),
+  questionId: z.string().trim().min(1).max(128),
+  answer: z.enum(['A', 'B', 'C', 'D']),
+  responseTimeMs: z.number().int().min(0).max(3600000).optional(),
+});
+const completeSessionSchema = z.strictObject({
+  status: z.enum(['completed', 'abandoned']).default('completed'),
+});
+
+router.post('/sessions', requireAuth, validateBody(startSessionSchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { data, error } = await supabaseAdmin.rpc('create_learning_session', {
+    p_student_id: authReq.user!.id,
+    p_mode: req.body.mode,
+    p_subject_slug: req.body.subjectSlug ?? null,
+  });
+  if (error) {
+    console.error('[SABI] Learning session creation failed:', error.message);
+    return res.status(error.code === '22023' ? 400 : 503).json({
+      error: error.code === '22023' ? error.message : 'A learning session could not be started.',
+    });
+  }
+  return res.status(201).json({ status: 'active', sessionId: data });
+});
+
+router.post('/sessions/:sessionId/attempts', requireAuth, validateBody(attemptSchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { data, error } = await supabaseAdmin.rpc('record_learning_attempt', {
+    p_student_id: authReq.user!.id,
+    p_event_id: req.body.eventId,
+    p_session_id: req.params.sessionId,
+    p_question_id: req.body.questionId,
+    p_submitted_option: req.body.answer.toLowerCase(),
+    p_response_time_ms: req.body.responseTimeMs ?? null,
+  });
+  if (error) {
+    const status = error.code === '42501' ? 403
+      : error.code === '22023' ? 422
+      : error.code === '23505' ? 409
+      : 503;
+    if (status >= 500) console.error('[SABI] Learning attempt write failed:', error.message);
+    return res.status(status).json({
+      error: status >= 500 ? 'The learning attempt could not be recorded.' : error.message,
+    });
+  }
+  return res.status(data?.status === 'duplicate' ? 200 : 201).json({ status: data?.status, result: data });
+});
+
+router.post('/sessions/:sessionId/complete', requireAuth, validateBody(completeSessionSchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { data, error } = await supabaseAdmin.rpc('complete_learning_session', {
+    p_student_id: authReq.user!.id,
+    p_session_id: req.params.sessionId,
+    p_status: req.body.status,
+  });
+  if (error) {
+    console.error('[SABI] Learning session completion failed:', error.message);
+    return res.status(503).json({ error: 'The learning session could not be completed.' });
+  }
+  if (!data) return res.status(404).json({ error: 'Active learning session not found.' });
+  return res.json({ status: req.body.status });
+});
+
+router.get('/mastery', requireAuth, async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { data, error } = await supabaseAdmin
+    .from('student_topic_mastery')
+    .select('subject_slug,topic_id,subtopic_id,attempt_count,correct_count,accuracy,mastery_score,evidence_confidence,mastery_state,last_attempted_at,updated_at')
+    .eq('student_id', authReq.user!.id)
+    .order('updated_at', { ascending: false })
+    .limit(500);
+  if (error) {
+    console.error('[SABI] Student mastery retrieval failed:', error.message);
+    return res.status(503).json({ error: 'Learning progress is temporarily unavailable.' });
+  }
+  return res.json({ status: 'success', topics: data ?? [] });
+});
+
+export const learningEvidenceRouter = router;
