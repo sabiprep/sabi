@@ -34,10 +34,26 @@ Phase 5 is stacked on Phase 4, which is stacked on Phase 3, Phase 2 and Phase 1.
 - [x] Exam-run and immutable question-set schema added.
 - [x] Server-only exam assembly RPC added with verified-content gates and balanced subject allocation.
 - [x] RLS, grants and SQL security assertions added.
-- [ ] Authenticated exam APIs and deadline-enforced answer submission.
-- [ ] Student CBT interface and exam navigation.
-- [ ] Results and subject-level performance analytics.
+- [x] Authenticated exam setup, creation, retrieval and answer-submission APIs.
+- [x] Server deadline checks and automatic expiry handling.
+- [x] Student timed CBT interface with question navigation and saved-answer state.
+- [x] Exam submission and observed results with subject/topic performance breakdowns.
 - [ ] Syllabus coverage and evidence-confidence reporting.
 - [ ] Calibration study before any score predictor is enabled.
 - [ ] Full Phase 1–5 CI and migration idempotency pass.
 - [ ] Production rollout separately approved after migration-baseline reconciliation.
+
+
+## API surface delivered
+- `GET /api/jamb-exams/configurations` — active formats and allowed subject catalogue.
+- `POST /api/jamb-exams/runs` — creates a student-owned timed exam from four distinct subjects, including compulsory Use of English.
+- `GET /api/jamb-exams/runs/:runId` — retrieves the owner's exam, pinned question snapshots and saved answer state without exposing answer keys.
+- `POST /api/jamb-exams/runs/:runId/questions/:questionId/answer` — persists an answer through the Phase 3 evidence path; rejects late answers and already-submitted questions.
+- `POST /api/jamb-exams/runs/:runId/submit` — closes the exam and returns observed results, subject breakdowns and topic evidence.
+
+The CBT interface is available at `/jamb-exam`, linked from the Custom JAMB Simulator. Submitted answers are locked in this first slice; answer editing/review-before-final-submit is a follow-up enhancement.
+
+## Known guardrails
+- The backend rejects a question if its currently approved version no longer matches the version pinned when the exam was assembled.
+- The exam report displays observed performance only. It deliberately does not manufacture a JAMB score prediction or readiness label.
+- Production currently has no verified topic/subtopic taxonomy in the baseline audit, so the strict eligibility gate may yield an empty mock paper until content verification is completed.
