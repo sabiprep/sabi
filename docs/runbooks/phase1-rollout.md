@@ -1,5 +1,12 @@
 # Phase 1 foundation rollout
 
+> **This is a record of what was already applied — it is not a procedure.**
+> For the work that still has to happen outside the repo (Supabase Auth settings,
+> Vercel environment variables, verification on the live URL) use
+> [`docs/PHASE0-GO-LIVE.md`](../PHASE0-GO-LIVE.md). Phase 1 development does not
+> begin until that checklist's sign-off list is fully ticked. Do not replay the
+> SQL described below as new migrations (`supabase/migrations/README.md`).
+
 > **Current production status — 2026-11-06:** The approved profile security remediation and Phase 1 foundation have been applied to the live Sabi Supabase project. The pre-remediation snapshot below is retained as an audit record. Post-migration verification is recorded in the production application log.
 
 ## Production application log (2026-11-06)

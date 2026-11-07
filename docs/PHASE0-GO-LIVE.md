@@ -11,51 +11,63 @@ and tested. Nothing here is optional, and the order matters.
 
 | Part | State |
 | --- | --- |
-| Code (API, auth endpoints, boot guard, tests) | **done** — `tsc` 0 errors, 79 tests green, build OK |
-| Supabase (schema + Phase 0 rules) | **unknown** until you run **A3** |
+| Code (API, auth endpoints, boot guard, tests) | **done** — `tsc` 0 errors, 92 tests green, build OK |
+| Supabase (schema + Phase 0 rules) | **unknown** until you run **A1** |
 | Vercel (env vars, Node version) | **not done** — this is exactly why sign-up fails on the URL |
 
-**Have the Supabase rules changed?** No. The migration
-`supabase/migrations/0001_phase0_security.sql` has not changed since it was
-written; none of the recent API work needs a database change. **A3** proves it
+**Have the Supabase rules changed?** No. The SQL in `supabase/migrations/` has not
+changed, and none of the recent API work needs a database change. **A1** proves it
 either way, in 30 seconds.
 
 ---
 
 ## A. Supabase — about 15 minutes
 
-### A1. Base schema (only if missing)
+**Your live project may already be done.** `docs/runbooks/phase1-rollout.md`
+records that project `dnrzixaasphxiswjyglj` received the profile hardening and the
+Phase 1 foundation SQL on 2026-11-06 (`profile_privilege_hardening`,
+`phase1_foundation`, `profile_public_acl_hardening` in its migration ledger). If
+that is your project, run **no SQL at all** — A1 tells you which case you are in,
+and A1 + A3 + A4 is your whole Supabase step.
 
-Open **SQL Editor → New query**, paste `supabase/verify_phase0.sql`, **Run**.
-It returns one table of 14 rows (`OK` / `MISSING`). Look at the first row:
+### A1. Find out where you are (read-only, 30 seconds)
 
-* `base schema: table public.profiles … OK` → base schema is already there, **skip to A2**.
-* `… MISSING` → paste and run `supabase_schema.sql` (repo root) first.
+**SQL Editor → New query** → paste `supabase/verify_phase0.sql` → **Run**.
+It returns one table of 19 rows, `OK` / `MISSING`, and never writes anything.
 
-⚠️ Never re-run `supabase_schema.sql` after A2 — it would restore the email
+* every row `OK` → nothing to apply, go straight to **A4** (Auth settings);
+* any row `MISSING` → run what the third column names, in the order in A2.
+
+### A2. Apply SQL — only if A1 reported `MISSING`, always ascending
+
+| # | File | What it is |
+| --- | --- | --- |
+| 0 | `supabase_schema.sql` (repo root) | base schema — **only** on a project with no `public.profiles` at all |
+| 1 | `supabase/migrations/0001_phase0_security.sql` | Phase 0: `profiles.role`, protected-columns trigger, `audit_logs`, no auto-confirm, recovery RPC dropped |
+| 2 | `supabase/migrations/0002_phase1_foundation.sql` | owner-only SELECT policy, `session_user` version of the trigger, catalogue tables |
+| 3 | `supabase/migrations/0003_profile_privilege_hardening.sql` | least-privilege grants for `anon` / `authenticated` |
+| 4 | `supabase/migrations/0004_profile_public_acl_hardening.sql` | removes inherited `PUBLIC` grants |
+
+⚠️ **Ascending order only.** All five files are idempotent and safe to re-run,
+but `0001` restores `handle_new_or_linked_user` with the looser
+`search_path = public`; `0002` then pins it to `pg_catalog, public` and revokes
+client `EXECUTE`. Run `0001` last and you quietly undo that hardening.
+
+⛔ **Never re-run `supabase_schema.sql` after 0001** — it restores the email
 auto-confirm trigger and the weak 5-character recovery RPC that Phase 0 removes.
 
-### A2. Apply the Phase 0 migration
-
-SQL Editor → New query → paste the **whole** of
-`supabase/migrations/0001_phase0_security.sql` → **Run**.
-
-It is wrapped in `BEGIN; … COMMIT;` and is idempotent, so re-running is safe.
-
-What it adds: `profiles.role` (+ constraint), the protected-columns trigger, the
-append-only `audit_logs` table, an explicit `WITH CHECK` on the candidate UPDATE
-policy; and it removes email auto-confirm from the signup trigger plus the
-`verify_sabi_unique_id_for_recovery` oracle.
+⚠️ Do **not** use `supabase db push` here; `supabase/migrations/README.md`
+explains why (the local numbering does not match the remote ledger).
 
 ### A3. Confirm the database matches the code
 
 Run `supabase/verify_phase0.sql` again. **Every row must read `OK`** — that is
-the definition of "the Supabase rules are up to date". If any row says
-`MISSING`, the third column tells you exactly which file to run.
+the definition of "the Supabase rules are up to date". If any row still says
+`MISSING`, the third column names the file to run.
 
-Optional spot-check afterwards, run one query at a time:
-`supabase/verify_phase0_data.sql` (account count, role distribution must all be
-`STUDENT`, `rows_with_unknown_role` must be `0`).
+Optional spot-check afterwards, one query at a time:
+`supabase/verify_phase0_data.sql` (account count, roles all `STUDENT`,
+`rows_with_unknown_role` = `0`).
 
 ### A4. Authentication → URL Configuration
 

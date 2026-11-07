@@ -18,31 +18,26 @@ Local dev needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`
 (see `.env.example`). Without them the API refuses to start locally and says
 which one is missing.
 
-## Going live (Phase 0)
+## Which document do I open?
 
-**Start here → [`docs/PHASE0-GO-LIVE.md`](docs/PHASE0-GO-LIVE.md)** — the single
-ordered checklist for the work that happens outside the repo (Supabase dashboard,
-Vercel dashboard, verification on the live URL). Phase 1 does not start until its
-sign-off list is fully ticked.
-
-Then, in order of usefulness:
-
-| Document | Use it for |
+| You are... | Open |
 | --- | --- |
-| [`supabase/verify_phase0.sql`](supabase/verify_phase0.sql) | read-only SQL that says whether your Supabase project matches the code (one `OK` / `MISSING` row per requirement) |
-| [`supabase/verify_phase0_data.sql`](supabase/verify_phase0_data.sql) | read-only spot-check of the data after the checks above are green |
-| [`docs/runbooks/phase0-rollout.md`](docs/runbooks/phase0-rollout.md) | reference and troubleshooting: why each step exists, smoke tests, rollback, error signatures |
-| [`docs/security-phase0.md`](docs/security-phase0.md) | the security model: roles, RLS, protected columns, residual risks |
-| [`ANDROID_APK_BUILD_GUIDE.md`](ANDROID_APK_BUILD_GUIDE.md) | building the Android APK against the deployed API |
+| **The developer doing the outside build** - Supabase dashboard, Vercel dashboard, testing the live URL | **[`docs/PHASE0-GO-LIVE.md`](docs/PHASE0-GO-LIVE.md)** - this one, A to D, start to finish |
+| Checking whether the Supabase project already has the right rules | [`supabase/verify_phase0.sql`](supabase/verify_phase0.sql) - read-only, 19 `OK`/`MISSING` rows |
+| Building the Android APK | [`ANDROID_APK_BUILD_GUIDE.md`](ANDROID_APK_BUILD_GUIDE.md) - checklist step D points here |
+| Debugging a deployment failure | [`docs/runbooks/phase0-rollout.md`](docs/runbooks/phase0-rollout.md) section 8 - reference, not a procedure |
+| Reading the security model | [`docs/security-phase0.md`](docs/security-phase0.md) - reference, not a procedure |
+| Looking up what was already applied to production | [`docs/runbooks/phase1-rollout.md`](docs/runbooks/phase1-rollout.md) - an applied-change record |
 
-Database files, in the order they are applied to a fresh project:
+If you only open one file, make it **`docs/PHASE0-GO-LIVE.md`**. Phase 1 work
+does not begin until its sign-off list is fully ticked.
 
-1. `supabase_schema.sql` — base schema (profiles, signup trigger, generator)
-2. `supabase/migrations/0001_phase0_security.sql` — Phase 0 hardening
+Database SQL, in the order it is applied — ascending only (`0001` restores the
+looser `search_path` that `0002` pins, so `0001` last would undo that hardening).
+`supabase/migrations/README.md` explains why `supabase db push` stays off:
 
-
-
-
-
-lets get the work started 
-
+1. `supabase_schema.sql` - base schema (profiles, signup trigger, generator)
+2. `supabase/migrations/0001_phase0_security.sql` - Phase 0
+3. `supabase/migrations/0002_phase1_foundation.sql` - owner-only policies, `session_user` guard
+4. `supabase/migrations/0003_profile_privilege_hardening.sql` - least-privilege grants
+5. `supabase/migrations/0004_profile_public_acl_hardening.sql` - removes inherited `PUBLIC` grants

@@ -11,7 +11,7 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { SEED_QUESTIONS, KNOWLEDGE_BASE, SYLLABUS_FREQUENCY } from './src/data/questions.ts';
 import { Question, SubjectName } from './src/types';
 import { config, isOriginAllowed, SUPABASE_URL } from './server/config';
-import { hasServiceRoleKey, supabaseAdmin } from './server/lib/supabaseAdmin';
+import { hasServiceRoleKey, MISSING_CONFIG_VARIABLES, SUPABASE_ADMIN_ERROR, supabaseAdmin } from './server/lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from './server/middleware/requireAuth';
 import { requireRole } from './server/middleware/requireRole';
 import { aiLimiter, authLimiter, globalLimiter } from './server/middleware/rateLimit';
@@ -33,6 +33,18 @@ import {
 
 const app = express();
 const PORT = config.port;
+
+/**
+ * Names the host running this process so `/api/health` can tell a developer
+ * whether they reached the Vercel function or a local server.
+ */
+function runtimeLabel(): string {
+  if (process.env.VERCEL) return 'vercel-function';
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME) return 'aws-lambda';
+  if (process.env.NETLIFY) return 'netlify-function';
+  if (config.isTest) return 'test';
+  return 'node-server';
+}
 
 // Vercel and other reverse proxies terminate TLS in front of the API. Trusting
 // exactly one hop lets rate limiting see the real client IP.
@@ -715,8 +727,12 @@ app.post(
       status: 'ok',
       phase: 'phase0',
       timestamp: new Date().toISOString(),
+      runtime: runtimeLabel(),
       supabase_url_configured: Boolean(SUPABASE_URL),
       service_role_configured: hasServiceRoleKey,
+      admin_configured: SUPABASE_ADMIN_ERROR === null,
+      configuration_error: SUPABASE_ADMIN_ERROR,
+      missing_variables: MISSING_CONFIG_VARIABLES,
       instant_verify: config.instantVerify,
       ai_configured: Boolean(process.env.GEMINI_API_KEY),
       extra_cors_origins: config.allowedOrigins.length,

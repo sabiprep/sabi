@@ -4,8 +4,9 @@
 -- Read-only: no writes, no DDL, safe to run on production at any time.
 -- Supabase Dashboard -> SQL Editor -> New query -> paste -> Run.
 --
--- Section 1 must be ALL "OK" before Phase 0 is considered deployed.
--- If a row says MISSING, the third column names the file to run.
+-- Returns 19 rows, OK / MISSING. Every row must be OK for Phase 0 to be
+-- considered deployed. A MISSING row names the file to run in column 3.
+-- Run those files in ascending order, 0001 through 0004.
 -- ============================================================================
 
 WITH checks AS (
@@ -94,6 +95,48 @@ WITH checks AS (
          COALESCE((SELECT relrowsecurity FROM pg_class
                     WHERE oid = to_regclass('public.audit_logs')), false),
          'run 0001_phase0_security.sql'
+
+  UNION ALL SELECT 15,
+         'phase 0: profiles.role is NOT NULL with default STUDENT',
+         EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'profiles'
+                    AND column_name = 'role'
+                    AND is_nullable = 'NO'
+                    AND column_default ILIKE '%STUDENT%'),
+         'run 0001_phase0_security.sql'
+
+  UNION ALL SELECT 16,
+         'phase 0: owner-scoped SELECT policy on profiles',
+         EXISTS (SELECT 1 FROM pg_policies
+                  WHERE schemaname = 'public' AND tablename = 'profiles'
+                    AND cmd = 'SELECT'
+                    AND qual ILIKE '%auth.uid()%'),
+         'run 0002_phase1_foundation.sql'
+
+  UNION ALL SELECT 17,
+         'hardening: guard trigger uses session_user, not current_user',
+         COALESCE((SELECT prosrc ILIKE '%session_user%'
+                     FROM pg_proc WHERE proname = 'enforce_profile_protected_columns'
+                    LIMIT 1), false),
+         'run 0001_phase0_security.sql'
+
+  UNION ALL SELECT 18,
+         'hardening: anon has no privilege on public.profiles',
+         CASE WHEN to_regclass('public.profiles') IS NULL THEN false
+              ELSE NOT has_table_privilege('anon', 'public.profiles', 'SELECT')
+         END,
+         'run 0003_profile_privilege_hardening.sql then 0004_profile_public_acl_hardening.sql'
+
+  UNION ALL SELECT 19,
+         'hardening: authenticated may SELECT/UPDATE only (no INSERT/DELETE/TRUNCATE)',
+         CASE WHEN to_regclass('public.profiles') IS NULL THEN false
+              ELSE has_table_privilege('authenticated', 'public.profiles', 'SELECT')
+               AND has_table_privilege('authenticated', 'public.profiles', 'UPDATE')
+               AND NOT has_table_privilege('authenticated', 'public.profiles', 'INSERT')
+               AND NOT has_table_privilege('authenticated', 'public.profiles', 'DELETE')
+               AND NOT has_table_privilege('authenticated', 'public.profiles', 'TRUNCATE')
+         END,
+         'run 0003_profile_privilege_hardening.sql then 0004_profile_public_acl_hardening.sql'
 )
 SELECT CASE WHEN ok THEN 'OK' ELSE 'MISSING' END AS status,
        requirement,
