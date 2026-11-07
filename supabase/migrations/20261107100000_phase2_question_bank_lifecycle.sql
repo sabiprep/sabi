@@ -168,6 +168,7 @@ TO service_role;
 -- Legacy published status is not enough for delivery. review_state defaults all
 -- existing rows to pending_review until a real review workflow approves them.
 REVOKE ALL ON TABLE public.question_bank FROM PUBLIC, anon, authenticated;
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON TABLE public.question_bank FROM service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.question_bank TO service_role;
 
 
