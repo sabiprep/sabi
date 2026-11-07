@@ -191,11 +191,11 @@ DECLARE
   subtopic_state TEXT;
   option_count INTEGER;
 BEGIN
-  IF p_reviewer_id IS NULL OR p_reviewer_role NOT IN ('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN') THEN
+  IF p_reviewer_id IS NULL OR p_reviewer_role IS NULL OR p_reviewer_role NOT IN ('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN') THEN
     RAISE EXCEPTION 'Reviewer is not authorized' USING ERRCODE = '42501';
   END IF;
 
-  IF p_decision NOT IN ('approved', 'rejected', 'changes_requested', 'flagged', 'retired') THEN
+  IF p_decision IS NULL OR p_decision NOT IN ('approved', 'rejected', 'changes_requested', 'flagged', 'retired') THEN
     RAISE EXCEPTION 'Unsupported review decision' USING ERRCODE = '22023';
   END IF;
 
