@@ -17,6 +17,7 @@ import { requireRole } from './server/middleware/requireRole';
 import { aiLimiter, authLimiter, globalLimiter } from './server/middleware/rateLimit';
 import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
+import { configurationGuard } from './server/middleware/configurationGuard';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import {
   chatSchema,
@@ -116,6 +117,9 @@ app.use((req, res, next) => {
 
 // Global throttle for the entire API surface.
 app.use('/api', globalLimiter);
+// Refuse privileged API work when Supabase server credentials are missing.
+// Mounted at the app root so the middleware sees the full /api/... request path.
+app.use(configurationGuard);
 
 
 
