@@ -13,6 +13,9 @@ REVOKE ALL PRIVILEGES ON TABLE
   public.question_bank
 FROM PUBLIC, anon, authenticated;
 
+-- Remove existing sequence grants as well as future default grants.
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, anon, authenticated;
+
 -- Academic catalogues are intentionally public-read only. RLS still filters
 -- inactive, unverified, or non-public rows.
 GRANT SELECT ON TABLE
