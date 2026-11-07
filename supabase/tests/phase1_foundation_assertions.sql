@@ -159,3 +159,96 @@ RESET ROLE;
 RESET SESSION AUTHORIZATION;
 
 -- Re-running the migrations must remain safe and must not duplicate seed rows.
+
+
+-- Phase 1.3/1.4: catalogue least privilege, default ACLs, and usable taxonomy.
+DO $$
+DECLARE
+  rel text;
+  client_role text;
+  topic_count integer;
+  subtopic_count integer;
+  unmapped integer;
+BEGIN
+  FOREACH rel IN ARRAY ARRAY[
+    'jamb_subjects','jamb_topics','exam_configurations',
+    'exam_configuration_subjects','course_subject_combinations',
+    'course_subject_combination_subjects'
+  ] LOOP
+    FOREACH client_role IN ARRAY ARRAY['anon','authenticated'] LOOP
+      IF NOT has_table_privilege(client_role, 'public.' || rel, 'SELECT')
+         OR has_table_privilege(client_role, 'public.' || rel, 'INSERT')
+         OR has_table_privilege(client_role, 'public.' || rel, 'UPDATE')
+         OR has_table_privilege(client_role, 'public.' || rel, 'DELETE')
+         OR has_table_privilege(client_role, 'public.' || rel, 'TRUNCATE')
+         OR has_table_privilege(client_role, 'public.' || rel, 'TRIGGER')
+         OR has_table_privilege(client_role, 'public.' || rel, 'REFERENCES') THEN
+        RAISE EXCEPTION 'Catalogue ACL is not read-only for role % on public.%', client_role, rel;
+      END IF;
+    END LOOP;
+  END LOOP;
+
+  IF has_table_privilege('anon', 'public.audit_logs', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.audit_logs', 'SELECT')
+     OR has_table_privilege('anon', 'public.audit_logs', 'TRUNCATE')
+     OR has_table_privilege('authenticated', 'public.audit_logs', 'TRUNCATE') THEN
+    RAISE EXCEPTION 'Client roles retain direct audit-log access';
+  END IF;
+
+  IF NOT has_table_privilege('service_role', 'public.audit_logs', 'SELECT')
+     OR NOT has_table_privilege('service_role', 'public.jamb_subjects', 'INSERT') THEN
+    RAISE EXCEPTION 'Privileged server access was unintentionally removed';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM pg_default_acl d
+    JOIN pg_roles owner_role ON owner_role.oid = d.defaclrole
+    CROSS JOIN LATERAL aclexplode(d.defaclacl) a
+    JOIN pg_roles grantee ON grantee.oid = a.grantee
+    WHERE d.defaclnamespace = 'public'::regnamespace
+      AND owner_role.rolname IN ('postgres','supabase_admin')
+      AND grantee.rolname IN ('anon','authenticated')
+      AND d.defaclobjtype IN ('r','S')
+  ) THEN
+    RAISE EXCEPTION 'Future tables/sequences still inherit client grants';
+  END IF;
+
+  SELECT count(*) INTO topic_count FROM public.jamb_topics;
+  SELECT count(*) INTO subtopic_count FROM public.jamb_subtopics;
+  IF topic_count <> 4 OR subtopic_count <> 4 THEN
+    RAISE EXCEPTION 'Expected 4 draft topics and 4 draft subtopics; found % and %', topic_count, subtopic_count;
+  END IF;
+
+  SELECT count(*) INTO unmapped
+  FROM public.question_bank
+  WHERE topic IS NOT NULL AND btrim(topic) <> '' AND topic_id IS NULL;
+  IF unmapped <> 0 THEN
+    RAISE EXCEPTION 'Question bank contains % non-empty topic labels without a taxonomy reference', unmapped;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM public.jamb_topics
+    WHERE source_label <> 'legacy_question_bank' OR verification_status <> 'draft'
+  ) THEN
+    RAISE EXCEPTION 'Legacy topic labels must remain explicitly marked as unverified drafts';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE oid = 'public.jamb_syllabus_versions'::regclass AND relrowsecurity
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_class
+    WHERE oid = 'public.jamb_subtopics'::regclass AND relrowsecurity
+  ) THEN
+    RAISE EXCEPTION 'RLS is not enabled on the syllabus version/subtopic tables';
+  END IF;
+
+  IF to_regclass('public.question_bank_topic_id_idx') IS NULL
+     OR to_regclass('public.question_bank_subtopic_id_idx') IS NULL
+     OR to_regclass('public.exam_configuration_subjects_subject_slug_idx') IS NULL
+     OR to_regclass('public.exam_configurations_compulsory_subject_slug_idx') IS NULL THEN
+    RAISE EXCEPTION 'Required Phase 1 foreign-key/query indexes are missing';
+  END IF;
+END
+$$;
