@@ -69,6 +69,9 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_role_check CHECK (role IN ('STUDENT','SUPPORT','ANALYST','CONTENT_MANAGER','ADMIN','MASTER_ADMIN'))
 );
 
+CREATE SEQUENCE public.audit_logs_id_seq;
+GRANT ALL ON SEQUENCE public.audit_logs_id_seq TO anon, authenticated, service_role;
+
 CREATE TABLE public.audit_logs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   action text NOT NULL,
