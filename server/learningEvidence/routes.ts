@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
 import { validateBody } from '../middleware/validate';
+import { rankAdaptiveQuestions, type AdaptiveCandidate, type AdaptiveMastery, type AdaptiveSchedule } from './engine';
 
 const router = Router();
 
@@ -135,6 +136,109 @@ router.get('/sessions/:sessionId/summary', requireAuth, async (req, res) => {
       ...topic,
       accuracy: topic.attempts ? topic.correct / topic.attempts : 0,
     })),
+  });
+});
+
+const recommendationQuerySchema = z.object({
+  subject: z.string().trim().min(1).max(80).optional(),
+  limit: z.coerce.number().int().min(1).max(30).default(10),
+});
+
+router.get('/recommendations', requireAuth, async (req, res) => {
+  const parsed = recommendationQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid recommendation query.' });
+  }
+  const authReq = req as AuthenticatedRequest;
+  const { subject, limit } = parsed.data;
+
+  const { data: eligible, error: eligibleError } = await supabaseAdmin.rpc('get_eligible_question_bank', {
+    p_subject_slug: subject ?? null,
+    p_limit: 100,
+    p_offset: 0,
+  });
+  if (eligibleError) {
+    console.error('[SABI] Adaptive eligible-pool lookup failed:', eligibleError.message);
+    return res.status(503).json({ error: 'Adaptive recommendations are temporarily unavailable.' });
+  }
+  const pool = eligible ?? [];
+  if (pool.length === 0) return res.json({ status: 'success', recommendations: [], strategy: 'evidence_adaptive_v1' });
+
+  const ids = pool.map((row: any) => row.id);
+  const [questionMeta, masteryResult, scheduleResult, recentResult] = await Promise.all([
+    supabaseAdmin.from('question_bank').select('id,topic_id,subtopic_id').in('id', ids),
+    supabaseAdmin.from('student_topic_mastery')
+      .select('topic_id,subtopic_id,mastery_score,evidence_confidence,mastery_state,attempt_count')
+      .eq('student_id', authReq.user!.id)
+      .limit(500),
+    supabaseAdmin.from('student_topic_review_schedule')
+      .select('topic_id,subtopic_id,next_review_at,interval_days')
+      .eq('student_id', authReq.user!.id)
+      .lte('next_review_at', new Date().toISOString())
+      .order('next_review_at', { ascending: true })
+      .limit(500),
+    supabaseAdmin.from('learning_attempts')
+      .select('question_id')
+      .eq('student_id', authReq.user!.id)
+      .gte('attempted_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
+      .order('attempted_at', { ascending: false })
+      .limit(200),
+  ]);
+
+  const lookupError = questionMeta.error || masteryResult.error || scheduleResult.error || recentResult.error;
+  if (lookupError) {
+    console.error('[SABI] Adaptive evidence lookup failed:', lookupError.message);
+    return res.status(503).json({ error: 'Your learning evidence could not be loaded for recommendations.' });
+  }
+
+  const metaById = new Map((questionMeta.data ?? []).map((row: any) => [row.id, row]));
+  const candidates = pool.flatMap((row: any) => {
+    const meta = metaById.get(row.id);
+    if (!meta?.topic_id || !meta?.subtopic_id) return [];
+    return [{
+      ...row,
+      topicId: meta.topic_id,
+      subtopicId: meta.subtopic_id,
+      difficulty: (['easy', 'medium', 'hard'].includes(row.difficulty) ? row.difficulty : 'medium') as 'easy' | 'medium' | 'hard',
+    }];
+  });
+
+  const mastery: AdaptiveMastery[] = (masteryResult.data ?? []).map((row: any) => ({
+    topicId: row.topic_id,
+    subtopicId: row.subtopic_id,
+    masteryScore: Number(row.mastery_score),
+    evidenceConfidence: Number(row.evidence_confidence),
+    masteryState: row.mastery_state,
+    attemptCount: row.attempt_count,
+  }));
+  const schedules: AdaptiveSchedule[] = (scheduleResult.data ?? []).map((row: any) => ({
+    topicId: row.topic_id,
+    subtopicId: row.subtopic_id,
+    nextReviewAt: row.next_review_at,
+    intervalDays: row.interval_days,
+  }));
+  const ranked = rankAdaptiveQuestions({
+    candidates: candidates as AdaptiveCandidate[],
+    mastery,
+    schedules,
+    recentQuestionIds: (recentResult.data ?? []).map((row: any) => row.question_id),
+    limit,
+  });
+
+  const recommendationById = new Map(ranked.map(item => [item.question.id, item]));
+  const recommendations = ranked.map(item => ({
+    question: item.question,
+    reason: item.reason,
+    reasonCode: item.reasonCode,
+    targetDifficulty: item.targetDifficulty,
+    priorityScore: item.priorityScore,
+  }));
+  return res.set('Cache-Control', 'private, no-store').json({
+    status: 'success',
+    strategy: 'evidence_adaptive_v1',
+    evidenceBased: mastery.length > 0 || schedules.length > 0,
+    recommendations,
+    poolSize: candidates.length,
   });
 });
 
