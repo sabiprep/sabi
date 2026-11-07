@@ -52,6 +52,7 @@ export function QuestionBankAdminPage() {
   const [answerChecked, setAnswerChecked] = useState(false);
   const [importText, setImportText] = useState('');
   const [sourceLabel, setSourceLabel] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [importReport, setImportReport] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -100,7 +101,7 @@ export function QuestionBankAdminPage() {
       setProvenanceForm({
         sourceLabel: data.provenance?.source_label || q.source || '',
         sourceUrl: data.provenance?.source_url || '',
-        sourceType: ['official_exam','publisher','contributor','ai_generated','other'].includes(data.provenance?.source_type || '') ? data.provenance!.source_type : 'official_exam',
+        sourceType: ['official_exam','publisher','contributor','ai_generated','other'].includes(data.provenance?.source_type || '') ? data.provenance!.source_type : 'other',
         attribution: data.provenance?.attribution || '',
         evidenceNote: '',
         verifiedAgainstEvidence: false,
@@ -200,7 +201,7 @@ export function QuestionBankAdminPage() {
       const rows = Array.isArray(parsed) ? parsed : parsed.rows;
       if (!Array.isArray(rows) || !rows.length) throw new Error('Paste a JSON array of question rows, or an object containing a rows array.');
       const report = await requestJson('/api/question-bank/import/validate', {
-        method: 'POST', body: JSON.stringify({ sourceLabel: sourceLabel || undefined, rows }),
+        method: 'POST', body: JSON.stringify({ sourceLabel: sourceLabel || undefined, sourceUrl: sourceUrl || undefined, rows }),
       });
       setImportReport(report); setNotice('Dry-run validation completed. No question records were imported.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Import validation failed.'); }
@@ -239,7 +240,7 @@ export function QuestionBankAdminPage() {
           <div className={panelClass}>
             <h2 className="text-lg font-black">Validate a question import</h2><p className="mt-1 text-sm text-slate-500">Dry-run checks required fields, taxonomy references and duplicates. It does not import or publish questions.</p>
             <label className="mt-5 block text-xs font-bold">Source / batch label</label><input value={sourceLabel} onChange={e=>setSourceLabel(e.target.value)} placeholder="e.g. 2024 JAMB Physics — reviewed source" className={fieldClass}/>
-            <label className="mt-4 block text-xs font-bold">Question rows (JSON)</label><textarea value={importText} onChange={e=>setImportText(e.target.value)} rows={14} placeholder={'[\n  { "subjectSlug": "physics", "question": "...", "options": {"A":"...","B":"...","C":"...","D":"..."}, "answer":"A", "explanation":"...", "topicId":"...", "subtopicId":"...", "difficulty":"medium" }\n]'} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs text-slate-100 placeholder:text-slate-500 dark:border-slate-700"/>
+            <label className="mt-4 block text-xs font-bold">Source URL (optional)</label><input type="url" value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} placeholder="https://official-source.example" className={fieldClass}/><label className="mt-4 block text-xs font-bold">Question rows (JSON)</label><textarea value={importText} onChange={e=>setImportText(e.target.value)} rows={14} placeholder={'[\n  { "subjectSlug": "physics", "question": "...", "options": {"A":"...","B":"...","C":"...","D":"..."}, "answer":"A", "explanation":"...", "topicId":"...", "subtopicId":"...", "difficulty":"medium" }\n]'} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-950 p-3 font-mono text-xs text-slate-100 placeholder:text-slate-500 dark:border-slate-700"/>
             <button onClick={() => void validateImport()} disabled={busy || !importText.trim()} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white disabled:opacity-50"><FileUp size={16}/>{busy?'Validating…':'Run dry validation'}</button>
           </div>
           <div className={panelClass}><h3 className="font-black">Validation report</h3>{!importReport ? <p className="mt-3 text-sm text-slate-500">Your latest dry-run report will appear here.</p> : <><p className="mt-2 break-all text-xs text-slate-500">Batch {importReport.batchId}</p><div className="mt-4 grid grid-cols-2 gap-3">{[['Total',importReport.totalRows],['Valid',importReport.validRows],['Invalid',importReport.invalidRows],['Duplicates',importReport.duplicateRows]].map(([k,v])=><div key={String(k)} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800"><p className="text-xs text-slate-500">{k}</p><p className="text-2xl font-black">{v}</p></div>)}</div><div className="mt-4 max-h-80 space-y-2 overflow-auto">{(importReport.rows||[]).map((row:any)=><div key={row.rowNumber} className="rounded-lg border border-slate-200 p-3 text-xs dark:border-slate-700"><div className="flex justify-between gap-2"><b>Row {row.rowNumber}</b><span className="font-bold uppercase">{row.outcome}</span></div>{(row.errors||[]).map((e:any,i:number)=><p key={i} className="mt-1 text-red-600">{e.message}</p>)}</div>)}</div>{importReport.validRows===importReport.totalRows&&importReport.invalidRows===0&&importReport.duplicateRows===0&&!importReport.commitResult&&<button onClick={()=>void commitImport()} disabled={busy} className="mt-4 w-full rounded-xl bg-blue-700 px-3 py-3 text-sm font-bold text-white disabled:opacity-40">Commit validated batch as drafts</button>}{importReport.commitResult&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">Committed · {importReport.commitResult.imported_count} draft questions created · none published</p>}</>}</div>
