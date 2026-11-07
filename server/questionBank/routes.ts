@@ -26,6 +26,7 @@ const resolveFlagBodySchema = z.strictObject({
   status: z.enum(['resolved', 'dismissed']),
   resolutionNote: z.string().trim().max(2000).optional(),
 });
+const answerSubmissionSchema = z.strictObject({ answer: z.enum(['A', 'B', 'C', 'D']) });
 const questionFlagBodySchema = z.strictObject({
   reason: z.enum(['wrong_answer', 'ambiguous', 'typo', 'bad_explanation', 'wrong_topic', 'duplicate', 'source_issue', 'other']),
   details: z.string().trim().max(2000).optional(),
@@ -84,6 +85,21 @@ router.post('/:questionId/versions', requireAuth, requireRole(...contentRoles), 
   }
 
   return res.status(201).json({ status: 'submitted_for_review', version: data });
+});
+
+
+router.post('/eligible/:questionId/answer', requireAuth, validateBody(answerSubmissionSchema), async (req, res) => {
+  const { data, error } = await supabaseAdmin.rpc('submit_eligible_question_answer', {
+    p_question_id: req.params.questionId,
+    p_answer: req.body.answer,
+  });
+  if (error) {
+    const status = error.code === 'P0002' ? 404
+      : error.code === '22023' ? 400
+      : 503;
+    return res.status(status).json({ error: error.message || 'Answer evaluation is temporarily unavailable.' });
+  }
+  return res.json({ status: 'evaluated', result: data });
 });
 
 router.post('/:questionId/flag', requireAuth, validateBody(questionFlagBodySchema), async (req, res) => {
