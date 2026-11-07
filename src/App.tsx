@@ -48,13 +48,13 @@ export default function App() {
             <Route path="/blitz" element={<BlitzPage />} />
             <Route path="/smart" element={<SmartPracticePage />} />
             <Route path="/admin/question-bank" element={<QuestionBankAdminPage />} />
-            <Route path="/verified-practice" element={<VerifiedQuestionPracticePage />} />
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/subjects" element={<SubjectRatesPage />} />
               <Route path="/subject-rates" element={<SubjectRatesPage />} />
               <Route path="/practice" element={<PracticePage />} />
+              <Route path="/verified-practice" element={<VerifiedQuestionPracticePage />} />
               <Route path="/practice/smart" element={<SmartPracticePage />} />
               <Route path="/practice/blitz" element={<BlitzPage />} />
               <Route path="/practice/custom" element={<CustomJambSimulatorPage />} />
