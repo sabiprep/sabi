@@ -37,12 +37,14 @@ Every existing question receives a version-1 snapshot and provenance record. Exi
 - Shared Zod schema rejects unknown/protected fields, validates subject/taxonomy IDs, four distinct options, answer key, explanation and metadata.
 - Normalized SHA-256 fingerprints support duplicate detection without deleting or auto-merging records.
 - Dry-run import validation compares against the existing question bank and within-batch fingerprints, then persists row-level validation/duplicate reports without importing or changing questions.
+- `commit_question_import_batch` atomically rechecks taxonomy and duplicates, then commits a clean validated batch as `ai-draft` / `pending_review` records with version-1 snapshots, unverified provenance and submitted review events. It never publishes content.
+- `verify_question_provenance` records source label, HTTP(S) URL, source type, attribution, evidence note, verifier identity and the exact question version. A content correction invalidates that verification.
 - Review transitions are explicit and terminal retirement cannot be reversed.
 - Atomic `create_question_bank_version` RPC preserves the previous snapshot, writes a new immutable version, and returns the question to pending review.
 - Atomic `review_question_bank_item` RPC writes the decision and history in one transaction.
 - Approval requires reviewer attestations, complete content, a valid answer key, four distinct options, verified provenance and verified topic/subtopic taxonomy.
 - `GET /api/question-bank/review-queue`, `GET /api/question-bank/flag-queue` and `GET /api/question-bank/:questionId` are restricted to content managers and administrators.
-- `POST /api/question-bank/:questionId/versions`, `POST /api/question-bank/:questionId/review`, `POST /api/question-bank/flags/:flagId/resolve` and `POST /api/question-bank/import/validate` are restricted to content managers and administrators.
+- `POST /api/question-bank/:questionId/versions`, `POST /api/question-bank/:questionId/provenance/verify`, `POST /api/question-bank/:questionId/review`, `POST /api/question-bank/flags/:flagId/resolve`, `POST /api/question-bank/import/validate` and `POST /api/question-bank/import/:batchId/commit` are restricted to content managers and administrators.
 - `POST /api/question-bank/:questionId/flag` lets authenticated students report issues against the currently approved question version. Duplicate open flags from the same reporter/reason are blocked.
 - `GET /api/question-bank/eligible` requires authentication and returns only fully approved, provenance-verified and taxonomy-verified questions. It never returns the answer key or explanation.
 
@@ -68,14 +70,28 @@ The student-facing SQL function enforces this rule on the server. No client-supp
 - Production migration requires separate explicit approval after CI and migration review.
 - Bulk imports, AI generation and correction tools must create drafts and review events; they must not publish directly.
 
+## Content operations interface
+
+The `/admin/question-bank` workspace provides:
+
+- Searchable review queue with question, options, answer and explanation.
+- Source-provenance verification with a required human attestation and evidence note.
+- Correction editor that creates a new immutable version and resets review/provenance.
+- Version timeline with content hashes, review state and change reason.
+- Student flag moderation and dry-run import reporting.
+- Clean-batch commit action that creates drafts only; a second human review is always required before publishing.
+
 ## Phase 2 exit gate
 
-- [ ] Existing records profiled and provenance gaps visible.
-- [ ] Migration applies cleanly and idempotently in disposable PostgreSQL.
-- [ ] Every existing row has a baseline version and provenance record.
-- [ ] Import validation and duplicate reporting tested.
-- [ ] Approval gates reject invalid content and unverified source/taxonomy.
-- [ ] Review history and flags are auditable.
-- [ ] Student retrieval excludes all pending, rejected, flagged, retired or unverified questions.
-- [ ] Content-manager authorization and answer-key isolation tests pass.
-- [ ] Production migration is explicitly approved and applied.
+- [x] Existing records profiled and provenance gaps visible.
+- [x] Migration applies cleanly and idempotently in disposable PostgreSQL (CI verification).
+- [x] Every existing row has a baseline version and provenance record.
+- [x] Import validation and duplicate reporting tested.
+- [x] Clean import commit is atomic, rechecks taxonomy/duplicates and creates drafts only.
+- [x] Approval gates reject invalid content and unverified source/taxonomy.
+- [x] Review history and flags are auditable.
+- [x] Student retrieval excludes all pending, rejected, flagged, retired or unverified questions.
+- [x] Content-manager authorization and answer-key isolation tests pass.
+- [ ] Production migration is explicitly approved and applied (separate rollout approval required).
+
+**Rollout boundary:** the Phase 2 code and disposable-database tests may be complete while production remains on Phase 1. Do not apply the migration or merge/deploy to production without the owner's separate approval.
