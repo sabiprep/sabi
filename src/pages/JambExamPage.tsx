@@ -65,7 +65,7 @@ export function JambExamPage() {
   const loadRun = useCallback(async (id: string) => {
     const data = await requestJson(`/api/jamb-exams/runs/${id}`);
     setQuestions(data.questions || []);
-    setRemaining(data.exam.remainingSeconds || 0);
+    setRemaining(data.exam.remainingSeconds ?? 0);
   }, []);
 
   useEffect(() => {
