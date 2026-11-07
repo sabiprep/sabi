@@ -16,6 +16,8 @@ Turn verified practice activity into durable, explainable learning evidence. Pha
 - Idempotent attempt writes using a student-scoped event UUID. Reuse with different content is a conflict.
 - Per-subtopic accuracy, smoothed mastery estimate, evidence confidence and a transparent mastery state.
 - Session completion and student-scoped summary retrieval through the authenticated API.
+- Verified Practice starts a session, records each submitted answer with response time and displays post-submit feedback from the trusted question-version snapshot.
+- Student Topic Mastery dashboard at `/learning-progress` displays attempt volume, accuracy, mastery estimate and evidence confidence.
 - Service-role-only database access; browser/mobile clients never access evidence tables directly.
 
 ## Mastery baseline
@@ -26,6 +28,13 @@ The first implementation uses a Beta(2,2) prior:
 - evidence confidence = attempts / (attempts + 5)
 
 A topic cannot be labelled mastered until at least five attempts. Thresholds are versioned in code and documented; later calibration must use observed outcomes rather than arbitrary AI confidence.
+
+## API surface
+
+- `POST /api/learning/sessions` — start an authenticated practice session.
+- `POST /api/learning/sessions/:sessionId/attempts` — submit an answer and record its server-calculated outcome.
+- `POST /api/learning/sessions/:sessionId/complete` — complete or abandon a session.
+- `GET /api/learning/mastery` — retrieve only the authenticated student's mastery summaries.
 
 ## Boundaries
 
