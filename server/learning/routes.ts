@@ -108,8 +108,7 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
       .from('question_bank')
       .update({
         status: nextStatus,
-        verified_by: userId,
-        notes: notes || null,
+        verified_by: action === 'publish' ? userId : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', questionId)
