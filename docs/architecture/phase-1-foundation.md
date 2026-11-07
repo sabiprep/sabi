@@ -39,7 +39,7 @@ The Phase 1.4 migration adds version metadata, topic/subtopic hierarchy, source 
 
 RLS is enabled on profiles and the academic catalogue. The live policies express owner-scoped profile access and read-only catalogue intent. However, the live ACL inventory showed broad direct grants to both `anon` and `authenticated` on catalogue and audit tables, including `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `TRIGGER`, and `REFERENCES`. RLS does not protect against `TRUNCATE`.
 
-The live default privileges for both `postgres` and `supabase_admin` grant broad table and sequence privileges to client roles. The existing `audit_logs_id_seq` also grants client sequence access. The new Phase 1.3 migration:
+The live default privileges for both `postgres` and `supabase_admin` grant broad table and sequence privileges to client roles. The existing `audit_logs_id_seq` also grants client sequence access. The migration executor is `postgres`, which is not a member of the `supabase_admin` role and is not a superuser; PostgreSQL therefore rejects changes to `supabase_admin`'s default ACL. This migration safely hardens `postgres` defaults and existing objects. The `supabase_admin` default ACL remains a separately identified residual that requires execution by that role or a privileged administrator. The new Phase 1.3 migration:
 - removes client ACLs from catalogue/audit tables and existing public sequences;
 - restores only `SELECT` on the six public academic catalogue tables;
 - keeps audit records server-only;
@@ -84,7 +84,7 @@ These items remain open and must not be silently decided by implementation:
 2. **Role and permission matrix:** confirm the intended capabilities for `SUPPORT`, `ANALYST`, `CONTENT_MANAGER`, `ADMIN`, and `MASTER_ADMIN`.
 3. **Onboarding contract:** confirm required academic fields and allowed registered-subject combinations.
 4. **Official syllabus source:** select authoritative JAMB syllabus documents/versions and review imported draft topic labels before promotion.
-5. **Production database ACL remediation:** approve and apply the reviewed least-privilege migration only after migration-ledger reconciliation.
+5. **Production database ACL remediation:** existing client grants and `postgres` future defaults are addressed by the approved migration. The `supabase_admin` future defaults remain open because the migration executor cannot alter another role's ACL; resolve that using an authorized `supabase_admin` execution context before declaring the database security gate fully closed.
 6. **Cross-student tests:** SQL and API profile ownership tests are included in this branch; require passing CI evidence and extend the same ownership coverage when learning-record tables are introduced.
 
 Phase 1 is complete only when the numbered migrations pass the disposable PostgreSQL workflow, application type-check/tests/build pass, cross-student isolation is evidenced, live migration/schema drift is reconciled, and the remaining decisions are resolved or explicitly accepted.
