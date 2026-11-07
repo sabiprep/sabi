@@ -185,7 +185,7 @@ RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $$
 DECLARE
   q public.question_bank%ROWTYPE;
   next_state TEXT;
@@ -313,7 +313,7 @@ BEGIN
     'review_state', next_state
   );
 END;
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.review_question_bank_item(TEXT, TEXT, UUID, TEXT, TEXT, JSONB)
   FROM PUBLIC, anon, authenticated;
@@ -337,7 +337,7 @@ LANGUAGE SQL
 STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog, public
-AS $
+AS $$
   SELECT q.id, q.subject, q.topic, q.subtopic, q.year, q.question,
          q.option_a, q.option_b, q.option_c, q.option_d, q.difficulty
   FROM public.question_bank q
@@ -355,7 +355,7 @@ AS $
   ORDER BY q.id
   LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100)
   OFFSET GREATEST(COALESCE(p_offset, 0), 0);
-$;
+$$;
 
 REVOKE ALL ON FUNCTION public.get_eligible_question_bank(TEXT, INTEGER, INTEGER)
   FROM PUBLIC, anon, authenticated;
