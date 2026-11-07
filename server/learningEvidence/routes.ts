@@ -78,7 +78,7 @@ router.get('/mastery', requireAuth, async (req, res) => {
   const authReq = req as AuthenticatedRequest;
   const { data, error } = await supabaseAdmin
     .from('student_topic_mastery')
-    .select('subject_slug,topic_id,subtopic_id,attempt_count,correct_count,accuracy,mastery_score,evidence_confidence,mastery_state,last_attempted_at,updated_at')
+    .select('subject_slug,topic_id,subtopic_id,topic:jamb_topics!student_topic_mastery_topic_id_fkey(name),subtopic:jamb_subtopics!student_topic_mastery_subtopic_id_fkey(name),attempt_count,correct_count,accuracy,mastery_score,evidence_confidence,mastery_state,last_attempted_at,updated_at')
     .eq('student_id', authReq.user!.id)
     .order('updated_at', { ascending: false })
     .limit(500);
