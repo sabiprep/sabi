@@ -242,6 +242,8 @@ BEGIN
     'status','stored',
     'attempt_id',v_attempt.id,
     'is_correct',v_correct,
+    'correct_answer',lower(v_version.payload->>'answer'),
+    'explanation',COALESCE(v_version.payload->>'explanation',''),
     'question_version',v_question.current_version,
     'topic_id',v_question.topic_id,
     'subtopic_id',v_question.subtopic_id,
