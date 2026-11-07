@@ -48,5 +48,5 @@ A database trigger updates `student_topic_review_schedule` atomically with each 
 - [x] Spaced-review schedule updates atomically from persisted attempts.
 - [x] RLS and direct client access restrictions for schedule data.
 - [x] SQL security assertions and attempt-trigger integration assertion.
-- [ ] Full CI passes on the final Phase 4 commit.
+- [x] Full CI passes: Backend CI #363 passed type-check, unit tests, web/API build, Phase 1–4 migrations, Phase 1–4 security assertions and migration idempotency.
 - [ ] Production rollout separately approved after Phase 1–3 dependency/release gates are resolved.
