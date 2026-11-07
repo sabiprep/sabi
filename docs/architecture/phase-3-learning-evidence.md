@@ -34,6 +34,7 @@ A topic cannot be labelled mastered until at least five attempts. Thresholds are
 - `POST /api/learning/sessions` — start an authenticated practice session.
 - `POST /api/learning/sessions/:sessionId/attempts` — submit an answer and record its server-calculated outcome.
 - `POST /api/learning/sessions/:sessionId/complete` — complete or abandon a session.
+- `GET /api/learning/sessions/:sessionId/summary` — return a student-scoped session performance summary.
 - `GET /api/learning/mastery` — retrieve only the authenticated student's mastery summaries.
 
 ## Boundaries
