@@ -3,6 +3,11 @@
 Ordered, copy-paste procedure for taking the Phase 0 security work live.
 Follow the order — every step depends on the one before it.
 
+> **Just need to get it live?** Use [`docs/PHASE0-GO-LIVE.md`](../PHASE0-GO-LIVE.md).
+> It is the short, ordered checklist (Supabase → Vercel → verify on the URL).
+> This runbook is the reference behind it: the reasoning, the smoke tests, the
+> rollback and the troubleshooting signatures.
+
 | # | Step | Who | Time |
 | --- | --- | --- | --- |
 | 0 | Pre-flight checks (CI green, branch, backup) | Dev | 5 min |
@@ -66,7 +71,12 @@ because it also touches `auth.users` triggers.
 
 ## 2. Verify the database state
 
-Run each query in the SQL editor and compare with the expected result.
+**Fastest path:** paste [`supabase/verify_phase0.sql`](../../supabase/verify_phase0.sql)
+into the SQL editor and run it — it is read-only and prints one row per
+requirement as `OK` / `MISSING`, with the file to run in the third column. Step 1
+(and therefore Phase 0) is complete only when every row reads `OK`.
+
+The equivalent queries by hand, if you prefer to see the raw catalog state:
 
 ```sql
 -- 2a. role column: TEXT, default 'STUDENT', NOT NULL  → 1 row
