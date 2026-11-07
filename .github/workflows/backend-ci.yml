@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'backend/phase1-completion-2026-11-07'
 
 permissions:
   contents: read
