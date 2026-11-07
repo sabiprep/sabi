@@ -25,6 +25,15 @@ describe('validateQuestionImport', () => {
     expect(report.rows[1]).toMatchObject({ outcome: 'duplicate', duplicateOfRow: 1 });
   });
 
+
+  it('rejects taxonomy IDs that do not belong to the selected subject', () => {
+    const invalid = validateQuestionImport([draft], new Map(), new Set());
+    expect(invalid).toMatchObject({ validRows: 0, invalidRows: 1 });
+    const validKey = `biology:${draft.topicId}:${draft.subtopicId}`;
+    const valid = validateQuestionImport([draft], new Map(), new Set([validKey]));
+    expect(valid).toMatchObject({ validRows: 1, invalidRows: 0 });
+  });
+
   it('detects fingerprints already present in the bank', () => {
     const first = validateQuestionImport([draft]);
     if (first.rows[0].outcome !== 'valid') throw new Error('Fixture must be valid');
