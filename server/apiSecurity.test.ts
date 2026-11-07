@@ -519,3 +519,14 @@ describe('student profile ownership', () => {
     }
   });
 });
+
+
+describe('Phase 2 question-bank API security', () => {
+  it('requires authentication for student delivery and content moderation routes', async () => {
+    await expect(request(app).get('/api/question-bank/eligible')).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).get('/api/question-bank/review-queue')).resolves.toMatchObject({ status: 401 });
+    await expect(
+      request(app).post('/api/question-bank/BIO-001/review').send({ decision: 'approved' })
+    ).resolves.toMatchObject({ status: 401 });
+  });
+});
