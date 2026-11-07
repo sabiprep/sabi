@@ -119,9 +119,9 @@ let pendingServer: Promise<LoadedServer> | null = null;
  */
 function loadServer(): Promise<LoadedServer> {
   if (!pendingServer) {
-    // The repo has both server.ts and a server/ directory. Node ESM resolves
-    // the extensionless path to the directory and rejects it; name the file.
-    pendingServer = import('../server.ts').then(module => {
+    // Vercel's function bundle does not retain the root TypeScript entry as a
+    // runtime file. The build script emits this bundled CommonJS server artifact.
+    pendingServer = import('../dist/server.cjs').then(module => {
       const app = (module as { app?: ExpressApp }).app;
 
       if (typeof app !== 'function') {
