@@ -39,8 +39,8 @@ The Phase 1.4 migration adds version metadata, topic/subtopic hierarchy, source 
 
 RLS is enabled on profiles and the academic catalogue. The live policies express owner-scoped profile access and read-only catalogue intent. However, the live ACL inventory showed broad direct grants to both `anon` and `authenticated` on catalogue and audit tables, including `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `TRIGGER`, and `REFERENCES`. RLS does not protect against `TRUNCATE`.
 
-The live default privileges for both `postgres` and `supabase_admin` also grant broad table and sequence privileges to client roles. The new Phase 1.3 migration:
-- removes client ACLs from catalogue and audit tables;
+The live default privileges for both `postgres` and `supabase_admin` grant broad table and sequence privileges to client roles. The existing `audit_logs_id_seq` also grants client sequence access. The new Phase 1.3 migration:
+- removes client ACLs from catalogue/audit tables and existing public sequences;
 - restores only `SELECT` on the six public academic catalogue tables;
 - keeps audit records server-only;
 - revokes future table/sequence defaults from client roles while preserving `service_role`;
