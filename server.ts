@@ -20,6 +20,7 @@ import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandl
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import { questionBankRouter } from './server/questionBank/routes';
 import { learningEvidenceRouter } from './server/learningEvidence/routes';
+import { jambExamRouter } from './server/jambExam/routes';
 import {
   chatSchema,
   explainSchema,
@@ -728,6 +729,7 @@ app.post(
   // Phase 2 question bank: staff moderation and verified-only student delivery.
   app.use('/api/question-bank', questionBankRouter);
   app.use('/api/learning', learningEvidenceRouter);
+  app.use('/api/jamb-exams', jambExamRouter);
 
   // 1. Get seed questions (public, static payload: safe to cache).
   app.get('/api/questions', (_req, res) => {
