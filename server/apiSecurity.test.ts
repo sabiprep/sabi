@@ -441,3 +441,81 @@ describe('CORS allow-list and security headers', () => {
     expect(response.headers['x-frame-options']).toBeDefined();
   });
 });
+
+
+describe('student profile ownership', () => {
+  const studentId = '22222222-2222-4222-8222-222222222222';
+  const otherStudentId = '33333333-3333-4333-8333-333333333333';
+  const tokenUser = {
+    id: studentId,
+    email: 'student@example.com',
+    user_metadata: {},
+    app_metadata: { providers: ['email'] },
+  };
+
+  it('writes onboarding only to the authenticated student profile', async () => {
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    const updateQuery = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(updateQuery as any);
+
+    try {
+      const response = await request(app)
+        .post('/api/profile/onboarding')
+        .set('Authorization', 'Bearer valid-student-token')
+        .send({
+          onboardingAnswers: {},
+          registeredSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+          targetScore: 320,
+        });
+
+      expect(response.status).toBe(200);
+      expect(updateQuery.eq).toHaveBeenCalledWith('id', studentId);
+      expect(updateQuery.eq).not.toHaveBeenCalledWith('id', otherStudentId);
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+    }
+  });
+
+  it('reads and writes progress only for the authenticated student profile', async () => {
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    const readQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { onboarding_answers: {} }, error: null }),
+    };
+    const writeQuery = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(readQuery as any)
+      .mockReturnValueOnce(writeQuery as any);
+
+    try {
+      const response = await request(app)
+        .post('/api/profile/progress')
+        .set('Authorization', 'Bearer valid-student-token')
+        .send({ progress: { streak: 3 } });
+
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('synced');
+      expect(readQuery.eq).toHaveBeenCalledWith('id', studentId);
+      expect(writeQuery.eq).toHaveBeenCalledWith('id', studentId);
+      expect(readQuery.eq).not.toHaveBeenCalledWith('id', otherStudentId);
+      expect(writeQuery.eq).not.toHaveBeenCalledWith('id', otherStudentId);
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+    }
+  });
+});
