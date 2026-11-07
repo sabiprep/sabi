@@ -376,8 +376,17 @@ describe('deployment self-check', () => {
     expect(response.body.phase).toBe('phase0');
     expect(response.body.service_role_configured).toBe(true);
     expect(response.body.supabase_url_configured).toBe(true);
+    expect(response.body.admin_configured).toBe(true);
+    expect(response.body.configuration_error).toBeNull();
     expect(JSON.stringify(response.body)).not.toMatch(/test-service-role-key/);
     expect(response.headers['cache-control']).toMatch(/no-store/);
+  });
+
+  it('names the runtime so a serverless deployment is identifiable', async () => {
+    const response = await request(app).get('/api/health');
+
+    // apiSecurity.test.ts sets VERCEL=1, which is exactly what the platform does.
+    expect(response.body.runtime).toBe('vercel-function');
   });
 });
 

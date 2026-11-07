@@ -105,15 +105,19 @@ exists; `verify_sabi_unique_id_for_recovery` returns **no rows**.
 
 ## 3. Set server environment variables and deploy
 
-The API **refuses to start** outside `NODE_ENV=test` when either of these is
-missing (see `server/lib/supabaseAdmin.ts`):
+Outside `NODE_ENV=test` the API needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+(see `server/lib/supabaseAdmin.ts`). What a missing value looks like depends on
+the host, and both behaviours are deliberate:
 
-```
-[SABI] SUPABASE_URL (or VITE_SUPABASE_URL) is not set. ...
-[SABI] SUPABASE_SERVICE_ROLE_KEY is not set. Privileged server operations ...
-```
+| Host | Behaviour when a variable is missing |
+| --- | --- |
+| Long-running (`npm start`, Cloud Run, Docker) | **Refuses to start** with `[SABI] SUPABASE_URL … is not set` / `[SABI] SUPABASE_SERVICE_ROLE_KEY is not set …` in the log. A crash-loop is the correct signal there. |
+| Serverless (Vercel) | Boots, logs the same `[SABI]` line, and answers every privileged route with **`503` JSON** (`code: "API_NOT_CONFIGURED"`, `missing: "<variable>"`, `fix: "…"`). `/api/health` stays reachable and reports `"status": "degraded"`. |
 
-That is intentional: a missing key used to mean a silent fallback to the anon key.
+The serverless variant exists because an import-time throw in a Vercel function
+is replaced by Vercel's own HTML page (`FUNCTION_INVOCATION_FAILED`), which is
+what made a missing key look like an unexplained `HTTP 500` in the sign-up form.
+Either way the anon key is **never** used as a fallback.
 
 ### 3a. Required variables
 
@@ -133,20 +137,99 @@ Optional tuning: `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX` (120),
 > `ionic://localhost` and any `https://sabi*.vercel.app` origin are always
 > allowed — do **not** list them in `ALLOWED_ORIGINS`.
 
-### 3b. Vercel
+### 3b. Vercel — exact procedure for developers
 
-Dashboard → **Project → Settings → Environment Variables** → add each var for
-*Production* (and *Preview* if you run preview smoke tests), then **Redeploy**.
-Env changes never apply to an existing deployment.
+Vercel runs two different things from this repo and they read **different**
+variables:
+
+* the **static site** (`vite build` → `dist/`) reads `VITE_*` variables *at build
+  time* (they are inlined into the JS bundle);
+* the **API function** (`api/index.ts` → `server.ts`) reads server variables *at
+  request time*.
+
+A sign-up can therefore succeed on the frontend and still 500 on the API because
+only one of the two was configured.
+
+**Step 1 — Project → Settings → General → Build & Development Settings**
+
+| Setting | Value |
+| --- | --- |
+| Framework Preset | `Vite` |
+| Build Command | `npm run build` (already in `vercel.json`; leave it) |
+| Output Directory | `dist` |
+| Install Command | leave empty — `.npmrc` sets `legacy-peer-deps=true`, matching CI |
+| Node.js Version | **22.x** (`package.json` `engines.node` is `22.x`) |
+
+**Step 2 — Project → Settings → Environment Variables** (scope **Production**,
+and **Preview** only if you smoke-test previews). Add every row, then continue to
+Step 4 — **a variable added now does not affect any existing deployment.**
+
+| Variable | Value for the same-origin deployment | Why |
+| --- | --- | --- |
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co` | server-side Supabase client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → `service_role` | **the most common cause of `FUNCTION_INVOCATION_FAILED`** |
+| `VITE_SUPABASE_URL` | same as `SUPABASE_URL` | inlined into the browser bundle |
+| `VITE_SUPABASE_ANON_KEY` | Supabase → Settings → API → `anon` `public` | browser Supabase client |
+| `VITE_API_BASE_URL` | **leave empty** | empty = same origin, so `fetch('/api/…')` hits the function below |
+| `SABI_APP_URL` | `https://<your-app-domain>` | trusted CORS origin + password-reset `redirectTo` |
+| `ALLOWED_ORIGINS` | optional, comma separated | only for *other* origins (e.g. a native APK host) |
+| `SABI_INSTANT_VERIFY` | `true` | Phase 0 confirms accounts server-side |
+| `GEMINI_API_KEY` | optional | AI routes degrade to canned drafts without it |
+
+Rules that save a deploy cycle:
+
+* never prefix a secret with `VITE_` — `VITE_*` values are public;
+* never paste an `https://ais-pre-…run.app` URL anywhere (§8b);
+* `NODE_ENV` is set by Vercel — do not add it.
+
+**Step 3 — confirm the build locally before pushing** (catches the same errors
+your deploy would hit):
 
 ```bash
-vercel env add SUPABASE_SERVICE_ROLE_KEY production   # paste value when prompted
-vercel env add SABI_APP_URL production
-vercel env add ALLOWED_ORIGINS production
-vercel env add SABI_INSTANT_VERIFY production
-vercel env ls production
-vercel --prod                                          # redeploy
+npm ci                 # must succeed; .npmrc supplies legacy-peer-deps
+npx tsc --noEmit       # 0 errors
+npx vitest run         # all green
+npm run build          # writes dist/ + dist/server.cjs
 ```
+
+**Step 4 — Deployments → ⋯ on the latest build → Redeploy**, and make sure
+*"Use existing Build Cache"* is **unchecked** when you have just changed env
+variables.
+
+**Step 5 — verify the function, not just the page** (this is the check that was
+missing):
+
+```bash
+export APP_ORIGIN="https://<your-app-domain>"
+curl -sS -i "$APP_ORIGIN/api/health" | head -1                  # expect 200, never 302
+curl -sS     "$APP_ORIGIN/api/health"                           # JSON, not HTML
+curl -sS -i -X OPTIONS "$APP_ORIGIN/api/auth/register" \
+  -H "Origin: $APP_ORIGIN" -H 'Access-Control-Request-Method: POST' | head -1   # 204
+```
+
+The JSON must contain `"service_role_configured": true` and
+`"admin_configured": true`. If you get **HTML**, the request is not reaching
+`api/index.ts` (§8b). If you get `503` with `code: "API_NOT_CONFIGURED"`, read the
+`missing` field — that is the exact variable to add in Step 2. If you get
+`500` with `code: "API_BOOT_FAILED"`, the `detail` field carries the boot error.
+
+**Step 6 — read the function log** when anything still fails: Deployments → the
+deployment → **Functions** tab → `api/index` → *Logs*. Every refusal this API
+makes is prefixed `[SABI]`, so filter on that.
+
+**Step 7 (CLI equivalent)** if you prefer the terminal:
+
+```bash
+vercel env add SUPABASE_SERVICE_ROLE_KEY production   # paste the value when prompted
+vercel env add VITE_SUPABASE_ANON_KEY production
+vercel env add SABI_APP_URL production
+vercel env ls production                              # confirm they are listed
+vercel --prod                                         # redeploy from the current commit
+```
+
+Preview deployments inherit *Preview* scope only — they cannot borrow Production
+values, so a preview will answer `503 API_NOT_CONFIGURED` unless you add the
+same variables to the Preview scope.
 
 ### 3c. Cloud Run (current production host)
 
@@ -179,13 +262,21 @@ curl -sS -i "$API_BASE_URL/api/questions" | head -1   # expect HTTP/2 200
 {
   "status": "ok",
   "phase": "phase0",
+  "runtime": "node",
   "supabase_url_configured": true,
   "service_role_configured": true,
+  "admin_configured": true,
+  "configuration_error": null,
   "instant_verify": true,
   "ai_configured": true,
   "extra_cors_origins": 1
 }
 ```
+
+On a serverless host `runtime` is `vercel-function`; `status` becomes `degraded`
+and `configuration_error` names the missing variable when the deployment is
+incomplete (the API then answers `503` for privileged routes instead of crashing
+— see §8c).
 
 If any `*_configured` flag is `false`, stop: the deployment is missing an env var
 (§3a). If the response is **HTML** instead of JSON, `$API_BASE_URL` is pointing at
@@ -593,4 +684,57 @@ Where the value can hide — check all of them:
 The client logs `[SABI] VITE_API_BASE_URL points at an AI Studio preview proxy…`
 at start-up and `describeApiFailure()` names the proxy in the UI message, so a
 mis-built bundle identifies itself instead of blaming the candidate's network.
+
+### 8c. `HTTP 500: FUNCTION_INVOCATION_FAILED` on sign-up (Vercel function never boots)
+
+Signature seen in the sign-up form:
+
+```
+Could not create your account. (HTTP 500: A server error has occurred
+FUNCTION_INVOCATION_FAILED lhr1::glns-1794048090163-d2f158bd0396)
+```
+
+Read it as "the request **did** reach your Vercel project, and the `api/index`
+function threw before Express could answer". The `lhr1::glns-…` digest is a
+Vercel invocation id, not a SABI error code — that is why the message contained
+no explanation. Three causes account for every case seen so far:
+
+| Cause | How to confirm | Fix |
+| --- | --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` (or `SUPABASE_URL`) missing from *Production* scope, or added without a redeploy | Functions → `api/index` → Logs shows `[SABI] SUPABASE_SERVICE_ROLE_KEY is not set` | §3b Step 2 + Step 4 (uncheck build cache) |
+| Function built for a Node version that cannot load a dependency (`require` of an ESM-only module) | Logs show `ERR_REQUIRE_ESM` / `Cannot find module` | Project Settings → Node.js Version = **22.x**, redeploy |
+| `vite` (a devDependency) imported at module scope by `server.ts` | Happens when the runtime image installs production dependencies only | Already fixed: Vite is now loaded lazily by `attachViteDevMiddleware()` and never referenced in a production build (`dist/server.cjs`) |
+
+What changed so this failure is diagnosable instead of opaque:
+
+* `api/index.ts` now loads the app **inside** a try/catch. A boot failure is
+  logged once as `[SABI] The API function failed to boot:` and answered as JSON
+  `500 {code: "API_BOOT_FAILED", detail: "<reason>", hint: …}` — never Vercel's
+  HTML page.
+* `server/lib/supabaseAdmin.ts` no longer throws on a serverless host. It logs the
+  same `[SABI]` line and `configurationGuard` answers privileged routes with
+  `503 {code: "API_NOT_CONFIGURED", missing: "SUPABASE_SERVICE_ROLE_KEY", fix: …}`.
+  Long-running hosts still refuse to start, and the anon key is still never used
+  as a fallback.
+* `/api/health` gained `runtime`, `admin_configured`, `configuration_error` and
+  `status: "degraded"`, so a single `curl` identifies an incomplete deployment.
+
+Verification without deploying (mimics a Vercel invocation):
+
+```bash
+npx esbuild api/index.ts --bundle --platform=node --format=cjs \
+  --packages=external --outfile=.tmp-fn/sabi-fn.cjs
+# then, with NODE_ENV=production VERCEL=1 and no service-role key:
+#   GET  /api/health         -> 200 {"status":"degraded","configuration_error":"SUPABASE_SERVICE_ROLE_KEY is not set."}
+#   POST /api/auth/register  -> 503 {"code":"API_NOT_CONFIGURED",…}
+```
+
+Other Vercel-only details worth knowing:
+
+* `VITE_*` variables are frozen at build time. Changing one requires a **new
+  build**, not just a redeploy of the same commit with cache enabled.
+* Preview deployments cannot read Production-scope variables; they will answer
+  `503 API_NOT_CONFIGURED` unless you duplicate the values into Preview scope.
+* The functions' region is independent of the static site's CDN; `x-vercel-id`
+  (or the `lhr1::…` digest) tells you where the function ran.
 
