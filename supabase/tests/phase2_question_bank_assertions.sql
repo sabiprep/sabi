@@ -242,3 +242,88 @@ BEGIN
   END IF;
 END
 $$;
+
+-- A clean validated import commits atomically into pending-review drafts only.
+DO $$
+DECLARE
+  reviewer UUID := '00000000-0000-4000-8000-000000000001';
+  batch_id UUID := '00000000-0000-4000-8000-000000000022';
+  topic_id UUID;
+  subtopic_id UUID;
+  batch_state TEXT;
+  result JSONB;
+  imported_id TEXT;
+  normalized JSONB;
+BEGIN
+  INSERT INTO auth.users(id, email)
+  VALUES (reviewer, 'phase2-review-test@example.com')
+  ON CONFLICT (id) DO NOTHING;
+
+  SELECT id INTO topic_id FROM public.jamb_topics
+  WHERE subject_slug = 'biology' AND name = 'Adaptation' LIMIT 1;
+  SELECT id INTO subtopic_id FROM public.jamb_subtopics
+  WHERE topic_id = topic_id AND name = 'Adaptations in animals' LIMIT 1;
+  IF topic_id IS NULL OR subtopic_id IS NULL THEN
+    RAISE EXCEPTION 'Test taxonomy fixture is incomplete';
+  END IF;
+
+  normalized := jsonb_build_object(
+    'examType', 'UTME',
+    'subjectSlug', 'biology',
+    'topicId', topic_id,
+    'subtopicId', subtopic_id,
+    'year', 2023,
+    'question', 'Which organelle contains chlorophyll in plant cells?',
+    'options', jsonb_build_object('A','Chloroplast','B','Mitochondrion','C','Ribosome','D','Nucleus'),
+    'answer', 'A',
+    'explanation', 'Chlorophyll is located in the thylakoid membranes inside chloroplasts.',
+    'difficulty', 'easy',
+    'concepts', jsonb_build_array('photosynthesis'),
+    'provenance', jsonb_build_object(
+      'sourceType','official_exam',
+      'sourceLabel','Imported JAMB Biology source',
+      'sourceUrl','https://www.jamb.gov.ng/',
+      'attribution','Joint Admissions and Matriculation Board'
+    )
+  );
+
+  INSERT INTO public.question_import_batches(
+    id, source_label, source_url, created_by, status, total_rows, valid_rows, invalid_rows, duplicate_rows
+  ) VALUES (
+    batch_id, 'Phase 2 CI import', 'https://www.jamb.gov.ng/', reviewer, 'validated', 1, 1, 0, 0
+  ) ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.question_import_rows(
+    batch_id, row_number, raw_payload, normalized_payload, outcome
+  ) VALUES (batch_id, 1, normalized, normalized, 'valid')
+  ON CONFLICT (batch_id, row_number) DO NOTHING;
+
+  SELECT status INTO batch_state FROM public.question_import_batches WHERE id = batch_id;
+  IF batch_state = 'validated' THEN
+    result := public.commit_question_import_batch(batch_id, reviewer, 'CONTENT_MANAGER');
+  ELSE
+    SELECT summary INTO result FROM public.question_import_batches WHERE id = batch_id;
+  END IF;
+
+  SELECT summary->'question_ids'->>0 INTO imported_id
+  FROM public.question_import_batches WHERE id = batch_id;
+
+  IF (SELECT status FROM public.question_import_batches WHERE id = batch_id) <> 'committed'
+     OR (SELECT outcome FROM public.question_import_rows WHERE batch_id = batch_id AND row_number = 1) <> 'imported'
+     OR imported_id IS NULL THEN
+    RAISE EXCEPTION 'Validated import batch did not reach committed state';
+  END IF;
+  IF (SELECT status FROM public.question_bank WHERE id = imported_id) <> 'ai-draft'
+     OR (SELECT review_state FROM public.question_bank WHERE id = imported_id) <> 'pending_review'
+     OR (SELECT provenance_status FROM public.question_provenance WHERE question_id = imported_id) <> 'unverified'
+     OR NOT EXISTS (SELECT 1 FROM public.question_bank_versions WHERE question_id = imported_id AND version_number = 1)
+     OR NOT EXISTS (SELECT 1 FROM public.question_review_events WHERE question_id = imported_id AND decision = 'submitted') THEN
+    RAISE EXCEPTION 'Imported question was not safely created as a draft with version/provenance/review history';
+  END IF;
+  IF has_function_privilege('anon', 'public.commit_question_import_batch(uuid,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.commit_question_import_batch(uuid,uuid,text)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.commit_question_import_batch(uuid,uuid,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Import commit RPC privileges are not server-only';
+  END IF;
+END
+$$;
