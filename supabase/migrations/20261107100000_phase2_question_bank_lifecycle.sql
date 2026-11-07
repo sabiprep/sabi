@@ -795,4 +795,60 @@ REVOKE ALL ON FUNCTION public.commit_question_import_batch(UUID, UUID, TEXT)
 GRANT EXECUTE ON FUNCTION public.commit_question_import_batch(UUID, UUID, TEXT)
   TO service_role;
 
+
+-- Answer evaluation is available only after an authenticated student submits
+-- an option for a currently eligible question. The question pool endpoint
+-- itself continues to omit answer keys and explanations.
+CREATE OR REPLACE FUNCTION public.submit_eligible_question_answer(
+  p_question_id TEXT,
+  p_answer TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $
+DECLARE
+  correct_answer TEXT;
+  answer_explanation TEXT;
+BEGIN
+  IF p_answer IS NULL OR upper(btrim(p_answer)) NOT IN ('A', 'B', 'C', 'D') THEN
+    RAISE EXCEPTION 'Answer must be A, B, C or D' USING ERRCODE = '22023';
+  END IF;
+
+  SELECT q.answer, q.explanation
+    INTO correct_answer, answer_explanation
+  FROM public.question_bank q
+  JOIN public.question_provenance p ON p.question_id = q.id
+  JOIN public.jamb_topics t ON t.id = q.topic_id
+  JOIN public.jamb_subtopics st ON st.id = q.subtopic_id AND st.topic_id = t.id
+  WHERE q.id = p_question_id
+    AND q.status = 'published'
+    AND q.review_state = 'approved'
+    AND p.provenance_status = 'verified'
+    AND t.verification_status = 'verified'
+    AND st.verification_status = 'verified'
+    AND t.is_active = TRUE
+    AND st.is_active = TRUE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Eligible question not found' USING ERRCODE = 'P0002';
+  END IF;
+
+  RETURN jsonb_build_object(
+    'question_id', p_question_id,
+    'submitted_answer', upper(btrim(p_answer)),
+    'is_correct', lower(correct_answer) = lower(btrim(p_answer)),
+    'correct_answer', upper(correct_answer),
+    'explanation', answer_explanation
+  );
+END;
+$;
+
+REVOKE ALL ON FUNCTION public.submit_eligible_question_answer(TEXT, TEXT)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.submit_eligible_question_answer(TEXT, TEXT)
+  TO service_role;
+
 COMMIT;
