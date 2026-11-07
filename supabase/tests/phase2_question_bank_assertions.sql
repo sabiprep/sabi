@@ -203,7 +203,7 @@ END
 $$;
 
 -- Provenance verification is auditable, version-bound and server-only.
-DO $$
+DO $phase2_test$
 DECLARE
   reviewer UUID := '00000000-0000-4000-8000-000000000001';
   result JSONB;
@@ -246,7 +246,7 @@ BEGIN
   UPDATE public.question_provenance SET provenance_status = 'unverified'
   WHERE question_id = 'BIO-001';
 END
-$;
+$phase2_test$;
 
 -- A clean validated import commits atomically into pending-review drafts only.
 DO $$
