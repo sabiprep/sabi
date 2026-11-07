@@ -248,8 +248,8 @@ DO $$
 DECLARE
   reviewer UUID := '00000000-0000-4000-8000-000000000001';
   batch_id UUID := '00000000-0000-4000-8000-000000000022';
-  topic_id UUID;
-  subtopic_id UUID;
+  v_topic_id UUID;
+  v_subtopic_id UUID;
   batch_state TEXT;
   result JSONB;
   imported_id TEXT;
@@ -259,19 +259,19 @@ BEGIN
   VALUES (reviewer, 'phase2-review-test@example.com')
   ON CONFLICT (id) DO NOTHING;
 
-  SELECT id INTO topic_id FROM public.jamb_topics
+  SELECT id INTO v_topic_id FROM public.jamb_topics
   WHERE subject_slug = 'biology' AND name = 'Adaptation' LIMIT 1;
-  SELECT id INTO subtopic_id FROM public.jamb_subtopics
-  WHERE topic_id = topic_id AND name = 'Adaptations in animals' LIMIT 1;
-  IF topic_id IS NULL OR subtopic_id IS NULL THEN
+  SELECT st.id INTO v_subtopic_id FROM public.jamb_subtopics st
+  WHERE st.topic_id = v_topic_id AND st.name = 'Adaptations in animals' LIMIT 1;
+  IF v_topic_id IS NULL OR v_subtopic_id IS NULL THEN
     RAISE EXCEPTION 'Test taxonomy fixture is incomplete';
   END IF;
 
   normalized := jsonb_build_object(
     'examType', 'UTME',
     'subjectSlug', 'biology',
-    'topicId', topic_id,
-    'subtopicId', subtopic_id,
+    'topicId', v_topic_id,
+    'subtopicId', v_subtopic_id,
     'year', 2023,
     'question', 'Which organelle contains chlorophyll in plant cells?',
     'options', jsonb_build_object('A','Chloroplast','B','Mitochondrion','C','Ribosome','D','Nucleus'),
