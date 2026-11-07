@@ -10,6 +10,10 @@ import { validateQuestionImport } from './importValidation';
 
 const router = Router();
 const contentRoles = ['CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'] as const;
+const resolveFlagBodySchema = z.strictObject({
+  status: z.enum(['resolved', 'dismissed']),
+  resolutionNote: z.string().trim().max(2000).optional(),
+});
 const questionFlagBodySchema = z.strictObject({
   reason: z.enum(['wrong_answer', 'ambiguous', 'typo', 'bad_explanation', 'wrong_topic', 'duplicate', 'source_issue', 'other']),
   details: z.string().trim().max(2000).optional(),
@@ -212,6 +216,53 @@ router.post('/import/validate', requireAuth, requireRole(...contentRoles), valid
   }
 
   return res.status(201).json({ status: 'validated', batchId: batch.id, ...summary, rows: report.rows });
+});
+
+router.get('/flag-queue', requireAuth, requireRole(...contentRoles), async (req, res) => {
+  const parsed = listQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Invalid flag-queue query.', details: parsed.error.issues });
+  }
+
+  const { limit, offset } = parsed.data;
+  const { data, error, count } = await supabaseAdmin
+    .from('question_flags')
+    .select('id,question_id,version_number,reporter_id,reason,details,status,created_at,question:question_bank!question_flags_question_id_fkey(id,subject,topic,subtopic,question,option_a,option_b,option_c,option_d,answer,explanation,review_state,status)', { count: 'exact' })
+    .eq('status', 'open')
+    .order('created_at', { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    console.error('[SABI] Question flag queue failed:', error.message);
+    return res.status(503).json({ error: 'The question flag queue is temporarily unavailable.' });
+  }
+
+  return res.json({ status: 'success', flags: data ?? [], total: count ?? 0, limit, offset });
+});
+
+router.post('/flags/:flagId/resolve', requireAuth, requireRole(...contentRoles), validateBody(resolveFlagBodySchema), async (req, res) => {
+  const authReq = req as AuthenticatedRequest;
+  const { status, resolutionNote } = req.body;
+  const { data, error } = await supabaseAdmin
+    .from('question_flags')
+    .update({
+      status,
+      resolution_note: resolutionNote ?? null,
+      resolved_by: authReq.user!.id,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq('id', req.params.flagId)
+    .eq('status', 'open')
+    .select('id,question_id,version_number,status,resolution_note,resolved_by,resolved_at')
+    .maybeSingle();
+
+  if (error) {
+    console.error('[SABI] Question flag resolution failed:', error.message);
+    return res.status(503).json({ error: 'The question flag could not be resolved.' });
+  }
+  if (!data) return res.status(404).json({ error: 'Open question flag not found.' });
+
+  return res.json({ status: 'success', flag: data });
 });
 
 router.get('/:questionId', requireAuth, requireRole(...contentRoles), async (req, res) => {
