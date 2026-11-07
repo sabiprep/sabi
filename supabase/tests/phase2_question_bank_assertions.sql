@@ -327,3 +327,57 @@ BEGIN
   END IF;
 END
 $$;
+
+-- Exercise the student delivery/evaluation contract in a rolled-back fixture:
+-- eligible payloads omit answers; an answer is revealed only after submission.
+BEGIN;
+DO $$
+DECLARE
+  reviewer UUID := '00000000-0000-4000-8000-000000000001';
+  imported_id TEXT;
+  result JSONB;
+BEGIN
+  SELECT summary->'question_ids'->>0 INTO imported_id
+  FROM public.question_import_batches
+  WHERE id = '00000000-0000-4000-8000-000000000022';
+
+  UPDATE public.jamb_topics SET verification_status = 'verified'
+  WHERE id = (SELECT topic_id FROM public.question_bank WHERE id = imported_id);
+  UPDATE public.jamb_subtopics SET verification_status = 'verified'
+  WHERE id = (SELECT subtopic_id FROM public.question_bank WHERE id = imported_id);
+
+  PERFORM public.verify_question_provenance(
+    imported_id,
+    'JAMB Biology sample',
+    'https://www.jamb.gov.ng/',
+    'official_exam',
+    'Joint Admissions and Matriculation Board',
+    'CI test source evidence was checked against the source and the question wording.',
+    reviewer,
+    'CONTENT_MANAGER'
+  );
+
+  PERFORM public.review_question_bank_item(
+    imported_id,
+    'approved',
+    reviewer,
+    'CONTENT_MANAGER',
+    'CI student-serving test',
+    '{"content_reviewed": true, "answer_key_verified": true}'::JSONB
+  );
+
+  result := public.submit_eligible_question_answer(imported_id, 'A');
+  IF result->>'is_correct' <> 'true'
+     OR result->>'correct_answer' <> 'A'
+     OR result->>'explanation' IS NULL THEN
+    RAISE EXCEPTION 'Eligible question answer evaluation did not return the expected result: %', result;
+  END IF;
+
+  IF has_function_privilege('anon', 'public.submit_eligible_question_answer(text,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.submit_eligible_question_answer(text,text)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.submit_eligible_question_answer(text,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Answer evaluation RPC must remain server-only';
+  END IF;
+END
+$$;
+ROLLBACK;
