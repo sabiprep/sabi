@@ -19,7 +19,7 @@ BEGIN
   FROM public.question_bank q
   JOIN public.question_bank_versions v
     ON v.question_id = q.id AND v.version_number = 1
-  WHERE v.payload->>'status' IS DISTINCT FROM q.status
+  WHERE v.payload->>'status' IS DISTINCT FROM v.legacy_status
      OR v.content_hash IS DISTINCT FROM md5(v.payload::text);
 
   SELECT count(*) INTO eligible_count FROM public.get_eligible_question_bank(NULL, 100, 0);
@@ -92,65 +92,77 @@ END
 $$;
 
 
--- Corrections must create a new snapshot and force the current record back
--- through review without mutating its previous version.
-DO $
+-- Corrections must create a new snapshot and return the current question
+-- to review. The test is repeatable so the same assertions can run after
+-- migration idempotency checks.
+DO $$
 DECLARE
   reviewer UUID := '00000000-0000-4000-8000-000000000001';
   target_topic_id UUID;
   target_subtopic_id UUID;
   result JSONB;
-  old_question TEXT;
+  current_version_number INTEGER;
 BEGIN
   INSERT INTO auth.users(id, email)
   VALUES (reviewer, 'phase2-review-test@example.com')
   ON CONFLICT (id) DO NOTHING;
 
-  SELECT id INTO target_topic_id
-  FROM public.jamb_topics
-  WHERE subject_slug = 'biology' AND name = 'Adaptation'
-  LIMIT 1;
-  SELECT id INTO target_subtopic_id
-  FROM public.jamb_subtopics
-  WHERE topic_id = target_topic_id AND name = 'Adaptations in animals'
-  LIMIT 1;
+  SELECT current_version INTO current_version_number
+  FROM public.question_bank WHERE id = 'BIO-001';
 
-  SELECT question INTO old_question FROM public.question_bank WHERE id = 'BIO-001';
-  UPDATE public.question_provenance SET provenance_status = 'verified' WHERE question_id = 'BIO-001';
-  result := public.create_question_bank_version(
-    'BIO-001',
-    jsonb_build_object(
-      'subjectSlug', 'biology',
-      'topicId', target_topic_id,
-      'subtopicId', target_subtopic_id,
-      'year', 2020,
-      'question', 'Which characteristic protects a camel from blowing sand?',
-      'options', jsonb_build_object('A','Long eyelashes','B','Webbed feet','C','Thin fur','D','Gills'),
-      'answer', 'A',
-      'explanation', 'Long eyelashes help prevent blowing sand from entering the camel eyes.',
-      'explanationShort', 'Long eyelashes protect the eyes.',
-      'difficulty', 'easy',
-      'concepts', jsonb_build_array('adaptation')
-    ),
-    'CI correction version test',
-    reviewer,
-    'CONTENT_MANAGER'
-  );
+  IF current_version_number = 1 THEN
+    SELECT id INTO target_topic_id
+    FROM public.jamb_topics
+    WHERE subject_slug = 'biology' AND name = 'Adaptation'
+    LIMIT 1;
+    SELECT id INTO target_subtopic_id
+    FROM public.jamb_subtopics
+    WHERE topic_id = target_topic_id AND name = 'Adaptations in animals'
+    LIMIT 1;
 
-  IF result->>'version_number' <> '2' THEN
-    RAISE EXCEPTION 'Expected question version 2, got %', result;
+    UPDATE public.question_provenance
+    SET provenance_status = 'verified'
+    WHERE question_id = 'BIO-001';
+
+    result := public.create_question_bank_version(
+      'BIO-001',
+      jsonb_build_object(
+        'subjectSlug', 'biology',
+        'topicId', target_topic_id,
+        'subtopicId', target_subtopic_id,
+        'year', 2020,
+        'question', 'Which characteristic protects a camel from blowing sand?',
+        'options', jsonb_build_object('A','Long eyelashes','B','Webbed feet','C','Thin fur','D','Gills'),
+        'answer', 'A',
+        'explanation', 'Long eyelashes help prevent blowing sand from entering the camel eyes.',
+        'explanationShort', 'Long eyelashes protect the eyes.',
+        'difficulty', 'easy',
+        'concepts', jsonb_build_array('adaptation')
+      ),
+      'CI correction version test',
+      reviewer,
+      'CONTENT_MANAGER'
+    );
+
+    IF result->>'version_number' <> '2' THEN
+      RAISE EXCEPTION 'Expected question version 2, got %', result;
+    END IF;
+  ELSIF current_version_number <> 2 THEN
+    RAISE EXCEPTION 'Unexpected test question version before idempotent assertion: %', current_version_number;
   END IF;
+
   IF (SELECT current_version FROM public.question_bank WHERE id = 'BIO-001') <> 2
      OR (SELECT review_state FROM public.question_bank WHERE id = 'BIO-001') <> 'pending_review'
      OR (SELECT status FROM public.question_bank WHERE id = 'BIO-001') <> 'ai-draft' THEN
     RAISE EXCEPTION 'Question correction did not reset the current record to pending review';
   END IF;
-  IF (SELECT payload->>'question' FROM public.question_bank_versions
-      WHERE question_id = 'BIO-001' AND version_number = 1) IS DISTINCT FROM old_question THEN
-    RAISE EXCEPTION 'Previous question version was modified by correction';
-  END IF;
   IF (SELECT provenance_status FROM public.question_provenance WHERE question_id = 'BIO-001') <> 'unverified' THEN
     RAISE EXCEPTION 'Content revision did not invalidate previous provenance verification';
+  END IF;
+  IF (SELECT payload->>'question' FROM public.question_bank_versions
+      WHERE question_id = 'BIO-001' AND version_number = 1)
+      IS DISTINCT FROM 'Which feature helps a camel survive in a desert?' THEN
+    RAISE EXCEPTION 'Previous question version was modified by correction';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.question_bank_versions
@@ -162,7 +174,7 @@ BEGIN
     RAISE EXCEPTION 'New version snapshot or submission review event is missing';
   END IF;
 END
-$;
+$$;
 
 -- Even an authenticated reviewer cannot approve a legacy question while its
 -- provenance remains unverified. The failed call must leave review state intact.
