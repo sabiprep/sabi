@@ -127,13 +127,13 @@ router.get('/review-queue', requireAuth, requireRole(...contentRoles), async (re
   let query = supabaseAdmin
     .from('question_bank')
     .select('id,subject,topic,subtopic,topic_id,subtopic_id,year,question,option_a,option_b,option_c,option_d,answer,explanation,explanation_short,difficulty,source,status,review_state,current_version,created_at,updated_at', { count: 'exact' })
-    .in('review_state', ['pending_review', 'flagged'])
-    .order('created_at', { ascending: true })
-    .range(offset, offset + limit - 1);
+    .in('review_state', ['pending_review', 'flagged']);
 
   if (subject) query = query.eq('subject', subject);
 
-  const { data, error, count } = await query;
+  const { data, error, count } = await query
+    .order('created_at', { ascending: true })
+    .range(offset, offset + limit - 1);
   if (error) {
     console.error('[SABI] Question review queue failed:', error.message);
     return res.status(503).json({ error: 'The question review queue is temporarily unavailable.' });
