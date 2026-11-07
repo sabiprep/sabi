@@ -528,6 +528,7 @@ describe('Phase 2 question-bank API security', () => {
     await expect(request(app).get('/api/question-bank/flag-queue')).resolves.toMatchObject({ status: 401 });
     await expect(request(app).post('/api/question-bank/import/validate').send({ rows: [] })).resolves.toMatchObject({ status: 401 });
     await expect(request(app).post('/api/question-bank/BIO-001/versions').send({})).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/BIO-001/provenance/verify').send({})).resolves.toMatchObject({ status: 401 });
     await expect(request(app).post('/api/question-bank/BIO-001/flag').send({ reason: 'wrong_answer' })).resolves.toMatchObject({ status: 401 });
     await expect(request(app).post('/api/question-bank/flags/00000000-0000-4000-8000-000000000001/resolve').send({ status: 'resolved' })).resolves.toMatchObject({ status: 401 });
     await expect(
