@@ -1410,6 +1410,17 @@ export function PracticePage() {
         </div>
       </div>
 
+      <Link
+        to="/verified-practice"
+        className={`rounded-3xl border p-6 sm:p-7 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${isDark ? 'bg-blue-950/30 border-blue-900 hover:border-blue-600' : 'bg-blue-50 border-blue-200 hover:border-blue-400'}`}
+      >
+        <div className="flex items-start gap-4">
+          <div className="rounded-2xl bg-blue-700 p-3 text-white"><BookOpenCheck size={24}/></div>
+          <div><span className="text-[11px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">Reviewed question pool</span><h2 className="mt-1 text-lg font-black">Verified Question Practice</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Practice questions with checked answers, source evidence and verified JAMB syllabus mapping.</p></div>
+        </div>
+        <span className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white">Start practice <ArrowRight size={16}/></span>
+      </Link>
+
       {/* Additional Modes Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link
