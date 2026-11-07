@@ -19,8 +19,8 @@ $$;
 GRANT USAGE ON SCHEMA auth TO PUBLIC;
 GRANT EXECUTE ON FUNCTION auth.uid() TO PUBLIC;
 
--- Reproduce the overly broad default ACLs observed in the live project so the
--- hardening migration proves it removes both existing and future exposure.
+-- Reproduce observed default ACLs so hardening migrations prove they remove
+-- existing and future exposure in this disposable database.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
   GRANT ALL ON TABLES TO anon, authenticated;
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public
@@ -43,12 +43,8 @@ CREATE TABLE auth.users (
 
 CREATE OR REPLACE FUNCTION public.generate_sabi_unique_id()
 RETURNS varchar LANGUAGE plpgsql AS $$
-DECLARE
-  candidate_id varchar(5);
-BEGIN
-  candidate_id := '1234A';
-  RETURN candidate_id;
-END;
+DECLARE candidate_id varchar(5);
+BEGIN candidate_id := '1234A'; RETURN candidate_id; END;
 $$;
 
 CREATE TABLE public.profiles (
@@ -84,31 +80,65 @@ CREATE POLICY "Admins can read audit logs" ON public.audit_logs FOR SELECT TO PU
       AND p.role IN ('ADMIN', 'MASTER_ADMIN')
   ));
 
+-- Text question IDs and content fields match the current live question_bank.
 CREATE TABLE public.question_bank (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id text PRIMARY KEY,
+  exam_type text,
   subject text NOT NULL,
   topic text,
-  subtopic text
+  subtopic text,
+  year integer,
+  question text NOT NULL,
+  option_a text,
+  option_b text,
+  option_c text,
+  option_d text,
+  answer text NOT NULL,
+  explanation text,
+  explanation_short text,
+  difficulty text DEFAULT 'medium',
+  difficulty_actual text,
+  concepts text[],
+  common_wrong_answer text,
+  source text DEFAULT 'ALOC API',
+  status text DEFAULT 'ai-draft',
+  confidence_score double precision DEFAULT 0,
+  flag_count integer DEFAULT 0,
+  verified_by text DEFAULT 'ai-confirmed',
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  notes text
 );
 ALTER TABLE public.question_bank ENABLE ROW LEVEL SECURITY;
-INSERT INTO public.question_bank(subject, topic, subtopic) VALUES
-  ('Biology', 'Adaptation', 'Adaptations in animals'),
-  ('Chemistry', 'Acids and Bases', 'Acid-base indicators'),
-  ('C.R.S', 'Abraham and the Patriarchs', 'Abraham'),
-  ('Use of English', 'Comprehension', 'Main idea');
+INSERT INTO public.question_bank
+  (id, exam_type, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d,
+   answer, explanation, explanation_short, difficulty, concepts, source, status)
+VALUES
+  ('BIO-001','UTME','Biology','Adaptation','Adaptations in animals',2020,
+   'Which feature helps a camel survive in a desert?', 'Long eyelashes', 'Webbed feet', 'Thin fur', 'Gills',
+   'a','Long eyelashes help keep blowing sand out of the camel’s eyes.','Long eyelashes protect the eyes.','easy',
+   ARRAY['adaptation'],'Legacy source label: JAMB 2020','published'),
+  ('CHE-001','UTME','Chemistry','Acids and Bases','Acid-base indicators',2021,
+   'Which indicator turns red in an acidic solution?', 'Phenolphthalein', 'Blue litmus', 'Red litmus', 'Methyl orange',
+   'b','Blue litmus turns red in an acidic solution.','Blue litmus turns red.','easy',
+   ARRAY['indicators'],'ALOC API','ai-draft'),
+  ('CRS-001','UTME','C.R.S','Abraham and the Patriarchs','Abraham',2019,
+   'Who was the father of Isaac?', 'Jacob', 'Abraham', 'Moses', 'David',
+   'b','Abraham was the father of Isaac.','Abraham was Isaac’s father.','easy',
+   ARRAY['patriarchs'],'Unknown legacy label','needs-review'),
+  ('ENG-001','UTME','Use of English','Comprehension','Main idea',2022,
+   'What is the main purpose of a topic sentence?', 'To introduce the paragraph idea', 'To list references', 'To end an essay', 'To define every word',
+   'a','A topic sentence introduces the central idea of a paragraph.','It introduces the paragraph idea.','medium',
+   ARRAY['comprehension'],'','published');
 
 CREATE OR REPLACE FUNCTION public.enforce_profile_protected_columns()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  RETURN NEW;
-END;
+BEGIN RETURN NEW; END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.handle_new_or_linked_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  RETURN NEW;
-END;
+BEGIN RETURN NEW; END;
 $$;
 
 CREATE TRIGGER enforce_profile_protected_columns
