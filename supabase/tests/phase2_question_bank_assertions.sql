@@ -201,3 +201,44 @@ BEGIN
   END IF;
 END
 $$;
+
+-- Provenance verification is auditable, version-bound and server-only.
+DO $$
+DECLARE
+  reviewer UUID := '00000000-0000-4000-8000-000000000001';
+  result JSONB;
+  evidence JSONB;
+BEGIN
+  result := public.verify_question_provenance(
+    'BIO-001',
+    'JAMB Biology 2020',
+    'https://www.jamb.gov.ng/',
+    'official_exam',
+    'Joint Admissions and Matriculation Board',
+    'Checked against the supplied official examination source and independently matched to the current question wording.',
+    reviewer,
+    'CONTENT_MANAGER'
+  );
+
+  IF result->>'version_number' <> '2' OR result->>'provenance_status' <> 'verified' THEN
+    RAISE EXCEPTION 'Provenance verification did not bind to the current version: %', result;
+  END IF;
+
+  SELECT evidence INTO evidence
+  FROM public.question_provenance WHERE question_id = 'BIO-001';
+
+  IF (SELECT provenance_status FROM public.question_provenance WHERE question_id = 'BIO-001') <> 'verified'
+     OR evidence->'verification_history' IS NULL
+     OR jsonb_array_length(evidence->'verification_history') < 1
+     OR evidence->'verification_history'->0->>'version_number' <> '2'
+     OR evidence->'verification_history'->0->>'verified_by' <> reviewer::TEXT THEN
+    RAISE EXCEPTION 'Provenance evidence history was not recorded against the correct actor/version';
+  END IF;
+
+  IF has_function_privilege('anon', 'public.verify_question_provenance(text,text,text,text,text,text,uuid,text)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.verify_question_provenance(text,text,text,text,text,text,uuid,text)', 'EXECUTE')
+     OR NOT has_function_privilege('service_role', 'public.verify_question_provenance(text,text,text,text,text,text,uuid,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Provenance verification RPC privileges are not server-only';
+  END IF;
+END
+$$;
