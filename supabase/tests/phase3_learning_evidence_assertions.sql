@@ -68,6 +68,7 @@ DECLARE
   v_version public.question_bank_versions%ROWTYPE;
   v_result JSONB;
   v_mastery public.student_topic_mastery%ROWTYPE;
+  v_schedule public.student_topic_review_schedule%ROWTYPE;
   v_conflict BOOLEAN := FALSE;
   v_closed BOOLEAN := FALSE;
 BEGIN
@@ -152,6 +153,14 @@ BEGIN
   );
   IF v_result->>'is_correct' <> 'false' THEN
     RAISE EXCEPTION 'Incorrect answer was not calculated from the trusted answer key';
+  END IF;
+
+  SELECT * INTO v_schedule FROM public.student_topic_review_schedule
+  WHERE student_id = v_student AND topic_id = v_topic AND subtopic_id = v_subtopic;
+  IF NOT FOUND OR v_schedule.consecutive_correct <> 0
+     OR v_schedule.interval_days <> 1 OR v_schedule.last_result_correct IS DISTINCT FROM FALSE
+     OR v_schedule.next_review_at <= NOW() THEN
+    RAISE EXCEPTION 'Incorrect attempt did not reset spaced review scheduling: %', row_to_json(v_schedule);
   END IF;
 
   SELECT * INTO v_mastery FROM public.student_topic_mastery
