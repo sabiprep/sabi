@@ -369,7 +369,7 @@ returns void
 language plpgsql
 security invoker
 set search_path = ''
-as $
+as $$
 declare
   v_current_class text := nullif(p_answers->>'currentClass','');
   v_attempts text := coalesce(p_answers->>'attempts','');
@@ -476,7 +476,7 @@ begin
     explanation_style=excluded.explanation_style,
     updated_at=now();
 end;
-$;
+$$;
 
 revoke all on function public.save_student_onboarding_profile(uuid,integer,text[],integer,jsonb) from public,anon,authenticated;
 grant execute on function public.save_student_onboarding_profile(uuid,integer,text[],integer,jsonb) to service_role;
@@ -517,7 +517,7 @@ returns setof public.signal_processing_outbox
 language plpgsql
 security invoker
 set search_path = ''
-as $
+as $$
 begin
   return query
   update public.signal_processing_outbox o
@@ -536,14 +536,14 @@ begin
   )
   returning o.*;
 end;
-$;
+$$;
 
 create or replace function public.dispatch_signal_observation_to_engines(p_observation_id uuid)
 returns integer
 language plpgsql
 security invoker
 set search_path = ''
-as $
+as $$
 declare
   v_observation public.student_signal_observations%rowtype;
   v_subscription record;
@@ -591,7 +591,7 @@ begin
 
   return v_inserted;
 end;
-$;
+$$;
 
 revoke all on function public.claim_signal_outbox(integer) from public,anon,authenticated;
 revoke all on function public.dispatch_signal_observation_to_engines(uuid) from public,anon,authenticated;
