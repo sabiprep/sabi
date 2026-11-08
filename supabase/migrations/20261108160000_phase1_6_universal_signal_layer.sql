@@ -140,7 +140,7 @@ create index if not exists student_signal_history_user_signal_time_idx
 
 create table if not exists public.signal_processing_outbox (
   id uuid primary key default gen_random_uuid(),
-  event_kind text not null check (event_kind in ('signal_observed','signal_recomputed','engine_requested')),
+  event_kind text not null check (event_kind in ('learning_event_received','signal_observed','signal_recomputed','engine_requested')),
   user_id uuid references auth.users(id) on delete cascade,
   signal_key text references public.signal_definitions(signal_key) on delete restrict,
   observation_id uuid references public.student_signal_observations(id) on delete cascade,
@@ -263,6 +263,35 @@ drop trigger if exists student_signal_observation_materialize on public.student_
 create trigger student_signal_observation_materialize
 after insert on public.student_signal_observations
 for each row execute function public.materialize_student_signal_observation();
+
+-- Raw learning events are durable evidence. The outbox handoff is in the same
+-- transaction so accepted telemetry cannot be lost between storage and processing.
+create or replace function public.enqueue_learning_event_for_signal_processing()
+returns trigger language plpgsql security invoker set search_path = ''
+as $
+begin
+  insert into public.signal_processing_outbox(
+    event_kind,user_id,payload,idempotency_key
+  ) values (
+    'learning_event_received',new.user_id,
+    jsonb_build_object(
+      'learning_event_id',new.id,
+      'event_type',new.event_type,
+      'session_id',new.session_id,
+      'session_item_id',new.session_item_id,
+      'question_id',new.question_id,
+      'schema_version',new.schema_version
+    ),
+    'learning-event:' || new.id::text
+  ) on conflict (idempotency_key) do nothing;
+  return new;
+end;
+$;
+
+drop trigger if exists learning_event_signal_outbox on public.learning_events;
+create trigger learning_event_signal_outbox
+after insert on public.learning_events
+for each row execute function public.enqueue_learning_event_for_signal_processing();
 
 -- Registry metadata is internal. Learners can only read their own projected signals.
 do $$
