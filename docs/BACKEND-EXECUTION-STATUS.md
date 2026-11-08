@@ -15,7 +15,7 @@
 - Provider credentials and model IDs are external configuration to be added later.
 - AI is disabled unless `SABI_AI_ENABLED=true`.
 - No paid Supabase development branch is required or created.
-- No production schema, data, secrets, or deployment changes are included in PR #12.
+- No production schema, data, secrets, or deployment changes are included in PR #12. The two new additive migrations are only exercised against disposable PostgreSQL in CI.
 
 ## Workstream status
 
@@ -40,15 +40,15 @@
 | 17 | Custom Practice | **Partial** — custom session mode and filters exist. | Validate all supported settings and unsupported combinations. |
 | 18 | CBT | **Partial** — Quick Mock/Full Mock configurations and server-side answer scoring exist. PR #12 adds server-issued deadlines, expiry enforcement and post-exam review. | CI and authenticated end-to-end expiry/auto-finalization tests; production deployment remains pending approval/quota. |
 | 19 | AI Coach | **Implemented in working branch, not activated** — gateway-backed chat route uses authenticated context and approved question context. | Connect remaining client surfaces, consent experience, prompt versioning, abuse controls and end-to-end tests. |
-| 20 | RAG/retrieval | **Partial** — limited retrieval from published question-bank material exists. | Approved knowledge corpus, provenance, chunking, retrieval quality, citations and evaluation. |
-| 21 | AI credits/model routing | **Partial** — provider-independent Gemini/OpenAI/Anthropic gateway, task routing, timeout and fallback exist. | Durable token/cost accounting, credit ledger, quota enforcement, circuit breaker, admin configuration and consent enforcement. |
-| 22 | Gamification | **Not verified** | Backend-owned XP ledger, streak rules, idempotency and anti-abuse tests. |
-| 23 | Entitlements/subscriptions | **Missing** | Plan catalogue, server-side entitlement checks, subscription lifecycle and audit. |
-| 24 | Payments/webhooks | **Missing** | Provider adapter, server verification, signed/idempotent webhooks, refunds/reversals and reconciliation. |
-| 25 | Notifications/background jobs | **Partial** — signal outbox, retry/dead-letter handling and scheduled worker workflow exist. | Notification queue/provider, preferences, templates, scheduled reminders and operational alerting. |
+| 20 | RAG/retrieval | **Partial** — approved knowledge-document/chunk schema, admin draft ingestion/approval/archive workflow and approved-only full-text retrieval are implemented. | Add embeddings/vector retrieval when provider/dimensions are chosen; expand corpus and evaluate retrieval quality/citations. |
+| 21 | AI credits/model routing | **Partial** — Gemini/OpenAI/Anthropic gateway, task routing/fallback, durable token usage events, AI credit ledger, configurable task pricing and atomic reserve/refund RPCs exist. Credits remain disabled by default. | Provider pricing calibration, prompt management, circuit breaker, full quota/abuse tests and consent experience review. |
+| 22 | Gamification | **Partial schema** — XP ledger and streak state tables exist with owner-read RLS. | Configure XP rules, implement server-side awards/streak transitions and anti-abuse tests; no XP rules are seeded. |
+| 23 | Entitlements/subscriptions | **Partial** — plan and entitlement catalogues, learner billing summary, owner-scoped entitlement reads, reusable entitlement guard and admin plan APIs exist. No plans or entitlements are seeded. | Subscription lifecycle management, trials, cancellation, expiry jobs, plan UX and end-to-end tests. |
+| 24 | Payments/webhooks | **Partial** — Paystack/Flutterwave initialization adapters, raw-body signature verification, provider-side transaction verification, idempotent webhook processing and entitlement/credit activation exist. Disabled until credentials, callback URL and plans are configured. | Recurring provider lifecycle, cancellations/refunds/reversals, reconciliation, fraud controls and provider sandbox E2E. |
+| 25 | Notifications/background jobs | **Partial** — durable queue with atomic claim/finalize RPCs, retries/dead-letter, in-app inbox, preferences, admin templates, Brevo email/Termii SMS adapters and scheduled worker exist. External channels wait for credentials. | Push provider, reminder schedules, template catalogue, delivery monitoring and operational alerting. |
 | 26 | Admin/question operations | **Partial** — role-protected content review and audit writes exist. | Least-privilege support tools, import/report workflows, admin dashboard and complete audit coverage. |
 | 27 | Analytics/reporting | **Partial** — learner progress endpoints and deterministic learning analytics adapter exist in working branch. | Canonical metric definitions, dashboards, retention/funnel reporting and reconciliation. |
-| 28 | Parent/school | **Missing** | Relationships, invitations, consent, organization isolation and scoped reports. |
+| 28 | Parent/school | **Partial schema** — parent/student relationships, school organizations and memberships are provisioned with service-role-only writes and scoped read policies. | Invitation/consent workflows, role management, organization isolation tests and parent/school reporting APIs. |
 | 29 | Observability/recovery | **Partial** — health endpoint, error handling, audit structures and worker retry/dead-letter exist. | Correlation IDs, alerting, backup verification, restore drill, incident runbook and retention/deletion verification. |
 | 30 | QA/pilot/launch | **Partial** — unit tests and disposable PostgreSQL migration CI exist. | Complete end-to-end journeys, security/resilience suite, pilot gates and explicit launch sign-off. |
 
@@ -61,6 +61,10 @@
 - AI Coach chat through the gateway.
 - AI question drafts persisted with `ai-draft` / `unreviewed` status; human publication remains mandatory.
 - Deterministic study-plan, learning-analytics and tutor-context engine adapters.
+- Durable AI usage/credit ledger, admin-configurable task pricing and atomic per-user credit reservation/refund; enforcement remains off until configured.
+- Approved knowledge-document ingestion, human approval and full-text RAG retrieval.
+- Additive plan/entitlement/payment schema, Paystack/Flutterwave checkout and verified webhook lifecycle; no plans or provider secrets are configured.
+- Durable notification queue, in-app inbox/preferences/templates, Brevo/Termii adapters and scheduled dispatch worker; external delivery secrets remain absent.
 - CBT deadline stored server-side in session metadata; answer API rejects submissions after expiry and finalizes expired sessions on the next request.
 - Practice and post-exam UI controls for on-demand explanations; display-only CBT countdown.
 
