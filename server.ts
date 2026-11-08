@@ -20,6 +20,8 @@ import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
 import aiRouter from './server/ai/routes';
 import { generateAIText, getAIReadiness } from './server/ai/gateway';
+import { recordAIUsage } from './server/ai/usage';
+import { AIUnavailableError } from './server/ai/types';
 import { buildAnswerSignalObservations, buildMasterySignalObservation } from './server/learning/signalWorker';
 import { executeEngineRequest } from './server/learning/engineExecution';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
@@ -1318,8 +1320,15 @@ app.post(
     validateBody(generateQuestionSchema),
     async (req, res) => {
       const { subject, topic, subtopic } = req.body;
+      const contentCreatorId = (req as any).user?.id as string | undefined;
+      if (!contentCreatorId) return res.status(401).json({ error: 'Authentication required.' });
       const readiness = getAIReadiness('content_draft');
       if (!readiness.enabled || readiness.configuredProviders.length === 0) {
+        await recordAIUsage(supabaseAdmin, {
+          userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
+          outcome: 'blocked', promptVersion: 'question-draft-v1',
+          metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' },
+        });
         return res.status(503).json({
           error: 'AI question drafting is not configured.',
           code: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED',
@@ -1353,6 +1362,7 @@ app.post(
       ].join('\n');
 
       try {
+        const aiStartedAt = Date.now();
         const generated = await generateAIText({
           task: 'content_draft',
           systemInstruction: 'You are a careful JAMB content drafting assistant. Your output is an unverified draft. Never claim human verification or official provenance.',
@@ -1360,6 +1370,12 @@ app.post(
           temperature: 0.35,
           maxOutputTokens: 1500,
           timeoutMs: 12000,
+        });
+        await recordAIUsage(supabaseAdmin, {
+          userId: contentCreatorId, task: 'content_draft',
+          provider: generated.provider, model: generated.model, usage: generated.usage,
+          outcome: 'success', promptVersion: 'question-draft-v1',
+          durationMs: Date.now() - aiStartedAt,
         });
         const raw = generated.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
         const parsed = JSON.parse(raw);
@@ -1475,7 +1491,19 @@ app.post(
           model: generated.model,
         });
       } catch (error) {
-        console.error('[SABI AI] Question drafting failed:', error instanceof Error ? error.message : 'unknown_error');
+        if (error instanceof AIUnavailableError) {
+          try {
+            await recordAIUsage(supabaseAdmin, {
+              userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
+              outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
+              promptVersion: 'question-draft-v1',
+              metadata: { reason: error.code, providersTried: error.providersTried },
+            });
+          } catch {
+            return res.status(503).json({ error: 'AI usage accounting is temporarily unavailable.' });
+          }
+        }
+        console.error('[SABI AI] Question drafting failed:', error instanceof Error ? error.name : 'unknown_error');
         return res.status(503).json({ error: 'AI question drafting is temporarily unavailable.' });
       }
     }
