@@ -18,6 +18,12 @@ const router = Router();
 const aiConsentSchema = z.strictObject({ granted: z.boolean() });
 const aiTaskPricingSchema = z.strictObject({ creditCost: z.number().int().min(0).max(100000), isActive: z.boolean() });
 const aiTaskSchema = z.enum(['explanation', 'tutor_chat', 'content_draft', 'study_plan']);
+const aiCreditGrantSchema = z.strictObject({
+  userId: z.string().uuid(),
+  credits: z.number().int().min(1).max(100000),
+  reason: z.string().trim().min(3).max(300),
+  idempotencyKey: z.string().trim().min(12).max(128),
+});
 
 async function hasAICoConsent(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
@@ -151,6 +157,48 @@ router.get('/credits', requireAuth, async (req, res) => {
   } catch {
     return res.status(503).json({ error: 'AI credit balance is temporarily unavailable.' });
   }
+});
+
+
+router.get('/admin/credits/:userId', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (req, res) => {
+  const userId = String(req.params.userId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+    return res.status(400).json({ error: 'A valid user ID is required.' });
+  }
+  try {
+    return res.json({ userId, balance: await getAICreditBalance(supabaseAdmin, userId) });
+  } catch {
+    return res.status(503).json({ error: 'AI credit balance is temporarily unavailable.' });
+  }
+});
+
+router.post('/admin/credits/grant', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(aiCreditGrantSchema), async (req, res) => {
+  const input = req.body as z.infer<typeof aiCreditGrantSchema>;
+  const { data, error } = await supabaseAdmin.from('ai_credit_ledger').insert({
+    user_id: input.userId,
+    entry_type: 'grant',
+    credits_delta: input.credits,
+    reason: input.reason,
+    reference_type: 'admin_grant',
+    reference_id: (req as AuthenticatedRequest).user?.id || null,
+    idempotency_key: input.idempotencyKey,
+    metadata: { granted_by: (req as AuthenticatedRequest).user?.id || null },
+  }).select('id, user_id, credits_delta, reason, created_at').single();
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'This credit grant has already been recorded.' });
+    return res.status(503).json({ error: 'AI credits could not be granted.' });
+  }
+  const actorId = (req as AuthenticatedRequest).user?.id;
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: actorId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'ai_credits.granted',
+    resource_type: 'ai_credit_ledger',
+    resource_id: data.id,
+    metadata: { user_id: input.userId, credits: input.credits, reason: input.reason },
+  });
+  if (auditError) console.error('[SABI AI] Credit grant audit failed:', auditError.message);
+  return res.status(201).json({ grant: data });
 });
 
 router.get('/admin/task-pricing', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
