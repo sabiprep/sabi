@@ -40,7 +40,7 @@ export function getAIReadiness(task: AIGenerationInput['task'] = 'explanation') 
       provider: provider.name,
       missing: [
         ...(!provider.apiKey ? [`${provider.name.toUpperCase()}_API_KEY`] : []),
-        ...(!provider.model ? [`SABI_${provider.name.toUpperCase()}_MODEL` or `SABI_${provider.name.toUpperCase()}_${task.toUpperCase()}_MODEL`] : []),
+        ...(!provider.model ? [`SABI_${provider.name.toUpperCase()}_MODEL (or SABI_${provider.name.toUpperCase()}_${task.toUpperCase()}_MODEL)`] : []),
       ],
     })),
   };
