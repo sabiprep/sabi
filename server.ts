@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
@@ -847,6 +847,68 @@ app.post(
       return res.json({ status: 'saved', checkinId });
     } catch (error: any) {
       return res.status(500).json({ error: error?.message || 'Could not save the learning check-in.' });
+    }
+  });
+
+  // Internal dispatcher: claims signal-observation outbox rows safely and
+  // expands them into idempotent engine-request records from registry subscriptions.
+  app.post('/api/internal/dispatch-signals', async (req, res) => {
+    const configuredSecret = process.env.SIGNAL_WORKER_SECRET;
+    if (!configuredSecret) {
+      return res.status(503).json({ error: 'Signal worker is not configured.' });
+    }
+    const supplied = Buffer.from(req.header('authorization') || '');
+    const expected = Buffer.from(`Bearer ${configuredSecret}`);
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+
+    try {
+      const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_signal_outbox', { p_limit: 50 });
+      if (claimError) return res.status(500).json({ error: 'Could not claim signal processing work.' });
+
+      let completed = 0;
+      let failed = 0;
+      let engineRequestsCreated = 0;
+      for (const item of claimed ?? []) {
+        try {
+          if (item.event_kind !== 'signal_observed' || !item.observation_id) {
+            throw new Error('Unsupported outbox event for this dispatcher.');
+          }
+          const { data: createdCount, error: dispatchError } = await supabaseAdmin.rpc(
+            'dispatch_signal_observation_to_engines',
+            { p_observation_id: item.observation_id }
+          );
+          if (dispatchError) throw dispatchError;
+
+          const { error: completeError } = await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({ processing_status: 'completed', completed_at: new Date().toISOString(), locked_at: null, last_error_code: null })
+            .eq('id', item.id)
+            .eq('processing_status', 'processing');
+          if (completeError) throw completeError;
+          completed += 1;
+          engineRequestsCreated += Number(createdCount || 0);
+        } catch {
+          const attemptCount = Number(item.attempt_count || 1);
+          const isDeadLetter = attemptCount >= 8;
+          const retryDelaySeconds = Math.min(30 * (2 ** Math.max(0, attemptCount - 1)), 3600);
+          await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({
+              processing_status: isDeadLetter ? 'dead_letter' : 'failed',
+              available_at: new Date(Date.now() + retryDelaySeconds * 1000).toISOString(),
+              locked_at: null,
+              last_error_code: 'signal_dispatch_failed',
+            })
+            .eq('id', item.id)
+            .eq('processing_status', 'processing');
+          failed += 1;
+        }
+      }
+      return res.json({ status: 'processed', claimed: (claimed ?? []).length, completed, failed, engineRequestsCreated });
+    } catch {
+      return res.status(500).json({ error: 'Signal dispatch failed.' });
     }
   });
 
