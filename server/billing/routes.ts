@@ -91,8 +91,14 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
     if (existing?.status === 'pending' && existing.checkout_url) {
       return res.json({ checkoutUrl: existing.checkout_url, reference: existing.reference, reused: true });
     }
-    if (existing?.status === 'successful') {
-      return res.status(409).json({ error: 'This payment request has already completed.', reference: existing.reference });
+    if (existing) {
+      return res.status(409).json({
+        error: existing.status === 'successful'
+          ? 'This payment request has already completed.'
+          : 'This payment request already exists. Use a new idempotency key to start another attempt.',
+        reference: existing.reference,
+        status: existing.status,
+      });
     }
 
     const { data: authResult, error: authError } = await supabaseAdmin.auth.admin.getUserById(userId);
@@ -235,7 +241,7 @@ router.post('/webhooks/:provider', async (req, res) => {
 
     const { data: transaction, error: transactionError } = await supabaseAdmin
       .from('payment_transactions')
-      .select('id, user_id, plan_id, amount, currency, status, reference')
+      .select('id, user_id, plan_id, amount, currency, status, reference, metadata')
       .eq('reference', event.reference)
       .eq('provider', provider)
       .maybeSingle();
@@ -282,10 +288,37 @@ router.post('/webhooks/:provider', async (req, res) => {
       .eq('status', 'active')
       .maybeSingle();
     if (subscriptionLookupError) throw new Error('SUBSCRIPTION_LOOKUP_FAILED');
-    const periodStart = existingSubscription?.current_period_end && new Date(existingSubscription.current_period_end) > now
-      ? new Date(existingSubscription.current_period_end)
-      : now;
-    const periodEnd = addBillingPeriod(periodStart, plan.billing_interval);
+
+    // Persist the billing period on the payment before entitlement writes. A
+    // retried webhook must reuse the exact same period, never extend it twice.
+    const transactionMetadata = transaction.metadata && typeof transaction.metadata === 'object'
+      ? transaction.metadata as Record<string, any>
+      : {};
+    let periodStart: Date;
+    let periodEnd: Date | null;
+    const savedPeriod = transactionMetadata.activationPeriod;
+    if (savedPeriod?.start) {
+      periodStart = new Date(savedPeriod.start);
+      periodEnd = savedPeriod.end ? new Date(savedPeriod.end) : null;
+    } else {
+      periodStart = existingSubscription?.current_period_end && new Date(existingSubscription.current_period_end) > now
+        ? new Date(existingSubscription.current_period_end)
+        : now;
+      periodEnd = addBillingPeriod(periodStart, plan.billing_interval);
+      const { error: periodPersistError } = await supabaseAdmin.from('payment_transactions')
+        .update({
+          metadata: {
+            ...transactionMetadata,
+            activationPeriod: { start: periodStart.toISOString(), end: periodEnd?.toISOString() || null },
+          },
+          updated_at: now.toISOString(),
+        })
+        .eq('id', transaction.id);
+      if (periodPersistError) throw new Error('PAYMENT_PERIOD_PERSIST_FAILED');
+    }
+    if (!Number.isFinite(periodStart.getTime()) || (periodEnd && !Number.isFinite(periodEnd.getTime()))) {
+      throw new Error('PAYMENT_PERIOD_INVALID');
+    }
     let subscriptionId = existingSubscription?.id || null;
 
     if (subscriptionId) {
@@ -346,7 +379,6 @@ router.post('/webhooks/:provider', async (req, res) => {
 
     const creditAllowance = Number(plan.ai_credit_allowance || 0);
     if (creditAllowance > 0) {
-      const periodKey = periodStart.toISOString();
       const { error } = await supabaseAdmin.from('ai_credit_ledger').upsert({
         user_id: transaction.user_id,
         entry_type: 'grant',
@@ -354,7 +386,7 @@ router.post('/webhooks/:provider', async (req, res) => {
         reason: 'subscription_period_allowance',
         reference_type: 'student_subscriptions',
         reference_id: subscriptionId,
-        idempotency_key: `subscription:${subscriptionId}:period:${periodKey}`,
+        idempotency_key: `payment:${transaction.reference}:ai-credit-grant`,
         metadata: { plan_id: plan.id, period_end: periodEnd?.toISOString() || null },
       }, { onConflict: 'user_id,idempotency_key', ignoreDuplicates: true });
       if (error) throw new Error('AI_CREDIT_GRANT_FAILED');
