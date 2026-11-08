@@ -13,7 +13,7 @@ type LearningQuestion = {
 type LearningSession = {
   id: string; mode: Mode; subject: string | null; status: string;
   total_questions: number; answered_count: number; correct_count: number;
-  started_at: string; completed_at?: string | null;
+  started_at: string; completed_at?: string | null; metadata?: { examConfiguration?: { expiresAt?: string } };
 };
 const MODE_LABELS: Record<Mode,string> = {
   diagnostic: 'Diagnostic', smart_practice: 'Smart Practice', blitz: 'Blitz 60s', cbt: 'CBT Simulator', custom: 'Custom Practice'
@@ -35,6 +35,7 @@ export function BackendLearningPage() {
   const [aiLoading,setAiLoading] = useState(false);
   const [postExamAI,setPostExamAI] = useState<Record<string,any>>({});
   const [postExamBusyId,setPostExamBusyId] = useState<string|null>(null);
+  const [cbtRemainingSeconds,setCbtRemainingSeconds] = useState<number|null>(null);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState('');
   const [history,setHistory] = useState<any[]>([]);
@@ -44,6 +45,30 @@ export function BackendLearningPage() {
   const current = questions[index];
   const completed = Boolean(session && session.status === 'completed');
   const accuracy = session?.answered_count ? Math.round((session.correct_count/session.answered_count)*100) : 0;
+
+  useEffect(()=>{
+    if(!session||session.mode!=='cbt'||session.status!=='in_progress') {setCbtRemainingSeconds(null);return;}
+    const expiresAt=session.metadata?.examConfiguration?.expiresAt;
+    if(!expiresAt) {setCbtRemainingSeconds(null);return;}
+    let expiryRefreshStarted=false;
+    const updateRemaining=()=>{
+      const remaining=Math.max(0,Math.ceil((Date.parse(expiresAt)-Date.now())/1000));
+      setCbtRemainingSeconds(remaining);
+      if(remaining===0&&!expiryRefreshStarted){
+        expiryRefreshStarted=true;
+        apiFetch('/api/learning/sessions/'+session.id).then(async response=>{
+          if(!response.ok)return;
+          const data=await response.json();
+          setSession(data.session||session);
+          setQuestions(data.questions||[]);
+          setIndex(0);setChoice(null);setAnswerResult(null);
+        }).catch(()=>undefined);
+      }
+    };
+    updateRemaining();
+    const timer=window.setInterval(updateRemaining,1000);
+    return ()=>window.clearInterval(timer);
+  },[session?.id,session?.mode,session?.status,session?.metadata?.examConfiguration?.expiresAt]);
 
   const loadOverview = useCallback(async () => {
     const [p,r] = await Promise.all([apiFetch('/api/learning/progress'),apiFetch('/api/learning/recommendations')]);
@@ -138,7 +163,7 @@ export function BackendLearningPage() {
         <p className="text-xs text-slate-500">Only approved and published UTME questions are served. If a subject does not yet have enough approved questions, the API will block the session rather than use unreviewed drafts.</p>
       </section>}
       {session&&current&&!completed&&<section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 space-y-5">
-        <div className="flex flex-wrap justify-between gap-3"><div><span className="text-xs font-black uppercase tracking-wider text-blue-600">{MODE_LABELS[session.mode]}</span><h2 className="text-lg font-black">{current.subject} · {current.topic}</h2></div><span className="text-xs font-bold text-slate-500">Question {index+1} of {questions.length}</span></div>
+        <div className="flex flex-wrap justify-between gap-3"><div><span className="text-xs font-black uppercase tracking-wider text-blue-600">{MODE_LABELS[session.mode]}</span><h2 className="text-lg font-black">{current.subject} · {current.topic}</h2></div><span className="text-xs font-bold text-slate-500">Question {index+1} of {questions.length}{session.mode==='cbt'&&cbtRemainingSeconds!==null&&<span> · {Math.floor(cbtRemainingSeconds/60)}:{String(cbtRemainingSeconds%60).padStart(2,'0')} remaining</span>}</span></div>
         <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-blue-600" style={{width:`${((index+1)/questions.length)*100}%`}}/></div>
         <div className="text-lg sm:text-xl font-bold leading-relaxed"><MathText text={current.question}/></div>
         <div className="grid gap-3">{(['A','B','C','D'] as const).map(key=><button key={key} disabled={Boolean(answerResult)||Boolean(current.answerState)||loading} onClick={()=>setChoice(key)} className={`text-left p-4 rounded-xl border flex gap-3 items-start ${choice===key?'border-blue-500 bg-blue-50 dark:bg-blue-950/40':'border-slate-200 dark:border-slate-700'}`}><span className="font-black">{key}.</span><span><MathText text={current.options[key]||''}/></span></button>)}</div>
