@@ -232,6 +232,7 @@ router.get('/readiness', requireAuth, async (_req, res) => {
   return res.json({
     enabled: readiness.enabled,
     configured: readiness.configured,
+    checkoutConfigured: readiness.checkoutConfigured,
     provider: readiness.provider,
     missingConfiguration: readiness.missing,
   });
@@ -242,7 +243,7 @@ router.post('/checkout', requireAuth, validateBody(checkoutSchema), async (req, 
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
   const { planKey, idempotencyKey } = req.body as z.infer<typeof checkoutSchema>;
   const readiness = getPaymentProviderReadiness();
-  if (!readiness.enabled || !readiness.configured || !readiness.provider) {
+  if (!readiness.enabled || !readiness.checkoutConfigured || !readiness.provider) {
     return res.status(503).json({
       error: 'Payments are not configured yet.',
       code: 'PAYMENTS_NOT_CONFIGURED',
