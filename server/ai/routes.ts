@@ -167,7 +167,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
     if (!lastUserMessage) return res.status(400).json({ error: 'At least one student message is required.' });
 
     const [profileResult, masteryResult, knowledgeResult] = await Promise.all([
-      supabaseAdmin.from('profiles').select('full_name, registered_subjects').eq('id', userId).maybeSingle(),
+      supabaseAdmin.from('profiles').select('registered_subjects').eq('id', userId).maybeSingle(),
       subject
         ? supabaseAdmin.from('student_topic_mastery')
             .select('subject, topic, mastery_score, attempted_count, correct_count, next_review_at')
@@ -203,7 +203,6 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       'Use short explanations, examples, and scaffolded questions appropriate for UTME candidates.',
     ].join(' ');
     const prompt = [
-      `Student: ${profile?.full_name || 'Student'}`,
       `Registered subjects: ${(profile?.registered_subjects || []).join(', ') || 'Not provided'}`,
       `Current subject: ${subject || 'Not specified'}`,
       `Current topic: ${topic || 'Not specified'}`,
@@ -245,7 +244,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
   }
 });
 
-router.post('/explanations', requireAuth, validateBody(explanationRequestSchema), async (req, res) => {
+router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationRequestSchema), async (req, res) => {
   const userId = (req as AuthenticatedRequest).user?.id;
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
