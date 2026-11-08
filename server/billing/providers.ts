@@ -49,7 +49,7 @@ export function getPaymentProviderReadiness(): PaymentProviderReadiness {
     if (!process.env.FLW_SECRET_HASH?.trim()) missing.push('FLW_SECRET_HASH');
   }
   if (!process.env.SABI_PAYMENT_CALLBACK_URL?.trim()) missing.push('SABI_PAYMENT_CALLBACK_URL');
-  return { enabled, provider, configured: enabled && missing.length === 0, missing };
+  return { enabled, provider, configured: missing.length === 0, missing };
 }
 
 export function verifyPaymentWebhookSignature(
