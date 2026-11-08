@@ -8,6 +8,8 @@ declare
   v_count integer;
   v_current jsonb;
   v_run uuid;
+  v_session uuid;
+  v_item uuid;
 begin
   if (select count(*) from public.signal_definitions where lifecycle_status='active') < 12 then
     raise exception 'Expected the starter canonical signal catalogue';
@@ -38,6 +40,23 @@ begin
 
   insert into auth.users(id,email)
   values(v_user,'phase16-ci-'||v_user::text||'@sabi.test');
+
+  insert into public.learning_sessions(user_id,mode,subject,total_questions)
+  values(v_user,'smart_practice','Biology',1) returning id into v_session;
+  insert into public.learning_session_items(session_id,user_id,question_id,position,presented_at)
+  values(v_session,v_user,'phase15-provenance-fixture',0,now()) returning id into v_item;
+  insert into public.learning_events(
+    user_id,session_id,session_item_id,question_id,client_event_id,event_type,occurred_at
+  ) values (
+    v_user,v_session,v_item,'phase15-provenance-fixture',
+    'phase16-event-'||v_user::text,'question_presented',now()
+  );
+  if not exists (
+    select 1 from public.signal_processing_outbox
+    where event_kind='learning_event_received'
+      and payload->>'event_type'='question_presented'
+      and idempotency_key like 'learning-event:%'
+  ) then raise exception 'Learning event was not atomically handed to the signal processing outbox'; end if;
 
   insert into public.student_signal_observations(
     user_id,signal_key,schema_version,source_key,value,confidence,purpose_key,
