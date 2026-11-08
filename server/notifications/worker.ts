@@ -59,6 +59,15 @@ export async function dispatchNotificationBatch(limit = 25) {
           cancelled += 1;
           continue;
         }
+        const deferUntil = getQuietHoursDeferral(preference?.quiet_hours);
+        if (deferUntil) {
+          const { error } = await supabaseAdmin.from('notification_queue')
+            .update({ status: 'pending', available_at: deferUntil.toISOString(), locked_at: null, updated_at: new Date().toISOString() })
+            .eq('id', job.id).eq('status', 'processing');
+          if (error) throw new Error('NOTIFICATION_QUIET_HOURS_DEFER_FAILED');
+          deferred += 1;
+          continue;
+        }
       }
 
       const { data: template, error: templateError } = job.template_key
