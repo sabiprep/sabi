@@ -1448,7 +1448,6 @@ app.post(
           source: 'Sabi AI Draft Generator',
           source_id: aiSourceId,
           content_fingerprint: contentFingerprint,
-          review_status: 'unreviewed',
           status: 'ai-draft',
           review_status: 'unreviewed',
           confidence_score: 0,
