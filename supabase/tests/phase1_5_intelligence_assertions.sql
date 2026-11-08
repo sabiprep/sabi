@@ -37,6 +37,12 @@ BEGIN
   IF (SELECT count(*) FROM public.engine_registry) < 10 THEN
     RAISE EXCEPTION 'Expected seeded engine registry entries';
   END IF;
+  IF (SELECT count(*) FROM sabi_simulation.personas) <> 25 THEN
+    RAISE EXCEPTION 'Expected 25 isolated synthetic learner personas';
+  END IF;
+  IF has_table_privilege('authenticated','sabi_simulation.personas','SELECT') THEN
+    RAISE EXCEPTION 'Synthetic personas must not be exposed to authenticated users';
+  END IF;
 
   INSERT INTO auth.users(id,email) VALUES(v_user,'phase15-ci-'||v_user::text||'@sabi.test');
   INSERT INTO public.question_bank(id,subject,topic,question,answer,status)
