@@ -34,7 +34,7 @@ router.get('/me', requireAuth, async (req, res) => {
     }
     return res.json({
       xpBalance: balance,
-      streak: streakResult.data || { timezone: 'UTC', current_streak: 0, longest_streak: 0, last_activity_date: null },
+      streak: streakResult.data || { timezone: 'Africa/Lagos', current_streak: 0, longest_streak: 0, last_activity_date: null },
       recentAwards: ledgerResult.data || [],
     });
   } catch {
