@@ -79,6 +79,7 @@ export const onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
 });
 
 export const progressCheckinSchema = z.strictObject({
+  submissionKey: z.string().uuid(),
   confidenceScore: z.number().int().min(1).max(5).optional(),
   motivationScore: z.number().int().min(1).max(5).optional(),
   perceivedBarriers: z.array(z.enum([
