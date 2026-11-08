@@ -682,7 +682,7 @@ app.post(
         .from('student_onboarding_question_versions')
         .select('id')
         .eq('question_set_id', questionSet.id)
-        .eq('version_label', 'v1')
+        .eq('version_label', 'v2')
         .single();
       if (versionError || !questionVersion?.id) {
         return res.status(500).json({ error: 'The active onboarding question version is not available.' });
@@ -739,7 +739,7 @@ app.post(
         return res.status(500).json({ error: questionsError.message || 'Could not load onboarding question definitions.' });
       }
 
-      const questionIds = new Map((questionDefinitions ?? []).map((item: { id: string; question_key: string }) => [item.question_key, item.id]));
+      const questionIds = new Map<string, string>((questionDefinitions ?? []).map((item: { id: string; question_key: string }) => [item.question_key, item.id] as const));
       const responseRows = Object.entries(normalizedAnswers).map(([questionKey, answerValue]) => ({
         submission_id: submissionId,
         question_id: questionIds.get(questionKey) ?? null,
