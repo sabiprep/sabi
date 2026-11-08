@@ -528,17 +528,17 @@ alter table public.school_memberships enable row level security;
 
 revoke all on public.entitlement_catalogue, public.subscription_plans, public.student_subscriptions,
   public.student_entitlements, public.payment_transactions, public.payment_webhook_events,
-  public.ai_usage_events, public.ai_credit_ledger, public.ai_prompt_versions, public.ai_task_pricing, public.ai_task_pricing,
+  public.ai_usage_events, public.ai_credit_ledger, public.ai_prompt_versions, public.ai_task_pricing,
   public.notification_preferences, public.notification_templates, public.notification_queue,
-  public.notification_delivery_logs, public.student_xp_ledger, public.student_streak_state,
+  public.notification_delivery_logs, public.student_xp_ledger, public.gamification_rules, public.student_streak_state,
   public.knowledge_documents, public.knowledge_chunks, public.parent_student_relationships,
   public.school_organizations, public.school_memberships from anon, authenticated;
 
 grant all on public.entitlement_catalogue, public.subscription_plans, public.student_subscriptions,
   public.student_entitlements, public.payment_transactions, public.payment_webhook_events,
-  public.ai_usage_events, public.ai_credit_ledger, public.ai_prompt_versions,
+  public.ai_usage_events, public.ai_credit_ledger, public.ai_prompt_versions, public.ai_task_pricing,
   public.notification_preferences, public.notification_templates, public.notification_queue,
-  public.notification_delivery_logs, public.student_xp_ledger, public.student_streak_state,
+  public.notification_delivery_logs, public.student_xp_ledger, public.gamification_rules, public.student_streak_state,
   public.knowledge_documents, public.knowledge_chunks, public.parent_student_relationships,
   public.school_organizations, public.school_memberships to service_role;
 
