@@ -168,6 +168,72 @@ router.post('/content-review/sources/:sourceId', requireAuth, requireRole('ADMIN
   return res.json({ status: 'updated', source });
 });
 
+
+router.get('/content-review/quality-report', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const [questionsResult, sourcesResult, versionsResult, objectivesResult] = await Promise.all([
+    supabaseAdmin.from('question_bank')
+      .select('id, subject, status, source_id, topic_id, content_fingerprint')
+      .limit(10000),
+    supabaseAdmin.from('question_sources')
+      .select('id, verification_status, permitted_use')
+      .limit(2000),
+    supabaseAdmin.from('jamb_syllabus_versions')
+      .select('id')
+      .eq('verification_status', 'verified')
+      .limit(5000),
+    supabaseAdmin.from('jamb_syllabus_objectives')
+      .select('id')
+      .eq('verification_status', 'verified')
+      .limit(10000),
+  ]);
+  const queryError = questionsResult.error || sourcesResult.error || versionsResult.error || objectivesResult.error;
+  if (queryError) {
+    console.error('[SABI] Question quality report failed:', queryError.message);
+    return res.status(503).json({ error: 'The question quality report is temporarily unavailable.' });
+  }
+
+  const sourceById = new Map((sourcesResult.data || []).map((source) => [source.id, source]));
+  const subjectStatus = new Map<string, Record<string, number>>();
+  const fingerprints = new Map<string, number>();
+  let missingSource = 0;
+  let unclearedSource = 0;
+  let missingTopic = 0;
+  let published = 0;
+  let drafts = 0;
+  for (const question of questionsResult.data || []) {
+    const counts = subjectStatus.get(question.subject) || {};
+    counts[question.status] = (counts[question.status] || 0) + 1;
+    subjectStatus.set(question.subject, counts);
+    if (question.status === 'published') published += 1;
+    if (['ai-draft', 'needs-review'].includes(question.status)) drafts += 1;
+    if (!question.source_id) missingSource += 1;
+    else {
+      const source = sourceById.get(question.source_id);
+      if (!source || source.verification_status !== 'verified' ||
+          !['practice_display', 'redistribution_allowed'].includes(source.permitted_use)) unclearedSource += 1;
+    }
+    if (!question.topic_id) missingTopic += 1;
+    if (question.content_fingerprint) fingerprints.set(question.content_fingerprint, (fingerprints.get(question.content_fingerprint) || 0) + 1);
+  }
+  const duplicateFingerprints = [...fingerprints.values()].filter((count) => count > 1).length;
+  res.set('Cache-Control', 'no-store');
+  return res.json({
+    totalQuestions: questionsResult.data?.length || 0,
+    publishedQuestions: published,
+    reviewQueueQuestions: drafts,
+    bySubject: [...subjectStatus.entries()].map(([subject, statuses]) => ({ subject, statuses })).sort((a, b) => a.subject.localeCompare(b.subject)),
+    publicationBlockers: {
+      questionsMissingSource: missingSource,
+      questionsWithUnclearedSource: unclearedSource,
+      questionsMissingVerifiedTopicMapping: missingTopic,
+      verifiedSyllabusVersions: versionsResult.data?.length || 0,
+      verifiedSyllabusObjectives: objectivesResult.data?.length || 0,
+    },
+    duplicateContentFingerprints: duplicateFingerprints,
+    truncated: (questionsResult.data || []).length >= 10000,
+  });
+});
+
 router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (req, res) => {
   const rawLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
   const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
