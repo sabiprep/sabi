@@ -123,3 +123,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108122647_notification_worker.sql
       - name: Verify notification worker security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/notification_worker_assertions.sql
+      - name: Apply adaptive question bank foundation migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108154532_adaptive_question_bank_foundation_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108154655_adaptive_question_bank_fk_indexes_v1.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108154801_capture_learning_question_attempts_v1.sql
+      - name: Verify adaptive question bank foundation security and contracts
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/question_intelligence_foundation_assertions.sql
