@@ -111,6 +111,18 @@ BEGIN
     OR to_regclass('public.student_data_processing_purposes') IS NULL THEN
     RAISE EXCEPTION 'Versioned onboarding and progress check-in tables are missing';
   END IF;
+  IF (SELECT count(*) FROM public.student_onboarding_questions q
+      JOIN public.student_onboarding_question_versions v ON v.id=q.question_version_id
+      JOIN public.student_onboarding_question_sets s ON s.id=v.question_set_id
+      WHERE s.set_key='candidate-onboarding' AND v.version_label='v1') < 13 THEN
+    RAISE EXCEPTION 'Expected all current candidate onboarding questions, including motivation, to be versioned';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.student_onboarding_questions q
+    JOIN public.student_onboarding_question_versions v ON v.id=q.question_version_id
+    JOIN public.student_onboarding_question_sets s ON s.id=v.question_set_id
+    WHERE s.set_key='candidate-onboarding' AND q.question_key='motivation' AND q.is_required=false
+  ) THEN RAISE EXCEPTION 'Optional personal motivation question must be defined'; END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.student_onboarding_responses'::regclass)
     OR NOT (SELECT relrowsecurity FROM pg_class WHERE oid='public.student_progress_checkins'::regclass) THEN
     RAISE EXCEPTION 'Student onboarding and check-in tables must have RLS enabled';
