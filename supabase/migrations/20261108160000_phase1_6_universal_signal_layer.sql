@@ -384,6 +384,94 @@ create trigger learning_event_signal_outbox
 after insert on public.learning_events
 for each row execute function public.enqueue_learning_event_for_signal_processing();
 
+
+-- Safe multi-worker claiming and idempotent signal-to-engine dispatch.
+create or replace function public.claim_signal_outbox(p_limit integer default 50)
+returns setof public.signal_processing_outbox
+language plpgsql
+security invoker
+set search_path = ''
+as $
+begin
+  return query
+  update public.signal_processing_outbox o
+  set processing_status='processing',
+      attempt_count=o.attempt_count+1,
+      locked_at=now()
+  where o.id in (
+    select q.id
+    from public.signal_processing_outbox q
+    where q.event_kind='signal_observed'
+      and q.processing_status in ('pending','failed')
+      and q.available_at <= now()
+    order by q.created_at
+    for update skip locked
+    limit greatest(1,least(coalesce(p_limit,50),100))
+  )
+  returning o.*;
+end;
+$;
+
+create or replace function public.dispatch_signal_observation_to_engines(p_observation_id uuid)
+returns integer
+language plpgsql
+security invoker
+set search_path = ''
+as $
+declare
+  v_observation public.student_signal_observations%rowtype;
+  v_subscription record;
+  v_inserted integer := 0;
+  v_rows integer := 0;
+begin
+  select * into v_observation
+  from public.student_signal_observations
+  where id=p_observation_id;
+  if not found then
+    raise exception 'Signal observation does not exist';
+  end if;
+
+  for v_subscription in
+    select s.engine_key,s.engine_contract_version,s.input_requirement
+    from public.signal_engine_subscriptions s
+    where s.signal_key=v_observation.signal_key
+      and s.is_enabled=true
+      and s.trigger_mode='on_change'
+      and v_observation.schema_version >= s.min_schema_version
+      and (s.max_schema_version is null or v_observation.schema_version <= s.max_schema_version)
+  loop
+    insert into public.signal_processing_outbox(
+      event_kind,user_id,signal_key,observation_id,engine_key,payload,idempotency_key
+    ) values (
+      'engine_requested',
+      v_observation.user_id,
+      v_observation.signal_key,
+      v_observation.id,
+      v_subscription.engine_key,
+      jsonb_build_object(
+        'engine_key',v_subscription.engine_key,
+        'engine_contract_version',v_subscription.engine_contract_version,
+        'signal_key',v_observation.signal_key,
+        'signal_schema_version',v_observation.schema_version,
+        'observation_id',v_observation.id,
+        'input_requirement',v_subscription.input_requirement,
+        'user_id',v_observation.user_id
+      ),
+      'engine-request:'||v_observation.id::text||':'||v_subscription.engine_key||':'||v_subscription.engine_contract_version::text
+    ) on conflict (idempotency_key) do nothing;
+    get diagnostics v_rows = row_count;
+    v_inserted := v_inserted + v_rows;
+  end loop;
+
+  return v_inserted;
+end;
+$;
+
+revoke all on function public.claim_signal_outbox(integer) from public,anon,authenticated;
+revoke all on function public.dispatch_signal_observation_to_engines(uuid) from public,anon,authenticated;
+grant execute on function public.claim_signal_outbox(integer) to service_role;
+grant execute on function public.dispatch_signal_observation_to_engines(uuid) to service_role;
+
 -- Registry metadata is internal. Learners can only read their own projected signals.
 do $$
 declare t text;
