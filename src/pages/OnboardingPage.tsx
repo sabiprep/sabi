@@ -171,11 +171,15 @@ export function OnboardingPage() {
       // no email is sent and the direct profiles write is no longer needed.
       const submissionKey = localStorage.getItem(SUBMISSION_KEY_STORAGE) || crypto.randomUUID();
       localStorage.setItem(SUBMISSION_KEY_STORAGE, submissionKey);
+      const scoreBand = String(answers.targetScore ?? '').match(/\d{3}/g)?.map(Number) ?? [];
+      const targetScore = scoreBand.length >= 2
+        ? Math.round((scoreBand[0] + scoreBand[1]) / 2)
+        : scoreBand.length === 1 ? Math.min(400, scoreBand[0] + 10) : 320;
       const onboardingResult = await apiPostJson('/api/profile/onboarding', {
         submissionKey,
         onboardingAnswers: answers,
         registeredSubjects: selectedSubjects,
-        targetScore: Number(answers.targetScore) || 320,
+        targetScore,
       });
 
       if (!onboardingResult.ok) {

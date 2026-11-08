@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
@@ -27,6 +27,8 @@ import {
   generateQuestionSchema,
   loginSchema,
   onboardingSchema,
+  progressCheckinSchema,
+  learningEventsSchema,
   progressSchema,
   registerSchema,
   resetPasswordConfirmSchema,
@@ -755,12 +757,65 @@ app.post(
       }));
 
       if (responseRows.length > 0) {
+        const { data: storedResponses, error: storedResponsesError } = await supabaseAdmin
+          .from('student_onboarding_responses')
+          .select('question_key, answer_value')
+          .eq('submission_id', submissionId);
+        if (storedResponsesError) {
+          return res.status(500).json({ error: storedResponsesError.message || 'Could not verify the existing onboarding submission.' });
+        }
+        const canonicalJson = (value: any): string => JSON.stringify(
+          value && typeof value === 'object' && !Array.isArray(value)
+            ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, JSON.parse(canonicalJson(value[key]))]))
+            : Array.isArray(value) ? value.map((item) => JSON.parse(canonicalJson(item))) : value
+        );
+        const incomingKeys = new Set(responseRows.map((row) => row.question_key));
+        if ((storedResponses ?? []).some((row: { question_key: string }) => !incomingKeys.has(row.question_key))) {
+          return res.status(409).json({ error: 'This onboarding submission key has already been used for a different answer set. Start a new submission.' });
+        }
+        const storedByKey = new Map((storedResponses ?? []).map((row: { question_key: string; answer_value: unknown }) => [row.question_key, row.answer_value]));
+        for (const row of responseRows) {
+          if (storedByKey.has(row.question_key) && canonicalJson(storedByKey.get(row.question_key)) !== canonicalJson(row.answer_value)) {
+            return res.status(409).json({ error: 'This onboarding submission key has already been used with different answers. Start a new submission.' });
+          }
+        }
         const { error: responseError } = await supabaseAdmin
           .from('student_onboarding_responses')
           .upsert(responseRows, { onConflict: 'submission_id,question_key', ignoreDuplicates: true });
         if (responseError) {
           return res.status(500).json({ error: responseError.message || 'Could not preserve onboarding responses.' });
         }
+      }
+
+      if (typeof normalizedAnswers.motivation === 'string' && normalizedAnswers.motivation.trim()) {
+        const { error: motivationSignalError } = await supabaseAdmin
+          .from('student_signal_observations')
+          .upsert({
+            user_id: user.id,
+            signal_key: 'student.motivation',
+            schema_version: 1,
+            source_key: 'onboarding-v2',
+            value: normalizedAnswers.motivation.trim(),
+            confidence: 1,
+            purpose_key: 'personalized_learning',
+            provenance: { submission_id: submissionId, question_key: 'motivation', method: 'student_self_report' },
+            observed_at: new Date().toISOString(),
+            idempotency_key: `onboarding:${submissionId}:motivation`,
+          }, { onConflict: 'user_id,idempotency_key', ignoreDuplicates: true });
+        if (motivationSignalError) {
+          return res.status(500).json({ error: motivationSignalError.message || 'Could not register the motivation signal.' });
+        }
+      }
+
+      const { error: normalizedProfileError } = await supabaseAdmin.rpc('save_student_onboarding_profile', {
+        p_user_id: user.id,
+        p_exam_year: new Date().getFullYear(),
+        p_registered_subjects: canonicalSubjects,
+        p_target_score: targetScore ?? 320,
+        p_answers: normalizedAnswers,
+      });
+      if (normalizedProfileError) {
+        return res.status(500).json({ error: normalizedProfileError.message || 'Could not save the normalized academic profile.' });
       }
 
       const { error: profileError } = await supabaseAdmin
@@ -781,6 +836,153 @@ app.post(
       return res.json({ status: 'saved', submissionId });
     } catch (err: any) {
       return res.status(500).json({ error: err?.message || 'Failed to save onboarding answers.' });
+    }
+  });
+
+  // Voluntary learner check-ins are written atomically with normalized signals.
+  app.post('/api/profile/checkin', requireAuth, validateBody(progressCheckinSchema), async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const { submissionKey, confidenceScore, motivationScore, perceivedBarriers, reflectionText } = req.body;
+    try {
+      const { data: checkinId, error } = await supabaseAdmin.rpc('record_student_progress_checkin', {
+        p_user_id: user.id,
+        p_submission_key: submissionKey,
+        p_confidence_score: confidenceScore ?? null,
+        p_motivation_score: motivationScore ?? null,
+        p_perceived_barriers: perceivedBarriers ?? [],
+        p_reflection_text: reflectionText ?? null,
+      });
+      if (error || !checkinId) {
+        return res.status(500).json({ error: error?.message || 'Could not save the learning check-in.' });
+      }
+      return res.json({ status: 'saved', checkinId });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Could not save the learning check-in.' });
+    }
+  });
+
+  // Internal dispatcher: claims signal-observation outbox rows safely and
+  // expands them into idempotent engine-request records from registry subscriptions.
+  app.post('/api/internal/dispatch-signals', async (req, res) => {
+    const configuredSecret = process.env.SIGNAL_WORKER_SECRET;
+    if (!configuredSecret) {
+      return res.status(503).json({ error: 'Signal worker is not configured.' });
+    }
+    const supplied = Buffer.from(req.header('authorization') || '');
+    const expected = Buffer.from(`Bearer ${configuredSecret}`);
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+
+    try {
+      const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_signal_outbox', { p_limit: 50 });
+      if (claimError) return res.status(500).json({ error: 'Could not claim signal processing work.' });
+
+      let completed = 0;
+      let failed = 0;
+      let engineRequestsCreated = 0;
+      for (const item of claimed ?? []) {
+        try {
+          if (item.event_kind !== 'signal_observed' || !item.observation_id) {
+            throw new Error('Unsupported outbox event for this dispatcher.');
+          }
+          const { data: createdCount, error: dispatchError } = await supabaseAdmin.rpc(
+            'dispatch_signal_observation_to_engines',
+            { p_observation_id: item.observation_id }
+          );
+          if (dispatchError) throw dispatchError;
+
+          const { error: completeError } = await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({ processing_status: 'completed', completed_at: new Date().toISOString(), locked_at: null, last_error_code: null })
+            .eq('id', item.id)
+            .eq('processing_status', 'processing');
+          if (completeError) throw completeError;
+          completed += 1;
+          engineRequestsCreated += Number(createdCount || 0);
+        } catch {
+          const attemptCount = Number(item.attempt_count || 1);
+          const isDeadLetter = attemptCount >= 8;
+          const retryDelaySeconds = Math.min(30 * (2 ** Math.max(0, attemptCount - 1)), 3600);
+          await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({
+              processing_status: isDeadLetter ? 'dead_letter' : 'failed',
+              available_at: new Date(Date.now() + retryDelaySeconds * 1000).toISOString(),
+              locked_at: null,
+              last_error_code: 'signal_dispatch_failed',
+            })
+            .eq('id', item.id)
+            .eq('processing_status', 'processing');
+          failed += 1;
+        }
+      }
+      return res.json({ status: 'processed', claimed: (claimed ?? []).length, completed, failed, engineRequestsCreated });
+    } catch {
+      return res.status(500).json({ error: 'Signal dispatch failed.' });
+    }
+  });
+
+  // Append-only client telemetry. Every referenced session/item is checked against
+  // the authenticated learner before service-role persistence.
+  app.post('/api/learning/events', requireAuth, validateBody(learningEventsSchema), async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const events = req.body.events as Array<{ sessionId: string; sessionItemId?: string; questionId?: string; clientEventId: string; eventType: string; sequenceNo?: number; elapsedMs?: number; activeElapsedMs?: number; eventPayload: Record<string, unknown>; occurredAt: string }>;
+    try {
+      const sessionIds: string[] = [...new Set<string>(events.map((event) => event.sessionId))];
+      const { data: ownedSessions, error: sessionsError } = await supabaseAdmin
+        .from('learning_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('id', sessionIds);
+      if (sessionsError) return res.status(500).json({ error: sessionsError.message || 'Could not validate learning sessions.' });
+      const ownedSessionIds = new Set((ownedSessions ?? []).map((session: { id: string }) => session.id));
+      if (sessionIds.some((id) => !ownedSessionIds.has(id))) {
+        return res.status(403).json({ error: 'One or more learning sessions do not belong to this account.' });
+      }
+
+      const itemIds: string[] = [...new Set(events.map((event) => event.sessionItemId).filter((id): id is string => Boolean(id)))];
+      const itemById = new Map<string, { id: string; session_id: string; question_id: string }>();
+      if (itemIds.length) {
+        const { data: ownedItems, error: itemsError } = await supabaseAdmin
+          .from('learning_session_items')
+          .select('id, session_id, question_id')
+          .eq('user_id', user.id)
+          .in('id', itemIds);
+        if (itemsError) return res.status(500).json({ error: itemsError.message || 'Could not validate learning session items.' });
+        for (const item of ownedItems ?? []) itemById.set(item.id, item);
+        if (itemIds.some((id) => !itemById.has(id))) {
+          return res.status(403).json({ error: 'One or more learning items do not belong to this account.' });
+        }
+        if (events.some((event: any) => event.sessionItemId && itemById.get(event.sessionItemId)?.session_id !== event.sessionId)) {
+          return res.status(400).json({ error: 'A learning item does not belong to the supplied session.' });
+        }
+        if (events.some((event: any) => event.sessionItemId && event.questionId && itemById.get(event.sessionItemId)?.question_id !== event.questionId)) {
+          return res.status(400).json({ error: 'A question does not match the supplied learning item.' });
+        }
+      }
+
+      const rows = events.map((event) => ({
+        user_id: user.id,
+        session_id: event.sessionId,
+        session_item_id: event.sessionItemId ?? null,
+        question_id: event.questionId ?? (event.sessionItemId ? itemById.get(event.sessionItemId)?.question_id : null) ?? null,
+        client_event_id: event.clientEventId,
+        event_type: event.eventType,
+        sequence_no: event.sequenceNo ?? null,
+        elapsed_ms: event.elapsedMs ?? null,
+        active_elapsed_ms: event.activeElapsedMs ?? null,
+        event_payload: event.eventPayload ?? {},
+        occurred_at: event.occurredAt,
+        schema_version: 1,
+      }));
+      const { error: insertError } = await supabaseAdmin
+        .from('learning_events')
+        .upsert(rows, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (insertError) return res.status(500).json({ error: insertError.message || 'Could not save learning events.' });
+      return res.json({ status: 'accepted', received: rows.length });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Could not save learning events.' });
     }
   });
 
