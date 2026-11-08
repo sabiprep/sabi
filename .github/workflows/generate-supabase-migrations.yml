@@ -1,0 +1,64 @@
+name: Generate timestamped Supabase migrations
+
+on:
+  push:
+    branches:
+      - backend/full-platform-completion-2026-11-08
+    paths:
+      - 'supabase/migration-specs/*.sql'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: supabase-migration-generation
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Generate timestamped migration files
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase init --force
+          shopt -s nullglob
+          specs=(supabase/migration-specs/*.sql)
+          if (( ${#specs[@]} == 0 )); then
+            echo "No pending migration specs."
+            exit 0
+          fi
+          for spec in "${specs[@]}"; do
+            name="$(basename "$spec" .sql)"
+            if [[ ! "$name" =~ ^[a-z0-9_]+$ ]]; then
+              echo "Invalid migration name: $name"
+              exit 1
+            fi
+            supabase migration new "$name"
+            generated="$(find supabase/migrations -maxdepth 1 -type f -name "*_${name}.sql" -print | sort | tail -n 1)"
+            if [[ -z "$generated" ]]; then
+              echo "Supabase CLI did not create a migration for $name"
+              exit 1
+            fi
+            cp "$spec" "$generated"
+            rm "$spec"
+            echo "Generated $generated"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/config.toml supabase/migrations supabase/migration-specs
+          if ! git diff --cached --quiet; then
+            git commit -m "Generate timestamped Supabase backend migrations"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi

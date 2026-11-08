@@ -10,6 +10,10 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
 import { validateBody } from '../middleware/validate';
 import { requireRole } from '../middleware/requireRole';
+import { isCBTExpired } from './cbtTimer';
+import { buildSyllabusCoverage } from './engineExecution';
+import { enqueueNotification } from '../notifications/queue';
+import { awardXP } from '../gamification/service';
 
 const router = Router();
 
@@ -21,6 +25,17 @@ const createSessionSchema = z.strictObject({
   limit: z.number().int().min(1).max(180).default(20),
   configurationKey: z.enum(['quick-mock', 'full-mock']).optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+const sourceReviewSchema = z.strictObject({
+  verificationStatus: z.enum(['verified', 'restricted', 'rejected']),
+  permittedUse: z.enum(['unknown', 'internal_review', 'practice_display', 'redistribution_allowed', 'restricted']),
+  notes: z.string().trim().max(1000).optional(),
+});
+
+const questionTaxonomySchema = z.strictObject({
+  topicId: z.string().uuid(),
+  subtopicId: z.string().uuid().optional(),
 });
 
 const questionReviewSchema = z.strictObject({
@@ -43,6 +58,92 @@ function shuffle<T>(items: T[]): T[] {
   return result;
 }
 
+
+async function validateVerifiedQuestionTaxonomy(input: {
+  subject: string;
+  topicId: string | null;
+  subtopicId?: string | null;
+}) {
+  if (!input.topicId) {
+    return { ok: false as const, code: 'QUESTION_TOPIC_NOT_MAPPED', message: 'Link the question to a verified syllabus topic before publication.' };
+  }
+  const [{ data: subjects, error: subjectsError }, { data: topic, error: topicError }] = await Promise.all([
+    supabaseAdmin.from('jamb_subjects').select('slug, display_name, aliases').eq('is_active', true),
+    supabaseAdmin.from('jamb_topics')
+      .select('id, subject_slug, name, syllabus_version_id, verification_status, is_active')
+      .eq('id', input.topicId).maybeSingle(),
+  ]);
+  if (subjectsError || topicError) {
+    return { ok: false as const, code: 'TAXONOMY_LOOKUP_FAILED', message: 'The syllabus taxonomy could not be verified.' };
+  }
+  const normalizedSubject = input.subject.trim().toLowerCase();
+  const subject = (subjects || []).find((row) =>
+    row.display_name.trim().toLowerCase() === normalizedSubject ||
+    (row.aliases || []).some((alias: string) => alias.trim().toLowerCase() === normalizedSubject)
+  );
+  if (!subject || !topic || topic.subject_slug !== subject.slug) {
+    return { ok: false as const, code: 'QUESTION_TAXONOMY_MISMATCH', message: 'The selected topic does not belong to this question subject.' };
+  }
+  if (!topic.is_active || topic.verification_status !== 'verified' || !topic.syllabus_version_id) {
+    return { ok: false as const, code: 'TOPIC_NOT_VERIFIED', message: 'The topic must belong to an active, verified syllabus version before publication.' };
+  }
+  const { data: version, error: versionError } = await supabaseAdmin
+    .from('jamb_syllabus_versions')
+    .select('id')
+    .eq('id', topic.syllabus_version_id)
+    .eq('verification_status', 'verified')
+    .maybeSingle();
+  if (versionError) {
+    return { ok: false as const, code: 'TAXONOMY_LOOKUP_FAILED', message: 'The syllabus version could not be verified.' };
+  }
+  if (!version) {
+    return { ok: false as const, code: 'SYLLABUS_VERSION_NOT_VERIFIED', message: 'The syllabus version has not been verified for publication.' };
+  }
+
+  let subtopic: { id: string; name: string } | null = null;
+  if (input.subtopicId) {
+    const { data, error } = await supabaseAdmin.from('jamb_subtopics')
+      .select('id, topic_id, name, verification_status, is_active')
+      .eq('id', input.subtopicId).maybeSingle();
+    if (error) return { ok: false as const, code: 'TAXONOMY_LOOKUP_FAILED', message: 'The subtopic could not be verified.' };
+    if (!data || data.topic_id !== topic.id || !data.is_active || data.verification_status !== 'verified') {
+      return { ok: false as const, code: 'SUBTOPIC_NOT_VERIFIED', message: 'The selected subtopic must be active, verified, and belong to the selected topic.' };
+    }
+    subtopic = { id: data.id, name: data.name };
+  }
+  return { ok: true as const, topic: { id: topic.id, name: topic.name }, subtopic };
+}
+
+
+async function enqueueSessionCompletionNotification(userId: string, sessionId: string, mode: string) {
+  try {
+    await awardXP(supabaseAdmin, {
+      userId,
+      eventKey: 'session_completed',
+      referenceType: 'learning_sessions',
+      referenceId: sessionId,
+      idempotencyKey: `session-completed:${sessionId}`,
+    });
+  } catch (error) {
+    console.error('[SABI] Session completion XP award failed:', error instanceof Error ? error.name : 'unknown_error');
+  }
+  try {
+    await enqueueNotification(supabaseAdmin, {
+      userId,
+      channel: 'in_app',
+      notificationKey: 'learning_session_completed',
+      idempotencyKey: `learning-session-completed:${sessionId}`,
+      payload: {
+        title: 'Practice session completed',
+        body: 'Your results are ready. Review your answers and next steps.',
+        data: { sessionId, mode },
+      },
+    });
+  } catch (error) {
+    console.error('[SABI] Session completion notification enqueue failed:', error instanceof Error ? error.name : 'unknown_error');
+  }
+}
+
 function authenticatedUser(req: Request): string | null {
   return (req as AuthenticatedRequest).user?.id || null;
 }
@@ -54,19 +155,199 @@ function authenticatedUser(req: Request): string | null {
  * never become student-facing until an authorized reviewer explicitly publishes
  * them after validating the answer and all four options.
  */
-router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+
+router.get('/content-review/sources', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
   const { data, error } = await supabaseAdmin
+    .from('question_sources')
+    .select('id, source_key, source_name, source_type, source_url, license_name, attribution_required, permitted_use, verification_status, notes')
+    .order('updated_at', { ascending: false })
+    .limit(100);
+  if (error) return res.status(503).json({ error: 'Question source review is temporarily unavailable.' });
+  return res.json({ sources: data || [] });
+});
+
+router.post('/content-review/sources/:sourceId', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(sourceReviewSchema), async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const sourceId = String(req.params.sourceId || '').trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceId)) {
+    return res.status(400).json({ error: 'A valid source ID is required.' });
+  }
+  const { verificationStatus, permittedUse, notes } = req.body as z.infer<typeof sourceReviewSchema>;
+  const { data: source, error } = await supabaseAdmin
+    .from('question_sources')
+    .update({
+      verification_status: verificationStatus,
+      permitted_use: permittedUse,
+      checked_at: new Date().toISOString(),
+      notes: notes || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sourceId)
+    .select('id, source_key, source_name, verification_status, permitted_use, checked_at')
+    .maybeSingle();
+  if (error) return res.status(503).json({ error: 'The source verification decision could not be saved.' });
+  if (!source) return res.status(404).json({ error: 'Question source not found.' });
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: userId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'question_source.reviewed',
+    resource_type: 'question_sources',
+    resource_id: sourceId,
+    metadata: { verification_status: verificationStatus, permitted_use: permittedUse, notes: notes || null },
+  });
+  if (auditError) console.error('[SABI] Source review audit log failed:', auditError.message);
+  return res.json({ status: 'updated', source });
+});
+
+
+router.get('/content-review/quality-report', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const [questionsResult, sourcesResult, versionsResult, objectivesResult] = await Promise.all([
+    supabaseAdmin.from('question_bank')
+      .select('id, subject, status, source_id, topic_id, content_fingerprint')
+      .limit(10000),
+    supabaseAdmin.from('question_sources')
+      .select('id, verification_status, permitted_use')
+      .limit(2000),
+    supabaseAdmin.from('jamb_syllabus_versions')
+      .select('id')
+      .eq('verification_status', 'verified')
+      .limit(5000),
+    supabaseAdmin.from('jamb_syllabus_objectives')
+      .select('id')
+      .eq('verification_status', 'verified')
+      .limit(10000),
+  ]);
+  const queryError = questionsResult.error || sourcesResult.error || versionsResult.error || objectivesResult.error;
+  if (queryError) {
+    console.error('[SABI] Question quality report failed:', queryError.message);
+    return res.status(503).json({ error: 'The question quality report is temporarily unavailable.' });
+  }
+
+  const sourceById = new Map((sourcesResult.data || []).map((source) => [source.id, source]));
+  const subjectStatus = new Map<string, Record<string, number>>();
+  const fingerprints = new Map<string, number>();
+  let missingSource = 0;
+  let unclearedSource = 0;
+  let missingTopic = 0;
+  let published = 0;
+  let drafts = 0;
+  for (const question of questionsResult.data || []) {
+    const counts = subjectStatus.get(question.subject) || {};
+    counts[question.status] = (counts[question.status] || 0) + 1;
+    subjectStatus.set(question.subject, counts);
+    if (question.status === 'published') published += 1;
+    if (['ai-draft', 'needs-review'].includes(question.status)) drafts += 1;
+    if (!question.source_id) missingSource += 1;
+    else {
+      const source = sourceById.get(question.source_id);
+      if (!source || source.verification_status !== 'verified' ||
+          !['practice_display', 'redistribution_allowed'].includes(source.permitted_use)) unclearedSource += 1;
+    }
+    if (!question.topic_id) missingTopic += 1;
+    if (question.content_fingerprint) fingerprints.set(question.content_fingerprint, (fingerprints.get(question.content_fingerprint) || 0) + 1);
+  }
+  const duplicateFingerprints = [...fingerprints.values()].filter((count) => count > 1).length;
+  res.set('Cache-Control', 'no-store');
+  return res.json({
+    totalQuestions: questionsResult.data?.length || 0,
+    publishedQuestions: published,
+    reviewQueueQuestions: drafts,
+    bySubject: [...subjectStatus.entries()].map(([subject, statuses]) => ({ subject, statuses })).sort((a, b) => a.subject.localeCompare(b.subject)),
+    publicationBlockers: {
+      questionsMissingSource: missingSource,
+      questionsWithUnclearedSource: unclearedSource,
+      questionsMissingVerifiedTopicMapping: missingTopic,
+      verifiedSyllabusVersions: versionsResult.data?.length || 0,
+      verifiedSyllabusObjectives: objectivesResult.data?.length || 0,
+    },
+    duplicateContentFingerprints: duplicateFingerprints,
+    truncated: (questionsResult.data || []).length >= 10000,
+  });
+});
+
+router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (req, res) => {
+  const rawLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+  const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+  const subject = typeof req.query.subject === 'string' ? req.query.subject.trim() : '';
+  const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 100 ||
+      !Number.isInteger(rawOffset) || rawOffset < 0 || rawOffset > 50000 ||
+      (status && !['ai-draft', 'needs-review'].includes(status)) || subject.length > 80) {
+    return res.status(400).json({ error: 'Invalid content review filters.' });
+  }
+
+  let query = supabaseAdmin
     .from('question_bank')
-    .select('id, exam_type, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, status, confidence_score, flag_count')
-    .in('status', ['ai-draft', 'needs-review'])
-    .order('confidence_score', { ascending: false })
-    .limit(50);
+    .select('id, exam_type, subject, topic, subtopic, topic_id, subtopic_id, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, source_id, content_fingerprint, review_status, status, confidence_score, flag_count, created_at', { count: 'exact' })
+    .in('status', status ? [status] : ['ai-draft', 'needs-review']);
+  if (subject) query = query.eq('subject', subject);
+  const { data, error, count } = await query
+    .order('created_at', { ascending: true })
+    .range(rawOffset, rawOffset + rawLimit - 1);
   if (error) {
     console.error('[SABI] Content review queue lookup failed:', error.message);
     return res.status(503).json({ error: 'The content review queue is temporarily unavailable.' });
   }
   res.set('Cache-Control', 'no-store');
-  return res.json({ questions: data || [], returned: (data || []).length });
+  const total = count || 0;
+  const nextOffset = rawOffset + (data || []).length;
+  return res.json({
+    questions: data || [],
+    returned: (data || []).length,
+    total,
+    offset: rawOffset,
+    limit: rawLimit,
+    nextOffset: nextOffset < total ? nextOffset : null,
+  });
+});
+
+
+router.post('/content-review/:questionId/taxonomy', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), validateBody(questionTaxonomySchema), async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const questionId = String(req.params.questionId || '').trim();
+  if (!questionId || questionId.length > 100) return res.status(400).json({ error: 'A valid question ID is required.' });
+  const { topicId, subtopicId } = req.body as z.infer<typeof questionTaxonomySchema>;
+
+  const { data: question, error: questionError } = await supabaseAdmin
+    .from('question_bank').select('id, subject, status')
+    .eq('id', questionId).maybeSingle();
+  if (questionError) return res.status(503).json({ error: 'The question could not be loaded.' });
+  if (!question) return res.status(404).json({ error: 'Question not found.' });
+  if (!['ai-draft', 'needs-review'].includes(question.status)) {
+    return res.status(409).json({ error: 'Only unpublished questions can have review taxonomy changed.' });
+  }
+
+  const taxonomy = await validateVerifiedQuestionTaxonomy({ subject: question.subject, topicId, subtopicId: subtopicId || null });
+  if (!taxonomy.ok) return res.status(409).json({ error: taxonomy.message, code: taxonomy.code });
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('question_bank')
+    .update({
+      topic_id: taxonomy.topic.id,
+      subtopic_id: taxonomy.subtopic?.id || null,
+      topic: taxonomy.topic.name,
+      subtopic: taxonomy.subtopic?.name || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', questionId)
+    .in('status', ['ai-draft', 'needs-review'])
+    .select('id, topic_id, subtopic_id, topic, subtopic')
+    .maybeSingle();
+  if (updateError) return res.status(503).json({ error: 'The question taxonomy could not be saved.' });
+  if (!updated) return res.status(409).json({ error: 'The question changed during taxonomy review. Reload and retry.' });
+
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: userId,
+    actor_role: (req as AuthenticatedRequest).role || 'CONTENT_MANAGER',
+    action: 'question.taxonomy_linked',
+    resource_type: 'question_bank',
+    resource_id: questionId,
+    metadata: { topic_id: updated.topic_id, subtopic_id: updated.subtopic_id },
+  });
+  if (auditError) console.error('[SABI] Question taxonomy audit log failed:', auditError.message);
+  return res.json({ status: 'updated', question: updated });
 });
 
 router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), validateBody(questionReviewSchema), async (req, res) => {
@@ -80,7 +361,7 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
   try {
     const { data: question, error: lookupError } = await supabaseAdmin
       .from('question_bank')
-      .select('id, exam_type, question, option_a, option_b, option_c, option_d, answer, status')
+      .select('id, exam_type, subject, topic_id, subtopic_id, question, option_a, option_b, option_c, option_d, answer, explanation, source_id, content_fingerprint, status')
       .eq('id', questionId)
       .maybeSingle();
     if (lookupError) {
@@ -93,6 +374,33 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
 
     if (action === 'publish') {
+      const taxonomy = await validateVerifiedQuestionTaxonomy({
+        subject: question.subject,
+        topicId: question.topic_id,
+        subtopicId: question.subtopic_id,
+      });
+      if (!taxonomy.ok) {
+        return res.status(409).json({ error: taxonomy.message, code: taxonomy.code });
+      }
+      if (!question.source_id) {
+        return res.status(409).json({
+          error: 'Question provenance must be recorded and cleared for student practice before publication.',
+          code: 'QUESTION_SOURCE_NOT_CLEARED',
+        });
+      }
+      const { data: source, error: sourceError } = await supabaseAdmin
+        .from('question_sources')
+        .select('verification_status, permitted_use')
+        .eq('id', question.source_id)
+        .maybeSingle();
+      if (sourceError) return res.status(503).json({ error: 'Question provenance could not be verified.' });
+      if (!source || source.verification_status !== 'verified' ||
+          !['practice_display', 'redistribution_allowed'].includes(source.permitted_use)) {
+        return res.status(409).json({
+          error: 'The question source is not cleared for student-facing practice.',
+          code: 'QUESTION_SOURCE_NOT_CLEARED',
+        });
+      }
       const options = [question.option_a, question.option_b, question.option_c, question.option_d];
       if (question.exam_type !== 'UTME' || !question.question?.trim() ||
           options.some((option) => !option?.trim()) ||
@@ -104,12 +412,16 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
 
     const nextStatus = action === 'publish' ? 'published' : action === 'reject' ? 'rejected' : 'needs-review';
+    const nextReviewStatus = action === 'publish' ? 'approved' : action === 'reject' ? 'rejected' : 'needs_review';
+    const reviewedAt = new Date().toISOString();
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('question_bank')
       .update({
         status: nextStatus,
+        review_status: nextReviewStatus,
+        last_reviewed_at: reviewedAt,
         verified_by: action === 'publish' ? userId : null,
-        updated_at: new Date().toISOString(),
+        updated_at: reviewedAt,
       })
       .eq('id', questionId)
       .in('status', ['ai-draft', 'needs-review'])
@@ -122,6 +434,15 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
     if (!updated) return res.status(409).json({ error: 'The question changed during review. Reload the queue and try again.' });
 
+    const { error: historyError } = await supabaseAdmin.from('question_review_history').insert({
+      question_id: questionId,
+      reviewer_user_id: userId,
+      review_decision: action === 'publish' ? 'approved' : action === 'reject' ? 'rejected' : 'needs_revision',
+      reviewer_notes: notes || null,
+      reviewed_at: reviewedAt,
+    });
+    if (historyError) console.error('[SABI] Question review history write failed:', historyError.message);
+
     const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
       actor_user_id: userId,
       actor_role: reviewerRole,
@@ -132,7 +453,7 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     });
     if (auditError) console.error('[SABI] Question review audit log failed:', auditError.message);
 
-    return res.json({ status: 'updated', question: updated });
+    return res.json({ status: 'updated', question: updated, reviewHistoryRecorded: !historyError });
   } catch (error) {
     console.error('[SABI] Unexpected content review error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while reviewing the question.' });
@@ -242,12 +563,16 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       }
 
       sessionSubject = sections.map((section) => section.subject.display_name).join(', ');
+      const cbtStartedAt = new Date();
+      const cbtExpiresAt = new Date(cbtStartedAt.getTime() + Number(examConfig.duration_seconds) * 1000);
       sessionMetadata = {
         ...metadata,
         examConfiguration: {
           key: examConfig.key,
           title: examConfig.title,
           durationSeconds: examConfig.duration_seconds,
+          startedAt: cbtStartedAt.toISOString(),
+          expiresAt: cbtExpiresAt.toISOString(),
           sections: sections.map((section) => ({
             subject: section.subject.display_name,
             subjectSlug: section.subject.slug,
@@ -343,7 +668,7 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
         total_questions: selected.length,
         metadata: sessionMetadata,
       })
-      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, metadata')
       .single();
 
     if (sessionError || !session) {
@@ -401,9 +726,9 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
   }
 
   try {
-    const { data: session, error: sessionError } = await supabaseAdmin
+    const { data: loadedSession, error: sessionError } = await supabaseAdmin
       .from('learning_sessions')
-      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at, metadata')
       .eq('id', sessionId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -411,7 +736,31 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
       console.error('[SABI] Session lookup failed:', sessionError.message);
       return res.status(503).json({ error: 'Learning session is temporarily unavailable.' });
     }
-    if (!session) return res.status(404).json({ error: 'Learning session not found.' });
+    if (!loadedSession) return res.status(404).json({ error: 'Learning session not found.' });
+
+    let session = loadedSession;
+    if (isCBTExpired(session)) {
+      const completedAt = new Date().toISOString();
+      const { error: expiryError } = await supabaseAdmin.from('learning_sessions')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('id', sessionId).eq('user_id', userId).eq('status', 'in_progress');
+      if (expiryError) {
+        console.error('[SABI] CBT auto-submit failed:', expiryError.message);
+        return res.status(503).json({ error: 'The expired CBT could not be finalized. Please retry.' });
+      }
+      const { error: completionEventError } = await supabaseAdmin.from('learning_events').upsert({
+        user_id: userId,
+        session_id: sessionId,
+        client_event_id: `cbt-auto-submit:${sessionId}`,
+        event_type: 'session_completed',
+        event_payload: { source: 'server_cbt_timer', reason: 'time_expired' },
+        occurred_at: completedAt,
+        schema_version: 1,
+      }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (completionEventError) console.error('[SABI] CBT completion event could not be recorded:', completionEventError.message);
+      await enqueueSessionCompletionNotification(userId, sessionId, session.mode);
+      session = { ...session, status: 'completed', completed_at: completedAt };
+    }
 
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('learning_session_items')
@@ -484,6 +833,46 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
   const { questionId, selectedOption, elapsedMs } = req.body as z.infer<typeof answerSchema>;
 
   try {
+    const { data: activeSession, error: activeSessionError } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('id, mode, status, metadata')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (activeSessionError) {
+      console.error('[SABI] Answer session verification failed:', activeSessionError.message);
+      return res.status(503).json({ error: 'Your learning session could not be verified.' });
+    }
+    if (!activeSession) return res.status(404).json({ error: 'Learning session not found.' });
+    if (activeSession.status !== 'in_progress') {
+      return res.status(409).json({ error: 'This learning session has already ended.' });
+    }
+    if (isCBTExpired(activeSession)) {
+      const completedAt = new Date().toISOString();
+      const { error: expiryError } = await supabaseAdmin.from('learning_sessions')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('id', sessionId).eq('user_id', userId).eq('status', 'in_progress');
+      if (expiryError) {
+        console.error('[SABI] CBT expiry finalization failed:', expiryError.message);
+        return res.status(503).json({ error: 'The expired CBT could not be finalized. Please retry.' });
+      }
+      const { error: completionEventError } = await supabaseAdmin.from('learning_events').upsert({
+        user_id: userId,
+        session_id: sessionId,
+        client_event_id: `cbt-auto-submit:${sessionId}`,
+        event_type: 'session_completed',
+        event_payload: { source: 'server_cbt_timer', reason: 'time_expired' },
+        occurred_at: completedAt,
+        schema_version: 1,
+      }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (completionEventError) console.error('[SABI] CBT completion event could not be recorded:', completionEventError.message);
+      await enqueueSessionCompletionNotification(userId, sessionId, activeSession.mode);
+      return res.status(409).json({
+        error: 'Time is up. Your CBT has been submitted automatically.',
+        code: 'CBT_TIME_EXPIRED',
+      });
+    }
+
     const { data, error } = await supabaseAdmin.rpc('submit_learning_answer', {
       p_session_id: sessionId,
       p_question_id: questionId,
@@ -512,7 +901,7 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
     // outbox can reliably feed the universal signal and engine workers.
     const { data: answeredItem, error: answeredItemError } = await supabaseAdmin
       .from('learning_session_items')
-      .select('id, answered_at')
+      .select('id, answered_at, is_correct')
       .eq('session_id', sessionId)
       .eq('user_id', userId)
       .eq('question_id', questionId)
@@ -542,6 +931,29 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
       } else {
         telemetryQueued = true;
       }
+      try {
+        await awardXP(supabaseAdmin, {
+          userId,
+          eventKey: answeredItem.is_correct ? 'correct_answer' : 'answer_submitted',
+          referenceType: 'learning_session_items',
+          referenceId: answeredItem.id,
+          idempotencyKey: `answer:${sessionId}:${questionId}`,
+        });
+      } catch (xpError) {
+        console.error('[SABI] Answer XP award failed:', xpError instanceof Error ? xpError.name : 'unknown_error');
+      }
+    }
+
+    const { data: updatedSession, error: updatedSessionError } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('status, mode')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (updatedSessionError) {
+      console.error('[SABI] Completed session status lookup failed:', updatedSessionError.message);
+    } else if (updatedSession?.status === 'completed') {
+      await enqueueSessionCompletionNotification(userId, sessionId, updatedSession.mode);
     }
 
     res.set('Cache-Control', 'no-store');
@@ -552,6 +964,127 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
   }
 });
 
+
+
+router.get('/coverage', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+  try {
+    const { data: objectiveRows, error: objectiveError } = await supabaseAdmin
+      .from('jamb_syllabus_objectives')
+      .select('id, topic_id, subtopic_id')
+      .eq('verification_status', 'verified')
+      .limit(10000);
+    if (objectiveError) {
+      console.error('[SABI] Verified syllabus objectives lookup failed:', objectiveError.message);
+      return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+    }
+    if (!objectiveRows?.length) {
+      return res.json(buildSyllabusCoverage([], []));
+    }
+
+    const topicIds = [...new Set(objectiveRows.map((row) => row.topic_id))];
+    const versionIds: string[] = [];
+    const [topicResult, subjectResult] = await Promise.all([
+      supabaseAdmin.from('jamb_topics')
+        .select('id, subject_slug, name, syllabus_version_id, verification_status, is_active')
+        .in('id', topicIds)
+        .eq('verification_status', 'verified')
+        .eq('is_active', true),
+      supabaseAdmin.from('jamb_subjects').select('slug, display_name'),
+    ]);
+    if (topicResult.error || subjectResult.error) {
+      console.error('[SABI] Syllabus taxonomy lookup failed:', topicResult.error?.message || subjectResult.error?.message);
+      return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+    }
+    const topics = topicResult.data || [];
+    const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+    for (const topic of topics) if (topic.syllabus_version_id) versionIds.push(topic.syllabus_version_id);
+
+    let verifiedVersionIds = new Set<string>();
+    if (versionIds.length) {
+      const { data: versions, error: versionError } = await supabaseAdmin
+        .from('jamb_syllabus_versions')
+        .select('id')
+        .in('id', [...new Set(versionIds)])
+        .eq('verification_status', 'verified');
+      if (versionError) {
+        console.error('[SABI] Syllabus version lookup failed:', versionError.message);
+        return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+      }
+      verifiedVersionIds = new Set((versions || []).map((version) => version.id));
+    }
+    const objectiveSubtopicIds = [...new Set(objectiveRows.map((objective) => objective.subtopic_id).filter(Boolean))] as string[];
+    let verifiedSubtopicIds = new Set<string>();
+    if (objectiveSubtopicIds.length) {
+      const { data: subtopics, error: subtopicError } = await supabaseAdmin
+        .from('jamb_subtopics')
+        .select('id, topic_id')
+        .in('id', objectiveSubtopicIds)
+        .eq('verification_status', 'verified')
+        .eq('is_active', true);
+      if (subtopicError) {
+        console.error('[SABI] Verified subtopic lookup failed:', subtopicError.message);
+        return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+      }
+      verifiedSubtopicIds = new Set((subtopics || []).map((subtopic) => subtopic.id));
+    }
+    const subjectNames = new Map((subjectResult.data || []).map((subject) => [subject.slug, subject.display_name]));
+    const objectives = objectiveRows.flatMap((objective) => {
+      const topic = topicById.get(objective.topic_id);
+      if (!topic) return [];
+      if (topic.syllabus_version_id && !verifiedVersionIds.has(topic.syllabus_version_id)) return [];
+      if (objective.subtopic_id && !verifiedSubtopicIds.has(objective.subtopic_id)) return [];
+      const subjectName = subjectNames.get(topic.subject_slug);
+      if (!subjectName) return [];
+      return [{
+        subject: subjectName,
+        topicId: objective.topic_id,
+        subtopicId: objective.subtopic_id,
+      }];
+    });
+    if (!objectives.length) return res.json(buildSyllabusCoverage([], []));
+
+    const { data: answeredItems, error: answeredError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('question_id')
+      .eq('user_id', userId)
+      .not('answered_at', 'is', null)
+      .limit(10000);
+    if (answeredError) {
+      console.error('[SABI] Answered learning evidence lookup failed:', answeredError.message);
+      return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+    }
+    const questionIds = [...new Set((answeredItems || []).map((item) => item.question_id))];
+    let answeredContent: Array<{ topicId: string | null; subtopicId: string | null }> = [];
+    if (questionIds.length) {
+      const { data: questionRows, error: questionError } = await supabaseAdmin
+        .from('question_bank')
+        .select('topic_id, subtopic_id')
+        .in('id', questionIds)
+        .eq('status', 'published')
+        .limit(10000);
+      if (questionError) {
+        console.error('[SABI] Answered question taxonomy lookup failed:', questionError.message);
+        return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+      }
+      answeredContent = (questionRows || []).map((question) => ({
+        topicId: question.topic_id,
+        subtopicId: question.subtopic_id,
+      }));
+    }
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      ...buildSyllabusCoverage(objectives, answeredContent),
+      basis: 'Verified syllabus objectives with at least one submitted answer mapped to the objective topic or subtopic.',
+    });
+  } catch (error) {
+    console.error('[SABI] Unexpected syllabus coverage error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while calculating syllabus coverage.' });
+  }
+});
 
 router.get('/recommendations', requireAuth, async (req, res) => {
   const userId = authenticatedUser(req);

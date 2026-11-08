@@ -4,13 +4,11 @@
  */
 
 import 'dotenv/config';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
-import { GoogleGenAI, Type } from '@google/genai';
-import { SEED_QUESTIONS, KNOWLEDGE_BASE, SYLLABUS_FREQUENCY } from './src/data/questions.ts';
-import { Question, SubjectName } from './src/types';
+import { SEED_QUESTIONS } from './src/data/questions.ts';
 import { config, isOriginAllowed, SUPABASE_URL } from './server/config';
 import { hasServiceRoleKey, MISSING_CONFIG_VARIABLES, SUPABASE_ADMIN_ERROR, supabaseAdmin } from './server/lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from './server/middleware/requireAuth';
@@ -20,12 +18,18 @@ import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
+import aiRouter from './server/ai/routes';
+import knowledgeRouter from './server/ai/knowledgeRoutes';
+import paymentRouter from './server/billing/routes';
+import notificationRouter from './server/notifications/routes';
+import gamificationRouter from './server/gamification/routes';
+import { generateAIText, getAIReadiness } from './server/ai/gateway';
+import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './server/ai/usage';
+import { AIUnavailableError } from './server/ai/types';
 import { buildAnswerSignalObservations, buildMasterySignalObservation } from './server/learning/signalWorker';
 import { executeEngineRequest } from './server/learning/engineExecution';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import {
-  chatSchema,
-  explainSchema,
   generateQuestionSchema,
   loginSchema,
   onboardingSchema,
@@ -70,7 +74,10 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: config.maxJsonBody }));
+app.use(express.json({
+  limit: config.maxJsonBody,
+  verify: (req, _res, buffer) => { (req as any).rawBody = Buffer.from(buffer); },
+}));
 
 // CORS: an explicit allow-list (local development, the Capacitor Android WebView
 // and any origin configured through ALLOWED_ORIGINS / SABI_APP_URL) instead of a
@@ -127,37 +134,18 @@ app.use('/api', globalLimiter);
 // Mounted at the app root so the middleware sees the full /api/... request path.
 app.use(configurationGuard);
 app.use('/api/learning', learningRouter);
+app.use('/api/ai', aiRouter);
+app.use('/api/ai/knowledge', knowledgeRouter);
+app.use('/api/payments', paymentRouter);
+app.use('/api/internal/notifications', notificationRouter);
+app.use('/api/gamification', gamificationRouter);
 
 
 
 // Deterministic Unique SABI ID generation lives in ./server/utils/sabiId.ts so it
 // can be unit tested; it is imported above.
 
-// Initialize Gemini SDK with telemetry header requested in the skill guide
-const apiKey = process.env.GEMINI_API_KEY;
-let ai: GoogleGenAI | null = null;
-
-if (apiKey) {
-  ai = new GoogleGenAI({
-    apiKey: apiKey,
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
-      }
-    }
-  });
-} else {
-  console.warn('Warning: GEMINI_API_KEY is not defined in the environment. AI Tutor features will run in mock mode.');
-}
-
-// Helper to invoke AI with a safe timeout
-async function callAiWithTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
-  let timer: NodeJS.Timeout;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('AI response timed out')), timeoutMs);
-  });
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
-}
+// All model calls are routed through the provider-independent Sabi AI gateway.
 
 // PHASE 0 (defect B2): the 2.5s "verification guardian" that confirmed EVERY
 // pending Supabase user in the project has been removed. It turned account
@@ -1314,201 +1302,27 @@ app.post(
     res.json({ status: 'success', questions: SEED_QUESTIONS });
   });
 
-  // 2. Explain a question on-demand (API proxy to protect key)
-  app.post('/api/explain', aiLimiter, requireAuth, validateBody(explainSchema), async (req, res) => {
-    const { questionId, preference, language, userCustomPrompt, subject, topic } = req.body;
-    const question = SEED_QUESTIONS.find(q => q.id === questionId);
-  
-    if (!question && !userCustomPrompt) {
-      return res.status(404).json({ error: 'Question not found' });
-    }
-
-    // Choose the best pre-written explanation if it matches preference, otherwise ask AI
-    if (!ai) {
-      const mockExp = question
-        ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
-        : `Here is the key breakdown for ${topic || subject || 'this topic'}: Focus on the core definitions, formulas, and common exam traps in the JAMB syllabus.`;
-      return res.json({ explanation: mockExp, isMock: true });
-    }
-
-    try {
-      const prompt = question
-        ? `
-        You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
-        Explain and verify this UTME question in detail:
-        Subject: ${question.subject} (${question.topic})
-        Question: ${question.question}
-        Options: A) ${question.options.A}, B) ${question.options.B}, C) ${question.options.C}, D) ${question.options.D}
-        Correct Answer: Option ${question.answer}
-        Our database worked solution: ${question.explanation}
-        ${userCustomPrompt ? `\nStudent's specific verification question: "${userCustomPrompt}"\nPlease directly answer the student's question while verifying why Option ${question.answer} is correct.` : ''}
-      
-        The student has specific preferences:
-        - Explanation length/detail: ${preference === 'short' ? 'Concise/Short summary' : 'Step-by-step detailed breakdown'}
-        - Language: ${language === 'pidgin' ? 'West African Pidgin English (e.g. "for this question, you go find...")' : language === 'mixed' ? 'Nigerian English mixed with light Pidgin vibes' : 'Plain formal English'}
-      
-        Generate a warm, encouraging, and accurate study explanation reflecting these precise stylistic guidelines. Format equations as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$).
-      `
-        : `
-        You are Sabi AI Tutor, Nigeria's premiere JAMB preparation instructor.
-        The student asks: "${userCustomPrompt}"
-        Subject: ${subject || 'JAMB Prep'}
-        Topic: ${topic || 'General Practice'}
-      
-        Provide a clear, pedagogical, step-by-step explanation suitable for a Nigerian UTME candidate. Format equations in LaTeX using single $ delimiters.
-      `;
-
-      const response = await callAiWithTimeout(
-        ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: prompt,
-          config: {
-            temperature: 0.7,
-          }
-        }),
-        8000
-      );
-
-      res.json({ explanation: response.text || (question ? question.explanation : 'Review the core definitions and formulas for this topic.') });
-    } catch (error: any) {
-      console.warn('Fallback: Error generating explanation:', error?.message || error);
-      const fallbackExp = question
-        ? (language === 'pidgin' ? question.explanation_pidgin : (preference === 'short' ? question.explanation_short : question.explanation))
-        : `Here is the key concept to remember for ${topic || subject || 'your JAMB exam'}: Focus on the fundamental definitions and standard UTME question patterns. Practice with step-by-step calculations and verify each option systematically.`;
-      res.json({ explanation: fallbackExp });
-    }
+  // Legacy unscoped explanation endpoint is closed. Explanations must be tied
+  // to an owned, answered session through /api/ai/explanations.
+  app.post('/api/explain', aiLimiter, requireAuth, (_req, res) => {
+    return res.status(410).json({
+      error: 'This explanation endpoint has been replaced by the session-verified AI endpoint.',
+      code: 'AI_ENDPOINT_REPLACED',
+      endpoint: '/api/ai/explanations',
+    });
   });
 
-  // 3. AI Smart Tutor Open Chat (Ask Me Anything) with RAG and 3-Tier memory updates
-  //    Phase 0 (defect B7): authenticated + throttled + schema-validated, so the
-  //    Gemini key cannot be drained by anonymous callers.
-  app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (req, res) => {
-    const { messages, currentTopic, currentSubject, studentProfile, topicMemory } = req.body;
-
-    // Simple RAG implementation: search locally mapped concept notes or seed questions
-    let retrievedContext = '';
-    if (currentSubject) {
-      const relatedQuestions = SEED_QUESTIONS.filter(
-        q => q.subject.toLowerCase() === currentSubject.toLowerCase() &&
-             (!currentTopic || q.topic.toLowerCase().includes(currentTopic.toLowerCase()))
-      ).slice(0, 2);
-      if (relatedQuestions.length > 0) {
-        retrievedContext = `Syllabus Exemplars: ` + relatedQuestions.map(q => `[${q.topic} - ${q.subtopic}]: ${q.question} (Key concept: ${q.concepts.join(', ')})`).join('; ');
-      }
-    }
-
-    const lastUserMsg = (messages || []).slice().reverse().find((m: any) => m.sender === 'user' || m.role === 'user')?.text || '';
-
-    if (!ai) {
-      return res.json({
-        reply: `Sabi Tutor: You are asking about "${currentTopic || currentSubject || 'your studies'}". Key syllabus takeaway: Ensure you master the underlying definitions, formulas, and past questions for ${currentTopic || 'this topic'}. Keep up the great practice!`,
-        topicMemoryUpdate: `User practiced ${currentTopic || currentSubject || 'JAMB topics'}.`,
-        isMock: true
-      });
-    }
-
-    const systemInstruction = `
-      You are Sabi AI Tutor, the highly intelligent, friendly, and expert Nigerian JAMB tutor.
-      Your mission is to guide students to achieve high scores (300+) in the Unified Tertiary Matriculation Examination (UTME).
-    
-      You have direct access to three layers of student context:
-      1. Student Profile (Tier 1 - Permanent):
-         - Name: ${studentProfile?.name || 'Student'}
-         - Class Level: ${studentProfile?.classLevel || 'Senior Candidate'}
-         - 4 Chosen Subjects: ${studentProfile?.chosenSubjects?.join(', ') || 'JAMB Subjects'}
-         - Target Course & University: ${studentProfile?.targetCourse || 'Medicine'} at ${studentProfile?.targetUniversity || 'University'}
-         - Explanation preference: ${studentProfile?.explanationPreference === 'short' ? 'Brief and straight to the point' : 'Detailed step-by-step'}
-         - Language preference: ${studentProfile?.languagePreference || 'english'}
-         - Motivation: ${studentProfile?.motivation || 'General excellence'}
-       
-      2. Topic Summary Memory (Tier 2):
-         - Existing rolling memory about the topic "${currentTopic || 'General studies'}": "${topicMemory || 'No prior conversation summary has been recorded for this topic yet.'}"
-       
-      3. Grounding Knowledge Base (RAG context):
-         - ${retrievedContext || 'Rely on official JAMB syllabus principles.'}
-       
-      Behavioral Directives:
-      - Never give answers immediately on a platter of gold. Ask scaffolding, thought-provoking questions if they seem stuck.
-      - Reference their target course/university or mock performance naturally.
-      - Be warm, extremely knowledgeable about the JAMB syllabus, and maintain steady, high-morale guidance.
-    
-      Return your outputs strictly as a JSON object adhering to this schema:
-      {
-        "reply": "tutor's message supporting the user, with helpful hints/feedback or explanations, structured in markdown with equations formatted as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$)",
-        "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic."
-      }
-    `;
-
-    try {
-      // Format conversation history and ensure it begins with a user message
-      let rawHistory = (messages || [])
-        .filter((m: any) => m && (m.text || m.content))
-        .slice(-6)
-        .map((m: any) => ({
-          role: ((m.sender === 'user' || m.role === 'user') ? 'user' : 'model') as 'user' | 'model',
-          parts: [{ text: String(m.text || m.content) }]
-        }));
-
-      // CRITICAL: Gemini requires the first turn in contents to have role: 'user'
-      while (rawHistory.length > 0 && rawHistory[0].role !== 'user') {
-        rawHistory.shift();
-      }
-
-      if (rawHistory.length === 0) {
-        rawHistory = [{
-          role: 'user',
-          parts: [{ text: lastUserMsg || `Explain the core concepts for ${currentTopic || currentSubject || 'this topic'}.` }]
-        }];
-      }
-
-      const response = await callAiWithTimeout(
-        ai.models.generateContent({
-          model: 'gemini-3.8-flash',
-          contents: rawHistory,
-          config: {
-            systemInstruction: systemInstruction,
-            responseMimeType: 'application/json',
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                reply: { 
-                  type: Type.STRING, 
-                  description: 'The supportive conversational reply to the student.' 
-                },
-                topicMemoryUpdate: { 
-                  type: Type.STRING, 
-                  description: 'The updated rolling summary of what the student understands or struggles with in this topic, to be stored for subsequent turns.' 
-                }
-              },
-              required: ['reply', 'topicMemoryUpdate']
-            },
-            temperature: 0.7,
-          }
-        }),
-        8000
-      );
-
-      const parsed = JSON.parse(response.text?.trim() || '{}');
-      res.json({
-        reply: parsed.reply || "Let's keep our momentum going! Ask me anything about your syllabus or practice questions.",
-        topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory
-      });
-    } catch (error: any) {
-      console.warn('Fallback: Error in AI Tutor chat endpoint:', error?.message || error);
-      // Graceful pedagogical fallback so user never gets stuck or sees an error
-      const friendlyReply = currentTopic
-        ? `Under **${currentTopic}** (${currentSubject || 'JAMB'}), key rules to always remember include knowing the fundamental definitions, the working formulas, and identifying the trap options JAMB frequently sets. What specific sub-question or calculation are you currently tackling?`
-        : `I am right here with you! Let us keep our focus sharp on mastering your 4 JAMB subjects. What topic or concept would you like us to break down next?`;
-      res.json({
-        reply: friendlyReply,
-        topicMemoryUpdate: topicMemory || `Practiced ${currentTopic || 'JAMB concepts'}.`,
-      });
-    }
+  // Legacy chat endpoint now directs clients to the provider-independent gateway.
+  app.post('/api/chat', aiLimiter, requireAuth, (_req, res) => {
+    return res.status(410).json({
+      error: 'This chat endpoint has been replaced by the Sabi AI gateway.',
+      code: 'AI_ENDPOINT_REPLACED',
+      endpoint: '/api/ai/chat',
+    });
   });
 
-  // 4. Pipeline 5: AI-generated question drafts (question pool expansion for weak topics).
-  //    Phase 0: AI output is never auto-published. It is returned with
-  //    status 'draft' and only CONTENT_MANAGER / ADMIN / MASTER_ADMIN may request it.
+  // AI-generated question content is persisted as an unpublished draft.
+  // Human review is mandatory before it can enter student-facing selection.
   app.post(
     '/api/generate-question',
     aiLimiter,
@@ -1516,118 +1330,219 @@ app.post(
     requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'),
     validateBody(generateQuestionSchema),
     async (req, res) => {
-    const { subject, topic, subtopic } = req.body;
+      const { subject, topic, subtopic } = req.body;
+      const contentCreatorId = (req as any).user?.id as string | undefined;
+      if (!contentCreatorId) return res.status(401).json({ error: 'Authentication required.' });
+      let aiRequestId: string | null = null;
+      let reservedCreditCost = 0;
+      let aiUsageRecorded = false;
+      aiRequestId = randomUUID();
+      const readiness = getAIReadiness('content_draft');
+      if (!readiness.enabled || readiness.configuredProviders.length === 0) {
+        await recordAIUsage(supabaseAdmin, {
+          userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
+          outcome: 'blocked', promptVersion: 'question-draft-v1', requestId: aiRequestId,
+          metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' },
+        });
+        return res.status(503).json({
+          error: 'AI question drafting is not configured.',
+          code: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED',
+        });
+      }
 
-    if (!ai) {
-      // Generate a simulated question if AI is not connected
-      const randId = `AI-GEN-${Math.floor(1000 + Math.random() * 9000)}`;
-      const mockQuestion: Question = {
-        id: randId,
-        exam_type: 'AI-Generated',
-        subject: subject || 'Mathematics',
-        topic: topic || 'Algebra',
-        subtopic: subtopic || 'General Practice',
-        year: new Date().getFullYear(),
-        question: `Determine the sum of the roots of a simulated quadratic equation $2x^2 - 12x + 10 = 0$.`,
-        options: {
-          A: '6',
-          B: '5',
-          C: '-6',
-          D: '12'
-        },
-        answer: 'A',
-        explanation: 'For any quadratic equation $ax^2 + bx + c = 0$, the sum of roots is given by $-b/a$.\nHere, $a = 2$, $b = -12$, and $c = 10$.\nSum of roots = $-(-12) / 2 = 12 / 2 = 6$.',
-        explanation_short: 'The sum of roots is $-b/a = -(-12)/2 = 6$.',
-        explanation_pidgin: 'To find sum of roots, use the formula $-b/a$. Our b na -12, and a na 2. So $-(-12)/2 = 6$. No shaking!',
-        difficulty: 'medium',
-        concepts: ['roots of quadratic', 'sum of roots'],
-        source: 'Sabi AI Pipeline 5',
-        status: 'ai-draft',
-        confidence_score: 0.95,
-        created_at: new Date().toISOString()
-      };
-      return res.json({ question: mockQuestion, isMock: true, requires_review: true });
-    }
+      const { data: approvedExamples, error: exampleError } = await supabaseAdmin
+        .from('question_bank')
+        .select('question, option_a, option_b, option_c, option_d, explanation_short')
+        .eq('status', 'published')
+        .eq('subject', subject)
+        .eq('topic', topic)
+        .limit(2);
+      if (exampleError) {
+        console.error('[SABI AI] Approved drafting examples could not be loaded:', exampleError.message);
+        return res.status(503).json({ error: 'Approved question context is temporarily unavailable.' });
+      }
+      const examples = (approvedExamples || []).map((item) => ({
+        question: item.question,
+        options: { A: item.option_a, B: item.option_b, C: item.option_c, D: item.option_d },
+        explanation: item.explanation_short,
+      }));
+      const prompt = [
+        'Create one original UTME multiple-choice question for the requested subject and syllabus topic.',
+        `Subject: ${subject}`,
+        `Topic: ${topic}`,
+        `Subtopic: ${subtopic || 'Not specified'}`,
+        `Approved style examples (not to be copied): ${JSON.stringify(examples)}`,
+        'Return a single JSON object with question, options A-D, answer (A/B/C/D), explanation, explanation_short, explanation_pidgin, difficulty (easy/medium/hard), concepts (string array), and common_wrong_answer.',
+        'Check the solution and ensure exactly one option is correct. Do not claim official provenance.',
+      ].join('\n');
 
-    const existingSubset = SEED_QUESTIONS.filter(q => q.subject === subject && q.topic === topic).slice(0, 2);
-    const sampleData = existingSubset.length > 0
-      ? `Here are examples of existing verified questions of this type:\n${JSON.stringify(existingSubset)}`
-      : `Ensure the style matches official JAMB multiple-choice question format.`;
+      const creditReservation = await reserveAIRequestCredits(supabaseAdmin, contentCreatorId, 'content_draft', aiRequestId);
+      if (!creditReservation.allowed) {
+        await recordAIUsage(supabaseAdmin, {
+          userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
+          outcome: 'blocked', promptVersion: 'question-draft-v1', requestId: aiRequestId,
+          metadata: { reason: creditReservation.reason },
+        });
+        return res.status(creditReservation.reason === 'insufficient_credits' ? 402 : 503).json({
+          error: creditReservation.reason === 'insufficient_credits' ? 'AI credits are exhausted.' : 'AI credit pricing is not configured.',
+          code: creditReservation.reason === 'insufficient_credits' ? 'AI_CREDITS_EXHAUSTED' : 'AI_CREDIT_PRICING_NOT_CONFIGURED',
+        });
+      }
+      reservedCreditCost = creditReservation.creditCost;
 
-    const instructionPrompt = `
-      You are an AI-powered JAMB question-generation engine (Sabi Pipeline 5).
-      Your task is to generate a new, high-quality, syllabus-aligned multiple choice question for:
-      Subject: ${subject}
-      Topic: ${topic}
-      Subtopic: ${subtopic}
-    
-      ${sampleData}
-    
-      Stricter Rules:
-      - Solve and review the question yourself to ensure exactly ONE option is correctly mathematical aligned.
-      - Write a detailed step-by-step worked explanation, a concise short summary explanation, and an encouraging West African Pidgin English explanation.
-      - Set difficulty to 'easy', 'medium', or 'hard' depending on the concept's cognitive depth.
-      - Use appropriate LaTeX notation for math/technical symbols wrapped inside single $ signs (e.g., $x^2 + 5x + 6$). Make sure it parses beautifully.
-    
-      Structure the response strictly as a JSON object matching this schema:
-      {
-        "question": {
-          "id": "A unique alpha-numeric string, e.g. MTH-ALG-2026-X",
-          "exam_type": "AI-Generated",
-          "subject": "${subject}",
-          "topic": "${topic}",
-          "subtopic": "${subtopic}",
-          "year": 2026,
-          "question": "The question text, styled elegantly with LaTeX math",
-          "options": {
-            "A": "Option text A",
-            "B": "Option text B",
-            "C": "Option text C",
-            "D": "Option text D"
+      try {
+        const aiStartedAt = Date.now();
+        const generated = await generateAIText({
+          task: 'content_draft',
+          systemInstruction: 'You are a careful JAMB content drafting assistant. Your output is an unverified draft. Never claim human verification or official provenance.',
+          prompt,
+          temperature: 0.35,
+          maxOutputTokens: 1500,
+          timeoutMs: 12000,
+        });
+        await recordAIUsage(supabaseAdmin, {
+          userId: contentCreatorId, task: 'content_draft',
+          provider: generated.provider, model: generated.model, usage: generated.usage,
+          outcome: 'success', promptVersion: 'question-draft-v1',
+          durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
+          creditCost: reservedCreditCost,
+        });
+        aiUsageRecorded = true;
+        const raw = generated.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+        const parsed = JSON.parse(raw);
+        const draft = parsed.question || parsed;
+        const options = draft.options || {};
+        const answer = String(draft.answer || '').trim().toUpperCase();
+        const requiredText = [draft.question, options.A, options.B, options.C, options.D, draft.explanation];
+        if (!requiredText.every((value) => typeof value === 'string' && value.trim()) ||
+            !['A', 'B', 'C', 'D'].includes(answer)) {
+          return res.status(422).json({ error: 'The AI returned an incomplete draft. No question was saved.', code: 'AI_DRAFT_INVALID' });
+        }
+
+        const normalizedContent = [
+          subject, topic, draft.question, options.A, options.B, options.C, options.D,
+        ].map((value) => String(value || '').trim().toLowerCase()).join('|');
+        const contentFingerprint = createHash('sha256').update(normalizedContent).digest('hex');
+        const { data: duplicate, error: duplicateError } = await supabaseAdmin
+          .from('question_bank')
+          .select('id, status')
+          .eq('content_fingerprint', contentFingerprint)
+          .limit(1)
+          .maybeSingle();
+        if (duplicateError) {
+          console.error('[SABI AI] Draft duplicate check failed:', duplicateError.message);
+          return res.status(503).json({ error: 'The draft quality check is temporarily unavailable.' });
+        }
+        if (duplicate) {
+          return res.status(409).json({
+            error: 'A question with the same content already exists.',
+            code: 'QUESTION_DUPLICATE',
+            existingQuestionId: duplicate.id,
+          });
+        }
+
+        let aiSourceId: string | null = null;
+        const { data: existingSource, error: sourceLookupError } = await supabaseAdmin
+          .from('question_sources')
+          .select('id')
+          .eq('source_key', 'sabi-ai-draft-generator')
+          .maybeSingle();
+        if (sourceLookupError) {
+          console.error('[SABI AI] Draft provenance lookup failed:', sourceLookupError.message);
+          return res.status(503).json({ error: 'Draft provenance could not be verified.' });
+        }
+        if (existingSource) {
+          aiSourceId = existingSource.id;
+        } else {
+          const { data: createdSource, error: sourceCreateError } = await supabaseAdmin
+            .from('question_sources')
+            .insert({
+              source_key: 'sabi-ai-draft-generator',
+              source_name: 'Sabi AI Draft Generator',
+              source_type: 'ai_generated',
+              permitted_use: 'unknown',
+              verification_status: 'unverified',
+              notes: 'AI-generated draft source. Human academic review and source-use verification are required before publication.',
+            })
+            .select('id')
+            .single();
+          if (sourceCreateError || !createdSource) {
+            console.error('[SABI AI] Draft provenance creation failed:', sourceCreateError?.message);
+            return res.status(503).json({ error: 'Draft provenance could not be recorded.' });
+          }
+          aiSourceId = createdSource.id;
+        }
+
+        const questionId = `SABI-AI-${randomUUID()}`;
+        const record = {
+          id: questionId,
+          exam_type: 'UTME',
+          subject,
+          topic,
+          subtopic: subtopic || null,
+          year: new Date().getFullYear(),
+          question: String(draft.question).trim(),
+          option_a: String(options.A).trim(),
+          option_b: String(options.B).trim(),
+          option_c: String(options.C).trim(),
+          option_d: String(options.D).trim(),
+          answer,
+          explanation: String(draft.explanation).trim(),
+          explanation_short: String(draft.explanation_short || '').trim() || null,
+          difficulty: ['easy', 'medium', 'hard'].includes(String(draft.difficulty)) ? draft.difficulty : 'medium',
+          concepts: Array.isArray(draft.concepts) ? draft.concepts.filter((value: unknown) => typeof value === 'string').slice(0, 20) : [],
+          common_wrong_answer: typeof draft.common_wrong_answer === 'string' ? draft.common_wrong_answer : null,
+          source: 'Sabi AI Draft Generator',
+          source_id: aiSourceId,
+          content_fingerprint: contentFingerprint,
+          status: 'ai-draft',
+          review_status: 'unreviewed',
+          confidence_score: 0,
+          verified_by: 'pending-human-review',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        const { error: saveError } = await supabaseAdmin.from('question_bank').insert(record);
+        if (saveError) {
+          console.error('[SABI AI] Could not persist generated draft:', saveError.message);
+          return res.status(503).json({ error: 'The generated draft could not be saved for human review.' });
+        }
+
+        return res.status(201).json({
+          question: {
+            id: questionId, exam_type: 'UTME', subject, topic, subtopic: subtopic || null,
+            year: record.year, question: record.question,
+            options: { A: record.option_a, B: record.option_b, C: record.option_c, D: record.option_d },
+            answer: record.answer, explanation: record.explanation,
+            explanation_short: record.explanation_short, difficulty: record.difficulty,
+            concepts: record.concepts, status: 'ai-draft',
           },
-          "answer": "A, B, C, or D (strictly the correct option)",
-          "explanation": "Clear double-pass verified step-by-step worked solution",
-          "explanation_short": "Brief, concise summary solution",
-          "explanation_pidgin": "Laidback Nigerian Pidgin solution starting warmly and keeping the logic super plain",
-          "difficulty": "easy, medium, or hard",
-          "concepts": ["analytical concepts"],
-          "common_wrong_answer": "Why students usually fail this and which option represents that trap"
+          requires_review: true,
+          provider: generated.provider,
+          model: generated.model,
+        });
+      } catch (error) {
+        if (aiRequestId && reservedCreditCost > 0 && !aiUsageRecorded) {
+          try { await refundAIRequestCredits(supabaseAdmin, contentCreatorId, aiRequestId, 'ai_question_draft_provider_or_accounting_failed'); }
+          catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
         }
-      }
-    `;
-
-    try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: instructionPrompt,
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.8,
+        if (error instanceof AIUnavailableError) {
+          try {
+            await recordAIUsage(supabaseAdmin, {
+              userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
+              outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
+              promptVersion: 'question-draft-v1', requestId: aiRequestId || undefined,
+              metadata: { reason: error.code, providersTried: error.providersTried, refundedCredits: reservedCreditCost },
+            });
+          } catch {
+            return res.status(503).json({ error: 'AI usage accounting is temporarily unavailable.' });
+          }
         }
-      });
-
-      const parsed = JSON.parse(response.text?.trim() || '{}');
-      const questionObj = parsed.question;
-    
-      if (questionObj) {
-        // AI output is a DRAFT. A human (CONTENT_MANAGER / ADMIN) must verify it
-        // before it can be shown to candidates as a graded question.
-        questionObj.status = 'ai-draft';
-        questionObj.review_required = true;
-        questionObj.confidence_score = 0.94;
-        questionObj.source = 'AI Pipeline 5';
-        questionObj.created_at = new Date().toISOString();
-        res.json({ question: questionObj, requires_review: true });
-      } else {
-        throw new Error('Could not parse question object from AI response.');
+        console.error('[SABI AI] Question drafting failed:', error instanceof Error ? error.name : 'unknown_error');
+        return res.status(503).json({ error: 'AI question drafting is temporarily unavailable.' });
       }
-    } catch (error: any) {
-      console.error('Error generating AI question:', error);
-      // Return a robust backup question
-      res.status(500).json({ error: 'AI generation failed', message: error.message });
     }
-  }
-);
+  );
 
 // -------------------------------------------------------------
 // API fallbacks: JSON 404s for unknown API routes, then structured errors.
