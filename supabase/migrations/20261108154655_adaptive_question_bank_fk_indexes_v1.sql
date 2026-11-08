@@ -1,0 +1,16 @@
+begin;
+create index adaptive_decisions_trigger_attempt_idx on public.adaptive_decisions(trigger_attempt_id) where trigger_attempt_id is not null;
+create index adaptive_decisions_variant_group_idx on public.adaptive_decisions(variant_group_id) where variant_group_id is not null;
+create index adaptive_decisions_selected_question_idx on public.adaptive_decisions(selected_question_id) where selected_question_id is not null;
+create index question_attempts_question_idx on public.question_attempts(question_id);
+create index question_attempts_session_item_idx on public.question_attempts(session_item_id) where session_item_id is not null;
+create index question_attempts_variant_group_fk_idx on public.question_attempts(variant_group_id) where variant_group_id is not null;
+create index question_generation_jobs_subject_idx on public.question_generation_jobs(subject_slug) where subject_slug is not null;
+create index question_generation_jobs_objective_idx on public.question_generation_jobs(objective_id) where objective_id is not null;
+create index question_generation_jobs_source_idx on public.question_generation_jobs(source_id) where source_id is not null;
+create index question_generation_jobs_created_by_idx on public.question_generation_jobs(created_by) where created_by is not null;
+create index question_variant_groups_subtopic_idx on public.question_variant_groups(subtopic_id) where subtopic_id is not null;
+create index question_variant_groups_created_by_idx on public.question_variant_groups(created_by) where created_by is not null;
+create index question_variant_members_question_idx on public.question_variant_members(question_id);
+create index student_objective_mastery_objective_idx on public.student_objective_mastery(objective_id);
+commit;
