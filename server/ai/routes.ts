@@ -249,12 +249,16 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
     });
   } catch (error) {
     if (error instanceof AIUnavailableError) {
-      await recordAIUsage(supabaseAdmin, {
-        userId, task: 'tutor_chat', provider: 'none', model: 'none',
-        outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
-        promptVersion: 'tutor-chat-v1',
-        metadata: { reason: error.code, providersTried: error.providersTried },
-      });
+      try {
+        await recordAIUsage(supabaseAdmin, {
+          userId, task: 'tutor_chat', provider: 'none', model: 'none',
+          outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
+          promptVersion: 'tutor-chat-v1',
+          metadata: { reason: error.code, providersTried: error.providersTried },
+        });
+      } catch {
+        return res.status(503).json({ error: 'AI usage accounting is temporarily unavailable.' });
+      }
       return res.json({ aiAvailable: false, reason: error.code });
     }
     console.error('[SABI AI] Tutor chat failed:', error);
