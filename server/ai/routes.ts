@@ -7,6 +7,7 @@ import { validateBody } from '../middleware/validate';
 import { aiLimiter } from '../middleware/rateLimit';
 import { generateAIText, getAIReadiness } from './gateway';
 import { AIUnavailableError } from './types';
+import { recordAIUsage } from './usage';
 
 const router = Router();
 
@@ -218,9 +219,15 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
 
     const readiness = getAIReadiness('tutor_chat');
     if (!readiness.enabled || readiness.configuredProviders.length === 0) {
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'tutor_chat', provider: 'none', model: 'none',
+        outcome: 'blocked', promptVersion: 'tutor-chat-v1',
+        metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' },
+      });
       return res.json({ aiAvailable: false, reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' });
     }
 
+    const aiStartedAt = Date.now();
     const generated = await generateAIText({
       task: 'tutor_chat',
       systemInstruction,
@@ -228,6 +235,11 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       temperature: 0.35,
       maxOutputTokens: 1000,
       timeoutMs: 10000,
+    });
+    await recordAIUsage(supabaseAdmin, {
+      userId, task: 'tutor_chat', provider: generated.provider, model: generated.model,
+      usage: generated.usage, outcome: 'success', promptVersion: 'tutor-chat-v1',
+      durationMs: Date.now() - aiStartedAt,
     });
     return res.json({
       aiAvailable: true,
@@ -237,6 +249,12 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
     });
   } catch (error) {
     if (error instanceof AIUnavailableError) {
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'tutor_chat', provider: 'none', model: 'none',
+        outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
+        promptVersion: 'tutor-chat-v1',
+        metadata: { reason: error.code, providersTried: error.providersTried },
+      });
       return res.json({ aiAvailable: false, reason: error.code });
     }
     console.error('[SABI AI] Tutor chat failed:', error);
@@ -335,6 +353,11 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
 
     const readiness = getAIReadiness('explanation');
     if (!readiness.enabled || readiness.configuredProviders.length === 0) {
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'explanation', provider: 'none', model: 'none',
+        outcome: 'blocked', promptVersion: 'verified-explanation-v1',
+        metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED', questionId },
+      });
       return res.json({
         aiAvailable: false,
         reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED',
@@ -357,12 +380,19 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
     });
 
     try {
+      const aiStartedAt = Date.now();
       const generated = await generateAIText({
         task: 'explanation',
         ...prompt,
         temperature: 0.2,
         maxOutputTokens: preference === 'short' ? 500 : 1100,
         timeoutMs: 9000,
+      });
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'explanation', provider: generated.provider, model: generated.model,
+        usage: generated.usage, outcome: 'success', promptVersion: 'verified-explanation-v1',
+        durationMs: Date.now() - aiStartedAt,
+        metadata: { questionId, preference },
       });
       return res.json({
         aiAvailable: true,
@@ -375,6 +405,12 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       });
     } catch (error) {
       if (error instanceof AIUnavailableError) {
+        await recordAIUsage(supabaseAdmin, {
+          userId, task: 'explanation', provider: 'none', model: 'none',
+          outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
+          promptVersion: 'verified-explanation-v1',
+          metadata: { reason: error.code, providersTried: error.providersTried, questionId },
+        });
         return res.json({
           aiAvailable: false,
           reason: error.code,
