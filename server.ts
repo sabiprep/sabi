@@ -854,9 +854,9 @@ app.post(
   // the authenticated learner before service-role persistence.
   app.post('/api/learning/events', requireAuth, validateBody(learningEventsSchema), async (req, res) => {
     const user = (req as AuthenticatedRequest).user!;
-    const { events } = req.body;
+    const events = req.body.events as Array<{ sessionId: string; sessionItemId?: string; questionId?: string; clientEventId: string; eventType: string; sequenceNo?: number; elapsedMs?: number; activeElapsedMs?: number; eventPayload: Record<string, unknown>; occurredAt: string }>;
     try {
-      const sessionIds = [...new Set(events.map((event: any) => event.sessionId))];
+      const sessionIds: string[] = [...new Set<string>(events.map((event) => event.sessionId))];
       const { data: ownedSessions, error: sessionsError } = await supabaseAdmin
         .from('learning_sessions')
         .select('id')
@@ -868,7 +868,7 @@ app.post(
         return res.status(403).json({ error: 'One or more learning sessions do not belong to this account.' });
       }
 
-      const itemIds = [...new Set(events.map((event: any) => event.sessionItemId).filter(Boolean))];
+      const itemIds: string[] = [...new Set(events.map((event) => event.sessionItemId).filter((id): id is string => Boolean(id)))];
       const itemById = new Map<string, { id: string; session_id: string; question_id: string }>();
       if (itemIds.length) {
         const { data: ownedItems, error: itemsError } = await supabaseAdmin
@@ -889,7 +889,7 @@ app.post(
         }
       }
 
-      const rows = events.map((event: any) => ({
+      const rows = events.map((event) => ({
         user_id: user.id,
         session_id: event.sessionId,
         session_item_id: event.sessionItemId ?? null,
