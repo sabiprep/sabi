@@ -12,6 +12,7 @@ import { validateBody } from '../middleware/validate';
 import { requireRole } from '../middleware/requireRole';
 import { isCBTExpired } from './cbtTimer';
 import { isCbtFeedbackLocked } from './answerVisibility';
+import { buildStoredAnswerReplay } from './answerReplay';
 import { buildSyllabusCoverage } from './engineExecution';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP } from '../gamification/service';
@@ -842,7 +843,7 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
   try {
     const { data: activeSession, error: activeSessionError } = await supabaseAdmin
       .from('learning_sessions')
-      .select('id, mode, status, metadata')
+      .select('id, mode, status, metadata, answered_count, total_questions')
       .eq('id', sessionId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -851,10 +852,74 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
       return res.status(503).json({ error: 'Your learning session could not be verified.' });
     }
     if (!activeSession) return res.status(404).json({ error: 'Learning session not found.' });
-    if (activeSession.status !== 'in_progress') {
+
+    // A previous request may have committed in Postgres while its HTTP response
+    // was lost. Recover the stored result before rejecting a retry as already
+    // answered or as a completed session. Never accept a different option.
+    const { data: priorAnswer, error: priorAnswerError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('selected_option, is_correct')
+      .eq('session_id', sessionId)
+      .eq('user_id', userId)
+      .eq('question_id', questionId)
+      .not('answered_at', 'is', null)
+      .maybeSingle();
+    if (priorAnswerError) {
+      console.error('[SABI] Prior answer lookup failed:', priorAnswerError.message);
+      return res.status(503).json({ error: 'Your saved answer could not be recovered. Please retry.' });
+    }
+
+    let data: any = null;
+    let replayed = false;
+    const restoreStoredAnswer = async (stored: { selected_option: string | null; is_correct: boolean | null }) => {
+      if (stored.selected_option !== selectedOption) return { conflict: true as const };
+      const { data: replaySession, error: replaySessionError } = await supabaseAdmin
+        .from('learning_sessions')
+        .select('status, answered_count, total_questions')
+        .eq('id', sessionId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (replaySessionError || !replaySession) return { unavailable: true as const };
+      const { data: replayQuestion, error: replayQuestionError } = await supabaseAdmin
+        .from('question_bank')
+        .select('answer, explanation_short, explanation')
+        .eq('id', questionId)
+        .maybeSingle();
+      if (replayQuestionError || !replayQuestion) return { unavailable: true as const };
+      return {
+        replay: buildStoredAnswerReplay({
+          requestedOption: selectedOption,
+          storedOption: stored.selected_option,
+          isCorrect: Boolean(stored.is_correct),
+          correctOption: String(replayQuestion.answer || '').trim().toUpperCase(),
+          explanation: replayQuestion.explanation_short || replayQuestion.explanation || '',
+          answeredCount: Number(replaySession.answered_count || 0),
+          totalQuestions: Number(replaySession.total_questions || 0),
+          mode: activeSession.mode,
+          status: replaySession.status,
+        }),
+      };
+    };
+
+    if (priorAnswer) {
+      const restored = await restoreStoredAnswer(priorAnswer);
+      if ('conflict' in restored) {
+        return res.status(409).json({ error: 'This question was already answered with a different option. Your recorded answer was not changed.' });
+      }
+      if ('unavailable' in restored) {
+        return res.status(503).json({ error: 'The saved answer could not be restored. Please retry.' });
+      }
+      if (restored.replay.kind !== 'replay') {
+        return res.status(409).json({ error: 'This question was already answered with a different option.' });
+      }
+      data = restored.replay.result;
+      replayed = true;
+    }
+
+    if (!replayed && activeSession.status !== 'in_progress') {
       return res.status(409).json({ error: 'This learning session has already ended.' });
     }
-    if (isCBTExpired(activeSession)) {
+    if (!replayed && isCBTExpired(activeSession)) {
       const completedAt = new Date().toISOString();
       const { error: expiryError } = await supabaseAdmin.from('learning_sessions')
         .update({ status: 'completed', completed_at: completedAt })
@@ -880,27 +945,62 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
       });
     }
 
-    const { data, error } = await supabaseAdmin.rpc('submit_learning_answer', {
-      p_session_id: sessionId,
-      p_question_id: questionId,
-      p_selected_option: selectedOption,
-      p_elapsed_ms: elapsedMs ?? null,
-      p_user_id: userId,
-    });
+    if (!replayed) {
+      const { data: submittedData, error } = await supabaseAdmin.rpc('submit_learning_answer', {
+        p_session_id: sessionId,
+        p_question_id: questionId,
+        p_selected_option: selectedOption,
+        p_elapsed_ms: elapsedMs ?? null,
+        p_user_id: userId,
+      });
 
-    if (error) {
-      const message = error.message || '';
-      if (/not found|not part of|already answered|no longer available/i.test(message)) {
-        return res.status(404).json({ error: 'This question is not available in your active session.' });
+      if (error) {
+        const message = error.message || '';
+        // Another in-flight request may have won the race after the preflight
+        // lookup. Re-read the committed row and replay only the exact same choice.
+        if (/already answered|not active/i.test(message)) {
+          const { data: concurrentAnswer, error: concurrentAnswerError } = await supabaseAdmin
+            .from('learning_session_items')
+            .select('selected_option, is_correct')
+            .eq('session_id', sessionId)
+            .eq('user_id', userId)
+            .eq('question_id', questionId)
+            .not('answered_at', 'is', null)
+            .maybeSingle();
+          if (concurrentAnswerError) {
+            console.error('[SABI] Concurrent answer recovery failed:', concurrentAnswerError.message);
+            return res.status(503).json({ error: 'Your saved answer could not be recovered. Please retry.' });
+          }
+          if (concurrentAnswer) {
+            const restored = await restoreStoredAnswer(concurrentAnswer);
+            if ('conflict' in restored) {
+              return res.status(409).json({ error: 'This question was already answered with a different option. Your recorded answer was not changed.' });
+            }
+            if ('unavailable' in restored) {
+              return res.status(503).json({ error: 'The saved answer could not be restored. Please retry.' });
+            }
+            if (restored.replay.kind === 'replay') {
+              data = restored.replay.result;
+              replayed = true;
+            }
+          }
+        }
+        if (!replayed) {
+          if (/not found|not part of|already answered|no longer available/i.test(message)) {
+            return res.status(404).json({ error: 'This question is not available in your active session.' });
+          }
+          if (/not active/i.test(message)) {
+            return res.status(409).json({ error: 'This learning session has already ended.' });
+          }
+          if (/invalid answer|invalid elapsed/i.test(message)) {
+            return res.status(400).json({ error: 'The submitted answer is invalid.' });
+          }
+          console.error('[SABI] Answer submission failed:', message);
+          return res.status(503).json({ error: 'Your answer could not be recorded. Please try again.' });
+        }
+      } else {
+        data = submittedData;
       }
-      if (/not active/i.test(message)) {
-        return res.status(409).json({ error: 'This learning session has already ended.' });
-      }
-      if (/invalid answer|invalid elapsed/i.test(message)) {
-        return res.status(400).json({ error: 'The submitted answer is invalid.' });
-      }
-      console.error('[SABI] Answer submission failed:', message);
-      return res.status(503).json({ error: 'Your answer could not be recorded. Please try again.' });
     }
 
     // The answer RPC has already verified correctness and updated Phase 2
