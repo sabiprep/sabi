@@ -365,7 +365,7 @@ end;
 $$;
 
 revoke all on function public.record_student_progress_checkin(uuid,text,integer,integer,text[],text) from public,anon,authenticated;
-grant execute on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) to service_role;
+grant execute on function public.record_student_progress_checkin(uuid,text,integer,integer,text[],text) to service_role;
 
 
 -- Persist the structured profile projections in one transaction. The versioned
