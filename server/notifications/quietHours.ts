@@ -18,7 +18,7 @@ function clockMinutes(date: Date, timezone: string): number {
 }
 
 function parseClock(value: string): number | null {
-  if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)) return null;
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
   const [hour, minute] = value.split(':').map(Number);
   return hour * 60 + minute;
 }
@@ -30,11 +30,7 @@ function isQuietAt(minutes: number, start: number, end: number): boolean {
     : minutes >= start || minutes < end;
 }
 
-/** Returns the next instant outside a learner's local quiet window. */
-export function getQuietHoursDeferral(
-  value: unknown,
-  now = new Date(),
-): Date | null {
+export function getQuietHoursDeferral(value: unknown, now = new Date()): Date | null {
   if (!value || typeof value !== 'object') return null;
   const quiet = value as Partial<QuietHours>;
   if (quiet.enabled !== true) return null;
@@ -53,8 +49,6 @@ export function getQuietHoursDeferral(
   }
   if (!isQuietAt(currentMinutes, start, end)) return null;
 
-  // Minute stepping handles windows crossing midnight and daylight-saving
-  // transitions without assuming a fixed UTC offset.
   for (let offset = 1; offset <= 26 * 60; offset += 1) {
     const candidate = new Date(Math.ceil(now.getTime() / 60000) * 60000 + offset * 60000);
     if (!isQuietAt(clockMinutes(candidate, timezone), start, end)) return candidate;
