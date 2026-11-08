@@ -87,6 +87,15 @@ begin
     raise exception 'Stale signal observation incorrectly replaced current state';
   end if;
 
+  -- Versioned contracts cannot be silently edited in place.
+  begin
+    update public.signal_schema_versions set changelog='mutated'
+    where signal_key='student.confidence' and schema_version=1;
+    raise exception 'Expected signal schema immutability trigger to reject update';
+  exception when raise_exception then
+    if SQLERRM = 'Expected signal schema immutability trigger to reject update' then raise; end if;
+  end;
+
   insert into public.engine_runs(engine_key,engine_version,user_id,input_snapshot,output_snapshot,decision_summary)
   values('recommendation-engine','phase-2',v_user,'{}','{}','Phase 1.6 signal trace fixture')
   returning id into v_run;
@@ -106,6 +115,15 @@ begin
 
   select count(*) into v_count from public.engine_run_signal_inputs where engine_run_id=v_run;
   if v_count <> 2 then raise exception 'Engine input trace did not preserve present and missing optional signals'; end if;
+
+  -- Deleting an account must erase its signal evidence and projections.
+  delete from auth.users where id=v_user;
+  select count(*) into v_count from public.student_signal_observations where user_id=v_user;
+  if v_count <> 0 then raise exception 'Account deletion left signal observations behind'; end if;
+  select count(*) into v_count from public.student_signal_history where user_id=v_user;
+  if v_count <> 0 then raise exception 'Account deletion left signal history behind'; end if;
+  select count(*) into v_count from public.student_signal_current where user_id=v_user;
+  if v_count <> 0 then raise exception 'Account deletion left current signal projections behind'; end if;
 
   begin
     update public.student_signal_history set value='5'::jsonb
