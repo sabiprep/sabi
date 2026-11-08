@@ -9,9 +9,9 @@ The verified question-bank answer key and deterministic scoring engine are autho
 ## Where AI is used
 
 - On-demand explanations after a learner has submitted an answer in practice.
-- Sabi AI Coach conversations.
+- Sabi AI Coach conversations through the same provider gateway.
 - Optional study-plan narration and concept teaching.
-- Internal question drafting and classification assistance; publication always requires an authorized human content reviewer.
+- Internal question drafting; generated drafts are persisted as unpublished records and require an authorized human content reviewer before publication.
 
 ## Where AI is not used
 
@@ -63,10 +63,8 @@ Task-specific model variables can override the general model ID, e.g. `SABI_GEMI
 
 ## Completion requirements
 
-The gateway foundation and verified explanation endpoint are implemented in this change. Before production activation, the remaining integration work includes:
-- connect the student UI's **Explain this answer** control to the session-bound endpoint;
-- migrate legacy AI chat and question-drafting calls to the gateway;
+The provider gateway, session-bound explanation endpoint, AI Coach endpoint, and question-drafting integration are implemented in this change. The practice UI and post-exam review UI now expose on-demand explanations. Before production activation, the remaining integration work includes:
 - add durable AI usage/credit accounting, consent enforcement, prompt versioning, and admin configuration visibility;
 - add end-to-end tests for active CBT denial, completed CBT review, ownership isolation, missing provider, provider fallback, and verified answer-key preservation.
 
-Do not enable AI in production until the provider configuration, usage controls, consent experience, and end-to-end checks are complete.
+The CBT timer now stores a server-issued deadline in the session metadata and the answer endpoint enforces it; the client countdown is display-only. Expired CBTs are finalized on the next server request.\n\nDo not enable AI in production until the provider configuration, usage controls, consent experience, and end-to-end checks are complete.
