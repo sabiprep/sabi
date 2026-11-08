@@ -127,6 +127,9 @@ alter table public.question_bank
 
 create index if not exists question_bank_source_id_idx on public.question_bank (source_id);
 create index if not exists question_bank_review_status_idx on public.question_bank (review_status, status);
+create index if not exists question_bank_content_fingerprint_idx
+  on public.question_bank (content_fingerprint)
+  where content_fingerprint is not null;
 
 create table if not exists public.question_review_history (
   id uuid primary key default gen_random_uuid(),
