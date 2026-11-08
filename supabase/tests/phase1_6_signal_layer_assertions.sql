@@ -47,6 +47,27 @@ begin
   insert into auth.users(id,email)
   values(v_checkin_user,'phase16-checkin-'||v_checkin_user::text||'@sabi.test');
 
+  perform public.save_student_onboarding_profile(
+    v_user,2026,array['English Language','Mathematics','Physics','Chemistry'],320,
+    '{"currentClass":"SS3 Candidate","attempts":"1 Previous UTME Sitting","dailyStudyHours":"1 – 2 Hours Daily","explanationPreference":"Detailed Step-by-Step Derivation","targetCourse":"Electrical and Electronics Engineering","targetUniversity":"University of Uyo"}'::jsonb
+  );
+  perform public.save_student_onboarding_profile(
+    v_user,2026,array['English Language','Mathematics','Physics','Chemistry'],320,
+    '{"currentClass":"SS3 Candidate","attempts":"1 Previous UTME Sitting","dailyStudyHours":"1 – 2 Hours Daily","explanationPreference":"Detailed Step-by-Step Derivation","targetCourse":"Electrical and Electronics Engineering","targetUniversity":"University of Uyo"}'::jsonb
+  );
+  if not exists (
+    select 1 from public.student_academic_profiles
+    where user_id=v_user and education_level='senior_secondary' and previous_utme_attempts=1
+  ) then raise exception 'Normalized academic profile was not populated'; end if;
+  if (select count(*) from public.student_subject_selections where user_id=v_user and exam_year=2026) <> 4 then
+    raise exception 'Normalized subject selections were not populated'; end if;
+  if (select count(*) from public.student_goals where user_id=v_user and exam_year=2026 and status='active') <> 1 then
+    raise exception 'Onboarding retry created duplicate active goals'; end if;
+  if not exists (
+    select 1 from public.student_learning_preferences
+    where user_id=v_user and daily_goal_minutes=90 and explanation_style='detailed'
+  ) then raise exception 'Normalized learning preferences were not populated'; end if;
+
   v_checkin_id := public.record_student_progress_checkin(
     v_checkin_user,'phase16-checkin-key-0001',4,3,array['limited_time'],
     'I need a more consistent routine'
