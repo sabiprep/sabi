@@ -130,6 +130,10 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108171326_backend_service_foundations.sql
       - name: Verify backend service foundations
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/backend_service_foundations_assertions.sql
+      - name: Apply daily study streak engine
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108220000_daily_study_streak_engine.sql
+      - name: Verify daily study streak engine
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/daily_study_streak_assertions.sql
       - name: Apply production-reconciled notification worker migration
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108171333_notification_worker.sql
       - name: Verify notification worker security
