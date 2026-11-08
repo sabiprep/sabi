@@ -951,7 +951,7 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
         const message = error.message || '';
         // Another in-flight request may have won the race after the preflight
         // lookup. Re-read the committed row and replay only the exact same choice.
-        if (/already answered/i.test(message)) {
+        if (/already answered|not active/i.test(message)) {
           const { data: concurrentAnswer, error: concurrentAnswerError } = await supabaseAdmin
             .from('learning_session_items')
             .select('selected_option, is_correct')
