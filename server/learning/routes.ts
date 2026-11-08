@@ -31,6 +31,11 @@ const sourceReviewSchema = z.strictObject({
   notes: z.string().trim().max(1000).optional(),
 });
 
+const questionTaxonomySchema = z.strictObject({
+  topicId: z.string().uuid(),
+  subtopicId: z.string().uuid().optional(),
+});
+
 const questionReviewSchema = z.strictObject({
   action: z.enum(['publish', 'needs-review', 'reject']),
   notes: z.string().trim().max(1000).optional(),
@@ -49,6 +54,62 @@ function shuffle<T>(items: T[]): T[] {
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
+}
+
+
+async function validateVerifiedQuestionTaxonomy(input: {
+  subject: string;
+  topicId: string | null;
+  subtopicId?: string | null;
+}) {
+  if (!input.topicId) {
+    return { ok: false as const, code: 'QUESTION_TOPIC_NOT_MAPPED', message: 'Link the question to a verified syllabus topic before publication.' };
+  }
+  const [{ data: subjects, error: subjectsError }, { data: topic, error: topicError }] = await Promise.all([
+    supabaseAdmin.from('jamb_subjects').select('slug, display_name, aliases').eq('is_active', true),
+    supabaseAdmin.from('jamb_topics')
+      .select('id, subject_slug, name, syllabus_version_id, verification_status, is_active')
+      .eq('id', input.topicId).maybeSingle(),
+  ]);
+  if (subjectsError || topicError) {
+    return { ok: false as const, code: 'TAXONOMY_LOOKUP_FAILED', message: 'The syllabus taxonomy could not be verified.' };
+  }
+  const normalizedSubject = input.subject.trim().toLowerCase();
+  const subject = (subjects || []).find((row) =>
+    row.display_name.trim().toLowerCase() === normalizedSubject ||
+    (row.aliases || []).some((alias: string) => alias.trim().toLowerCase() === normalizedSubject)
+  );
+  if (!subject || !topic || topic.subject_slug !== subject.slug) {
+    return { ok: false as const, code: 'QUESTION_TAXONOMY_MISMATCH', message: 'The selected topic does not belong to this question subject.' };
+  }
+  if (!topic.is_active || topic.verification_status !== 'verified' || !topic.syllabus_version_id) {
+    return { ok: false as const, code: 'TOPIC_NOT_VERIFIED', message: 'The topic must belong to an active, verified syllabus version before publication.' };
+  }
+  const { data: version, error: versionError } = await supabaseAdmin
+    .from('jamb_syllabus_versions')
+    .select('id')
+    .eq('id', topic.syllabus_version_id)
+    .eq('verification_status', 'verified')
+    .maybeSingle();
+  if (versionError) {
+    return { ok: false as const, code: 'TAXONOMY_LOOKUP_FAILED', message: 'The syllabus version could not be verified.' };
+  }
+  if (!version) {
+    return { ok: false as const, code: 'SYLLABUS_VERSION_NOT_VERIFIED', message: 'The syllabus version has not been verified for publication.' };
+  }
+
+  let subtopic: { id: string; name: string } | null = null;
+  if (input.subtopicId) {
+    const { data, error } = await supabaseAdmin.from('jamb_subtopics')
+      .select('id, topic_id, name, verification_status, is_active')
+      .eq('id', input.subtopicId).maybeSingle();
+    if (error) return { ok: false as const, code: 'TAXONOMY_LOOKUP_FAILED', message: 'The subtopic could not be verified.' };
+    if (!data || data.topic_id !== topic.id || !data.is_active || data.verification_status !== 'verified') {
+      return { ok: false as const, code: 'SUBTOPIC_NOT_VERIFIED', message: 'The selected subtopic must be active, verified, and belong to the selected topic.' };
+    }
+    subtopic = { id: data.id, name: data.name };
+  }
+  return { ok: true as const, topic: { id: topic.id, name: topic.name }, subtopic };
 }
 
 function authenticatedUser(req: Request): string | null {
@@ -143,6 +204,54 @@ router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 
   });
 });
 
+
+router.post('/content-review/:questionId/taxonomy', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), validateBody(questionTaxonomySchema), async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const questionId = String(req.params.questionId || '').trim();
+  if (!questionId || questionId.length > 100) return res.status(400).json({ error: 'A valid question ID is required.' });
+  const { topicId, subtopicId } = req.body as z.infer<typeof questionTaxonomySchema>;
+
+  const { data: question, error: questionError } = await supabaseAdmin
+    .from('question_bank').select('id, subject, status')
+    .eq('id', questionId).maybeSingle();
+  if (questionError) return res.status(503).json({ error: 'The question could not be loaded.' });
+  if (!question) return res.status(404).json({ error: 'Question not found.' });
+  if (!['ai-draft', 'needs-review'].includes(question.status)) {
+    return res.status(409).json({ error: 'Only unpublished questions can have review taxonomy changed.' });
+  }
+
+  const taxonomy = await validateVerifiedQuestionTaxonomy({ subject: question.subject, topicId, subtopicId: subtopicId || null });
+  if (!taxonomy.ok) return res.status(409).json({ error: taxonomy.message, code: taxonomy.code });
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('question_bank')
+    .update({
+      topic_id: taxonomy.topic.id,
+      subtopic_id: taxonomy.subtopic?.id || null,
+      topic: taxonomy.topic.name,
+      subtopic: taxonomy.subtopic?.name || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', questionId)
+    .in('status', ['ai-draft', 'needs-review'])
+    .select('id, topic_id, subtopic_id, topic, subtopic')
+    .maybeSingle();
+  if (updateError) return res.status(503).json({ error: 'The question taxonomy could not be saved.' });
+  if (!updated) return res.status(409).json({ error: 'The question changed during taxonomy review. Reload and retry.' });
+
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: userId,
+    actor_role: (req as AuthenticatedRequest).role || 'CONTENT_MANAGER',
+    action: 'question.taxonomy_linked',
+    resource_type: 'question_bank',
+    resource_id: questionId,
+    metadata: { topic_id: updated.topic_id, subtopic_id: updated.subtopic_id },
+  });
+  if (auditError) console.error('[SABI] Question taxonomy audit log failed:', auditError.message);
+  return res.json({ status: 'updated', question: updated });
+});
+
 router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), validateBody(questionReviewSchema), async (req, res) => {
   const userId = authenticatedUser(req);
   const reviewerRole = (req as AuthenticatedRequest).role || 'CONTENT_MANAGER';
@@ -154,7 +263,7 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
   try {
     const { data: question, error: lookupError } = await supabaseAdmin
       .from('question_bank')
-      .select('id, exam_type, question, option_a, option_b, option_c, option_d, answer, explanation, source_id, content_fingerprint, status')
+      .select('id, exam_type, subject, topic_id, subtopic_id, question, option_a, option_b, option_c, option_d, answer, explanation, source_id, content_fingerprint, status')
       .eq('id', questionId)
       .maybeSingle();
     if (lookupError) {
@@ -167,6 +276,14 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
 
     if (action === 'publish') {
+      const taxonomy = await validateVerifiedQuestionTaxonomy({
+        subject: question.subject,
+        topicId: question.topic_id,
+        subtopicId: question.subtopic_id,
+      });
+      if (!taxonomy.ok) {
+        return res.status(409).json({ error: taxonomy.message, code: taxonomy.code });
+      }
       if (!question.source_id) {
         return res.status(409).json({
           error: 'Question provenance must be recorded and cleared for student practice before publication.',
