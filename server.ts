@@ -1331,6 +1331,7 @@ app.post(
       if (!contentCreatorId) return res.status(401).json({ error: 'Authentication required.' });
       let aiRequestId: string | null = null;
       let reservedCreditCost = 0;
+      let aiUsageRecorded = false;
       aiRequestId = randomUUID();
       const readiness = getAIReadiness('content_draft');
       if (!readiness.enabled || readiness.configuredProviders.length === 0) {
@@ -1402,6 +1403,7 @@ app.post(
           durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
           creditCost: reservedCreditCost,
         });
+        aiUsageRecorded = true;
         const raw = generated.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
         const parsed = JSON.parse(raw);
         const draft = parsed.question || parsed;
@@ -1516,7 +1518,7 @@ app.post(
           model: generated.model,
         });
       } catch (error) {
-        if (aiRequestId && reservedCreditCost > 0) {
+        if (aiRequestId && reservedCreditCost > 0 && !aiUsageRecorded) {
           try { await refundAIRequestCredits(supabaseAdmin, contentCreatorId, aiRequestId, 'ai_question_draft_provider_or_accounting_failed'); }
           catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
         }
