@@ -20,7 +20,7 @@ import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
-import { buildAnswerSignalObservations } from './server/learning/signalWorker';
+import { buildAnswerSignalObservations, buildMasterySignalObservation } from './server/learning/signalWorker';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import {
   chatSchema,
@@ -928,7 +928,7 @@ app.post(
           }
           const { data: learningEvent, error: learningEventError } = await supabaseAdmin
             .from('learning_events')
-            .select('id, user_id, event_type, occurred_at')
+            .select('id, user_id, event_type, occurred_at, received_at, session_id, session_item_id, question_id')
             .eq('id', learningEventId)
             .eq('user_id', item.user_id)
             .maybeSingle();
@@ -943,6 +943,7 @@ app.post(
               .select('is_correct, elapsed_ms')
               .eq('user_id', item.user_id)
               .not('answered_at', 'is', null)
+              .lte('answered_at', learningEvent.received_at)
               .order('answered_at', { ascending: false })
               .limit(20);
             if (samplesError) throw samplesError;
@@ -953,6 +954,53 @@ app.post(
               observedAt: learningEvent.occurred_at,
               samples: samples || [],
             });
+
+            // Phase 2's answer RPC remains authoritative for mastery and review
+            // scheduling. Mirror its current topic projection into the universal
+            // signal layer so subscribed engines receive the same verified state.
+            let answeredItemQuery = supabaseAdmin
+              .from('learning_session_items')
+              .select('question_id')
+              .eq('user_id', item.user_id)
+              .eq('session_id', learningEvent.session_id)
+              .not('answered_at', 'is', null);
+            answeredItemQuery = learningEvent.session_item_id
+              ? answeredItemQuery.eq('id', learningEvent.session_item_id)
+              : answeredItemQuery.eq('question_id', learningEvent.question_id || '');
+            const { data: answeredItem, error: answeredItemError } = await answeredItemQuery.maybeSingle();
+            if (answeredItemError) throw answeredItemError;
+
+            if (answeredItem?.question_id) {
+              const { data: question, error: questionError } = await supabaseAdmin
+                .from('question_bank')
+                .select('subject, topic')
+                .eq('id', answeredItem.question_id)
+                .maybeSingle();
+              if (questionError) throw questionError;
+
+              if (question?.subject && question?.topic) {
+                const { data: mastery, error: masteryError } = await supabaseAdmin
+                  .from('student_topic_mastery')
+                  .select('mastery_score, attempted_count')
+                  .eq('user_id', item.user_id)
+                  .eq('subject', question.subject)
+                  .eq('topic', question.topic)
+                  .maybeSingle();
+                if (masteryError) throw masteryError;
+                if (mastery) {
+                  observations.push(buildMasterySignalObservation({
+                    userId: item.user_id,
+                    eventId: learningEvent.id,
+                    observedAt: learningEvent.occurred_at,
+                    subject: question.subject,
+                    topic: question.topic,
+                    masteryScore: Number(mastery.mastery_score),
+                    attemptedCount: Number(mastery.attempted_count),
+                  }));
+                }
+              }
+            }
+
             if (observations.length) {
               const { error: observationError } = await supabaseAdmin
                 .from('student_signal_observations')
