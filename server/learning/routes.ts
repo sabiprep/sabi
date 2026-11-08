@@ -507,8 +507,45 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
       return res.status(503).json({ error: 'Your answer could not be recorded. Please try again.' });
     }
 
+    // The answer RPC has already verified correctness and updated Phase 2
+    // mastery/review state. Persist a server-authored event so the transactional
+    // outbox can reliably feed the universal signal and engine workers.
+    const { data: answeredItem, error: answeredItemError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('id, answered_at')
+      .eq('session_id', sessionId)
+      .eq('user_id', userId)
+      .eq('question_id', questionId)
+      .not('answered_at', 'is', null)
+      .maybeSingle();
+
+    let telemetryQueued = false;
+    if (answeredItemError) {
+      console.error('[SABI] Could not load verified answer for signal event:', answeredItemError.message);
+    } else if (answeredItem) {
+      const { error: eventError } = await supabaseAdmin
+        .from('learning_events')
+        .upsert({
+          user_id: userId,
+          session_id: sessionId,
+          session_item_id: answeredItem.id,
+          question_id: questionId,
+          client_event_id: `answer-api:${sessionId}:${questionId}`,
+          event_type: 'answer_submitted',
+          elapsed_ms: elapsedMs ?? null,
+          event_payload: { source: 'server_answer_api' },
+          occurred_at: answeredItem.answered_at || new Date().toISOString(),
+          schema_version: 1,
+        }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (eventError) {
+        console.error('[SABI] Could not queue verified answer signal event:', eventError.message);
+      } else {
+        telemetryQueued = true;
+      }
+    }
+
     res.set('Cache-Control', 'no-store');
-    return res.json({ status: 'recorded', result: data });
+    return res.json({ status: 'recorded', result: data, telemetryQueued });
   } catch (error) {
     console.error('[SABI] Unexpected answer submission error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while recording your answer.' });
