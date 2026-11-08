@@ -220,6 +220,15 @@ create table if not exists public.student_xp_ledger (
   unique (user_id, idempotency_key)
 );
 
+create table if not exists public.gamification_rules (
+  event_key text primary key,
+  description text not null,
+  xp_delta integer not null check (xp_delta > 0),
+  max_awards_per_day integer not null default 1 check (max_awards_per_day >= 0),
+  is_active boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.student_streak_state (
   user_id uuid primary key references auth.users(id) on delete cascade,
   timezone text not null default 'UTC',
@@ -314,6 +323,7 @@ create unique index if not exists idx_notification_templates_one_active on publi
 create index if not exists idx_notification_queue_pending on public.notification_queue(status, available_at) where status in ('pending','failed');
 create index if not exists idx_notification_queue_user_created on public.notification_queue(user_id, created_at desc);
 create index if not exists idx_student_xp_ledger_user_created on public.student_xp_ledger(user_id, created_at desc);
+create index if not exists idx_student_xp_ledger_daily_awards on public.student_xp_ledger(user_id, event_key, created_at desc);
 create index if not exists idx_knowledge_documents_status_subject on public.knowledge_documents(status, subject);
 create index if not exists idx_knowledge_chunks_search_vector on public.knowledge_chunks using gin(search_vector);
 create index if not exists idx_parent_student_parent on public.parent_student_relationships(parent_user_id, status);
@@ -425,6 +435,72 @@ revoke all on function public.refund_ai_credits(uuid, text, text) from public, a
 grant execute on function public.reserve_ai_credits(uuid, text, text) to service_role;
 grant execute on function public.refund_ai_credits(uuid, text, text) to service_role;
 
+create or replace function public.award_student_xp(
+  p_user_id uuid,
+  p_event_key text,
+  p_reference_type text,
+  p_reference_id text,
+  p_idempotency_key text
+)
+returns table(awarded boolean, xp_delta integer, reason text)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare
+  rule_row public.gamification_rules%rowtype;
+  awards_today integer;
+begin
+  if p_user_id is null or coalesce(length(trim(p_idempotency_key)), 0) < 8 then
+    return query select false, 0, 'invalid_request';
+    return;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text)::bigint);
+
+  if exists (
+    select 1 from public.student_xp_ledger ledger
+    where ledger.user_id = p_user_id and ledger.idempotency_key = p_idempotency_key
+  ) then
+    return query select false, 0, 'duplicate_event';
+    return;
+  end if;
+
+  select * into rule_row
+  from public.gamification_rules
+  where event_key = p_event_key and is_active = true;
+
+  if not found then
+    return query select false, 0, 'rule_not_configured';
+    return;
+  end if;
+
+  if rule_row.max_awards_per_day > 0 then
+    select count(*)::integer into awards_today
+    from public.student_xp_ledger ledger
+    where ledger.user_id = p_user_id
+      and ledger.event_key = p_event_key
+      and ledger.created_at >= date_trunc('day', now());
+    if awards_today >= rule_row.max_awards_per_day then
+      return query select false, 0, 'daily_limit_reached';
+      return;
+    end if;
+  end if;
+
+  insert into public.student_xp_ledger (
+    user_id, event_key, xp_delta, reason, reference_type, reference_id, idempotency_key
+  ) values (
+    p_user_id, p_event_key, rule_row.xp_delta, rule_row.description,
+    p_reference_type, p_reference_id, p_idempotency_key
+  );
+
+  return query select true, rule_row.xp_delta, 'awarded';
+end;
+$;
+
+revoke all on function public.award_student_xp(uuid, text, text, text, text) from public, anon, authenticated;
+grant execute on function public.award_student_xp(uuid, text, text, text, text) to service_role;
+
 -- Every new table is RLS-protected. Sensitive queues, webhook payloads, prompt
 -- versions, knowledge content and delivery logs are service-role-only.
 alter table public.entitlement_catalogue enable row level security;
@@ -442,6 +518,7 @@ alter table public.notification_templates enable row level security;
 alter table public.notification_queue enable row level security;
 alter table public.notification_delivery_logs enable row level security;
 alter table public.student_xp_ledger enable row level security;
+alter table public.gamification_rules enable row level security;
 alter table public.student_streak_state enable row level security;
 alter table public.knowledge_documents enable row level security;
 alter table public.knowledge_chunks enable row level security;
