@@ -97,6 +97,16 @@ router.post('/admin/plans', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), v
     if (error.code === '23505') return res.status(409).json({ error: 'A plan with this key already exists.' });
     return res.status(503).json({ error: 'The subscription plan could not be saved.' });
   }
+  const actorId = authenticatedUser(req as AuthenticatedRequest);
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: actorId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'subscription_plan.created',
+    resource_type: 'subscription_plans',
+    resource_id: data.id,
+    metadata: { plan_key: data.plan_key, is_active: data.is_active, price_amount: data.price_amount, currency: data.currency },
+  });
+  if (auditError) console.error('[SABI BILLING] Plan creation audit failed:', auditError.message);
   return res.status(201).json({ plan: data });
 });
 
@@ -132,6 +142,16 @@ router.patch('/admin/plans/:planId', requireAuth, requireRole('ADMIN', 'MASTER_A
     .update(updates).eq('id', planId).select('*').maybeSingle();
   if (error) return res.status(503).json({ error: 'The subscription plan could not be updated.' });
   if (!data) return res.status(404).json({ error: 'Subscription plan not found.' });
+  const actorId = authenticatedUser(req as AuthenticatedRequest);
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: actorId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'subscription_plan.updated',
+    resource_type: 'subscription_plans',
+    resource_id: planId,
+    metadata: { changed_fields: Object.keys(input), is_active: data.is_active },
+  });
+  if (auditError) console.error('[SABI BILLING] Plan update audit failed:', auditError.message);
   return res.json({ plan: data });
 });
 
@@ -154,6 +174,16 @@ router.post('/admin/entitlements', requireAuth, requireRole('ADMIN', 'MASTER_ADM
     if (error.code === '23505') return res.status(409).json({ error: 'This entitlement key already exists.' });
     return res.status(503).json({ error: 'The entitlement could not be saved.' });
   }
+  const actorId = authenticatedUser(req as AuthenticatedRequest);
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: actorId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'entitlement_catalogue.created',
+    resource_type: 'entitlement_catalogue',
+    resource_id: data.entitlement_key,
+    metadata: { is_active: data.is_active },
+  });
+  if (auditError) console.error('[SABI BILLING] Entitlement creation audit failed:', auditError.message);
   return res.status(201).json({ entitlement: data });
 });
 
