@@ -1,6 +1,6 @@
 # Sabi Adaptive Question Bank — Database Foundation v1
 
-Status: design and implementation blueprint. This document is not an applied database migration.
+Status: foundation migration applied to the Sabi production database on 2026-11-08. Remaining application logic, source backfill and adaptive workflows are not yet deployed.
 
 ## 1. Production baseline (read-only audit, 2026-11-08)
 
@@ -12,7 +12,7 @@ Status: design and implementation blueprint. This document is not an applied dat
 - `question_bank` has text IDs, source/topic/subtopic foreign keys, difficulty, status, review_status, concepts and content_fingerprint.
 - `question_sources` has source identity, type, URL, license_name, attribution_required, permitted_use and verification_status.
 - ALOC-labelled records exist, but source rows currently have `source_type=other`, no license name, `permitted_use=unknown`, and `verification_status=unverified`. This is not proof that the question content is incorrect; it means the evidence is not recorded in the database.
-- Existing `learning_sessions`, `learning_session_items`, `learning_events`, `student_topic_mastery` and `student_topic_mastery_history` are present but have zero rows at audit time.
+- Existing `learning_sessions`, `learning_session_items`, `learning_events`, `student_topic_mastery` and `student_topic_mastery_history` were present but empty at audit time.
 - Existing session items store a current selected answer and correctness, but this is not a durable, append-only attempt history.
 - Existing `jamb_syllabus_versions` and `jamb_syllabus_objectives` have zero rows. Objective-level adaptation must not be enabled until syllabus objectives are imported and checked.
 - Difficulty values currently include inconsistent casing. Normalize in application/query logic first; perform a controlled data migration only after validating all distinct values and consumers.
@@ -42,7 +42,7 @@ Status: design and implementation blueprint. This document is not an applied dat
 
 Do not create parallel subject/topic tables or a replacement question table in v1.
 
-## 4. Additive tables proposed
+## 4. Additive tables created in foundation migration
 
 ### 4.1 `question_variant_groups`
 
@@ -200,9 +200,9 @@ Only adaptive practice uses these rules.
 
 ## 7. Migration and rollout sequence
 
-1. Reconcile migration history with the 16 migration files on `main` and the 14 migrations recorded in production. Inspect the two missing migration records and determine whether their schema objects already exist before applying anything.
-2. Add new tables and indexes additively. No destructive alterations to `question_bank`.
-3. Add RLS and explicit grants/policies based on the access model above.
+1. Reconcile the remaining migration-history drift: the foundation migration is now recorded in production, while the two previously identified backend-service and notification-worker migration records still require object-by-object reconciliation before either is applied.
+2. Completed: create the seven additive tables and supporting indexes. No destructive alterations were made to `question_bank`.
+3. Completed for the foundation: RLS is enabled, direct `anon`/`authenticated` table privileges are revoked, and `service_role` has access. Student-facing access must be mediated by trusted backend endpoints until ownership-scoped policies and APIs are implemented.
 4. Add a trusted attempt-submission/grading path; test that clients cannot forge correctness.
 5. Import verified syllabus versions/objectives before objective-level mastery or generation is enabled.
 6. Backfill source evidence and normalize difficulty through a reversible mapping; retain original raw values.
