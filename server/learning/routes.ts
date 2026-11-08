@@ -679,7 +679,7 @@ router.get('/progress', requireAuth, async (req, res) => {
     const [masteryResult, sessionsResult] = await Promise.all([
       supabaseAdmin
         .from('student_topic_mastery')
-        .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at')
+        .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at, correct_streak, ease_factor, interval_days, last_result')
         .eq('user_id', userId)
         .order('mastery_score', { ascending: true }),
       supabaseAdmin
