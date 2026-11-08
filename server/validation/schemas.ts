@@ -78,6 +78,44 @@ export const onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
   return { ...input, registeredSubjects: parsedSubjects.data };
 });
 
+export const progressCheckinSchema = z.strictObject({
+  confidenceScore: z.number().int().min(1).max(5).optional(),
+  motivationScore: z.number().int().min(1).max(5).optional(),
+  perceivedBarriers: z.array(z.enum([
+    'limited_time','limited_data','device_access','financial_pressure',
+    'work_or_family_duties','difficult_subjects','low_confidence','distractions','other'
+  ])).max(9).default([]),
+  reflectionText: z.string().trim().max(1000).optional(),
+}).refine((value) =>
+  value.confidenceScore !== undefined ||
+  value.motivationScore !== undefined ||
+  value.perceivedBarriers.length > 0 ||
+  Boolean(value.reflectionText),
+  { message: 'Provide at least one check-in response.' }
+);
+
+const learningEventSchema = z.strictObject({
+  clientEventId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+  sessionItemId: z.string().uuid().optional(),
+  questionId: z.string().trim().max(120).optional(),
+  eventType: z.enum([
+    'session_started','session_paused','session_resumed','session_completed','session_abandoned',
+    'question_presented','question_revisited','answer_selected','answer_changed','answer_submitted',
+    'question_skipped','hint_requested','explanation_opened','navigation_changed','focus_lost','focus_returned'
+  ]),
+  sequenceNo: z.number().int().min(0).optional(),
+  elapsedMs: z.number().int().min(0).max(3600000).optional(),
+  activeElapsedMs: z.number().int().min(0).max(3600000).optional(),
+  eventPayload: z.record(z.string(), z.unknown()).default({}),
+  occurredAt: z.string().datetime(),
+});
+export const learningEventsSchema = z.strictObject({
+  events: z.array(learningEventSchema).min(1).max(50),
+}).refine((value) => value.events.every((event) =>
+  new TextEncoder().encode(JSON.stringify(event.eventPayload)).length <= 4096
+), { message: 'Each event payload must be 4 KB or smaller.' });
+
 export const progressSchema = z.strictObject({ progress: z.record(z.string(), z.unknown()) });
 export const explainSchema = z.strictObject({
   questionId: z.string().trim().max(80).optional(), preference: z.enum(['short', 'detailed']).optional(),
@@ -109,3 +147,6 @@ export type ProgressInput = z.infer<typeof progressSchema>;
 export type ExplainInput = z.infer<typeof explainSchema>;
 export type ChatInput = z.infer<typeof chatSchema>;
 export type GenerateQuestionInput = z.infer<typeof generateQuestionSchema>;
+
+export type ProgressCheckinInput = z.infer<typeof progressCheckinSchema>;
+export type LearningEventsInput = z.infer<typeof learningEventsSchema>;
