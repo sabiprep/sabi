@@ -169,6 +169,14 @@ create index if not exists signal_processing_outbox_ready_idx
   on public.signal_processing_outbox(available_at, created_at)
   where processing_status in ('pending','failed');
 
+-- Engine input/output snapshots can contain learner-derived data. Preserve
+-- operational traces for service runs, but cascade learner-owned runs on erasure.
+alter table public.engine_runs
+  drop constraint if exists engine_runs_user_id_fkey;
+alter table public.engine_runs
+  add constraint engine_runs_user_id_fkey
+  foreign key (user_id) references auth.users(id) on delete cascade;
+
 create table if not exists public.engine_run_signal_inputs (
   id bigint generated always as identity primary key,
   engine_run_id uuid not null references public.engine_runs(id) on delete cascade,
