@@ -73,7 +73,7 @@ export async function generateAIText(input: AIGenerationInput): Promise<AIProvid
       failures.push(config.name);
       // Provider errors are deliberately not returned to clients. Continue to
       // the next configured provider; core learning never depends on this path.
-      console.warn(`[SABI AI] ${config.name} provider failed:`, error instanceof Error ? error.message : 'unknown_error');
+      console.warn(`[SABI AI] ${config.name} provider failed:`, error instanceof Error ? error.name : 'unknown_error');
     }
   }
 
