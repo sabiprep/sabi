@@ -313,6 +313,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
   const { sessionId, questionId, preference, language } = req.body as z.infer<typeof explanationRequestSchema>;
   let aiRequestId: string | null = null;
   let reservedCreditCost = 0;
+  let aiUsageRecorded = false;
 
   try {
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -471,7 +472,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       });
     } catch (error) {
       if (error instanceof AIUnavailableError) {
-        if (aiRequestId && reservedCreditCost > 0) {
+        if (aiRequestId && reservedCreditCost > 0 && !aiUsageRecorded) {
           await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'ai_provider_failed');
         }
         await recordAIUsage(supabaseAdmin, {
@@ -491,7 +492,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       throw error;
     }
   } catch (error) {
-    if (aiRequestId && reservedCreditCost > 0) {
+    if (aiRequestId && reservedCreditCost > 0 && !aiUsageRecorded) {
       try { await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'ai_explanation_or_accounting_failed'); }
       catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
     }
