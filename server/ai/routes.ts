@@ -8,6 +8,7 @@ import { aiLimiter } from '../middleware/rateLimit';
 import { generateAIText, getAIReadiness } from './gateway';
 import { AIUnavailableError } from './types';
 import { recordAIUsage } from './usage';
+import { formatApprovedKnowledgeContext, searchApprovedKnowledge } from './retrieval';
 
 const router = Router();
 
@@ -167,6 +168,19 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
     const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
     if (!lastUserMessage) return res.status(400).json({ error: 'At least one student message is required.' });
 
+    let approvedRagContext = '';
+    try {
+      const retrievedChunks = await searchApprovedKnowledge(supabaseAdmin, {
+        query: lastUserMessage.content,
+        subject,
+        topic,
+        limit: 5,
+      });
+      approvedRagContext = formatApprovedKnowledgeContext(retrievedChunks);
+    } catch (retrievalError) {
+      console.warn('[SABI AI] Approved knowledge retrieval unavailable:', retrievalError instanceof Error ? retrievalError.name : 'unknown_error');
+    }
+
     const [profileResult, masteryResult, knowledgeResult] = await Promise.all([
       supabaseAdmin.from('profiles').select('registered_subjects').eq('id', userId).maybeSingle(),
       subject
@@ -208,7 +222,8 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       `Current subject: ${subject || 'Not specified'}`,
       `Current topic: ${topic || 'Not specified'}`,
       `Verified learner progress context: ${JSON.stringify(mastery)}`,
-      `Approved syllabus/question context: ${knowledge.map((row: any) => ({
+      `Approved knowledge library retrieval: ${approvedRagContext || 'No matching approved resource was found.'}`,
+      `Published question context: ${knowledge.map((row: any) => ({
         subject: row.subject, topic: row.topic, question: row.question,
         explanation: row.explanation_short || row.explanation || null,
       }))}`,
