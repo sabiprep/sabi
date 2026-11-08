@@ -215,6 +215,7 @@ export function BlitzPage() {
             <Settings size={18} />
           </button>
         </div>
+      <Link to="/learning?mode=blitz" className="px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">Live Blitz Session</Link>
       </header>
 
       {/* ======================================================== */}
