@@ -309,6 +309,8 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
   const { sessionId, questionId, preference, language } = req.body as z.infer<typeof explanationRequestSchema>;
+  let aiRequestId: string | null = null;
+  let reservedCreditCost = 0;
 
   try {
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -393,11 +395,12 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       });
     }
 
+    aiRequestId = randomUUID();
     const readiness = getAIReadiness('explanation');
     if (!readiness.enabled || readiness.configuredProviders.length === 0) {
       await recordAIUsage(supabaseAdmin, {
         userId, task: 'explanation', provider: 'none', model: 'none',
-        outcome: 'blocked', promptVersion: 'verified-explanation-v1',
+        outcome: 'blocked', promptVersion: 'verified-explanation-v1', requestId: aiRequestId,
         metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED', questionId },
       });
       return res.json({
@@ -408,6 +411,23 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
         correctOption,
       });
     }
+
+    const creditReservation = await reserveAIRequestCredits(supabaseAdmin, userId, 'explanation', aiRequestId);
+    if (!creditReservation.allowed) {
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'explanation', provider: 'none', model: 'none',
+        outcome: 'blocked', promptVersion: 'verified-explanation-v1', requestId: aiRequestId,
+        metadata: { reason: creditReservation.reason, questionId },
+      });
+      return res.status(creditReservation.reason === 'insufficient_credits' ? 402 : 503).json({
+        aiAvailable: false,
+        reason: creditReservation.reason === 'insufficient_credits' ? 'AI_CREDITS_EXHAUSTED' : 'AI_CREDIT_PRICING_NOT_CONFIGURED',
+        storedExplanation,
+        selectedOption,
+        correctOption,
+      });
+    }
+    reservedCreditCost = creditReservation.creditCost;
 
     const prompt = buildVerifiedExplanationPrompt({
       subject: String(question.subject || 'UTME'),
@@ -433,7 +453,8 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       await recordAIUsage(supabaseAdmin, {
         userId, task: 'explanation', provider: generated.provider, model: generated.model,
         usage: generated.usage, outcome: 'success', promptVersion: 'verified-explanation-v1',
-        durationMs: Date.now() - aiStartedAt,
+        durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
+        creditCost: reservedCreditCost,
         metadata: { questionId, preference },
       });
       return res.json({
@@ -447,11 +468,14 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       });
     } catch (error) {
       if (error instanceof AIUnavailableError) {
+        if (aiRequestId && reservedCreditCost > 0) {
+          await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'ai_provider_failed');
+        }
         await recordAIUsage(supabaseAdmin, {
           userId, task: 'explanation', provider: 'none', model: 'none',
           outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
-          promptVersion: 'verified-explanation-v1',
-          metadata: { reason: error.code, providersTried: error.providersTried, questionId },
+          promptVersion: 'verified-explanation-v1', requestId: aiRequestId || undefined,
+          metadata: { reason: error.code, providersTried: error.providersTried, questionId, refundedCredits: reservedCreditCost },
         });
         return res.json({
           aiAvailable: false,
@@ -464,7 +488,11 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
       throw error;
     }
   } catch (error) {
-    console.error('[SABI AI] Explanation request failed:', error);
+    if (aiRequestId && reservedCreditCost > 0) {
+      try { await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'ai_explanation_or_accounting_failed'); }
+      catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
+    }
+    console.error('[SABI AI] Explanation request failed:', error instanceof Error ? error.name : 'unknown_error');
     return res.status(503).json({ error: 'The explanation service is temporarily unavailable.' });
   }
 });
