@@ -93,7 +93,7 @@ router.post('/documents', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', '
     document_id: document.id,
     chunk_index: index,
     content: chunk,
-    token_count: Math.ceil(chunk.length / 4),
+    token_count: null,
     metadata: { source_reference: input.sourceReference },
   }));
   const { error: chunkError } = await supabaseAdmin.from('knowledge_chunks').insert(chunkRows);
