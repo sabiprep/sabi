@@ -25,6 +25,12 @@ const createSessionSchema = z.strictObject({
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
+const sourceReviewSchema = z.strictObject({
+  verificationStatus: z.enum(['verified', 'restricted', 'rejected']),
+  permittedUse: z.enum(['unknown', 'internal_review', 'practice_display', 'redistribution_allowed', 'restricted']),
+  notes: z.string().trim().max(1000).optional(),
+});
+
 const questionReviewSchema = z.strictObject({
   action: z.enum(['publish', 'needs-review', 'reject']),
   notes: z.string().trim().max(1000).optional(),
@@ -56,10 +62,55 @@ function authenticatedUser(req: Request): string | null {
  * never become student-facing until an authorized reviewer explicitly publishes
  * them after validating the answer and all four options.
  */
+
+router.get('/content-review/sources', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const { data, error } = await supabaseAdmin
+    .from('question_sources')
+    .select('id, source_key, source_name, source_type, source_url, license_name, attribution_required, permitted_use, verification_status, notes')
+    .order('updated_at', { ascending: false })
+    .limit(100);
+  if (error) return res.status(503).json({ error: 'Question source review is temporarily unavailable.' });
+  return res.json({ sources: data || [] });
+});
+
+router.post('/content-review/sources/:sourceId', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(sourceReviewSchema), async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const sourceId = String(req.params.sourceId || '').trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceId)) {
+    return res.status(400).json({ error: 'A valid source ID is required.' });
+  }
+  const { verificationStatus, permittedUse, notes } = req.body as z.infer<typeof sourceReviewSchema>;
+  const { data: source, error } = await supabaseAdmin
+    .from('question_sources')
+    .update({
+      verification_status: verificationStatus,
+      permitted_use: permittedUse,
+      checked_at: new Date().toISOString(),
+      notes: notes || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sourceId)
+    .select('id, source_key, source_name, verification_status, permitted_use, checked_at')
+    .maybeSingle();
+  if (error) return res.status(503).json({ error: 'The source verification decision could not be saved.' });
+  if (!source) return res.status(404).json({ error: 'Question source not found.' });
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: userId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'question_source.reviewed',
+    resource_type: 'question_sources',
+    resource_id: sourceId,
+    metadata: { verification_status: verificationStatus, permitted_use: permittedUse, notes: notes || null },
+  });
+  if (auditError) console.error('[SABI] Source review audit log failed:', auditError.message);
+  return res.json({ status: 'updated', source });
+});
+
 router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('question_bank')
-    .select('id, exam_type, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, status, confidence_score, flag_count')
+    .select('id, exam_type, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, source_id, content_fingerprint, review_status, status, confidence_score, flag_count')
     .in('status', ['ai-draft', 'needs-review'])
     .order('confidence_score', { ascending: false })
     .limit(50);
@@ -95,6 +146,25 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
 
     if (action === 'publish') {
+      if (!question.source_id) {
+        return res.status(409).json({
+          error: 'Question provenance must be recorded and cleared for student practice before publication.',
+          code: 'QUESTION_SOURCE_NOT_CLEARED',
+        });
+      }
+      const { data: source, error: sourceError } = await supabaseAdmin
+        .from('question_sources')
+        .select('verification_status, permitted_use')
+        .eq('id', question.source_id)
+        .maybeSingle();
+      if (sourceError) return res.status(503).json({ error: 'Question provenance could not be verified.' });
+      if (!source || source.verification_status !== 'verified' ||
+          !['practice_display', 'redistribution_allowed'].includes(source.permitted_use)) {
+        return res.status(409).json({
+          error: 'The question source is not cleared for student-facing practice.',
+          code: 'QUESTION_SOURCE_NOT_CLEARED',
+        });
+      }
       const options = [question.option_a, question.option_b, question.option_c, question.option_d];
       if (question.exam_type !== 'UTME' || !question.question?.trim() ||
           options.some((option) => !option?.trim()) ||
