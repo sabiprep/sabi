@@ -656,7 +656,7 @@ app.post(
   //     never by an email supplied in the request body.
   app.post('/api/profile/onboarding', requireAuth, validateBody(onboardingSchema), async (req, res) => {
     const user = (req as AuthenticatedRequest).user!;
-    const { onboardingAnswers, registeredSubjects, targetScore } = req.body;
+    const { onboardingAnswers, registeredSubjects, targetScore, submissionKey } = req.body;
     // onboardingSchema normalizes either the current API field or the legacy
     // onboardingAnswers.chosenSubjects field into this canonical array.
     const canonicalSubjects = registeredSubjects;
@@ -666,9 +666,99 @@ app.post(
       ...(onboardingAnswers ?? {}),
       chosenSubjects: canonicalSubjects,
     };
+    const stableSubmissionKey = submissionKey || crypto.randomUUID();
 
     try {
-      const { error } = await supabaseAdmin
+      const { data: questionSet, error: questionSetError } = await supabaseAdmin
+        .from('student_onboarding_question_sets')
+        .select('id')
+        .eq('set_key', 'candidate-onboarding')
+        .single();
+      if (questionSetError || !questionSet?.id) {
+        return res.status(500).json({ error: 'The versioned onboarding question set is not available.' });
+      }
+
+      const { data: questionVersion, error: versionError } = await supabaseAdmin
+        .from('student_onboarding_question_versions')
+        .select('id')
+        .eq('question_set_id', questionSet.id)
+        .eq('version_label', 'v1')
+        .single();
+      if (versionError || !questionVersion?.id) {
+        return res.status(500).json({ error: 'The active onboarding question version is not available.' });
+      }
+
+      const { data: existingSubmission, error: existingError } = await supabaseAdmin
+        .from('student_onboarding_submissions')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('submission_key', stableSubmissionKey)
+        .maybeSingle();
+      if (existingError) {
+        return res.status(500).json({ error: existingError.message || 'Could not check the onboarding submission.' });
+      }
+
+      let submissionId = existingSubmission?.id as string | undefined;
+      if (!submissionId) {
+        const { data: createdSubmission, error: submissionError } = await supabaseAdmin
+          .from('student_onboarding_submissions')
+          .insert({
+            user_id: user.id,
+            question_version_id: questionVersion.id,
+            submission_key: stableSubmissionKey,
+            submission_status: 'submitted',
+            capture_source: 'in_app',
+            // No optional analytics/research consent is inferred from onboarding completion.
+            purpose_consent_snapshot: {},
+          })
+          .select('id')
+          .single();
+
+        if (submissionError || !createdSubmission?.id) {
+          // A concurrent retry may have won the unique (user_id, submission_key) race.
+          const { data: racedSubmission } = await supabaseAdmin
+            .from('student_onboarding_submissions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('submission_key', stableSubmissionKey)
+            .maybeSingle();
+          if (!racedSubmission?.id) {
+            return res.status(500).json({ error: submissionError?.message || 'Could not create the onboarding submission.' });
+          }
+          submissionId = racedSubmission.id;
+        } else {
+          submissionId = createdSubmission.id;
+        }
+      }
+
+      const { data: questionDefinitions, error: questionsError } = await supabaseAdmin
+        .from('student_onboarding_questions')
+        .select('id, question_key')
+        .eq('question_version_id', questionVersion.id);
+      if (questionsError) {
+        return res.status(500).json({ error: questionsError.message || 'Could not load onboarding question definitions.' });
+      }
+
+      const questionIds = new Map((questionDefinitions ?? []).map((item: { id: string; question_key: string }) => [item.question_key, item.id]));
+      const responseRows = Object.entries(normalizedAnswers).map(([questionKey, answerValue]) => ({
+        submission_id: submissionId,
+        question_id: questionIds.get(questionKey) ?? null,
+        question_key: questionKey,
+        answer_value: answerValue,
+        answer_text: typeof answerValue === 'string' ? answerValue : null,
+        capture_source: 'in_app',
+      }));
+
+      if (responseRows.length > 0) {
+        const { error: responseError } = await supabaseAdmin
+          .from('student_onboarding_responses')
+          .upsert(responseRows, { onConflict: 'submission_id,question_key', ignoreDuplicates: true });
+        if (responseError) {
+          return res.status(500).json({ error: responseError.message || 'Could not preserve onboarding responses.' });
+        }
+      }
+
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
           onboarding_completed: true,
@@ -679,11 +769,11 @@ app.post(
         })
         .eq('id', user.id);
 
-      if (error) {
-        return res.status(500).json({ error: error.message || 'Failed to save onboarding answers.' });
+      if (profileError) {
+        return res.status(500).json({ error: profileError.message || 'Failed to save onboarding profile.' });
       }
 
-      return res.json({ status: 'saved' });
+      return res.json({ status: 'saved', submissionId });
     } catch (err: any) {
       return res.status(500).json({ error: err?.message || 'Failed to save onboarding answers.' });
     }
