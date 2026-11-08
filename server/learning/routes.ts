@@ -428,6 +428,16 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
         console.error('[SABI] CBT auto-submit failed:', expiryError.message);
         return res.status(503).json({ error: 'The expired CBT could not be finalized. Please retry.' });
       }
+      const { error: completionEventError } = await supabaseAdmin.from('learning_events').upsert({
+        user_id: userId,
+        session_id: sessionId,
+        client_event_id: `cbt-auto-submit:${sessionId}`,
+        event_type: 'session_completed',
+        event_payload: { source: 'server_cbt_timer', reason: 'time_expired' },
+        occurred_at: completedAt,
+        schema_version: 1,
+      }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (completionEventError) console.error('[SABI] CBT completion event could not be recorded:', completionEventError.message);
       session = { ...session, status: 'completed', completed_at: completedAt };
     }
 
@@ -525,6 +535,16 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
         console.error('[SABI] CBT expiry finalization failed:', expiryError.message);
         return res.status(503).json({ error: 'The expired CBT could not be finalized. Please retry.' });
       }
+      const { error: completionEventError } = await supabaseAdmin.from('learning_events').upsert({
+        user_id: userId,
+        session_id: sessionId,
+        client_event_id: `cbt-auto-submit:${sessionId}`,
+        event_type: 'session_completed',
+        event_payload: { source: 'server_cbt_timer', reason: 'time_expired' },
+        occurred_at: completedAt,
+        schema_version: 1,
+      }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (completionEventError) console.error('[SABI] CBT completion event could not be recorded:', completionEventError.message);
       return res.status(409).json({
         error: 'Time is up. Your CBT has been submitted automatically.',
         code: 'CBT_TIME_EXPIRED',
