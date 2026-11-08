@@ -238,10 +238,15 @@ export async function executeEngineRequest(db: any, item: EngineRequest) {
     case 'recommendation-engine': {
       const recommendations = buildTopicRecommendations(mastery, now);
       if (recommendations.length) {
-        const { error: recommendationError } = await db.from('recommendations').insert(
-          recommendations.map((row) => ({ ...row, user_id: item.user_id, engine_run_id: runId }))
-        );
-        if (recommendationError) throw recommendationError;
+        const { data: existingRecommendations, error: existingRecommendationsError } = await db
+          .from('recommendations').select('id').eq('engine_run_id', runId).limit(1);
+        if (existingRecommendationsError) throw existingRecommendationsError;
+        if (!existingRecommendations?.length) {
+          const { error: recommendationError } = await db.from('recommendations').insert(
+            recommendations.map((row) => ({ ...row, user_id: item.user_id, engine_run_id: runId }))
+          );
+          if (recommendationError) throw recommendationError;
+        }
       }
       output = { status: 'completed', recommendation_count: recommendations.length, recommendations };
       break;
@@ -287,18 +292,27 @@ export async function executeEngineRequest(db: any, item: EngineRequest) {
         };
       }));
       if (prediction.status === 'ready' && prediction.predictedScore !== null) {
-        const { error: snapshotError } = await db.from('score_prediction_snapshots').insert({
-          user_id: item.user_id,
-          predicted_score: prediction.predictedScore,
-          lower_bound: prediction.lowerBound,
-          upper_bound: prediction.upperBound,
-          confidence_level: prediction.confidence,
-          model_version: 'phase2-smoothed-subject-accuracy-v1',
-          answered_question_count: prediction.totalAttempts,
-          subject_breakdown: Object.fromEntries(prediction.subjects.map((row) => [row.subject, row])),
-          prediction_factors: { prior_correct: 5, prior_attempts: 10, minimum_attempts_per_subject: 10 },
-        });
-        if (snapshotError) throw snapshotError;
+        const { data: existingSnapshot, error: existingSnapshotError } = await db
+          .from('score_prediction_snapshots')
+          .select('id')
+          .eq('user_id', item.user_id)
+          .eq('prediction_factors->>engine_run_id', runId)
+          .maybeSingle();
+        if (existingSnapshotError) throw existingSnapshotError;
+        if (!existingSnapshot) {
+          const { error: snapshotError } = await db.from('score_prediction_snapshots').insert({
+            user_id: item.user_id,
+            predicted_score: prediction.predictedScore,
+            lower_bound: prediction.lowerBound,
+            upper_bound: prediction.upperBound,
+            confidence_level: prediction.confidence,
+            model_version: 'phase2-smoothed-subject-accuracy-v1',
+            answered_question_count: prediction.totalAttempts,
+            subject_breakdown: Object.fromEntries(prediction.subjects.map((row) => [row.subject, row])),
+            prediction_factors: { engine_run_id: runId, prior_correct: 5, prior_attempts: 10, minimum_attempts_per_subject: 10 },
+          });
+          if (snapshotError) throw snapshotError;
+        }
 
         const { error: signalError } = await db.from('student_signal_observations').upsert({
           user_id: item.user_id,
