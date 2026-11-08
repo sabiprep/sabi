@@ -560,7 +560,11 @@ begin
   for v_subscription in
     select s.engine_key,s.engine_contract_version,s.input_requirement
     from public.signal_engine_subscriptions s
+    join public.engine_registry e on e.engine_key=s.engine_key
+    join public.engine_contract_versions c on c.engine_key=s.engine_key and c.contract_version=s.engine_contract_version
     where s.signal_key=v_observation.signal_key
+      and e.lifecycle_status='active'
+      and c.contract_status='active'
       and s.is_enabled=true
       and s.trigger_mode='on_change'
       and v_observation.schema_version >= s.min_schema_version
