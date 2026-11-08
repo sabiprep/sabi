@@ -58,6 +58,7 @@ The layer introduces:
 - Versioned engine input/output contracts and declarative signal subscriptions.
 - Exact signal snapshots (including explicit missing-input reasons) for every engine run.
 - A transactional outbox for signal observations, learning telemetry and engine requests.
+- An atomic, idempotent onboarding projection RPC that populates normalized academic profiles, subject selections, goals and learning preferences.
 - An atomic, idempotent progress-check-in RPC that writes the learner check-in and confidence/motivation signals together.
 - Authenticated API endpoints for learner check-ins and append-only telemetry batches, with session/item ownership checks.
 - RLS, service-role-only writes, immutable evidence/contract records and account-erasure cascades.
