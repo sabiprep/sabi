@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sabi-backend-ci-${{ github.ref }}
+  group: sabi-backend-ci-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
