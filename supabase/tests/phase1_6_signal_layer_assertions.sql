@@ -121,6 +121,26 @@ begin
   where idempotency_key='signal-observed:'||v_observation::text;
   if v_count <> 1 then raise exception 'Signal observation did not enqueue exactly one outbox item'; end if;
 
+  v_count := public.dispatch_signal_observation_to_engines(v_observation);
+  if v_count < 3 then
+    raise exception 'Signal dispatcher did not create engine requests from registered subscriptions';
+  end if;
+  if public.dispatch_signal_observation_to_engines(v_observation) <> 0 then
+    raise exception 'Signal dispatch was not idempotent';
+  end if;
+  select count(*) into v_count from public.signal_processing_outbox
+  where event_kind='engine_requested' and observation_id=v_observation;
+  if v_count < 3 then raise exception 'Expected engine-request outbox records'; end if;
+
+  select count(*) into v_count from public.claim_signal_outbox(50)
+  where observation_id=v_observation;
+  if v_count <> 1 then raise exception 'Outbox claim did not atomically claim the signal observation'; end if;
+  if not exists (
+    select 1 from public.signal_processing_outbox
+    where idempotency_key='signal-observed:'||v_observation::text
+      and processing_status='processing' and attempt_count=1
+  ) then raise exception 'Claimed outbox row did not enter processing state'; end if;
+
   -- Same idempotency key must not create duplicate evidence or queue work.
   insert into public.student_signal_observations(
     user_id,signal_key,schema_version,source_key,value,purpose_key,observed_at,idempotency_key
