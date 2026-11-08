@@ -34,8 +34,8 @@ begin
       user_id,subject,topic,attempted_count,correct_count,mastery_score,last_attempt_at,next_review_at,updated_at,
       correct_streak,ease_factor,interval_days,last_result
     ) values (
-      p_user_id,v_question.subject,v_question.topic,1,case when v_correct then 1 else 0,
-      round(100.0*(case when v_correct then 1 else 0 + 2 end)/5.0,2),
+      p_user_id,v_question.subject,v_question.topic,1,case when v_correct then 1 else 0 end,
+      round(100.0*(case when v_correct then 3 else 2 end)/5.0,2),
       now(),now()+interval '1 day',now(),case when v_correct then 1 else 0 end,
       greatest(1.30,least(2.80,2.50+case when v_correct then 0.05 else -0.20 end)),1,
       case when v_correct then 'correct' else 'incorrect' end
