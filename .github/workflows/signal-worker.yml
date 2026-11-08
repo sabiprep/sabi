@@ -1,0 +1,36 @@
+name: Sabi Signal and Engine Worker
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    env:
+      SABI_SIGNAL_WORKER_URL: ${{ secrets.SABI_SIGNAL_WORKER_URL }}
+      SIGNAL_WORKER_SECRET: ${{ secrets.SIGNAL_WORKER_SECRET }}
+    steps:
+      - name: Run signal and engine worker
+        if: ${{ env.SABI_SIGNAL_WORKER_URL != '' && env.SIGNAL_WORKER_SECRET != '' }}
+        run: |
+          case "$SABI_SIGNAL_WORKER_URL" in
+            https://*) ;;
+            *) echo "SABI_SIGNAL_WORKER_URL must use HTTPS"; exit 1 ;;
+          esac
+          curl --fail --silent --show-error --max-time 25 \
+            -X POST \
+            -H "Authorization: Bearer $SIGNAL_WORKER_SECRET" \
+            "$SABI_SIGNAL_WORKER_URL/api/internal/dispatch-signals"
+
+      - name: Report missing worker secrets
+        if: ${{ env.SABI_SIGNAL_WORKER_URL == '' || env.SIGNAL_WORKER_SECRET == '' }}
+        run: echo "Worker not called. Configure SABI_SIGNAL_WORKER_URL and SIGNAL_WORKER_SECRET in GitHub repository Actions secrets."
