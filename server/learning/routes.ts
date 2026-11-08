@@ -13,6 +13,7 @@ import { requireRole } from '../middleware/requireRole';
 import { isCBTExpired } from './cbtTimer';
 import { buildSyllabusCoverage } from './engineExecution';
 import { enqueueNotification } from '../notifications/queue';
+import { awardXP } from '../gamification/service';
 
 const router = Router();
 
@@ -115,6 +116,17 @@ async function validateVerifiedQuestionTaxonomy(input: {
 
 
 async function enqueueSessionCompletionNotification(userId: string, sessionId: string, mode: string) {
+  try {
+    await awardXP(supabaseAdmin, {
+      userId,
+      eventKey: 'session_completed',
+      referenceType: 'learning_sessions',
+      referenceId: sessionId,
+      idempotencyKey: `session-completed:${sessionId}`,
+    });
+  } catch (error) {
+    console.error('[SABI] Session completion XP award failed:', error instanceof Error ? error.name : 'unknown_error');
+  }
   try {
     await enqueueNotification(supabaseAdmin, {
       userId,
@@ -889,7 +901,7 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
     // outbox can reliably feed the universal signal and engine workers.
     const { data: answeredItem, error: answeredItemError } = await supabaseAdmin
       .from('learning_session_items')
-      .select('id, answered_at')
+      .select('id, answered_at, is_correct')
       .eq('session_id', sessionId)
       .eq('user_id', userId)
       .eq('question_id', questionId)
@@ -918,6 +930,17 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
         console.error('[SABI] Could not queue verified answer signal event:', eventError.message);
       } else {
         telemetryQueued = true;
+      }
+      try {
+        await awardXP(supabaseAdmin, {
+          userId,
+          eventKey: answeredItem.is_correct ? 'correct_answer' : 'answer_submitted',
+          referenceType: 'learning_session_items',
+          referenceId: answeredItem.id,
+          idempotencyKey: `answer:${sessionId}:${questionId}`,
+        });
+      } catch (xpError) {
+        console.error('[SABI] Answer XP award failed:', xpError instanceof Error ? xpError.name : 'unknown_error');
       }
     }
 
