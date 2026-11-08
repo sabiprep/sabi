@@ -11,6 +11,7 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAut
 import { validateBody } from '../middleware/validate';
 import { requireRole } from '../middleware/requireRole';
 import { isCBTExpired } from './cbtTimer';
+import { buildSyllabusCoverage } from './engineExecution';
 
 const router = Router();
 
@@ -619,6 +620,111 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
   }
 });
 
+
+
+router.get('/coverage', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+  try {
+    const { data: objectiveRows, error: objectiveError } = await supabaseAdmin
+      .from('jamb_syllabus_objectives')
+      .select('id, topic_id, subtopic_id')
+      .eq('verification_status', 'verified')
+      .limit(10000);
+    if (objectiveError) {
+      console.error('[SABI] Verified syllabus objectives lookup failed:', objectiveError.message);
+      return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+    }
+    if (!objectiveRows?.length) {
+      return res.json(buildSyllabusCoverage([], []));
+    }
+
+    const topicIds = [...new Set(objectiveRows.map((row) => row.topic_id))];
+    const versionIds: string[] = [];
+    const [topicResult, subjectResult] = await Promise.all([
+      supabaseAdmin.from('jamb_topics')
+        .select('id, subject_slug, name, syllabus_version_id, verification_status, is_active')
+        .in('id', topicIds)
+        .eq('verification_status', 'verified')
+        .eq('is_active', true),
+      supabaseAdmin.from('jamb_subjects').select('slug, display_name'),
+    ]);
+    if (topicResult.error || subjectResult.error) {
+      console.error('[SABI] Syllabus taxonomy lookup failed:', topicResult.error?.message || subjectResult.error?.message);
+      return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+    }
+    const topics = topicResult.data || [];
+    const topicById = new Map(topics.map((topic) => [topic.id, topic]));
+    for (const topic of topics) if (topic.syllabus_version_id) versionIds.push(topic.syllabus_version_id);
+
+    let verifiedVersionIds = new Set<string>();
+    if (versionIds.length) {
+      const { data: versions, error: versionError } = await supabaseAdmin
+        .from('jamb_syllabus_versions')
+        .select('id')
+        .in('id', [...new Set(versionIds)])
+        .eq('verification_status', 'verified');
+      if (versionError) {
+        console.error('[SABI] Syllabus version lookup failed:', versionError.message);
+        return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+      }
+      verifiedVersionIds = new Set((versions || []).map((version) => version.id));
+    }
+    const subjectNames = new Map((subjectResult.data || []).map((subject) => [subject.slug, subject.display_name]));
+    const objectives = objectiveRows.flatMap((objective) => {
+      const topic = topicById.get(objective.topic_id);
+      if (!topic) return [];
+      if (topic.syllabus_version_id && !verifiedVersionIds.has(topic.syllabus_version_id)) return [];
+      const subjectName = subjectNames.get(topic.subject_slug);
+      if (!subjectName) return [];
+      return [{
+        subject: subjectName,
+        topicId: objective.topic_id,
+        subtopicId: objective.subtopic_id,
+      }];
+    });
+    if (!objectives.length) return res.json(buildSyllabusCoverage([], []));
+
+    const { data: answeredItems, error: answeredError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('question_id')
+      .eq('user_id', userId)
+      .not('answered_at', 'is', null)
+      .limit(10000);
+    if (answeredError) {
+      console.error('[SABI] Answered learning evidence lookup failed:', answeredError.message);
+      return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+    }
+    const questionIds = [...new Set((answeredItems || []).map((item) => item.question_id))];
+    let answeredContent: Array<{ topicId: string | null; subtopicId: string | null }> = [];
+    if (questionIds.length) {
+      const { data: questionRows, error: questionError } = await supabaseAdmin
+        .from('question_bank')
+        .select('topic_id, subtopic_id')
+        .in('id', questionIds)
+        .eq('status', 'published')
+        .limit(10000);
+      if (questionError) {
+        console.error('[SABI] Answered question taxonomy lookup failed:', questionError.message);
+        return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+      }
+      answeredContent = (questionRows || []).map((question) => ({
+        topicId: question.topic_id,
+        subtopicId: question.subtopic_id,
+      }));
+    }
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      ...buildSyllabusCoverage(objectives, answeredContent),
+      basis: 'Verified syllabus objectives with at least one submitted answer mapped to the objective topic or subtopic.',
+    });
+  } catch (error) {
+    console.error('[SABI] Unexpected syllabus coverage error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while calculating syllabus coverage.' });
+  }
+});
 
 router.get('/recommendations', requireAuth, async (req, res) => {
   const userId = authenticatedUser(req);
