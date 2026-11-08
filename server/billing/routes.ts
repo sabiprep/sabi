@@ -188,6 +188,37 @@ router.post('/admin/entitlements', requireAuth, requireRole('ADMIN', 'MASTER_ADM
 });
 
 
+
+router.patch('/admin/entitlements/:entitlementKey', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (req, res) => {
+  const entitlementKey = String(req.params.entitlementKey || '');
+  if (!/^[a-z0-9][a-z0-9_.-]{1,99}$/.test(entitlementKey)) {
+    return res.status(400).json({ error: 'Invalid entitlement key.' });
+  }
+  const patchSchema = entitlementSchema.omit({ entitlementKey: true }).partial().strict();
+  const parsed = patchSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid entitlement update.', details: parsed.error.flatten() });
+  const input = parsed.data;
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.description !== undefined) updates.description = input.description;
+  if (input.valueSchema !== undefined) updates.value_schema = input.valueSchema;
+  if (input.isActive !== undefined) updates.is_active = input.isActive;
+  const { data, error } = await supabaseAdmin.from('entitlement_catalogue')
+    .update(updates).eq('entitlement_key', entitlementKey)
+    .select('*').maybeSingle();
+  if (error) return res.status(503).json({ error: 'Entitlement could not be updated.' });
+  if (!data) return res.status(404).json({ error: 'Entitlement not found.' });
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: authenticatedUser(req as AuthenticatedRequest),
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'entitlement_catalogue.updated',
+    resource_type: 'entitlement_catalogue',
+    resource_id: entitlementKey,
+    metadata: { changed_fields: Object.keys(input), is_active: data.is_active },
+  });
+  if (auditError) console.error('[SABI BILLING] Entitlement update audit failed:', auditError.message);
+  return res.json({ entitlement: data });
+});
+
 router.get('/me', requireAuth, async (req, res) => {
   const userId = authenticatedUser(req as AuthenticatedRequest);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
