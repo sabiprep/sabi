@@ -65,12 +65,15 @@ function roundMoney(value: number): number {
 }
 
 function addBillingPeriod(start: Date, interval: string): Date | null {
+  if (interval === 'one_time') return null;
+  const months = interval === 'monthly' ? 1 : interval === 'quarterly' ? 3 : interval === 'yearly' ? 12 : null;
+  if (months === null) throw new Error('SUBSCRIPTION_INTERVAL_UNSUPPORTED');
   const end = new Date(start);
-  if (interval === 'monthly') end.setMonth(end.getMonth() + 1);
-  else if (interval === 'quarterly') end.setMonth(end.getMonth() + 3);
-  else if (interval === 'yearly') end.setFullYear(end.getFullYear() + 1);
-  else if (interval === 'one_time') return null;
-  else throw new Error('SUBSCRIPTION_INTERVAL_UNSUPPORTED');
+  const day = end.getUTCDate();
+  end.setUTCDate(1);
+  end.setUTCMonth(end.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+  end.setUTCDate(Math.min(day, lastDay));
   return end;
 }
 
