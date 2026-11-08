@@ -657,3 +657,22 @@ set prompt = excluded.prompt,
     sensitivity_level = excluded.sensitivity_level,
     is_required = excluded.is_required,
     sort_order = excluded.sort_order;
+
+
+-- v2 adds the optional personal motivation prompt. Existing v1 submissions
+-- remain attached to their original wording and are never rewritten.
+insert into public.student_onboarding_question_versions (question_set_id, version_label, status, published_at)
+select id, 'v2', 'published', now()
+from public.student_onboarding_question_sets
+where set_key = 'candidate-onboarding'
+on conflict (question_set_id, version_label) do update set status = 'published';
+
+insert into public.student_onboarding_questions
+  (question_version_id, question_key, prompt, answer_type, processing_purpose, sensitivity_level, is_required, sort_order, validation_rules)
+select v2.id, q.question_key, q.prompt, q.answer_type, q.processing_purpose, q.sensitivity_level, q.is_required, q.sort_order, q.validation_rules
+from public.student_onboarding_question_versions v1
+join public.student_onboarding_question_sets s on s.id = v1.question_set_id
+join public.student_onboarding_question_versions v2 on v2.question_set_id = s.id and v2.version_label = 'v2'
+join public.student_onboarding_questions q on q.question_version_id = v1.id
+where s.set_key = 'candidate-onboarding' and v1.version_label = 'v1'
+on conflict (question_version_id, question_key) do nothing;
