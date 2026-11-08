@@ -18,7 +18,7 @@ const knowledgeDocumentSchema = z.strictObject({
   content: z.string().trim().min(100).max(100000),
 });
 
-function chunkText(content: string, maxLength = 1800): string[] {
+export function chunkText(content: string, maxLength = 1800): string[] {
   const paragraphs = content.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
   const chunks: string[] = [];
   let current = '';
