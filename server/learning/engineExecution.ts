@@ -80,6 +80,51 @@ export function buildTopicRecommendations(rows: MasteryRow[], now = Date.now()) 
 }
 
 
+
+export function buildSyllabusCoverage(
+  objectives: Array<{ subject: string; topicId: string; subtopicId: string | null }>,
+  answeredContent: Array<{ topicId: string | null; subtopicId: string | null }>,
+) {
+  if (!objectives.length) {
+    return {
+      status: 'syllabus_not_verified' as const,
+      total_objectives: 0,
+      covered_objectives: 0,
+      coverage_percent: null,
+      subjects: [],
+    };
+  }
+  const subjectRows = new Map<string, { total: number; covered: number }>();
+  let coveredTotal = 0;
+  for (const objective of objectives) {
+    const covered = answeredContent.some((attempt) =>
+      objective.subtopicId
+        ? attempt.subtopicId === objective.subtopicId
+        : attempt.topicId === objective.topicId
+    );
+    const row = subjectRows.get(objective.subject) || { total: 0, covered: 0 };
+    row.total += 1;
+    if (covered) {
+      row.covered += 1;
+      coveredTotal += 1;
+    }
+    subjectRows.set(objective.subject, row);
+  }
+  const subjects = [...subjectRows.entries()].map(([subject, row]) => ({
+    subject,
+    total_objectives: row.total,
+    covered_objectives: row.covered,
+    coverage_percent: Math.round((row.covered / row.total) * 100),
+  })).sort((a, b) => a.subject.localeCompare(b.subject));
+  return {
+    status: 'ready' as const,
+    total_objectives: objectives.length,
+    covered_objectives: coveredTotal,
+    coverage_percent: Math.round((coveredTotal / objectives.length) * 100),
+    subjects,
+  };
+}
+
 export function buildStudyPlan(rows: MasteryRow[], now = Date.now(), days = 7) {
   const due = rows
     .filter((row) => row.next_review_at && new Date(row.next_review_at).getTime() <= now)
