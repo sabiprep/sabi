@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { getNotificationReadiness, sendEmailNotification, sendSMSNotification, type NotificationChannel } from './providers';
 import { renderNotificationTemplate } from './queue';
+import { getQuietHoursDeferral } from './quietHours';
 
 type NotificationJob = {
   id: string;
@@ -38,13 +39,13 @@ export async function dispatchNotificationBatch(limit = 25) {
 
   let sent = 0;
   let failed = 0;
-  let cancelled = 0;
+  let cancelled = 0;\n  let deferred = 0;
   for (const job of (jobs || []) as NotificationJob[]) {
     try {
       if (job.user_id) {
         const { data: preference, error: preferenceError } = await supabaseAdmin
           .from('notification_preferences')
-          .select('enabled')
+          .select('enabled, quiet_hours')
           .eq('user_id', job.user_id)
           .eq('channel', job.channel)
           .eq('notification_key', job.template_key || '')
@@ -147,5 +148,5 @@ export async function dispatchNotificationBatch(limit = 25) {
     }
   }
 
-  return { claimed: (jobs || []).length, sent, failed, cancelled, channels };
+  return { claimed: (jobs || []).length, sent, failed, cancelled, deferred, channels };
 }
