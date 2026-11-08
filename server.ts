@@ -20,6 +20,7 @@ import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
+import { buildAnswerSignalObservations } from './server/learning/signalWorker';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import {
   chatSchema,
@@ -861,8 +862,8 @@ app.post(
     }
   });
 
-  // Internal dispatcher: claims signal-observation outbox rows safely and
-  // expands them into idempotent engine-request records from registry subscriptions.
+  // Internal worker: recover expired leases, convert server-verified learning
+  // evidence into versioned signals, then fan out signal observations to engines.
   app.post('/api/internal/dispatch-signals', async (req, res) => {
     const configuredSecret = process.env.SIGNAL_WORKER_SECRET;
     if (!configuredSecret) {
@@ -875,6 +876,125 @@ app.post(
     }
 
     try {
+      const now = new Date();
+      const staleLeaseBefore = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+      const { error: leaseRecoveryError } = await supabaseAdmin
+        .from('signal_processing_outbox')
+        .update({
+          processing_status: 'failed',
+          available_at: now.toISOString(),
+          locked_at: null,
+          last_error_code: 'stale_processing_lease_recovered',
+        })
+        .eq('processing_status', 'processing')
+        .lt('locked_at', staleLeaseBefore);
+      if (leaseRecoveryError) {
+        console.error('[SABI] Signal worker lease recovery failed:', leaseRecoveryError.message);
+        return res.status(500).json({ error: 'Could not recover stale signal processing work.' });
+      }
+
+      let learningEventsProcessed = 0;
+      let learningEventsFailed = 0;
+      const { data: pendingEvents, error: pendingEventsError } = await supabaseAdmin
+        .from('signal_processing_outbox')
+        .select('id, user_id, payload, attempt_count')
+        .eq('event_kind', 'learning_event_received')
+        .in('processing_status', ['pending', 'failed'])
+        .lte('available_at', now.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(50);
+      if (pendingEventsError) throw pendingEventsError;
+
+      for (const item of pendingEvents || []) {
+        const attemptCount = Number(item.attempt_count || 0) + 1;
+        const { data: claimedItem, error: claimEventError } = await supabaseAdmin
+          .from('signal_processing_outbox')
+          .update({
+            processing_status: 'processing',
+            attempt_count: attemptCount,
+            locked_at: new Date().toISOString(),
+          })
+          .eq('id', item.id)
+          .in('processing_status', ['pending', 'failed'])
+          .select('id')
+          .maybeSingle();
+        if (claimEventError) throw claimEventError;
+        if (!claimedItem) continue;
+
+        try {
+          const learningEventId = String(item.payload?.learning_event_id || '');
+          if (!learningEventId || !item.user_id) {
+            throw new Error('Learning event outbox payload is incomplete.');
+          }
+          const { data: learningEvent, error: learningEventError } = await supabaseAdmin
+            .from('learning_events')
+            .select('id, user_id, event_type, occurred_at')
+            .eq('id', learningEventId)
+            .eq('user_id', item.user_id)
+            .maybeSingle();
+          if (learningEventError) throw learningEventError;
+          if (!learningEvent) throw new Error('Referenced learning event was not found.');
+
+          // The client event only signals that an answer was submitted. Correctness
+          // and elapsed time are read from server-written session item records.
+          if (learningEvent.event_type === 'answer_submitted') {
+            const { data: samples, error: samplesError } = await supabaseAdmin
+              .from('learning_session_items')
+              .select('is_correct, elapsed_ms')
+              .eq('user_id', item.user_id)
+              .not('answered_at', 'is', null)
+              .order('answered_at', { ascending: false })
+              .limit(20);
+            if (samplesError) throw samplesError;
+
+            const observations = buildAnswerSignalObservations({
+              userId: item.user_id,
+              eventId: learningEvent.id,
+              observedAt: learningEvent.occurred_at,
+              samples: samples || [],
+            });
+            if (observations.length) {
+              const { error: observationError } = await supabaseAdmin
+                .from('student_signal_observations')
+                .upsert(observations, {
+                  onConflict: 'user_id,idempotency_key',
+                  ignoreDuplicates: true,
+                });
+              if (observationError) throw observationError;
+            }
+          }
+
+          const { error: completeEventError } = await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({
+              processing_status: 'completed',
+              completed_at: new Date().toISOString(),
+              locked_at: null,
+              last_error_code: null,
+            })
+            .eq('id', item.id)
+            .eq('processing_status', 'processing');
+          if (completeEventError) throw completeEventError;
+          learningEventsProcessed += 1;
+        } catch (error) {
+          const isDeadLetter = attemptCount >= 8;
+          const retryDelaySeconds = Math.min(30 * (2 ** Math.max(0, attemptCount - 1)), 3600);
+          const { error: retryError } = await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({
+              processing_status: isDeadLetter ? 'dead_letter' : 'failed',
+              available_at: new Date(Date.now() + retryDelaySeconds * 1000).toISOString(),
+              locked_at: null,
+              last_error_code: 'learning_event_signal_processing_failed',
+            })
+            .eq('id', item.id)
+            .eq('processing_status', 'processing');
+          if (retryError) console.error('[SABI] Learning event retry scheduling failed:', retryError.message);
+          console.error('[SABI] Learning event signal processing failed:', error);
+          learningEventsFailed += 1;
+        }
+      }
+
       const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_signal_outbox', { p_limit: 50 });
       if (claimError) return res.status(500).json({ error: 'Could not claim signal processing work.' });
 
@@ -917,9 +1037,25 @@ app.post(
           failed += 1;
         }
       }
-      return res.json({ status: 'processed', claimed: (claimed ?? []).length, completed, failed, engineRequestsCreated });
-    } catch {
-      return res.status(500).json({ error: 'Signal dispatch failed.' });
+
+      const { count: pendingEngineRequests } = await supabaseAdmin
+        .from('signal_processing_outbox')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_kind', 'engine_requested')
+        .in('processing_status', ['pending', 'failed']);
+      return res.json({
+        status: 'processed',
+        learningEventsProcessed,
+        learningEventsFailed,
+        signalObservationsClaimed: (claimed ?? []).length,
+        signalObservationsCompleted: completed,
+        signalObservationsFailed: failed,
+        engineRequestsCreated,
+        pendingEngineRequests: pendingEngineRequests || 0,
+      });
+    } catch (error) {
+      console.error('[SABI] Signal worker failed:', error);
+      return res.status(500).json({ error: 'Signal processing failed.' });
     }
   });
 
