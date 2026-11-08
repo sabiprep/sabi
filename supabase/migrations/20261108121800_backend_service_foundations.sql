@@ -128,6 +128,13 @@ create table if not exists public.ai_credit_ledger (
   unique (user_id, idempotency_key)
 );
 
+create table if not exists public.ai_task_pricing (
+  task text primary key check (task in ('explanation','tutor_chat','content_draft','study_plan')),
+  credit_cost integer not null default 0 check (credit_cost >= 0),
+  is_active boolean not null default false,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.ai_prompt_versions (
   id uuid primary key default gen_random_uuid(),
   task text not null check (task in ('explanation','tutor_chat','content_draft','study_plan')),
@@ -313,6 +320,111 @@ create index if not exists idx_parent_student_parent on public.parent_student_re
 create index if not exists idx_parent_student_student on public.parent_student_relationships(student_user_id, status);
 create index if not exists idx_school_memberships_user_status on public.school_memberships(user_id, status);
 
+create or replace function public.reserve_ai_credits(
+  p_user_id uuid,
+  p_task text,
+  p_request_id text
+)
+returns table(allowed boolean, credit_cost integer, reason text)
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare
+  task_cost integer;
+  current_balance bigint;
+  debit_key text;
+begin
+  if p_user_id is null or coalesce(length(trim(p_request_id)), 0) < 8 then
+    return query select false, 0, 'invalid_request';
+    return;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtext(p_user_id::text)::bigint);
+
+  select pricing.credit_cost into task_cost
+  from public.ai_task_pricing pricing
+  where pricing.task = p_task and pricing.is_active = true;
+
+  if not found then
+    return query select false, 0, 'pricing_not_configured';
+    return;
+  end if;
+
+  debit_key := 'ai-request:' || p_request_id;
+  if exists (
+    select 1 from public.ai_credit_ledger ledger
+    where ledger.user_id = p_user_id and ledger.idempotency_key = debit_key
+  ) then
+    return query select true, task_cost, 'already_reserved';
+    return;
+  end if;
+
+  select coalesce(sum(ledger.credits_delta), 0) into current_balance
+  from public.ai_credit_ledger ledger
+  where ledger.user_id = p_user_id;
+
+  if current_balance < task_cost then
+    return query select false, task_cost, 'insufficient_credits';
+    return;
+  end if;
+
+  if task_cost > 0 then
+    insert into public.ai_credit_ledger (
+      user_id, entry_type, credits_delta, reason, reference_type,
+      reference_id, idempotency_key, metadata
+    ) values (
+      p_user_id, 'debit', -task_cost, 'ai_task_usage', 'ai_usage_events',
+      p_request_id, debit_key, jsonb_build_object('task', p_task, 'credit_cost', task_cost)
+    );
+  end if;
+
+  return query select true, task_cost, 'reserved';
+end;
+$;
+
+create or replace function public.refund_ai_credits(
+  p_user_id uuid,
+  p_request_id text,
+  p_reason text default 'ai_provider_failed'
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $
+declare
+  debit_amount integer;
+begin
+  select abs(ledger.credits_delta) into debit_amount
+  from public.ai_credit_ledger ledger
+  where ledger.user_id = p_user_id
+    and ledger.idempotency_key = 'ai-request:' || p_request_id
+    and ledger.entry_type = 'debit'
+  limit 1;
+
+  if not found or debit_amount <= 0 then
+    return false;
+  end if;
+
+  insert into public.ai_credit_ledger (
+    user_id, entry_type, credits_delta, reason, reference_type,
+    reference_id, idempotency_key, metadata
+  ) values (
+    p_user_id, 'refund', debit_amount, left(coalesce(p_reason, 'ai_provider_failed'), 120),
+    'ai_usage_events', p_request_id, 'ai-request-refund:' || p_request_id,
+    jsonb_build_object('request_id', p_request_id)
+  ) on conflict (user_id, idempotency_key) do nothing;
+
+  return true;
+end;
+$;
+
+revoke all on function public.reserve_ai_credits(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.refund_ai_credits(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.reserve_ai_credits(uuid, text, text) to service_role;
+grant execute on function public.refund_ai_credits(uuid, text, text) to service_role;
+
 -- Every new table is RLS-protected. Sensitive queues, webhook payloads, prompt
 -- versions, knowledge content and delivery logs are service-role-only.
 alter table public.entitlement_catalogue enable row level security;
@@ -324,6 +436,7 @@ alter table public.payment_webhook_events enable row level security;
 alter table public.ai_usage_events enable row level security;
 alter table public.ai_credit_ledger enable row level security;
 alter table public.ai_prompt_versions enable row level security;
+alter table public.ai_task_pricing enable row level security;
 alter table public.notification_preferences enable row level security;
 alter table public.notification_templates enable row level security;
 alter table public.notification_queue enable row level security;
@@ -338,7 +451,7 @@ alter table public.school_memberships enable row level security;
 
 revoke all on public.entitlement_catalogue, public.subscription_plans, public.student_subscriptions,
   public.student_entitlements, public.payment_transactions, public.payment_webhook_events,
-  public.ai_usage_events, public.ai_credit_ledger, public.ai_prompt_versions,
+  public.ai_usage_events, public.ai_credit_ledger, public.ai_prompt_versions, public.ai_task_pricing, public.ai_task_pricing,
   public.notification_preferences, public.notification_templates, public.notification_queue,
   public.notification_delivery_logs, public.student_xp_ledger, public.student_streak_state,
   public.knowledge_documents, public.knowledge_chunks, public.parent_student_relationships,
