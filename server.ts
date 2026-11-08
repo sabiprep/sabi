@@ -21,6 +21,7 @@ import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandl
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
 import { buildAnswerSignalObservations, buildMasterySignalObservation } from './server/learning/signalWorker';
+import { executeEngineRequest } from './server/learning/engineExecution';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
 import {
   chatSchema,
@@ -1086,6 +1087,78 @@ app.post(
         }
       }
 
+      // Execute engine requests created by the versioned signal subscriptions.
+      // Each request is claimed with a conditional status update so concurrent
+      // invocations cannot run the same job at the same time.
+      let engineRequestsProcessed = 0;
+      let engineRequestsFailed = 0;
+      const { data: pendingEngineJobs, error: pendingEngineJobsError } = await supabaseAdmin
+        .from('signal_processing_outbox')
+        .select('id, user_id, engine_key, payload, idempotency_key, attempt_count')
+        .eq('event_kind', 'engine_requested')
+        .in('processing_status', ['pending', 'failed'])
+        .lte('available_at', new Date().toISOString())
+        .order('created_at', { ascending: true })
+        .limit(50);
+      if (pendingEngineJobsError) throw pendingEngineJobsError;
+
+      for (const job of pendingEngineJobs || []) {
+        const attemptCount = Number(job.attempt_count || 0) + 1;
+        const { data: claimedJob, error: claimJobError } = await supabaseAdmin
+          .from('signal_processing_outbox')
+          .update({
+            processing_status: 'processing',
+            attempt_count: attemptCount,
+            locked_at: new Date().toISOString(),
+          })
+          .eq('id', job.id)
+          .in('processing_status', ['pending', 'failed'])
+          .select('id')
+          .maybeSingle();
+        if (claimJobError) throw claimJobError;
+        if (!claimedJob) continue;
+
+        try {
+          if (!job.user_id || !job.engine_key) throw new Error('engine_request_payload_incomplete');
+          await executeEngineRequest(supabaseAdmin, {
+            id: job.id,
+            user_id: job.user_id,
+            engine_key: job.engine_key,
+            payload: job.payload || {},
+            idempotency_key: job.idempotency_key,
+            attempt_count: attemptCount,
+          });
+          const { error: completeJobError } = await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({
+              processing_status: 'completed',
+              completed_at: new Date().toISOString(),
+              locked_at: null,
+              last_error_code: null,
+            })
+            .eq('id', job.id)
+            .eq('processing_status', 'processing');
+          if (completeJobError) throw completeJobError;
+          engineRequestsProcessed += 1;
+        } catch (error) {
+          const isDeadLetter = attemptCount >= 8;
+          const retryDelaySeconds = Math.min(30 * (2 ** Math.max(0, attemptCount - 1)), 3600);
+          const { error: retryJobError } = await supabaseAdmin
+            .from('signal_processing_outbox')
+            .update({
+              processing_status: isDeadLetter ? 'dead_letter' : 'failed',
+              available_at: new Date(Date.now() + retryDelaySeconds * 1000).toISOString(),
+              locked_at: null,
+              last_error_code: 'engine_execution_failed',
+            })
+            .eq('id', job.id)
+            .eq('processing_status', 'processing');
+          if (retryJobError) console.error('[SABI] Engine request retry scheduling failed:', retryJobError.message);
+          console.error('[SABI] Engine request execution failed:', job.engine_key, error);
+          engineRequestsFailed += 1;
+        }
+      }
+
       const { count: pendingEngineRequests } = await supabaseAdmin
         .from('signal_processing_outbox')
         .select('id', { count: 'exact', head: true })
@@ -1099,6 +1172,8 @@ app.post(
         signalObservationsCompleted: completed,
         signalObservationsFailed: failed,
         engineRequestsCreated,
+        engineRequestsProcessed,
+        engineRequestsFailed,
         pendingEngineRequests: pendingEngineRequests || 0,
       });
     } catch (error) {
