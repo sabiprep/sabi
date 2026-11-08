@@ -79,6 +79,15 @@ create table if not exists public.signal_engine_subscriptions (
   unique (engine_key, engine_contract_version, signal_key, trigger_mode)
 );
 
+-- Idempotent check-in writes ensure the self-report and its normalized
+-- signals are committed together, never half-recorded.
+alter table public.student_progress_checkins
+  add column if not exists submission_key text;
+
+create unique index if not exists student_progress_checkins_idempotency_idx
+  on public.student_progress_checkins(user_id,submission_key)
+  where submission_key is not null;
+
 create table if not exists public.student_signal_observations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -263,6 +272,88 @@ drop trigger if exists student_signal_observation_materialize on public.student_
 create trigger student_signal_observation_materialize
 after insert on public.student_signal_observations
 for each row execute function public.materialize_student_signal_observation();
+
+create or replace function public.record_student_progress_checkin(
+  p_user_id uuid,
+  p_submission_key text,
+  p_confidence_score smallint default null,
+  p_motivation_score smallint default null,
+  p_perceived_barriers text[] default '{}',
+  p_reflection_text text default null
+)
+returns uuid
+language plpgsql
+security invoker
+set search_path = ''
+as $
+declare
+  v_checkin_id uuid;
+  v_existing public.student_progress_checkins%rowtype;
+begin
+  if p_submission_key is null or length(p_submission_key) < 8 or length(p_submission_key) > 120 then
+    raise exception 'A valid check-in idempotency key is required';
+  end if;
+  if p_confidence_score is null and p_motivation_score is null
+     and coalesce(cardinality(p_perceived_barriers),0)=0
+     and nullif(trim(p_reflection_text),'') is null then
+    raise exception 'At least one check-in response is required';
+  end if;
+
+  select * into v_existing
+  from public.student_progress_checkins
+  where user_id=p_user_id and submission_key=p_submission_key
+  for update;
+
+  if found then
+    if v_existing.confidence_score is distinct from p_confidence_score
+       or v_existing.motivation_score is distinct from p_motivation_score
+       or v_existing.perceived_barriers is distinct from coalesce(p_perceived_barriers,'{}')
+       or v_existing.reflection_text is distinct from p_reflection_text then
+      raise exception 'Check-in idempotency key was reused with different answers';
+    end if;
+    v_checkin_id := v_existing.id;
+  else
+    insert into public.student_progress_checkins(
+      user_id,confidence_score,motivation_score,perceived_barriers,reflection_text,
+      capture_source,submission_key
+    ) values (
+      p_user_id,p_confidence_score,p_motivation_score,coalesce(p_perceived_barriers,'{}'),
+      p_reflection_text,'in_app',p_submission_key
+    ) returning id into v_checkin_id;
+  end if;
+
+  if p_confidence_score is not null then
+    insert into public.student_signal_observations(
+      user_id,signal_key,schema_version,source_key,value,confidence,purpose_key,
+      provenance,observed_at,idempotency_key
+    ) values (
+      p_user_id,'student.confidence',1,'progress-checkin',to_jsonb(p_confidence_score),
+      1.0,'personalized_learning',
+      jsonb_build_object('checkin_id',v_checkin_id,'method','student_self_report'),
+      coalesce(v_existing.captured_at,now()),
+      'progress-checkin:'||v_checkin_id::text||':confidence'
+    ) on conflict (user_id,idempotency_key) do nothing;
+  end if;
+
+  if p_motivation_score is not null then
+    insert into public.student_signal_observations(
+      user_id,signal_key,schema_version,source_key,value,confidence,purpose_key,
+      provenance,observed_at,idempotency_key
+    ) values (
+      p_user_id,'student.motivation_score',1,'progress-checkin',to_jsonb(p_motivation_score),
+      1.0,'personalized_learning',
+      jsonb_build_object('checkin_id',v_checkin_id,'method','student_self_report'),
+      coalesce(v_existing.captured_at,now()),
+      'progress-checkin:'||v_checkin_id::text||':motivation'
+    ) on conflict (user_id,idempotency_key) do nothing;
+  end if;
+
+  return v_checkin_id;
+end;
+$;
+
+revoke all on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) from public,anon,authenticated;
+grant execute on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) to service_role;
 
 -- Raw learning events are durable evidence. The outbox handoff is in the same
 -- transaction so accepted telemetry cannot be lost between storage and processing.
