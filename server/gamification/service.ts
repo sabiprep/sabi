@@ -1,3 +1,28 @@
+export type StudyStreak = {
+  currentStreak: number;
+  longestStreak: number;
+  lastActivityDate: string | null;
+  timezone: string;
+  activityRecorded: boolean;
+};
+
+export async function recordStudyActivity(db: any, userId: string, timezone = 'UTC'): Promise<StudyStreak> {
+  const { data, error } = await db.rpc('record_student_study_activity', {
+    p_user_id: userId,
+    p_timezone: timezone,
+  });
+  if (error) throw new Error('STUDY_STREAK_UPDATE_FAILED');
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result) throw new Error('STUDY_STREAK_UPDATE_FAILED');
+  return {
+    currentStreak: Number(result.current_streak || 0),
+    longestStreak: Number(result.longest_streak || 0),
+    lastActivityDate: result.last_activity_date || null,
+    timezone: String(result.timezone || timezone),
+    activityRecorded: result.activity_recorded === true,
+  };
+}
+
 export async function awardXP(
   db: any,
   input: {
