@@ -151,6 +151,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
   const { messages, subject, topic, sessionId } = req.body as z.infer<typeof chatRequestSchema>;
   let aiRequestId: string | null = null;
   let reservedCreditCost = 0;
+  let aiUsageRecorded = false;
 
   try {
     if (sessionId) {
@@ -275,6 +276,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
       creditCost: reservedCreditCost,
     });
+    aiUsageRecorded = true;
     return res.json({
       aiAvailable: true,
       reply: generated.text,
@@ -282,7 +284,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       model: generated.model,
     });
   } catch (error) {
-    if (aiRequestId && reservedCreditCost > 0) {
+    if (aiRequestId && reservedCreditCost > 0 && !aiUsageRecorded) {
       try { await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'ai_provider_or_accounting_failed'); }
       catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
     }
@@ -457,6 +459,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
         creditCost: reservedCreditCost,
         metadata: { questionId, preference },
       });
+      aiUsageRecorded = true;
       return res.json({
         aiAvailable: true,
         explanation: generated.text,
