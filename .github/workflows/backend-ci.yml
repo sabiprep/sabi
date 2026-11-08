@@ -76,15 +76,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108123000_phase2_atomic_mastery_upsert.sql
       - name: Verify Phase 2 adaptive learning behaviour
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_adaptive_learning_assertions.sql
-      - name: Apply Phase 1.5 intelligence data layer
-        run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108150000_phase1_5_intelligence_data_layer.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/seeds/phase1_5_engine_registry.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/seeds/2026_jamb_subject_catalogue.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/seeds/simulation_personas.sql
-      - name: Verify Phase 1.5 intelligence data layer
-        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_5_intelligence_assertions.sql
-      - name: Verify migrations are idempotent
+      - name: Verify Phase 1/2 migrations are idempotent
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
@@ -93,3 +85,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108123000_phase2_atomic_mastery_upsert.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_adaptive_learning_assertions.sql
+      - name: Apply Phase 1.5 intelligence data layer
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108150000_phase1_5_intelligence_data_layer.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/seeds/phase1_5_engine_registry.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/seeds/2026_jamb_subject_catalogue.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/seeds/simulation_personas.sql
+      - name: Verify Phase 1.5 intelligence data layer
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_5_intelligence_assertions.sql
