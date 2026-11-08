@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
 import { validateBody } from '../middleware/validate';
+import { requireRole } from '../middleware/requireRole';
 import {
   extractPaymentWebhook,
   getPaymentProviderReadiness,
@@ -14,6 +15,41 @@ import {
 } from './providers';
 
 const router = Router();
+
+
+const planSchema = z.strictObject({
+  planKey: z.string().trim().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+  displayName: z.string().trim().min(2).max(100),
+  description: z.string().trim().max(1000).optional(),
+  priceAmount: z.number().finite().min(0),
+  currency: z.string().trim().length(3).default('NGN'),
+  billingInterval: z.enum(['monthly', 'quarterly', 'yearly', 'one_time']),
+  features: z.record(z.string(), z.unknown()).default({}),
+  limits: z.record(z.string(), z.unknown()).default({}),
+  aiCreditAllowance: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(false),
+  displayOrder: z.number().int().default(0),
+});
+
+const entitlementSchema = z.strictObject({
+  entitlementKey: z.string().trim().regex(/^[a-z0-9][a-z0-9_.-]{1,99}$/),
+  description: z.string().trim().min(2).max(500),
+  valueSchema: z.record(z.string(), z.unknown()).default({}),
+  isActive: z.boolean().default(false),
+});
+
+async function validatePlanFeatureKeys(features: Record<string, unknown>) {
+  const keys = Object.keys(features);
+  if (!keys.length) return { ok: true as const };
+  const { data, error } = await supabaseAdmin.from('entitlement_catalogue')
+    .select('entitlement_key').in('entitlement_key', keys).eq('is_active', true);
+  if (error) return { ok: false as const, code: 'ENTITLEMENT_LOOKUP_FAILED' };
+  const active = new Set((data || []).map((row) => row.entitlement_key));
+  const missing = keys.filter((key) => !active.has(key));
+  return missing.length
+    ? { ok: false as const, code: 'PLAN_FEATURE_NOT_CONFIGURED', missing }
+    : { ok: true as const };
+}
 
 const checkoutSchema = z.strictObject({
   planKey: z.string().trim().min(1).max(80),
@@ -37,6 +73,93 @@ function addBillingPeriod(start: Date, interval: string): Date | null {
   else throw new Error('SUBSCRIPTION_INTERVAL_UNSUPPORTED');
   return end;
 }
+
+
+router.get('/admin/plans', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const { data, error } = await supabaseAdmin.from('subscription_plans')
+    .select('*').order('display_order', { ascending: true });
+  if (error) return res.status(503).json({ error: 'Plan catalogue is temporarily unavailable.' });
+  return res.json({ plans: data || [] });
+});
+
+router.post('/admin/plans', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(planSchema), async (req, res) => {
+  const input = req.body as z.infer<typeof planSchema>;
+  if (input.isActive) {
+    const featureCheck = await validatePlanFeatureKeys(input.features);
+    if (!featureCheck.ok) return res.status(409).json({ error: 'Plan references inactive or unknown entitlements.', ...featureCheck });
+  }
+  const { data, error } = await supabaseAdmin.from('subscription_plans').insert({
+    plan_key: input.planKey,
+    display_name: input.displayName,
+    description: input.description || null,
+    price_amount: input.priceAmount,
+    currency: input.currency.toUpperCase(),
+    billing_interval: input.billingInterval,
+    features: input.features,
+    limits: input.limits,
+    ai_credit_allowance: input.aiCreditAllowance,
+    is_active: input.isActive,
+    display_order: input.displayOrder,
+  }).select('*').single();
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'A plan with this key already exists.' });
+    return res.status(503).json({ error: 'The subscription plan could not be saved.' });
+  }
+  return res.status(201).json({ plan: data });
+});
+
+router.patch('/admin/plans/:planId', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (req, res) => {
+  const planId = String(req.params.planId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(planId)) {
+    return res.status(400).json({ error: 'A valid plan ID is required.' });
+  }
+  const patchSchema = planSchema.partial().strict();
+  const parsed = patchSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid plan update.', details: parsed.error.flatten() });
+  const input = parsed.data;
+  if (input.isActive === true || input.features) {
+    const featureCheck = await validatePlanFeatureKeys(input.features || {});
+    if (!featureCheck.ok) return res.status(409).json({ error: 'Plan references inactive or unknown entitlements.', ...featureCheck });
+  }
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.displayName !== undefined) updates.display_name = input.displayName;
+  if (input.description !== undefined) updates.description = input.description;
+  if (input.priceAmount !== undefined) updates.price_amount = input.priceAmount;
+  if (input.currency !== undefined) updates.currency = input.currency.toUpperCase();
+  if (input.billingInterval !== undefined) updates.billing_interval = input.billingInterval;
+  if (input.features !== undefined) updates.features = input.features;
+  if (input.limits !== undefined) updates.limits = input.limits;
+  if (input.aiCreditAllowance !== undefined) updates.ai_credit_allowance = input.aiCreditAllowance;
+  if (input.isActive !== undefined) updates.is_active = input.isActive;
+  if (input.displayOrder !== undefined) updates.display_order = input.displayOrder;
+  const { data, error } = await supabaseAdmin.from('subscription_plans')
+    .update(updates).eq('id', planId).select('*').maybeSingle();
+  if (error) return res.status(503).json({ error: 'The subscription plan could not be updated.' });
+  if (!data) return res.status(404).json({ error: 'Subscription plan not found.' });
+  return res.json({ plan: data });
+});
+
+router.get('/admin/entitlements', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const { data, error } = await supabaseAdmin.from('entitlement_catalogue')
+    .select('*').order('entitlement_key', { ascending: true });
+  if (error) return res.status(503).json({ error: 'Entitlement catalogue is temporarily unavailable.' });
+  return res.json({ entitlements: data || [] });
+});
+
+router.post('/admin/entitlements', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(entitlementSchema), async (req, res) => {
+  const input = req.body as z.infer<typeof entitlementSchema>;
+  const { data, error } = await supabaseAdmin.from('entitlement_catalogue').insert({
+    entitlement_key: input.entitlementKey,
+    description: input.description,
+    value_schema: input.valueSchema,
+    is_active: input.isActive,
+  }).select('*').single();
+  if (error) {
+    if (error.code === '23505') return res.status(409).json({ error: 'This entitlement key already exists.' });
+    return res.status(503).json({ error: 'The entitlement could not be saved.' });
+  }
+  return res.status(201).json({ entitlement: data });
+});
 
 router.get('/plans', requireAuth, async (_req, res) => {
   const { data, error } = await supabaseAdmin
