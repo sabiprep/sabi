@@ -12,6 +12,7 @@ import { validateBody } from '../middleware/validate';
 import { requireRole } from '../middleware/requireRole';
 import { isCBTExpired } from './cbtTimer';
 import { buildSyllabusCoverage } from './engineExecution';
+import { enqueueNotification } from '../notifications/queue';
 
 const router = Router();
 
@@ -110,6 +111,25 @@ async function validateVerifiedQuestionTaxonomy(input: {
     subtopic = { id: data.id, name: data.name };
   }
   return { ok: true as const, topic: { id: topic.id, name: topic.name }, subtopic };
+}
+
+
+async function enqueueSessionCompletionNotification(userId: string, sessionId: string, mode: string) {
+  try {
+    await enqueueNotification(supabaseAdmin, {
+      userId,
+      channel: 'in_app',
+      notificationKey: 'learning_session_completed',
+      idempotencyKey: `learning-session-completed:${sessionId}`,
+      payload: {
+        title: 'Practice session completed',
+        body: 'Your results are ready. Review your answers and next steps.',
+        data: { sessionId, mode },
+      },
+    });
+  } catch (error) {
+    console.error('[SABI] Session completion notification enqueue failed:', error instanceof Error ? error.name : 'unknown_error');
+  }
 }
 
 function authenticatedUser(req: Request): string | null {
@@ -726,6 +746,7 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
         schema_version: 1,
       }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
       if (completionEventError) console.error('[SABI] CBT completion event could not be recorded:', completionEventError.message);
+      await enqueueSessionCompletionNotification(userId, sessionId, session.mode);
       session = { ...session, status: 'completed', completed_at: completedAt };
     }
 
@@ -833,6 +854,7 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
         schema_version: 1,
       }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
       if (completionEventError) console.error('[SABI] CBT completion event could not be recorded:', completionEventError.message);
+      await enqueueSessionCompletionNotification(userId, sessionId, activeSession.mode);
       return res.status(409).json({
         error: 'Time is up. Your CBT has been submitted automatically.',
         code: 'CBT_TIME_EXPIRED',
@@ -897,6 +919,18 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
       } else {
         telemetryQueued = true;
       }
+    }
+
+    const { data: updatedSession, error: updatedSessionError } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('status, mode')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (updatedSessionError) {
+      console.error('[SABI] Completed session status lookup failed:', updatedSessionError.message);
+    } else if (updatedSession?.status === 'completed') {
+      await enqueueSessionCompletionNotification(userId, sessionId, updatedSession.mode);
     }
 
     res.set('Cache-Control', 'no-store');
