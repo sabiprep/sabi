@@ -41,7 +41,7 @@ const entitlementSchema = z.strictObject({
 });
 
 async function validatePlanFeatureKeys(features: Record<string, unknown>) {
-  const keys = Object.keys(features);
+  const keys = Object.entries(features).filter(([, value]) => value !== false && value !== null && value !== undefined).map(([key]) => key);
   if (!keys.length) return { ok: true as const };
   const { data, error } = await supabaseAdmin.from('entitlement_catalogue')
     .select('entitlement_key').in('entitlement_key', keys).eq('is_active', true);
