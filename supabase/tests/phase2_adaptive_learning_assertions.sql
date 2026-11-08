@@ -1,3 +1,4 @@
+BEGIN;
 -- Phase 2 adaptive-learning schema and behaviour assertions.
 DO $$
 DECLARE
@@ -57,3 +58,5 @@ BEGIN
   END IF;
 END
 $$;
+
+ROLLBACK;
