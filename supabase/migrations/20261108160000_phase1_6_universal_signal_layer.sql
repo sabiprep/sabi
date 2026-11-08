@@ -421,7 +421,7 @@ begin
     user_id,exam_year,subject_slug,selection_order,is_compulsory,selection_source
   )
   select p_user_id,p_exam_year,s.slug,subject_choice.ordinality::smallint,
-    (s.display_name ilike '%English%'),'onboarding'
+    (s.slug='use-of-english'),'onboarding'
   from unnest(p_registered_subjects) with ordinality as subject_choice(subject_name,ordinality)
   join public.jamb_subjects s
     on lower(s.display_name)=lower(subject_choice.subject_name)
