@@ -1,19 +1,19 @@
 # Sabi Backend Execution Status
 
-## Current verified snapshot — 8 November 2026 (updated after PR #24)
+## Current verified snapshot — 8 November 2026 (updated after PR #26)
 
-- **Latest merged application code:** `c16a52175fb7af32879ede479d56b34b950d37c9` (PR #24).
-- **Recent merged changes:** [PR #24 — learner notification quiet-hours enforcement](https://github.com/sabiprep/sabi/pull/24); [PR #23 — Lagos timezone consistency for empty streak state](https://github.com/sabiprep/sabi/pull/23); [PR #22 — backend execution status refresh](https://github.com/sabiprep/sabi/pull/22); [PR #21 — daily study streak engine](https://github.com/sabiprep/sabi/pull/21).
-- **Latest Backend CI:** PR #24 run `42526574227` passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
+- **Latest merged application code:** `23d94119765b95285c39f9a4881f295774c415ae` (PR #26).
+- **Recent merged changes:** [PR #26 — quiet-hours timezone calculation optimization](https://github.com/sabiprep/sabi/pull/26); [PR #25 — backend execution status refresh](https://github.com/sabiprep/sabi/pull/25); [PR #24 — learner notification quiet-hours enforcement](https://github.com/sabiprep/sabi/pull/24); [PR #23 — Lagos timezone consistency for empty streak state](https://github.com/sabiprep/sabi/pull/23); [PR #22 — backend execution status refresh](https://github.com/sabiprep/sabi/pull/22); [PR #21 — daily study streak engine](https://github.com/sabiprep/sabi/pull/21).
+- **Latest Backend CI:** PR #26 run `42526755417` passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
 - **Gamification:** session completion records an idempotent, timezone-aware study streak using `Africa/Lagos` as the current product default. Learner-configurable timezones remain future work.
 - **Notifications:** the queue supports in-app/email/SMS delivery adapters, preferences and templates. Quiet-hours preferences now support an enabled flag, local start/end times and IANA timezone; the worker defers queued jobs until the quiet window ends. Push delivery remains unconfigured.
 - **Production deployment:** not confirmed. Vercel rejected recent deployment attempts because the project exceeded its free daily deployment quota. A green Backend CI run is not proof that the latest code is live.
 - **Production database snapshot (captured 8 November 2026; not re-queried by this PR):** 21 migrations recorded; 0 learner sessions; 0 captured question attempts; 0 verified syllabus versions; 0 verified syllabus objectives; 104 syllabus import rows pending validation; 0 question-to-objective mappings.
 - **Question pool snapshot (captured 8 November 2026; not re-queried by this PR):** 3,740 questions: 404 published (all Use of English), 3,333 AI drafts, and 3 needs-review. Biology (997), C.R.S (995), and Chemistry (1,043) had no published questions. All 157 source records were unverified with permitted use unknown; a full four-subject CBT was therefore not ready for learners.
-- **Syllabus content:** JAMB syllabus ingestion remains paused by product direction. No syllabus content was approved or published by PRs #21–#24.
+- **Syllabus content:** JAMB syllabus ingestion remains paused by product direction. No syllabus content was approved or published by PRs #21–#26.
 - **Learner journey:** not yet verified against a live authenticated learner. Production usage evidence remains absent in the last recorded database snapshot.
 - **Deployment restriction:** no production deployment was triggered as part of PRs #21–#24.
-The workstream table and implementation notes below are the earlier PR #12 baseline snapshot. They are retained for history and must not be read as a current audit of main. Re-audit each workstream before marking it complete.
+The workstream table and implementation notes below are the earlier PR #12 baseline snapshot and have not yet been re-audited against the full current repository. They are retained for history and must not be read as a current audit of main. Re-audit each workstream before marking it complete.
 
 **Baseline:** `main` at `2aaecf8e184e3becd4531a8ac8583770b304c7e2` (8 Nov 2026)  
 **Working implementation:** `backend/full-platform-completion-2026-11-08`  
