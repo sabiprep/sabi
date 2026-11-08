@@ -18,7 +18,8 @@ create index if not exists idx_in_app_notifications_unread
 alter table public.in_app_notifications enable row level security;
 revoke all on public.in_app_notifications from anon, authenticated;
 grant all on public.in_app_notifications to service_role;
-grant select, update on public.in_app_notifications to authenticated;
+grant select on public.in_app_notifications to authenticated;
+grant update (read_at) on public.in_app_notifications to authenticated;
 
 drop policy if exists in_app_notifications_owner_read on public.in_app_notifications;
 drop policy if exists in_app_notifications_owner_update on public.in_app_notifications;
@@ -27,7 +28,7 @@ create policy in_app_notifications_owner_read on public.in_app_notifications
 create policy in_app_notifications_owner_update on public.in_app_notifications
   for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 
-create or replace function public.claim_notification_jobs(p_limit integer default 25)
+create or replace function public.claim_notification_jobs(p_limit integer default 25, p_channels text[] default null)
 returns setof public.notification_queue
 language plpgsql
 security definer
@@ -50,6 +51,7 @@ begin
     where status in ('pending', 'failed')
       and available_at <= now()
       and attempts < max_attempts
+      and (p_channels is null or channel = any(p_channels))
     order by available_at asc, created_at asc
     for update skip locked
     limit greatest(1, least(coalesce(p_limit, 25), 100))
@@ -99,7 +101,7 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_notification_jobs(integer) from public, anon, authenticated;
+revoke all on function public.claim_notification_jobs(integer, text[]) from public, anon, authenticated;
 revoke all on function public.finalize_notification_job(uuid, boolean, text) from public, anon, authenticated;
-grant execute on function public.claim_notification_jobs(integer) to service_role;
+grant execute on function public.claim_notification_jobs(integer, text[]) to service_role;
 grant execute on function public.finalize_notification_job(uuid, boolean, text) to service_role;
