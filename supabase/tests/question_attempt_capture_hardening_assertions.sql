@@ -14,16 +14,17 @@ declare
   v_second_attempt_number integer;
   v_function text;
 begin
-  select id into v_user_id from auth.users limit 1;
-  if v_user_id is null then
-    raise exception 'Assertion failed: an auth user fixture is required';
-  end if;
+  insert into auth.users (id, email, raw_user_meta_data)
+  values (gen_random_uuid(), 'attempt-capture-ci-fixture@local.invalid', '{}'::jsonb)
+  returning id into v_user_id;
 
   select id into v_question_id
   from public.question_bank
-  where status = 'published'
   order by id
   limit 1;
+  if v_question_id is not null then
+    update public.question_bank set status = 'published' where id = v_question_id;
+  end if;
   if v_question_id is null then
     raise exception 'Assertion failed: a published question fixture is required';
   end if;
