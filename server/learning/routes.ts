@@ -11,6 +11,7 @@ import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAut
 import { validateBody } from '../middleware/validate';
 import { requireRole } from '../middleware/requireRole';
 import { isCBTExpired } from './cbtTimer';
+import { isCbtFeedbackLocked } from './answerVisibility';
 import { buildSyllabusCoverage } from './engineExecution';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP } from '../gamification/service';
@@ -804,14 +805,20 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
           question: question.question,
           options: { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d },
           difficulty: question.difficulty,
-          answerState: answered ? {
-            selectedOption: item.selected_option,
-            isCorrect: item.is_correct,
-            correctOption: String(question.answer || '').trim().toUpperCase(),
-            explanation: question.explanation_short || question.explanation || '',
-            elapsedMs: item.elapsed_ms,
-            answeredAt: item.answered_at,
-          } : null,
+          answerState: answered ? (isCbtFeedbackLocked(session.mode, session.status)
+            ? {
+                selectedOption: item.selected_option,
+                elapsedMs: item.elapsed_ms,
+                answeredAt: item.answered_at,
+              }
+            : {
+                selectedOption: item.selected_option,
+                isCorrect: item.is_correct,
+                correctOption: String(question.answer || '').trim().toUpperCase(),
+                explanation: question.explanation_short || question.explanation || '',
+                elapsedMs: item.elapsed_ms,
+                answeredAt: item.answered_at,
+              }) : null,
         }];
       }),
     });
@@ -956,8 +963,18 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
       await enqueueSessionCompletionNotification(userId, sessionId, updatedSession.mode);
     }
 
+    const feedbackLocked = isCbtFeedbackLocked(activeSession.mode, updatedSession?.status || activeSession.status);
+    const responseResult = feedbackLocked
+      ? {
+          recorded: true,
+          answered_count: data?.answered_count,
+          total_questions: data?.total_questions,
+          session_completed: false,
+        }
+      : data;
+
     res.set('Cache-Control', 'no-store');
-    return res.json({ status: 'recorded', result: data, telemetryQueued });
+    return res.json({ status: 'recorded', result: responseResult, telemetryQueued });
   } catch (error) {
     console.error('[SABI] Unexpected answer submission error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while recording your answer.' });
