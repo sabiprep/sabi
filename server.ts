@@ -20,6 +20,7 @@ import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
 import aiRouter from './server/ai/routes';
 import paymentRouter from './server/billing/routes';
+import notificationRouter from './server/notifications/routes';
 import { generateAIText, getAIReadiness } from './server/ai/gateway';
 import { recordAIUsage } from './server/ai/usage';
 import { AIUnavailableError } from './server/ai/types';
@@ -133,6 +134,7 @@ app.use(configurationGuard);
 app.use('/api/learning', learningRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/payments', paymentRouter);
+app.use('/api/internal/notifications', notificationRouter);
 
 
 
