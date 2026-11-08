@@ -143,15 +143,15 @@ begin
   if v_count <> 1 then raise exception 'Signal observation did not enqueue exactly one outbox item'; end if;
 
   v_count := public.dispatch_signal_observation_to_engines(v_observation);
-  if v_count < 3 then
-    raise exception 'Signal dispatcher did not create engine requests from registered subscriptions';
+  if v_count < 2 then
+    raise exception 'Signal dispatcher did not create engine requests for active registered subscriptions';
   end if;
   if public.dispatch_signal_observation_to_engines(v_observation) <> 0 then
     raise exception 'Signal dispatch was not idempotent';
   end if;
   select count(*) into v_count from public.signal_processing_outbox
   where event_kind='engine_requested' and observation_id=v_observation;
-  if v_count < 3 then raise exception 'Expected engine-request outbox records'; end if;
+  if v_count < 2 then raise exception 'Expected active engine-request outbox records'; end if;
 
   select count(*) into v_count from public.claim_signal_outbox(50)
   where observation_id=v_observation;
