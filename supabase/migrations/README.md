@@ -1,8 +1,8 @@
-# Supabase migration history and production deployment guard
+# Supabase migration history and production status
 
-## Reconciled production baseline
+## Production migration ledger
 
-The production project's migration ledger was inspected read-only on 2026-11-08. The exact SQL for all 12 applied migrations was recovered from `supabase_migrations.schema_migrations.statements` in the live database. The repository now contains canonical timestamped files with the exact remote versions and names:
+The exact SQL for the original 12 production migrations was recovered from `supabase_migrations.schema_migrations.statements` in the live Supabase project. Their canonical timestamped files are now in this directory:
 
 | Version | Migration |
 | --- | --- |
@@ -19,39 +19,43 @@ The production project's migration ledger was inspected read-only on 2026-11-08.
 | 20261108080305 | phase2_adaptive_learning |
 | 20261108080415 | phase2_atomic_mastery_upsert |
 
-The old noncanonical migration filenames were removed from `supabase/migrations` so the Supabase CLI will not mistake them for additional pending versions. The Phase 0 security reference script is preserved at `supabase/reference/phase0_security.sql`; it is not a migration in the remote ledger.
+The Phase 0 security reference is preserved at `supabase/reference/phase0_security.sql`; it is not a migration in the remote ledger. Old noncanonical migration filenames were removed so the Supabase CLI does not interpret them as extra pending migrations.
 
-## New migrations awaiting production
+## Phase 1.5 and Phase 1.6 applied
 
-The following files are new, additive migrations and were not present in the production ledger at the time of inspection:
+Both additive migrations have been applied successfully to production:
 
-- `20261108150000_phase1_5_intelligence_data_layer.sql`
-- `20261108160000_phase1_6_universal_signal_layer.sql`
+| Version | Migration |
+| --- | --- |
+| 20261108111318 | phase1_5_intelligence_data_layer |
+| 20261108111356 | phase1_6_universal_signal_layer |
 
-Phase 1.5 adds normalized learner profiles, subject selections, goals/preferences, consent history, syllabus objectives, question provenance/review history, learning telemetry, mastery history, engine registry/run traces, recommendation feedback and score-prediction history.
+Phase 1.5 adds normalized academic profiles, subject selections, goals and preferences, consent history, syllabus objectives, question provenance and review history, learning telemetry, mastery history, engine registry/run traces, recommendations and score-prediction snapshots, and versioned onboarding records.
 
-Phase 1.6 adds canonical signal definitions and versions, signal observations/current/history, engine contracts and subscriptions, engine input snapshots, transactional outbox, and atomic onboarding/check-in projection RPCs.
+Phase 1.6 adds canonical signal definitions and schema versions, signal sources, observations/current/history, engine subscriptions and contracts, exact engine input snapshots, and a transactional processing outbox. It also adds atomic onboarding and progress-check-in projection RPCs.
 
-Associated idempotent seeds are separate:
+The legacy onboarding backfill only creates user-owned records for profile IDs that still exist in `auth.users`. A legacy profile without a matching auth account was deliberately skipped; its original `profiles` row and JSON answers were left untouched.
 
-- `supabase/seeds/phase1_5_engine_registry.sql`
-- `supabase/seeds/legacy_question_provenance_backfill.sql`
-- `supabase/seeds/2026_jamb_subject_catalogue.sql`
-- `supabase/seeds/simulation_personas.sql`
-- `supabase/seeds/phase1_6_signal_registry.sql`
+## Production seeds applied
 
-The simulation persona seed uses a private `sabi_simulation` schema and synthetic archetypes only. It does not create auth users or mix synthetic activity into production learner metrics.
+- Engine registry: 10 engine records.
+- Legacy question provenance: 157 source records; original source labels remain unverified and no question was auto-published.
+- 2026 JAMB catalogue: 25 subjects.
+- Signal registry: 13 signal definitions and 9 versioned engine contracts.
 
-## Verification and production guard
+The optional `simulation_personas.sql` seed was not applied to production. It remains a QA-only synthetic dataset.
 
-Backend CI uses disposable PostgreSQL and runs the recovered production migrations in ledger order, followed by Phase 1.5 and Phase 1.6 migrations, seeds and assertions. CI does not change the live Supabase project.
+## Verification
 
-Before production migration execution:
+Backend CI on the migration-history reconciliation passed against disposable PostgreSQL, including the recovered historical migrations, Phase 1.5 and Phase 1.6 migrations, seeds, and assertions. The orphan-profile regression is also covered in CI.
 
-1. Merge the migration-history reconciliation only after CI passes.
-2. Run `supabase migration list` against the linked project and confirm the 12 historical versions match exactly, with only Phase 1.5 and Phase 1.6 pending.
-3. Confirm the live schema preconditions and seed impact; do not publish AI-draft questions.
-4. Apply only the two new migrations and their seeds, then run post-migration assertions and Supabase advisors.
-5. Preserve the existing production ledger. Never insert synthetic history rows or replay historical SQL against production.
+Production migration ledger now contains all 14 versions above. The migration-history reconciliation is complete; no synthetic history rows were inserted and no paid Supabase branch was created.
 
-No paid Supabase branch is required or should be created for this workflow.
+## Remaining operational work
+
+1. Configure matching `SIGNAL_WORKER_SECRET` values in Vercel Production and GitHub Actions, plus the `SABI_SIGNAL_WORKER_URL` GitHub secret. The worker workflow currently skips safely when these are absent.
+2. Deploy the latest merged application code to Vercel and verify the live API against the new schema. The Vercel deployment API currently enforces a daily deployment limit, so this deployment is pending quota reset.
+3. Run authenticated end-to-end checks for onboarding projection, answer telemetry, signal processing, engine runs, recommendations, score prediction, account deletion and retry/dead-letter handling.
+4. Review the Supabase advisor findings: service-only tables intentionally use RLS with no client policies (deny by default); leaked-password protection and foreign-key index recommendations remain follow-up hardening.
+
+Never replay historical SQL or fabricate migration-history rows. Apply future schema changes as new timestamped migrations and verify them in disposable CI first.
