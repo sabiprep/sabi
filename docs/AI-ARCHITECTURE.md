@@ -44,6 +44,9 @@ All new model calls must go through `server/ai/gateway.ts`. The gateway supports
 - A provider is considered configured only when both its API key and model ID are present.
 - Each provider call has a timeout. A failed provider is skipped and the next configured provider is tried.
 - Provider errors and credentials are never returned to the client.
+- Successful and blocked/failed requests write durable usage events without storing prompt text.
+- AI credit pricing is admin-configurable per task. Atomic per-user credit reservation prevents concurrent overspending; provider failures refund reserved credits idempotently.
+- Credit enforcement is disabled by default with `SABI_AI_CREDITS_ENABLED=false`; when enabled, a missing task price blocks the call rather than silently making it free.
 - No mock response is treated as real AI output.
 
 ## Configuration to fill later
@@ -61,10 +64,15 @@ All new model calls must go through `server/ai/gateway.ts`. The gateway supports
 
 Task-specific model variables can override the general model ID, e.g. `SABI_GEMINI_EXPLANATION_MODEL`.
 
+## Approved knowledge retrieval
+
+The AI Coach can retrieve approved `knowledge_documents` through indexed PostgreSQL full-text search. Draft and archived documents are excluded. Content Managers can ingest source-attributed drafts; an Admin or Master Admin must approve them before retrieval. Retrieved content is reference material, never instructions. Embeddings/vector search are intentionally not enabled until the embedding provider and dimensions are selected.
+
 ## Completion requirements
 
 The provider gateway, session-bound explanation endpoint, AI Coach endpoint, and question-drafting integration are implemented in this change. The practice UI and post-exam review UI now expose on-demand explanations and an explicit consent action. The backend appends consent grants/revocations to `student_consent_history` and checks the latest AI-tutor consent before processing tutoring context. Before production activation, the remaining integration work includes:
-- add durable AI usage/credit accounting, consent enforcement, prompt versioning, and admin configuration visibility;
-- add end-to-end tests for active CBT denial, completed CBT review, ownership isolation, missing provider, provider fallback, and verified answer-key preservation.
+- prompt-version administration and controlled rollout (the version table is provisioned; built-in prompts remain active until this is implemented);
+- end-to-end tests for active CBT denial, completed CBT review, ownership isolation, missing provider, provider fallback, credit reservation/refund, and verified answer-key preservation;
+- configure provider credentials/model IDs, task credit prices, and approved knowledge documents.
 
 The CBT timer now stores a server-issued deadline in the session metadata and the answer endpoint enforces it; the client countdown is display-only. Expired CBTs are finalized on the next server request.\n\nDo not enable AI in production until the provider configuration, usage controls, consent experience, and end-to-end checks are complete.
