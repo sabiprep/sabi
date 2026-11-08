@@ -1,5 +1,19 @@
 # Sabi Backend Execution Status
 
+## Current verified snapshot — 8 November 2026
+
+- **Main commit:** `ccf21bfe2fe5568ceee05438e09c7d1ca7f1df32`.
+- **Latest merged change:** [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18).
+- **Latest Backend CI:** run #411 (`42521946286`) passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
+- **Other recently merged work:** PR #14 backend service foundations; PR #15 official JAMB syllabus ingestion schema; PR #16 active-CBT answer feedback lockout; PR #17 concurrency-safe question-attempt capture.
+- **Production deployment:** not confirmed. Vercel rejected the recent deployment because the project exceeded its free daily deployment quota. A green Backend CI run is not proof that the latest code is live.
+- **Production database:** 21 migrations recorded; 0 learner sessions; 0 captured question attempts; 0 verified syllabus versions; 0 verified syllabus objectives; 104 syllabus import rows still pending validation; 0 question-to-objective mappings.
+- **Syllabus content:** 13 general objectives have been staged as drafts. The four pilot subject versions and import batches remain drafts / needs-review. Detailed topic objectives and content items have not been imported or approved.
+- **Learner journey:** not yet verified against a live authenticated learner. The empty session/attempt tables mean there is no production usage evidence.
+- **Build restrictions:** no paid Supabase branch was created; Android builds remain manual-only and were not triggered.
+
+The workstream table and implementation notes below are the earlier PR #12 baseline snapshot. They are retained for history and must not be read as a current audit of main. Re-audit each workstream before marking it complete.
+
 **Baseline:** `main` at `2aaecf8e184e3becd4531a8ac8583770b304c7e2` (8 Nov 2026)  
 **Working implementation:** `backend/full-platform-completion-2026-11-08`  
 **Draft PR:** #12  
