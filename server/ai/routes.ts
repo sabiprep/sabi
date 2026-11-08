@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
+import { requireRole } from '../middleware/requireRole';
 import { validateBody } from '../middleware/validate';
 import { aiLimiter } from '../middleware/rateLimit';
 import { generateAIText, getAIReadiness } from './gateway';
@@ -66,6 +67,16 @@ const chatRequestSchema = z.strictObject({
   subject: z.string().trim().min(1).max(80).optional(),
   topic: z.string().trim().min(1).max(160).optional(),
   sessionId: z.string().uuid().optional(),
+});
+
+
+router.get('/status', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), (_req, res) => {
+  const tasks = ['explanation', 'tutor_chat', 'content_draft'] as const;
+  return res.json({
+    enabled: process.env.SABI_AI_ENABLED?.trim().toLowerCase() === 'true',
+    tasks: tasks.map((task) => getAIReadiness(task)),
+    credentialsExposed: false,
+  });
 });
 
 router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), async (req, res) => {
