@@ -227,6 +227,10 @@ begin
   if v_count <> 0 then raise exception 'Account deletion left signal history behind'; end if;
   select count(*) into v_count from public.student_signal_current where user_id=v_user;
   if v_count <> 0 then raise exception 'Account deletion left current signal projections behind'; end if;
+  if exists (select 1 from public.engine_runs where id=v_run) then
+    raise exception 'Account deletion left learner-specific engine snapshots behind'; end if;
+  if exists (select 1 from public.engine_run_signal_inputs where engine_run_id=v_run) then
+    raise exception 'Account deletion left learner-specific engine signal inputs behind'; end if;
 
   begin
     update public.student_signal_history set value='5'::jsonb
