@@ -823,7 +823,8 @@ export function HomePage() {
   }, [progress.subjectStats, totalSolved]);
 
   return (
-    <div className="space-y-8 pb-16 lg:pb-0">\n      <LearningSnapshot />
+    <div className="space-y-8 pb-16 lg:pb-0">
+      <LearningSnapshot />
       {showSubjectRates && (
         <SubjectRatesFullScreenView onClose={() => setShowSubjectRates(false)} />
       )}
@@ -1544,6 +1545,7 @@ export function CbtPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Link to="/learning?mode=cbt" className="p-6 rounded-3xl border text-left transition bg-blue-600 text-white border-blue-600"><span className="text-xs font-black uppercase">Backend-connected CBT</span><h3 className="text-xl font-black mt-1">Start saved CBT session</h3><p className="text-xs text-blue-100 mt-1">Uses your saved UTME subjects and server-side answer evaluation.</p></Link>
         <button
           type="button"
           onClick={() => setIsExamModalOpen(true)}
@@ -1603,7 +1605,8 @@ export function ProgressPage() {
   }, [progress.dailyActivityLog]);
 
   return (
-    <div className="space-y-8 pb-16 lg:pb-0">\n      <LearningSnapshot />
+    <div className="space-y-8 pb-16 lg:pb-0">
+      <LearningSnapshot />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
