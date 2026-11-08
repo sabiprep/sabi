@@ -447,10 +447,14 @@ create table if not exists public.student_onboarding_submissions (
     check (capture_source in ('in_app','admin_import','legacy_profile_backfill')),
   purpose_consent_snapshot jsonb not null default '{}'::jsonb
     check (jsonb_typeof(purpose_consent_snapshot) = 'object'),
+  submission_key text,
   legacy_profile_id uuid unique,
   submitted_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
+create unique index if not exists student_onboarding_submissions_idempotency_idx
+  on public.student_onboarding_submissions (user_id, submission_key)
+  where submission_key is not null;
 create index if not exists student_onboarding_submissions_user_time_idx
   on public.student_onboarding_submissions (user_id, submitted_at desc);
 
@@ -611,3 +615,45 @@ comment on table public.student_onboarding_responses is
   'Version-linked student-provided onboarding answers, including original free text. Restricted to trusted server access and owner reads; not a general analytics export.';
 comment on table public.student_progress_checkins is
   'Voluntary longitudinal confidence, motivation and barrier self-reports; not clinical or diagnostic data.';
+
+
+-- Current candidate onboarding questionnaire. Question definitions are versioned
+-- independently from submissions so wording/options can evolve without rewriting history.
+insert into public.student_onboarding_question_sets (set_key, display_name, description)
+values ('candidate-onboarding', 'SABI Candidate Onboarding', 'Candidate academic profile, JAMB goals and learning preferences')
+on conflict (set_key) do update set display_name = excluded.display_name;
+
+insert into public.student_onboarding_question_versions (question_set_id, version_label, status, published_at)
+select id, 'v1', 'published', now()
+from public.student_onboarding_question_sets
+where set_key = 'candidate-onboarding'
+on conflict (question_set_id, version_label) do update set status = 'published';
+
+insert into public.student_onboarding_questions
+  (question_version_id, question_key, prompt, answer_type, processing_purpose, sensitivity_level, is_required, sort_order)
+select v.id, q.question_key, q.prompt, q.answer_type, q.processing_purpose, q.sensitivity_level, q.is_required, q.sort_order
+from public.student_onboarding_question_versions v
+join public.student_onboarding_question_sets s on s.id = v.question_set_id
+cross join (values
+  ('chosenSubjects','Select your 4 official JAMB UTME subjects','multi_select','account_and_exam_setup','standard',true,1),
+  ('targetCourse','What is your target course?','short_text','account_and_exam_setup','standard',true,2),
+  ('targetUniversity','What is your first-choice institution?','short_text','account_and_exam_setup','standard',true,3),
+  ('targetScore','What is your target UTME aggregate score?','short_text','account_and_exam_setup','standard',true,4),
+  ('currentClass','What is your current academic level?','short_text','account_and_exam_setup','standard',true,5),
+  ('attempts','What is your prior UTME experience?','short_text','account_and_exam_setup','standard',true,6),
+  ('monthsUntilExam','How much time remains until your JAMB UTME sitting?','short_text','personalized_learning','standard',true,7),
+  ('subjectConfidence','Rate your current mastery across your 4 selected subjects','structured','personalized_learning','personal',true,8),
+  ('prioritySubject','Which subject requires the most urgent improvement?','short_text','personalized_learning','standard',true,9),
+  ('struggleType','What is your biggest challenge under exam conditions?','short_text','personalized_learning','personal',true,10),
+  ('dailyStudyHours','What daily practice commitment can you sustain consistently?','short_text','personalized_learning','standard',true,11),
+  ('explanationPreference','How should SABI present answer corrections and explanations?','short_text','personalized_learning','standard',true,12),
+  ('motivation','What motivates you to pursue your JAMB and admission goal?','long_text','personalized_learning','personal',false,13)
+) as q(question_key,prompt,answer_type,processing_purpose,sensitivity_level,is_required,sort_order)
+where s.set_key = 'candidate-onboarding' and v.version_label = 'v1'
+on conflict (question_version_id, question_key) do update
+set prompt = excluded.prompt,
+    answer_type = excluded.answer_type,
+    processing_purpose = excluded.processing_purpose,
+    sensitivity_level = excluded.sensitivity_level,
+    is_required = excluded.is_required,
+    sort_order = excluded.sort_order;
