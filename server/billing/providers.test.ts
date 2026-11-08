@@ -17,7 +17,8 @@ describe('payment provider configuration', () => {
     process.env.SABI_PAYMENT_PROVIDER = 'paystack';
     process.env.PAYSTACK_SECRET_KEY = 'test-secret';
     delete process.env.SABI_PAYMENT_CALLBACK_URL;
-    expect(getPaymentProviderReadiness().configured).toBe(false);
+    expect(getPaymentProviderReadiness().configured).toBe(true);
+    expect(getPaymentProviderReadiness().checkoutConfigured).toBe(false);
     expect(getPaymentProviderReadiness().missing).toContain('SABI_PAYMENT_CALLBACK_URL');
   });
 });
