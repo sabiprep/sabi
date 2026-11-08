@@ -4,6 +4,7 @@
  */
 
 import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
@@ -666,7 +667,7 @@ app.post(
       ...(onboardingAnswers ?? {}),
       chosenSubjects: canonicalSubjects,
     };
-    const stableSubmissionKey = submissionKey || crypto.randomUUID();
+    const stableSubmissionKey = submissionKey || randomUUID();
 
     try {
       const { data: questionSet, error: questionSetError } = await supabaseAdmin
@@ -737,6 +738,10 @@ app.post(
         .eq('question_version_id', questionVersion.id);
       if (questionsError) {
         return res.status(500).json({ error: questionsError.message || 'Could not load onboarding question definitions.' });
+      }
+
+      if (!submissionId) {
+        return res.status(500).json({ error: 'Could not resolve the onboarding submission record.' });
       }
 
       const questionIds = new Map<string, string>((questionDefinitions ?? []).map((item: { id: string; question_key: string }) => [item.question_key, item.id] as const));
