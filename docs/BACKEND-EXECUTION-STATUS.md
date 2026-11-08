@@ -1,19 +1,18 @@
 # Sabi Backend Execution Status
 
-## Current verified snapshot — 8 November 2026 (updated after PR #21)
+## Current verified snapshot — 8 November 2026 (updated after PR #24)
 
-- **Latest application code merge:** `0c5f11e989b2d84a970acb3958eefa38494ef35f` (squash merge of PR #21).
-- **Latest merged changes:** [PR #21 — daily study streak engine and session integration](https://github.com/sabiprep/sabi/pull/21), following [PR #19 — real answer-RPC learner journey assertions](https://github.com/sabiprep/sabi/pull/19) and [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18).
-- **Latest Backend CI:** PR #21 run `42525471270` passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites, including the new streak migration and service-role security assertions.
-- **Gamification update:** daily streak recording is now integrated with completed learning sessions, idempotent per learner/date, timezone-aware, and covered by migration assertions. The current product default is `Africa/Lagos`; learner-configurable timezones remain future work.
-- **Other recently merged work:** PR #14 backend service foundations; PR #15 official JAMB syllabus ingestion schema; PR #16 active-CBT answer feedback lockout; PR #17 concurrency-safe question-attempt capture; PR #19 now tests the actual answer RPC, session completion, and attempt capture in a rollback-only learner fixture.
-- **Production deployment:** not confirmed. Vercel rejected the recent deployment because the project exceeded its free daily deployment quota. A green Backend CI run is not proof that the latest code is live.
-- **Production database:** 21 migrations recorded; 0 learner sessions; 0 captured question attempts; 0 verified syllabus versions; 0 verified syllabus objectives; 104 syllabus import rows still pending validation; 0 question-to-objective mappings.
-- **Question pool readiness:** 3,740 questions: 404 published (all Use of English), 3,333 AI drafts, and 3 needs-review. Biology (997), C.R.S (995), and Chemistry (1,043) currently have no published questions. All 157 source records remain `unverified` with permitted use `unknown`; a full four-subject CBT is therefore not ready for learners.
-- **Syllabus content:** 13 general objectives have been staged as drafts. The four pilot subject versions and import batches remain drafts / needs-review. Detailed topic objectives and content items have not been imported or approved.
-- **Learner journey:** not yet verified against a live authenticated learner. The empty session/attempt tables mean there is no production usage evidence.
-- **Build restrictions:** no paid Supabase branch was created; Android builds remain manual-only and were not triggered.
-
+- **Latest merged application code:** `c16a52175fb7af32879ede479d56b34b950d37c9` (PR #24).
+- **Recent merged changes:** [PR #24 — learner notification quiet-hours enforcement](https://github.com/sabiprep/sabi/pull/24); [PR #23 — Lagos timezone consistency for empty streak state](https://github.com/sabiprep/sabi/pull/23); [PR #22 — backend execution status refresh](https://github.com/sabiprep/sabi/pull/22); [PR #21 — daily study streak engine](https://github.com/sabiprep/sabi/pull/21).
+- **Latest Backend CI:** PR #24 run `42526574227` passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
+- **Gamification:** session completion records an idempotent, timezone-aware study streak using `Africa/Lagos` as the current product default. Learner-configurable timezones remain future work.
+- **Notifications:** the queue supports in-app/email/SMS delivery adapters, preferences and templates. Quiet-hours preferences now support an enabled flag, local start/end times and IANA timezone; the worker defers queued jobs until the quiet window ends. Push delivery remains unconfigured.
+- **Production deployment:** not confirmed. Vercel rejected recent deployment attempts because the project exceeded its free daily deployment quota. A green Backend CI run is not proof that the latest code is live.
+- **Production database snapshot (captured 8 November 2026; not re-queried by this PR):** 21 migrations recorded; 0 learner sessions; 0 captured question attempts; 0 verified syllabus versions; 0 verified syllabus objectives; 104 syllabus import rows pending validation; 0 question-to-objective mappings.
+- **Question pool snapshot (captured 8 November 2026; not re-queried by this PR):** 3,740 questions: 404 published (all Use of English), 3,333 AI drafts, and 3 needs-review. Biology (997), C.R.S (995), and Chemistry (1,043) had no published questions. All 157 source records were unverified with permitted use unknown; a full four-subject CBT was therefore not ready for learners.
+- **Syllabus content:** JAMB syllabus ingestion remains paused by product direction. No syllabus content was approved or published by PRs #21–#24.
+- **Learner journey:** not yet verified against a live authenticated learner. Production usage evidence remains absent in the last recorded database snapshot.
+- **Deployment restriction:** no production deployment was triggered as part of PRs #21–#24.
 The workstream table and implementation notes below are the earlier PR #12 baseline snapshot. They are retained for history and must not be read as a current audit of main. Re-audit each workstream before marking it complete.
 
 **Baseline:** `main` at `2aaecf8e184e3becd4531a8ac8583770b304c7e2` (8 Nov 2026)  
