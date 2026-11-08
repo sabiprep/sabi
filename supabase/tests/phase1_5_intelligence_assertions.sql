@@ -117,6 +117,12 @@ BEGIN
       WHERE s.set_key='candidate-onboarding' AND v.version_label='v1') < 13 THEN
     RAISE EXCEPTION 'Expected all current candidate onboarding questions, including motivation, to be versioned';
   END IF;
+  IF (SELECT count(*) FROM public.student_onboarding_questions q
+      JOIN public.student_onboarding_question_versions v ON v.id=q.question_version_id
+      JOIN public.student_onboarding_question_sets s ON s.id=v.question_set_id
+      WHERE s.set_key='candidate-onboarding' AND v.version_label='v2') < 13 THEN
+    RAISE EXCEPTION 'Expected v2 candidate onboarding questions to be versioned';
+  END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.student_onboarding_questions q
     JOIN public.student_onboarding_question_versions v ON v.id=q.question_version_id
