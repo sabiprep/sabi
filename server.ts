@@ -903,7 +903,7 @@ app.post(
         .in('processing_status', ['pending', 'failed'])
         .lte('available_at', now.toISOString())
         .order('created_at', { ascending: true })
-        .limit(50);
+        .limit(10);
       if (pendingEventsError) throw pendingEventsError;
 
       for (const item of pendingEvents || []) {
@@ -1044,7 +1044,7 @@ app.post(
         }
       }
 
-      const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_signal_outbox', { p_limit: 50 });
+      const { data: claimed, error: claimError } = await supabaseAdmin.rpc('claim_signal_outbox', { p_limit: 10 });
       if (claimError) return res.status(500).json({ error: 'Could not claim signal processing work.' });
 
       let completed = 0;
@@ -1099,7 +1099,7 @@ app.post(
         .in('processing_status', ['pending', 'failed'])
         .lte('available_at', new Date().toISOString())
         .order('created_at', { ascending: true })
-        .limit(50);
+        .limit(10);
       if (pendingEngineJobsError) throw pendingEngineJobsError;
 
       for (const job of pendingEngineJobs || []) {
