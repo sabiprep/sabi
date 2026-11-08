@@ -172,5 +172,5 @@ BEGIN
   END;
 
 END
-$;
+$$;
 ROLLBACK;
