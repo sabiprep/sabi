@@ -5,7 +5,7 @@ export type AnswerSample = {
 
 export type LearningSignalObservation = {
   user_id: string;
-  signal_key: 'learning.answer_accuracy' | 'learning.answer_time_ms';
+  signal_key: 'learning.answer_accuracy' | 'learning.answer_time_ms' | 'learning.mastery_score';
   schema_version: 1;
   source_key: 'learning-event-stream';
   source_event_id: string;
@@ -13,17 +13,15 @@ export type LearningSignalObservation = {
   confidence: number;
   purpose_key: 'personalized_learning';
   provenance: {
-    method: 'rolling_answer_window';
+    method: 'rolling_answer_window' | 'phase2_mastery_state';
     sample_size: number;
+    subject?: string;
+    topic?: string;
   };
   observed_at: string;
   idempotency_key: string;
 };
 
-/**
- * Derive learner signals only from server-verified answer records. Client
- * telemetry is a trigger, never the source of truth for correctness.
- */
 export function buildAnswerSignalObservations(input: {
   userId: string;
   eventId: string;
@@ -73,4 +71,34 @@ export function buildAnswerSignalObservations(input: {
   }
 
   return observations;
+}
+
+export function buildMasterySignalObservation(input: {
+  userId: string;
+  eventId: string;
+  observedAt: string;
+  subject: string;
+  topic: string;
+  masteryScore: number;
+  attemptedCount: number;
+}): LearningSignalObservation {
+  const attempts = Math.max(0, Math.trunc(input.attemptedCount));
+  return {
+    user_id: input.userId,
+    signal_key: 'learning.mastery_score',
+    schema_version: 1,
+    source_key: 'learning-event-stream',
+    source_event_id: input.eventId,
+    value: Number(Math.max(0, Math.min(100, input.masteryScore)).toFixed(2)),
+    confidence: Math.min(1, attempts / 10),
+    purpose_key: 'personalized_learning',
+    provenance: {
+      method: 'phase2_mastery_state',
+      sample_size: attempts,
+      subject: input.subject,
+      topic: input.topic,
+    },
+    observed_at: input.observedAt,
+    idempotency_key: `learning-event:${input.eventId}:mastery:${input.subject.toLowerCase()}:${input.topic.toLowerCase()}`,
+  };
 }
