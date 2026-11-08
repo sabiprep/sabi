@@ -14,7 +14,7 @@ declare
   v_second_attempt_number integer;
   v_function text;
 begin
-  select id into v_user_id from auth.users order by created_at limit 1;
+  select id into v_user_id from auth.users limit 1;
   if v_user_id is null then
     raise exception 'Assertion failed: an auth user fixture is required';
   end if;
