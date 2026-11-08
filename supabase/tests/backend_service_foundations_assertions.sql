@@ -2,7 +2,7 @@ do $$
 declare
   table_name text;
   required_tables text[] := array[
-    'entitlement_catalogue','subscription_plans','student_subscriptions','student_entitlements',
+    'entitlement_catalogue','subscription_plans','student_subscriptions','student_entitlements','ai_task_pricing',
     'payment_transactions','payment_webhook_events','ai_usage_events','ai_credit_ledger',
     'ai_prompt_versions','notification_preferences','notification_templates','notification_queue',
     'notification_delivery_logs','student_xp_ledger','student_streak_state','knowledge_documents',
@@ -19,7 +19,9 @@ begin
     end if;
   end loop;
 
-  if has_table_privilege('anon', 'public.payment_webhook_events', 'SELECT')
+  if has_table_privilege('anon', 'public.ai_task_pricing', 'SELECT')
+     or has_table_privilege('authenticated', 'public.ai_task_pricing', 'SELECT')
+     or has_table_privilege('anon', 'public.payment_webhook_events', 'SELECT')
      or has_table_privilege('authenticated', 'public.payment_webhook_events', 'SELECT')
      or has_table_privilege('authenticated', 'public.notification_queue', 'SELECT')
      or has_table_privilege('authenticated', 'public.ai_prompt_versions', 'SELECT')
@@ -56,6 +58,22 @@ begin
     where schemaname = 'public' and indexname = 'idx_knowledge_chunks_search_vector'
   ) then
     raise exception 'Knowledge chunk full-text index is missing';
+  end if;
+
+  if has_function_privilege('anon', 'public.reserve_ai_credits(uuid,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.reserve_ai_credits(uuid,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.reserve_ai_credits(uuid,text,text)', 'EXECUTE') then
+    raise exception 'AI credit reservation RPC permissions are not service-role-only';
+  end if;
+
+  if has_function_privilege('anon', 'public.refund_ai_credits(uuid,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.refund_ai_credits(uuid,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.refund_ai_credits(uuid,text,text)', 'EXECUTE') then
+    raise exception 'AI credit refund RPC permissions are not service-role-only';
+  end if;
+
+  if (select count(*) from public.ai_task_pricing) <> 0 then
+    raise exception 'AI task prices must remain unconfigured until credit costs are approved';
   end if;
 
   if (select count(*) from public.subscription_plans) <> 0 then
