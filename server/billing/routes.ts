@@ -217,6 +217,39 @@ router.get('/me', requireAuth, async (req, res) => {
   }
 });
 
+
+router.get('/transactions', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req as AuthenticatedRequest);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
+  const offset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100 || !Number.isInteger(offset) || offset < 0) {
+    return res.status(400).json({ error: 'Invalid payment history pagination.' });
+  }
+  const { data, error, count } = await supabaseAdmin.from('payment_transactions')
+    .select('reference, amount, currency, status, checkout_url, created_at, verified_at', { count: 'exact' })
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) return res.status(503).json({ error: 'Payment history is temporarily unavailable.' });
+  return res.json({ transactions: data || [], total: count || 0, limit, offset });
+});
+
+router.get('/transactions/:reference', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req as AuthenticatedRequest);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const reference = String(req.params.reference || '');
+  if (!/^SABI-[A-F0-9]{32}$/.test(reference)) return res.status(400).json({ error: 'Invalid payment reference.' });
+  const { data, error } = await supabaseAdmin.from('payment_transactions')
+    .select('reference, amount, currency, status, checkout_url, created_at, verified_at')
+    .eq('reference', reference)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return res.status(503).json({ error: 'Payment status is temporarily unavailable.' });
+  if (!data) return res.status(404).json({ error: 'Payment transaction not found.' });
+  return res.json({ transaction: data });
+});
+
 router.get('/plans', requireAuth, async (_req, res) => {
   const { data, error } = await supabaseAdmin
     .from('subscription_plans')
