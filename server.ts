@@ -1326,14 +1326,22 @@ app.post(
         });
       }
 
-      const examples = SEED_QUESTIONS
-        .filter((item) => item.subject === subject && item.topic === topic)
-        .slice(0, 2)
-        .map((item) => ({
-          question: item.question,
-          options: item.options,
-          explanation: item.explanation,
-        }));
+      const { data: approvedExamples, error: exampleError } = await supabaseAdmin
+        .from('question_bank')
+        .select('question, option_a, option_b, option_c, option_d, explanation_short')
+        .eq('status', 'published')
+        .eq('subject', subject)
+        .eq('topic', topic)
+        .limit(2);
+      if (exampleError) {
+        console.error('[SABI AI] Approved drafting examples could not be loaded:', exampleError.message);
+        return res.status(503).json({ error: 'Approved question context is temporarily unavailable.' });
+      }
+      const examples = (approvedExamples || []).map((item) => ({
+        question: item.question,
+        options: { A: item.option_a, B: item.option_b, C: item.option_c, D: item.option_d },
+        explanation: item.explanation_short,
+      }));
       const prompt = [
         'Create one original UTME multiple-choice question for the requested subject and syllabus topic.',
         `Subject: ${subject}`,
