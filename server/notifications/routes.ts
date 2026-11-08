@@ -137,17 +137,42 @@ router.post('/admin/templates/:templateId/activate', requireAuth, requireRole('A
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(templateId)) {
     return res.status(400).json({ error: 'A valid template ID is required.' });
   }
+  const { data: draft, error: draftError } = await supabaseAdmin.from('notification_templates')
+    .select('id, template_key, channel, locale, version')
+    .eq('id', templateId).eq('status', 'draft').maybeSingle();
+  if (draftError) return res.status(503).json({ error: 'Notification template could not be loaded.' });
+  if (!draft) return res.status(404).json({ error: 'Draft notification template not found.' });
+
+  const { data: previousActive, error: activeLookupError } = await supabaseAdmin.from('notification_templates')
+    .select('id')
+    .eq('template_key', draft.template_key)
+    .eq('channel', draft.channel)
+    .eq('locale', draft.locale)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (activeLookupError) return res.status(503).json({ error: 'Active notification template could not be checked.' });
+
+  if (previousActive) {
+    const { error: archiveError } = await supabaseAdmin.from('notification_templates')
+      .update({ status: 'archived', updated_at: new Date().toISOString() })
+      .eq('id', previousActive.id).eq('status', 'active');
+    if (archiveError) return res.status(503).json({ error: 'Previous template version could not be archived.' });
+  }
+
   const { data, error } = await supabaseAdmin.from('notification_templates')
     .update({ status: 'active', updated_at: new Date().toISOString() })
-    .eq('id', templateId)
-    .eq('status', 'draft')
+    .eq('id', templateId).eq('status', 'draft')
     .select('*')
     .maybeSingle();
-  if (error) {
-    if (error.code === '23505') return res.status(409).json({ error: 'Another version of this template is already active.' });
+  if (error || !data) {
+    if (previousActive) {
+      await supabaseAdmin.from('notification_templates')
+        .update({ status: 'active', updated_at: new Date().toISOString() })
+        .eq('id', previousActive.id).eq('status', 'archived');
+    }
+    if (error?.code === '23505') return res.status(409).json({ error: 'Another version of this template is already active.' });
     return res.status(503).json({ error: 'Notification template could not be activated.' });
   }
-  if (!data) return res.status(404).json({ error: 'Draft notification template not found.' });
   const actorId = (req as AuthenticatedRequest).user?.id;
   const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
     actor_user_id: actorId,
@@ -155,9 +180,33 @@ router.post('/admin/templates/:templateId/activate', requireAuth, requireRole('A
     action: 'notification_template.activated',
     resource_type: 'notification_templates',
     resource_id: templateId,
-    metadata: { template_key: data.template_key, channel: data.channel, version: data.version },
+    metadata: { template_key: data.template_key, channel: data.channel, version: data.version, replaced_template_id: previousActive?.id || null },
   });
   if (auditError) console.error('[SABI NOTIFICATIONS] Template activation audit failed:', auditError.message);
+  return res.json({ template: data });
+});
+
+router.post('/admin/templates/:templateId/archive', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (req, res) => {
+  const templateId = String(req.params.templateId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(templateId)) {
+    return res.status(400).json({ error: 'A valid template ID is required.' });
+  }
+  const { data, error } = await supabaseAdmin.from('notification_templates')
+    .update({ status: 'archived', updated_at: new Date().toISOString() })
+    .eq('id', templateId).neq('status', 'archived')
+    .select('id, template_key, channel, version, status')
+    .maybeSingle();
+  if (error) return res.status(503).json({ error: 'Notification template could not be archived.' });
+  if (!data) return res.status(404).json({ error: 'Notification template not found.' });
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: (req as AuthenticatedRequest).user?.id,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'notification_template.archived',
+    resource_type: 'notification_templates',
+    resource_id: templateId,
+    metadata: { template_key: data.template_key, channel: data.channel, version: data.version },
+  });
+  if (auditError) console.error('[SABI NOTIFICATIONS] Template archive audit failed:', auditError.message);
   return res.json({ template: data });
 });
 
