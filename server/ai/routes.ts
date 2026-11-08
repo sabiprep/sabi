@@ -10,6 +10,69 @@ import { AIUnavailableError } from './types';
 
 const router = Router();
 
+
+const aiConsentSchema = z.strictObject({ granted: z.boolean() });
+
+async function hasAICoConsent(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('student_consent_history')
+    .select('granted, recorded_at, policy_version')
+    .eq('user_id', userId)
+    .eq('consent_type', 'ai_tutor')
+    .order('recorded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.granted === true;
+}
+
+router.get('/consent', requireAuth, async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('student_consent_history')
+      .select('granted, policy_version, recorded_at')
+      .eq('user_id', userId)
+      .eq('consent_type', 'ai_tutor')
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return res.status(503).json({ error: 'AI consent status is temporarily unavailable.' });
+    return res.json({
+      granted: data?.granted === true,
+      policyVersion: data?.policy_version || null,
+      recordedAt: data?.recorded_at || null,
+    });
+  } catch {
+    return res.status(503).json({ error: 'AI consent status is temporarily unavailable.' });
+  }
+});
+
+router.post('/consent', requireAuth, validateBody(aiConsentSchema), async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const { granted } = req.body as z.infer<typeof aiConsentSchema>;
+  try {
+    const { error } = await supabaseAdmin.from('student_consent_history').insert({
+      user_id: userId,
+      consent_type: 'ai_tutor',
+      granted,
+      policy_version: process.env.SABI_AI_POLICY_VERSION?.trim() || '2026-11-08-v1',
+      source: 'in_app',
+      recorded_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error('[SABI AI] Could not record AI consent:', error.message);
+      return res.status(503).json({ error: 'Your AI consent preference could not be saved.' });
+    }
+    return res.status(201).json({ granted, recorded: true });
+  } catch {
+    return res.status(503).json({ error: 'Your AI consent preference could not be saved.' });
+  }
+});
+
+
 const explanationRequestSchema = z.strictObject({
   sessionId: z.string().uuid(),
   questionId: z.string().trim().min(1).max(100),
@@ -85,6 +148,10 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
   const { messages, subject, topic, sessionId } = req.body as z.infer<typeof chatRequestSchema>;
 
   try {
+    if (!(await hasAICoConsent(userId))) {
+      return res.status(403).json({ aiAvailable: false, reason: 'AI_CONSENT_REQUIRED' });
+    }
+
     if (sessionId) {
       const { data: session, error } = await supabaseAdmin
         .from('learning_sessions').select('id, mode, status')
@@ -257,6 +324,16 @@ router.post('/explanations', requireAuth, validateBody(explanationRequestSchema)
     }
 
     const storedExplanation = String(question.explanation_short || question.explanation || '').trim() || null;
+    if (!(await hasAICoConsent(userId))) {
+      return res.json({
+        aiAvailable: false,
+        reason: 'AI_CONSENT_REQUIRED',
+        storedExplanation,
+        selectedOption,
+        correctOption,
+      });
+    }
+
     const readiness = getAIReadiness('explanation');
     if (!readiness.enabled || readiness.configuredProviders.length === 0) {
       return res.json({
