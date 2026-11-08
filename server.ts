@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import express from 'express';
 import path from 'path';
 import helmet from 'helmet';
@@ -1372,6 +1372,60 @@ app.post(
           return res.status(422).json({ error: 'The AI returned an incomplete draft. No question was saved.', code: 'AI_DRAFT_INVALID' });
         }
 
+        const normalizedContent = [
+          subject, topic, draft.question, options.A, options.B, options.C, options.D,
+        ].map((value) => String(value || '').trim().toLowerCase()).join('|');
+        const contentFingerprint = createHash('sha256').update(normalizedContent).digest('hex');
+        const { data: duplicate, error: duplicateError } = await supabaseAdmin
+          .from('question_bank')
+          .select('id, status')
+          .eq('content_fingerprint', contentFingerprint)
+          .limit(1)
+          .maybeSingle();
+        if (duplicateError) {
+          console.error('[SABI AI] Draft duplicate check failed:', duplicateError.message);
+          return res.status(503).json({ error: 'The draft quality check is temporarily unavailable.' });
+        }
+        if (duplicate) {
+          return res.status(409).json({
+            error: 'A question with the same content already exists.',
+            code: 'QUESTION_DUPLICATE',
+            existingQuestionId: duplicate.id,
+          });
+        }
+
+        let aiSourceId: string | null = null;
+        const { data: existingSource, error: sourceLookupError } = await supabaseAdmin
+          .from('question_sources')
+          .select('id')
+          .eq('source_key', 'sabi-ai-draft-generator')
+          .maybeSingle();
+        if (sourceLookupError) {
+          console.error('[SABI AI] Draft provenance lookup failed:', sourceLookupError.message);
+          return res.status(503).json({ error: 'Draft provenance could not be verified.' });
+        }
+        if (existingSource) {
+          aiSourceId = existingSource.id;
+        } else {
+          const { data: createdSource, error: sourceCreateError } = await supabaseAdmin
+            .from('question_sources')
+            .insert({
+              source_key: 'sabi-ai-draft-generator',
+              source_name: 'Sabi AI Draft Generator',
+              source_type: 'ai_generated',
+              permitted_use: 'unknown',
+              verification_status: 'unverified',
+              notes: 'AI-generated draft source. Human academic review and source-use verification are required before publication.',
+            })
+            .select('id')
+            .single();
+          if (sourceCreateError || !createdSource) {
+            console.error('[SABI AI] Draft provenance creation failed:', sourceCreateError?.message);
+            return res.status(503).json({ error: 'Draft provenance could not be recorded.' });
+          }
+          aiSourceId = createdSource.id;
+        }
+
         const questionId = `SABI-AI-${randomUUID()}`;
         const record = {
           id: questionId,
@@ -1392,6 +1446,9 @@ app.post(
           concepts: Array.isArray(draft.concepts) ? draft.concepts.filter((value: unknown) => typeof value === 'string').slice(0, 20) : [],
           common_wrong_answer: typeof draft.common_wrong_answer === 'string' ? draft.common_wrong_answer : null,
           source: 'Sabi AI Draft Generator',
+          source_id: aiSourceId,
+          content_fingerprint: contentFingerprint,
+          review_status: 'unreviewed',
           status: 'ai-draft',
           review_status: 'unreviewed',
           confidence_score: 0,
