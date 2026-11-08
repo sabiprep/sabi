@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildScorePrediction, buildTopicRecommendations } from './engineExecution';
+import { buildLearningAnalytics, buildScorePrediction, buildStudyPlan, buildTopicRecommendations } from './engineExecution';
 
 describe('buildScorePrediction', () => {
   it('requires ten answered questions in each of four subjects', () => {
@@ -39,5 +39,39 @@ describe('buildTopicRecommendations', () => {
     expect(result[0].target_id).toBe('Math::Algebra');
     expect(result[0].rationale.reason).toBe('spaced_review_due');
     expect(result[1].target_id).toBe('Physics::Motion');
+  });
+});
+
+describe('buildStudyPlan', () => {
+  it('requests a diagnostic when no mastery evidence exists', () => {
+    expect(buildStudyPlan([]).status).toBe('diagnostic_required');
+  });
+
+  it('prioritizes due review and weak topics in a deterministic plan', () => {
+    const result = buildStudyPlan([
+      { subject: 'Math', topic: 'Algebra', attempted_count: 4, correct_count: 1, mastery_score: 25, next_review_at: '2026-11-07T00:00:00Z' },
+      { subject: 'Physics', topic: 'Motion', attempted_count: 3, correct_count: 1, mastery_score: 40, next_review_at: null },
+    ], Date.parse('2026-11-08T00:00:00Z'), 5);
+    expect(result.status).toBe('ready');
+    expect(result.days).toHaveLength(5);
+    expect(result.days[0].actions[0]).toMatchObject({ subject: 'Math', topic: 'Algebra', action: 'spaced_review' });
+  });
+});
+
+describe('buildLearningAnalytics', () => {
+  it('aggregates only authoritative answered outcomes by subject and topic', () => {
+    const result = buildLearningAnalytics([
+      { is_correct: true, elapsed_ms: 1000, question_bank: { subject: 'Math', topic: 'Algebra' } },
+      { is_correct: false, elapsed_ms: 3000, question_bank: { subject: 'Math', topic: 'Algebra' } },
+      { is_correct: true, elapsed_ms: null, question_bank: { subject: 'Physics', topic: 'Motion' } },
+      { is_correct: null, elapsed_ms: 500, question_bank: { subject: 'Physics', topic: 'Motion' } },
+    ]);
+    expect(result.total_attempts).toBe(3);
+    expect(result.correct_attempts).toBe(2);
+    expect(result.accuracy).toBe(67);
+    expect(result.subjects.find((row) => row.subject === 'Math')).toMatchObject({
+      attempted: 2, correct: 1, accuracy: 50, average_elapsed_ms: 2000,
+    });
+    expect(result.weakest_topics[0]).toMatchObject({ subject: 'Math', topic: 'Algebra', accuracy: 50 });
   });
 });
