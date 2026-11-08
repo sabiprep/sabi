@@ -79,6 +79,95 @@ export function buildTopicRecommendations(rows: MasteryRow[], now = Date.now()) 
   }));
 }
 
+
+export function buildStudyPlan(rows: MasteryRow[], now = Date.now(), days = 7) {
+  const due = rows
+    .filter((row) => row.next_review_at && new Date(row.next_review_at).getTime() <= now)
+    .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime());
+  const weak = rows
+    .filter((row) => row.attempted_count >= 2 && row.mastery_score < 75)
+    .sort((a, b) => Number(a.mastery_score) - Number(b.mastery_score));
+  const ordered = [...new Map([...due, ...weak].map((row) => [
+    `${row.subject.toLowerCase()}::${row.topic.toLowerCase()}`, row,
+  ])).values()];
+  if (!rows.length) {
+    return {
+      status: 'diagnostic_required' as const,
+      summary: 'Complete a diagnostic session before a personalized study plan can be built.',
+      days: [],
+      evidence_topics: 0,
+    };
+  }
+  const planDays = Array.from({ length: Math.max(1, Math.min(14, days)) }, (_, index) => {
+    const first = ordered[index % Math.max(ordered.length, 1)];
+    const second = ordered[(index + 1) % Math.max(ordered.length, 1)];
+    const actions = first ? [{
+      subject: first.subject, topic: first.topic,
+      action: due.some((row) => row.subject === first.subject && row.topic === first.topic) ? 'spaced_review' : 'targeted_practice',
+      reason: Number(first.mastery_score) < 50 ? 'low_mastery_priority' : 'reinforcement',
+    }] : [];
+    if (second && second !== first && (index % 2 === 0)) actions.push({
+      subject: second.subject, topic: second.topic, action: 'targeted_practice', reason: 'secondary_focus',
+    });
+    return { day: index + 1, actions };
+  });
+  return {
+    status: 'ready' as const,
+    summary: ordered.length
+      ? `A ${planDays.length}-day plan prioritizing ${due.length} due reviews and ${weak.length} weak topics.`
+      : 'No overdue or low-mastery topics are currently identified. Continue balanced practice.',
+    days: planDays,
+    evidence_topics: rows.length,
+    due_review_topics: due.length,
+    weak_topics: weak.length,
+  };
+}
+
+export function buildLearningAnalytics(attempts: Array<{
+  is_correct: boolean | null;
+  elapsed_ms?: number | null;
+  question_bank?: { subject?: string | null; topic?: string | null } | null;
+}>) {
+  const bySubject = new Map<string, { attempted: number; correct: number; elapsed: number; timed: number }>();
+  const byTopic = new Map<string, { subject: string; topic: string; attempted: number; correct: number }>();
+  for (const attempt of attempts) {
+    if (typeof attempt.is_correct !== 'boolean') continue;
+    const subject = String(attempt.question_bank?.subject || 'Unmapped');
+    const topic = String(attempt.question_bank?.topic || 'Unmapped');
+    const subjectRow = bySubject.get(subject) || { attempted: 0, correct: 0, elapsed: 0, timed: 0 };
+    subjectRow.attempted += 1;
+    if (attempt.is_correct) subjectRow.correct += 1;
+    if (typeof attempt.elapsed_ms === 'number' && attempt.elapsed_ms >= 0) {
+      subjectRow.elapsed += attempt.elapsed_ms;
+      subjectRow.timed += 1;
+    }
+    bySubject.set(subject, subjectRow);
+    const key = `${subject}::${topic}`;
+    const topicRow = byTopic.get(key) || { subject, topic, attempted: 0, correct: 0 };
+    topicRow.attempted += 1;
+    if (attempt.is_correct) topicRow.correct += 1;
+    byTopic.set(key, topicRow);
+  }
+  const subjects = [...bySubject.entries()].map(([subject, row]) => ({
+    subject, attempted: row.attempted, correct: row.correct,
+    accuracy: Math.round((row.correct / row.attempted) * 100),
+    average_elapsed_ms: row.timed ? Math.round(row.elapsed / row.timed) : null,
+  }));
+  const topics = [...byTopic.values()].map((row) => ({
+    ...row, accuracy: Math.round((row.correct / row.attempted) * 100),
+  })).sort((a, b) => a.accuracy - b.accuracy);
+  const total = subjects.reduce((sum, row) => sum + row.attempted, 0);
+  const correct = subjects.reduce((sum, row) => sum + row.correct, 0);
+  return {
+    status: total ? 'ready' as const : 'insufficient_data' as const,
+    total_attempts: total,
+    correct_attempts: correct,
+    accuracy: total ? Math.round((correct / total) * 100) : null,
+    subjects,
+    weakest_topics: topics.slice(0, 10),
+  };
+}
+
 type EngineRequest = {
   id: string;
   user_id: string;
@@ -337,6 +426,29 @@ export async function executeEngineRequest(db: any, item: EngineRequest) {
         baseline_topic_count: mastery.length,
         weakest_topics: mastery.slice(0, 10),
         message: mastery.length ? 'Baseline gaps derived from verified topic mastery.' : 'A diagnostic session is needed to establish a baseline.',
+      };
+      break;
+    case 'study-plan-engine':
+      output = buildStudyPlan(mastery, now, Number(item.payload.plan_days || 7));
+      break;
+    case 'learning-analytics-engine': {
+      const { data: attempts, error: attemptsError } = await db
+        .from('learning_session_items')
+        .select('is_correct, elapsed_ms, question_bank(subject, topic)')
+        .eq('user_id', item.user_id)
+        .not('answered_at', 'is', null)
+        .order('answered_at', { ascending: false })
+        .limit(5000);
+      if (attemptsError) throw attemptsError;
+      output = buildLearningAnalytics(attempts || []);
+      break;
+    }
+    case 'ai-tutor-engine':
+      output = {
+        status: 'context_ready',
+        context_source: 'versioned_signal_registry',
+        signals: inputSnapshot,
+        next_step: 'Use the server-side AI gateway for an explicit student tutoring request.',
       };
       break;
     default:
