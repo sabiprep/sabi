@@ -15,7 +15,7 @@ import { isCbtFeedbackLocked } from './answerVisibility';
 import { buildStoredAnswerReplay } from './answerReplay';
 import { buildSyllabusCoverage } from './engineExecution';
 import { enqueueNotification } from '../notifications/queue';
-import { awardXP } from '../gamification/service';
+import { awardXP, recordStudyActivity } from '../gamification/service';
 
 const router = Router();
 
@@ -118,6 +118,13 @@ async function validateVerifiedQuestionTaxonomy(input: {
 
 
 async function enqueueSessionCompletionNotification(userId: string, sessionId: string, mode: string) {
+  try {
+    // Until learner timezone preferences are exposed in profile settings, use
+    // the product's explicit Nigeria default rather than an arbitrary server timezone.
+    await recordStudyActivity(supabaseAdmin, userId, 'Africa/Lagos');
+  } catch (error) {
+    console.error('[SABI] Study streak update failed:', error instanceof Error ? error.name : 'unknown_error');
+  }
   try {
     await awardXP(supabaseAdmin, {
       userId,
