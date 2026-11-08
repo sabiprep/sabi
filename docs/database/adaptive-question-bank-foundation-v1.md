@@ -1,6 +1,6 @@
 # Sabi Adaptive Question Bank — Database Foundation v1
 
-Status: foundation migration applied to the Sabi production database on 2026-11-08. Remaining application logic, source backfill and adaptive workflows are not yet deployed.
+Status: additive foundation and automatic attempt-capture migrations applied to Sabi production on 2026-11-08. Adaptive selection, source backfill and syllabus ingestion remain in progress.
 
 ## 1. Production baseline (read-only audit, 2026-11-08)
 
@@ -203,12 +203,13 @@ Only adaptive practice uses these rules.
 1. Reconcile the remaining migration-history drift: the foundation migration is now recorded in production, while the two previously identified backend-service and notification-worker migration records still require object-by-object reconciliation before either is applied.
 2. Completed: create the seven additive tables and supporting indexes. No destructive alterations were made to `question_bank`.
 3. Completed for the foundation: RLS is enabled, direct `anon`/`authenticated` table privileges are revoked, and `service_role` has access. Student-facing access must be mediated by trusted backend endpoints until ownership-scoped policies and APIs are implemented.
-4. Add a trusted attempt-submission/grading path; test that clients cannot forge correctness.
-5. Import verified syllabus versions/objectives before objective-level mastery or generation is enabled.
-6. Backfill source evidence and normalize difficulty through a reversible mapping; retain original raw values.
-7. Create variant groups from concept/topic matches only where the match is reliable. Do not automatically group every question sharing a broad topic.
-8. Seed and validate a small pilot batch before scaling archive ingestion or using provider credits.
-9. Run advisor checks, test student/admin/service-role access, verify idempotency, and confirm rollback/recovery plan before production rollout.
+4. Completed: an invoker-security trigger now captures a `question_attempts` row whenever the existing trusted answer RPC first marks a session item answered. It records the stored-key result, selected option, timing, hints, answer changes and variant-group membership when present. Duplicate updates to an already answered item do not create another attempt.
+5. Verify the existing trusted attempt-submission/grading path end to end with a controlled test account; test that clients cannot forge correctness.
+6. Import verified syllabus versions/objectives before objective-level mastery or generation is enabled.
+7. Backfill source evidence and normalize difficulty through a reversible mapping; retain original raw values.
+8. Create variant groups from concept/topic matches only where the match is reliable. Do not automatically group every question sharing a broad topic.
+9. Seed and validate a small pilot batch before scaling archive ingestion or using provider credits.
+10. Run advisor checks, test student/admin/service-role access, verify idempotency, and confirm rollback/recovery plan before further production rollout.
 
 ## 8. Acceptance criteria
 
