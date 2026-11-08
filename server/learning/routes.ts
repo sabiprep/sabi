@@ -873,6 +873,13 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
     let replayed = false;
     const restoreStoredAnswer = async (stored: { selected_option: string | null; is_correct: boolean | null }) => {
       if (stored.selected_option !== selectedOption) return { conflict: true as const };
+      const { data: replaySession, error: replaySessionError } = await supabaseAdmin
+        .from('learning_sessions')
+        .select('status, answered_count, total_questions')
+        .eq('id', sessionId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (replaySessionError || !replaySession) return { unavailable: true as const };
       const { data: replayQuestion, error: replayQuestionError } = await supabaseAdmin
         .from('question_bank')
         .select('answer, explanation_short, explanation')
@@ -886,10 +893,10 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
           isCorrect: Boolean(stored.is_correct),
           correctOption: String(replayQuestion.answer || '').trim().toUpperCase(),
           explanation: replayQuestion.explanation_short || replayQuestion.explanation || '',
-          answeredCount: Number(activeSession.answered_count || 0),
-          totalQuestions: Number(activeSession.total_questions || 0),
+          answeredCount: Number(replaySession.answered_count || 0),
+          totalQuestions: Number(replaySession.total_questions || 0),
           mode: activeSession.mode,
-          status: activeSession.status,
+          status: replaySession.status,
         }),
       };
     };
