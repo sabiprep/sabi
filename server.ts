@@ -1143,6 +1143,13 @@ app.post(
         } catch (error) {
           const isDeadLetter = attemptCount >= 8;
           const retryDelaySeconds = Math.min(30 * (2 ** Math.max(0, attemptCount - 1)), 3600);
+          const { error: runFailureError } = await supabaseAdmin
+            .from('engine_runs')
+            .update({ run_status: 'failed', error_code: 'engine_execution_failed' })
+            .eq('engine_key', job.engine_key)
+            .eq('idempotency_key', job.idempotency_key)
+            .eq('run_status', 'running');
+          if (runFailureError) console.error('[SABI] Engine run failure state update failed:', runFailureError.message);
           const { error: retryJobError } = await supabaseAdmin
             .from('signal_processing_outbox')
             .update({
