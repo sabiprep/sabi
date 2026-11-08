@@ -280,24 +280,48 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       // Smart Practice prioritizes due reviews first, then the student's weakest
       // known topics. Students with no history receive a randomized starter set.
       if (mode === 'smart_practice') {
-        const { data: masteryRows, error: masteryError } = await supabaseAdmin
-          .from('student_topic_mastery')
-          .select('topic, mastery_score, next_review_at')
-          .eq('user_id', userId);
-        if (masteryError) {
-          console.error('[SABI] Adaptive mastery lookup failed:', masteryError.message);
+        const [masteryResult, recentResult] = await Promise.all([
+          supabaseAdmin.from('student_topic_mastery')
+            .select('subject, topic, mastery_score, next_review_at, attempted_count, correct_streak, interval_days, last_result')
+            .eq('user_id', userId),
+          supabaseAdmin.from('learning_session_items')
+            .select('question_id')
+            .eq('user_id', userId)
+            .not('answered_at', 'is', null)
+            .order('answered_at', { ascending: false })
+            .limit(120),
+        ]);
+        if (masteryResult.error || recentResult.error) {
+          console.error('[SABI] Adaptive practice lookup failed:', masteryResult.error?.message || recentResult.error?.message);
           return res.status(503).json({ error: 'Adaptive practice is temporarily unavailable.' });
         }
-        const masteryByTopic = new Map((masteryRows || []).map((row) => [row.topic, row]));
+        const masteryByKey = new Map((masteryResult.data || []).map((row) => [
+          `${String(row.subject).toLowerCase()}::${String(row.topic).toLowerCase()}`, row,
+        ]));
+        const recentIds = new Set((recentResult.data || []).map((row) => row.question_id));
+        const unseen = orderedCandidates.filter((question) => !recentIds.has(question.id));
+        const adaptivePool = unseen.length >= Math.min(limit, 5) ? unseen : orderedCandidates;
         const now = Date.now();
-        orderedCandidates.sort((a, b) => {
-          const aMastery = masteryByTopic.get(a.topic);
-          const bMastery = masteryByTopic.get(b.topic);
+        const difficultyFit = (difficulty: unknown, score: number) => {
+          const value = String(difficulty || '').toLowerCase();
+          if (score < 45) return value.includes('easy') || value.includes('beginner') ? 24 : value.includes('hard') ? -12 : 8;
+          if (score < 72) return value.includes('medium') || value.includes('moderate') ? 22 : 5;
+          return value.includes('hard') || value.includes('advanced') ? 24 : value.includes('easy') ? -8 : 8;
+        };
+        adaptivePool.sort((a, b) => {
+          const aMastery = masteryByKey.get(`${String(a.subject).toLowerCase()}::${String(a.topic).toLowerCase()}`);
+          const bMastery = masteryByKey.get(`${String(b.subject).toLowerCase()}::${String(b.topic).toLowerCase()}`);
+          const aScore = Number(aMastery?.mastery_score ?? 50);
+          const bScore = Number(bMastery?.mastery_score ?? 50);
           const aDue = Boolean(aMastery?.next_review_at && new Date(aMastery.next_review_at).getTime() <= now);
           const bDue = Boolean(bMastery?.next_review_at && new Date(bMastery.next_review_at).getTime() <= now);
-          if (aDue !== bDue) return aDue ? -1 : 1;
-          return (aMastery?.mastery_score ?? 50) - (bMastery?.mastery_score ?? 50);
+          const aPriority = (aDue ? 1000 : 0) + (100 - aScore) + difficultyFit(a.difficulty, aScore) +
+            (aMastery?.last_result === 'incorrect' ? 12 : 0) + Math.min(Number(aMastery?.attempted_count || 0), 10);
+          const bPriority = (bDue ? 1000 : 0) + (100 - bScore) + difficultyFit(b.difficulty, bScore) +
+            (bMastery?.last_result === 'incorrect' ? 12 : 0) + Math.min(Number(bMastery?.attempted_count || 0), 10);
+          return bPriority - aPriority;
         });
+        orderedCandidates = adaptivePool;
       }
 
       selected = orderedCandidates.slice(0, limit);
@@ -499,7 +523,7 @@ router.get('/recommendations', requireAuth, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('student_topic_mastery')
-      .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at')
+      .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at, correct_streak, interval_days, last_result')
       .eq('user_id', userId)
       .order('mastery_score', { ascending: true });
     if (error) {
@@ -512,11 +536,21 @@ router.get('/recommendations', requireAuth, async (req, res) => {
     const dueReviews = mastery
       .filter((item) => item.next_review_at && new Date(item.next_review_at).getTime() <= now)
       .sort((a, b) => new Date(a.next_review_at!).getTime() - new Date(b.next_review_at!).getTime());
-    const focusTopics = mastery.filter((item) => item.attempted_count >= 2 && item.mastery_score < 70).slice(0, 5);
-    const weakestTopic = mastery[0] || null;
+    const focusTopics = mastery
+      .filter((item) => item.attempted_count >= 2 && item.mastery_score < 75)
+      .sort((a, b) => Number(a.mastery_score) - Number(b.mastery_score))
+      .slice(0, 5);
+    const weakestTopic = focusTopics[0] || mastery[0] || null;
+    const reviewPlan = dueReviews.slice(0, 10).map((item) => ({
+      subject: item.subject, topic: item.topic, masteryScore: Number(item.mastery_score),
+      intervalDays: item.interval_days || 1, reason: item.last_result === 'incorrect'
+        ? 'Your last answer was incorrect; revisit this topic.' : 'This topic is due for spaced review.',
+    }));
 
     return res.json({
       dueReviews,
+      dueReviewCount: dueReviews.length,
+      reviewPlan,
       focusTopics,
       weakestTopic,
       nextAction: dueReviews.length
@@ -531,48 +565,98 @@ router.get('/recommendations', requireAuth, async (req, res) => {
   }
 });
 
-router.get('/diagnostic/latest', requireAuth, async (req, res) => {
+router.get('/score-prediction', requireAuth, async (req, res) => {
   const userId = authenticatedUser(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
   try {
-    const { data: diagnostic, error } = await supabaseAdmin
-      .from('learning_sessions')
-      .select('id, subject, status, total_questions, answered_count, correct_count, started_at, completed_at')
-      .eq('user_id', userId)
-      .eq('mode', 'diagnostic')
-      .eq('status', 'completed')
-      .order('completed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) {
-      console.error('[SABI] Diagnostic lookup failed:', error.message);
-      return res.status(503).json({ error: 'Diagnostic results are temporarily unavailable.' });
+    const [profileResult, catalogueResult, attemptsResult] = await Promise.all([
+      supabaseAdmin.from('profiles').select('registered_subjects').eq('id', userId).maybeSingle(),
+      supabaseAdmin.from('jamb_subjects').select('slug, display_name, aliases').eq('is_active', true),
+      supabaseAdmin.from('learning_session_items')
+        .select('question_id, is_correct, question_bank(subject)')
+        .eq('user_id', userId)
+        .not('answered_at', 'is', null)
+        .order('answered_at', { ascending: false })
+        .limit(5000),
+    ]);
+    if (profileResult.error || catalogueResult.error || attemptsResult.error) {
+      console.error('[SABI] Score prediction data lookup failed:',
+        profileResult.error?.message || catalogueResult.error?.message || attemptsResult.error?.message);
+      return res.status(503).json({ error: 'Your score prediction is temporarily unavailable.' });
     }
 
-    const { data: mastery, error: masteryError } = await supabaseAdmin
-      .from('student_topic_mastery')
-      .select('subject, topic, attempted_count, correct_count, mastery_score')
-      .eq('user_id', userId)
-      .order('mastery_score', { ascending: true });
-    if (masteryError) {
-      console.error('[SABI] Diagnostic mastery lookup failed:', masteryError.message);
-      return res.status(503).json({ error: 'Diagnostic results are temporarily unavailable.' });
+    const registered = profileResult.data?.registered_subjects || [];
+    if (registered.length !== 4) {
+      return res.status(400).json({
+        error: 'Complete your four-subject UTME combination before requesting a score prediction.',
+        code: 'SUBJECT_COMBINATION_REQUIRED',
+      });
     }
+    const catalogue = catalogueResult.data || [];
+    const subjects = registered.map((raw: string) => {
+      const normalized = String(raw).trim().toLowerCase();
+      const match = catalogue.find((item: any) =>
+        String(item.display_name).toLowerCase() === normalized ||
+        (item.aliases || []).some((alias: string) => String(alias).toLowerCase() === normalized)
+      );
+      return match ? {
+        slug: match.slug,
+        name: match.display_name,
+        bankName: match.slug === 'use-of-english' ? 'Use of English' : match.display_name,
+      } : null;
+    });
+    if (subjects.some((item: any) => !item) || new Set(subjects.map((item: any) => item.slug)).size !== 4) {
+      return res.status(400).json({ error: 'Your saved UTME subject combination is invalid. Update your subjects first.' });
+    }
+
+    const attempts = attemptsResult.data || [];
+    const breakdown = subjects.map((subject: any) => {
+      const relevant = attempts.filter((attempt: any) =>
+        String(attempt.question_bank?.subject || '').toLowerCase() === String(subject.bankName).toLowerCase()
+      );
+      const attempted = relevant.length;
+      const correct = relevant.filter((attempt) => attempt.is_correct).length;
+      // A 50% prior across ten virtual questions reduces volatility in early practice.
+      const estimatedAccuracy = attempted ? (correct + 5) / (attempted + 10) : null;
+      const projectedSubjectScore = estimatedAccuracy === null ? null : Math.round(estimatedAccuracy * 100);
+      return {
+        subject: subject.name,
+        attempted,
+        correct,
+        accuracy: attempted ? Math.round((correct / attempted) * 100) : null,
+        projectedScore: projectedSubjectScore,
+        ready: attempted >= 10,
+      };
+    });
+    const readySubjects = breakdown.filter((item) => item.ready);
+    const enoughData = readySubjects.length === 4;
+    const minSample = Math.min(...breakdown.map((item) => item.attempted));
+    const projectedScore = enoughData
+      ? Math.max(0, Math.min(400, breakdown.reduce((sum, item) => sum + (item.projectedScore || 0), 0)))
+      : null;
+    const margin = enoughData ? Math.max(5, Math.min(25, Math.round(40 / Math.sqrt(minSample)))) : null;
 
     return res.json({
-      diagnostic: diagnostic ? {
-        ...diagnostic,
-        accuracy: diagnostic.answered_count
-          ? Math.round((diagnostic.correct_count / diagnostic.answered_count) * 100)
-          : 0,
-      } : null,
-      topicStrengths: mastery || [],
-      needsDiagnostic: !diagnostic,
+      status: enoughData ? 'ready' : 'insufficient_data',
+      predictedScore: projectedScore,
+      scoreRange: projectedScore === null ? null : {
+        lower: Math.max(0, projectedScore - margin!),
+        upper: Math.min(400, projectedScore + margin!),
+      },
+      confidence: enoughData
+        ? minSample >= 50 ? 'high' : minSample >= 25 ? 'medium' : 'low'
+        : 'insufficient',
+      minimumAttemptsPerSubject: 10,
+      totalAttempts: attempts.length,
+      subjects: breakdown,
+      message: enoughData
+        ? 'This is an estimate from your recent answered UTME practice questions, not a guaranteed examination result.'
+        : 'Complete at least 10 answered questions in each of your four UTME subjects to unlock a meaningful 0–400 score estimate.',
     });
   } catch (error) {
-    console.error('[SABI] Unexpected diagnostic lookup error:', error);
-    return res.status(500).json({ error: 'An unexpected error occurred while loading diagnostic results.' });
+    console.error('[SABI] Unexpected score prediction error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while preparing your score prediction.' });
   }
 });
 
@@ -584,7 +668,7 @@ router.get('/progress', requireAuth, async (req, res) => {
     const [masteryResult, sessionsResult] = await Promise.all([
       supabaseAdmin
         .from('student_topic_mastery')
-        .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at')
+        .select('subject, topic, attempted_count, correct_count, mastery_score, last_attempt_at, next_review_at, correct_streak, ease_factor, interval_days, last_result')
         .eq('user_id', userId)
         .order('mastery_score', { ascending: true }),
       supabaseAdmin
