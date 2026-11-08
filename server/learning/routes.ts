@@ -107,19 +107,40 @@ router.post('/content-review/sources/:sourceId', requireAuth, requireRole('ADMIN
   return res.json({ status: 'updated', source });
 });
 
-router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
-  const { data, error } = await supabaseAdmin
+router.get('/content-review/queue', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), async (req, res) => {
+  const rawLimit = req.query.limit === undefined ? 50 : Number(req.query.limit);
+  const rawOffset = req.query.offset === undefined ? 0 : Number(req.query.offset);
+  const subject = typeof req.query.subject === 'string' ? req.query.subject.trim() : '';
+  const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 100 ||
+      !Number.isInteger(rawOffset) || rawOffset < 0 || rawOffset > 50000 ||
+      (status && !['ai-draft', 'needs-review'].includes(status)) || subject.length > 80) {
+    return res.status(400).json({ error: 'Invalid content review filters.' });
+  }
+
+  let query = supabaseAdmin
     .from('question_bank')
-    .select('id, exam_type, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, source_id, content_fingerprint, review_status, status, confidence_score, flag_count')
-    .in('status', ['ai-draft', 'needs-review'])
-    .order('confidence_score', { ascending: false })
-    .limit(50);
+    .select('id, exam_type, subject, topic, subtopic, topic_id, subtopic_id, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short, difficulty, source, source_id, content_fingerprint, review_status, status, confidence_score, flag_count, created_at', { count: 'exact' })
+    .in('status', status ? [status] : ['ai-draft', 'needs-review']);
+  if (subject) query = query.eq('subject', subject);
+  const { data, error, count } = await query
+    .order('created_at', { ascending: true })
+    .range(rawOffset, rawOffset + rawLimit - 1);
   if (error) {
     console.error('[SABI] Content review queue lookup failed:', error.message);
     return res.status(503).json({ error: 'The content review queue is temporarily unavailable.' });
   }
   res.set('Cache-Control', 'no-store');
-  return res.json({ questions: data || [], returned: (data || []).length });
+  const total = count || 0;
+  const nextOffset = rawOffset + (data || []).length;
+  return res.json({
+    questions: data || [],
+    returned: (data || []).length,
+    total,
+    offset: rawOffset,
+    limit: rawLimit,
+    nextOffset: nextOffset < total ? nextOffset : null,
+  });
 });
 
 router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MANAGER', 'ADMIN', 'MASTER_ADMIN'), validateBody(questionReviewSchema), async (req, res) => {
