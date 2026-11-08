@@ -6,7 +6,7 @@ declare
     'payment_transactions','payment_webhook_events','ai_usage_events','ai_credit_ledger',
     'ai_prompt_versions','notification_preferences','notification_templates','notification_queue',
     'notification_delivery_logs','student_xp_ledger','student_streak_state','knowledge_documents',
-    'knowledge_chunks','parent_student_relationships','school_organizations','school_memberships'
+    'knowledge_chunks','parent_student_relationships','school_organizations','school_memberships','gamification_rules'
   ];
 begin
   foreach table_name in array required_tables loop
@@ -19,7 +19,9 @@ begin
     end if;
   end loop;
 
-  if has_table_privilege('anon', 'public.ai_task_pricing', 'SELECT')
+  if has_table_privilege('anon', 'public.gamification_rules', 'SELECT')
+     or has_table_privilege('authenticated', 'public.gamification_rules', 'SELECT')
+     or has_table_privilege('anon', 'public.ai_task_pricing', 'SELECT')
      or has_table_privilege('authenticated', 'public.ai_task_pricing', 'SELECT')
      or has_table_privilege('anon', 'public.payment_webhook_events', 'SELECT')
      or has_table_privilege('authenticated', 'public.payment_webhook_events', 'SELECT')
@@ -71,6 +73,18 @@ begin
      or not has_function_privilege('service_role', 'public.refund_ai_credits(uuid,text,text)', 'EXECUTE') then
     raise exception 'AI credit refund RPC permissions are not service-role-only';
   end if;
+
+  if has_function_privilege('anon', 'public.award_student_xp(uuid,text,text,text,text)', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.award_student_xp(uuid,text,text,text,text)', 'EXECUTE')
+     or not has_function_privilege('service_role', 'public.award_student_xp(uuid,text,text,text,text)', 'EXECUTE') then
+    raise exception 'XP award RPC permissions are not service-role-only';
+  end if;
+
+  if (select count(*) from public.gamification_rules) <> 0 then
+    raise exception 'Gamification XP rules must remain unconfigured until award values are approved';
+  end if;
+
+
 
   if (select count(*) from public.ai_task_pricing) <> 0 then
     raise exception 'AI task prices must remain unconfigured until credit costs are approved';
