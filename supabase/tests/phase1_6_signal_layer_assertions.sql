@@ -10,6 +10,9 @@ declare
   v_run uuid;
   v_session uuid;
   v_item uuid;
+  v_checkin_user uuid := gen_random_uuid();
+  v_checkin_id uuid;
+  v_checkin_retry_id uuid;
 begin
   if (select count(*) from public.signal_definitions where lifecycle_status='active') < 12 then
     raise exception 'Expected the starter canonical signal catalogue';
@@ -40,6 +43,43 @@ begin
 
   insert into auth.users(id,email)
   values(v_user,'phase16-ci-'||v_user::text||'@sabi.test');
+
+  insert into auth.users(id,email)
+  values(v_checkin_user,'phase16-checkin-'||v_checkin_user::text||'@sabi.test');
+
+  v_checkin_id := public.record_student_progress_checkin(
+    v_checkin_user,'phase16-checkin-key-0001',4,3,array['limited_time'],
+    'I need a more consistent routine'
+  );
+  v_checkin_retry_id := public.record_student_progress_checkin(
+    v_checkin_user,'phase16-checkin-key-0001',4,3,array['limited_time'],
+    'I need a more consistent routine'
+  );
+  if v_checkin_id is distinct from v_checkin_retry_id then
+    raise exception 'Check-in retry did not return the original submission';
+  end if;
+  if (select count(*) from public.student_progress_checkins
+      where user_id=v_checkin_user and submission_key='phase16-checkin-key-0001') <> 1 then
+    raise exception 'Idempotent check-in created duplicate records';
+  end if;
+  if not exists (
+    select 1 from public.student_signal_current
+    where user_id=v_checkin_user and signal_key='student.confidence' and value='4'::jsonb
+  ) or not exists (
+    select 1 from public.student_signal_current
+    where user_id=v_checkin_user and signal_key='student.motivation_score' and value='3'::jsonb
+  ) then
+    raise exception 'Check-in values were not atomically materialized as learner signals';
+  end if;
+  begin
+    perform public.record_student_progress_checkin(
+      v_checkin_user,'phase16-checkin-key-0001',2,3,array['limited_time'],
+      'I need a more consistent routine'
+    );
+    raise exception 'Expected check-in idempotency mismatch to be rejected';
+  exception when raise_exception then
+    if SQLERRM = 'Expected check-in idempotency mismatch to be rejected' then raise; end if;
+  end;
 
   insert into public.learning_sessions(user_id,mode,subject,total_questions)
   values(v_user,'smart_practice','Biology',1) returning id into v_session;
@@ -137,6 +177,7 @@ begin
 
   -- Deleting an account must erase its signal evidence and projections.
   delete from auth.users where id=v_user;
+  delete from auth.users where id=v_checkin_user;
   select count(*) into v_count from public.student_signal_observations where user_id=v_user;
   if v_count <> 0 then raise exception 'Account deletion left signal observations behind'; end if;
   select count(*) into v_count from public.student_signal_history where user_id=v_user;
