@@ -8,6 +8,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'feat/phase-1-5-intelligence-data-layer'
 
 permissions:
   contents: read
