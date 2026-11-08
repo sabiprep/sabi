@@ -39,6 +39,13 @@ begin
     raise exception 'Expected owner-read privileges are missing';
   end if;
 
+  if not has_table_privilege('service_role', 'public.ai_task_pricing', 'INSERT')
+     or not has_table_privilege('service_role', 'public.gamification_rules', 'INSERT') then
+    raise exception 'Service role is missing backend configuration write privileges';
+  end if;
+
+
+
   if not exists (
     select 1 from pg_policies
     where schemaname = 'public' and tablename = 'student_entitlements'
