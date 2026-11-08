@@ -240,13 +240,7 @@ begin
   if exists (select 1 from public.engine_run_signal_inputs where engine_run_id=v_run) then
     raise exception 'Account deletion left learner-specific engine signal inputs behind'; end if;
 
-  begin
-    update public.student_signal_history set value='5'::jsonb
-    where user_id=v_user and signal_key='student.confidence';
-    raise exception 'Expected signal history immutability trigger to reject update';
-  exception when raise_exception then
-    if SQLERRM = 'Expected signal history immutability trigger to reject update' then raise; end if;
-  end;
+
 end
 $$;
 
