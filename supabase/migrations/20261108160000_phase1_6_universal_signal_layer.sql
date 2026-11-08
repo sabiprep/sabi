@@ -355,6 +355,132 @@ $$;
 revoke all on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) from public,anon,authenticated;
 grant execute on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) to service_role;
 
+
+-- Persist the structured profile projections in one transaction. The versioned
+-- onboarding response table remains the authoritative original-answer record.
+create or replace function public.save_student_onboarding_profile(
+  p_user_id uuid,
+  p_exam_year integer,
+  p_registered_subjects text[],
+  p_target_score integer,
+  p_answers jsonb
+)
+returns void
+language plpgsql
+security invoker
+set search_path = ''
+as $
+declare
+  v_current_class text := nullif(p_answers->>'currentClass','');
+  v_attempts text := coalesce(p_answers->>'attempts','');
+  v_daily_commitment text := coalesce(p_answers->>'dailyStudyHours','');
+  v_explanation text := coalesce(p_answers->>'explanationPreference','');
+  v_daily_goal smallint;
+  v_session_goal smallint;
+  v_explanation_style text;
+  v_course text := nullif(p_answers->>'targetCourse','');
+  v_institution text := nullif(p_answers->>'targetUniversity','');
+  v_subject_count integer;
+begin
+  if p_user_id is null or p_exam_year is null or p_target_score not between 0 and 400
+     or coalesce(array_length(p_registered_subjects,1),0) <> 4 then
+    raise exception 'Invalid structured onboarding profile';
+  end if;
+
+  insert into public.student_academic_profiles(
+    user_id,exam_year,education_level,current_class,previous_utme_attempts,preferred_language,updated_at
+  ) values (
+    p_user_id,p_exam_year,
+    case
+      when v_current_class ilike '%post-secondary%' or v_current_class ilike '%resitter%' then 'post_secondary'
+      when v_current_class ilike '%SS%' then 'senior_secondary'
+      else 'other'
+    end,
+    v_current_class,
+    case
+      when v_attempts ilike 'first%' then 0
+      when v_attempts ilike '1 %' then 1
+      when v_attempts ilike '2+%' then 2
+      else 0
+    end,
+    case when v_explanation ilike '%pidgin%' then 'en-pidgin' else 'en' end,
+    now()
+  )
+  on conflict (user_id) do update set
+    exam_year=excluded.exam_year,
+    education_level=excluded.education_level,
+    current_class=excluded.current_class,
+    previous_utme_attempts=excluded.previous_utme_attempts,
+    preferred_language=excluded.preferred_language,
+    updated_at=now();
+
+  delete from public.student_subject_selections
+  where user_id=p_user_id and exam_year=p_exam_year;
+
+  insert into public.student_subject_selections(
+    user_id,exam_year,subject_slug,selection_order,is_compulsory,selection_source
+  )
+  select p_user_id,p_exam_year,s.slug,subject_choice.ordinality::smallint,
+    (s.display_name ilike '%English%'),'onboarding'
+  from unnest(p_registered_subjects) with ordinality as subject_choice(subject_name,ordinality)
+  join public.jamb_subjects s
+    on lower(s.display_name)=lower(subject_choice.subject_name)
+    or lower(s.slug)=lower(subject_choice.subject_name);
+
+  get diagnostics v_subject_count = row_count;
+  if v_subject_count <> 4 then
+    raise exception 'One or more selected subjects could not be normalized';
+  end if;
+
+  if not exists (
+    select 1 from public.student_goals
+    where user_id=p_user_id and exam_year=p_exam_year and status='active'
+      and target_score=p_target_score
+      and target_course is not distinct from v_course
+      and target_institution is not distinct from v_institution
+  ) then
+    update public.student_goals set status='replaced',updated_at=now()
+    where user_id=p_user_id and exam_year=p_exam_year and status='active';
+
+    insert into public.student_goals(
+      user_id,exam_year,target_score,target_course,target_institution,status
+    ) values (p_user_id,p_exam_year,p_target_score,v_course,v_institution,'active');
+  end if;
+
+  v_daily_goal := case
+    when v_daily_commitment ilike '%30%' then 45
+    when v_daily_commitment ilike '%1 %' then 90
+    when v_daily_commitment ilike '%3+%' then 180
+    else 30
+  end;
+  v_session_goal := case
+    when v_daily_commitment ilike '%30%' then 25
+    when v_daily_commitment ilike '%1 %' then 30
+    when v_daily_commitment ilike '%3+%' then 45
+    else 20
+  end;
+  v_explanation_style := case
+    when v_explanation ilike 'Concise%' then 'concise'
+    when v_explanation ilike 'Detailed%' then 'detailed'
+    else 'step_by_step'
+  end;
+
+  insert into public.student_learning_preferences(
+    user_id,daily_goal_minutes,preferred_session_minutes,explanation_style,updated_at
+  ) values (
+    p_user_id,v_daily_goal,v_session_goal,v_explanation_style,now()
+  )
+  on conflict (user_id) do update set
+    daily_goal_minutes=excluded.daily_goal_minutes,
+    preferred_session_minutes=excluded.preferred_session_minutes,
+    explanation_style=excluded.explanation_style,
+    updated_at=now();
+end;
+$;
+
+revoke all on function public.save_student_onboarding_profile(uuid,integer,text[],integer,jsonb) from public,anon,authenticated;
+grant execute on function public.save_student_onboarding_profile(uuid,integer,text[],integer,jsonb) to service_role;
+
 -- Raw learning events are durable evidence. The outbox handoff is in the same
 -- transaction so accepted telemetry cannot be lost between storage and processing.
 create or replace function public.enqueue_learning_event_for_signal_processing()
