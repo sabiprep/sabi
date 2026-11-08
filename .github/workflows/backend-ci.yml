@@ -115,3 +115,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108121800_backend_service_foundations.sql
       - name: Verify backend service foundations
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/backend_service_foundations_assertions.sql
+      - name: Apply notification worker migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108122647_notification_worker.sql
+      - name: Verify notification worker security
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/notification_worker_assertions.sql
