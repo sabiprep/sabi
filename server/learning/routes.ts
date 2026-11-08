@@ -10,6 +10,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/requireAuth';
 import { validateBody } from '../middleware/validate';
 import { requireRole } from '../middleware/requireRole';
+import { isCBTExpired } from './cbtTimer';
 
 const router = Router();
 
@@ -242,12 +243,16 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       }
 
       sessionSubject = sections.map((section) => section.subject.display_name).join(', ');
+      const cbtStartedAt = new Date();
+      const cbtExpiresAt = new Date(cbtStartedAt.getTime() + Number(examConfig.duration_seconds) * 1000);
       sessionMetadata = {
         ...metadata,
         examConfiguration: {
           key: examConfig.key,
           title: examConfig.title,
           durationSeconds: examConfig.duration_seconds,
+          startedAt: cbtStartedAt.toISOString(),
+          expiresAt: cbtExpiresAt.toISOString(),
           sections: sections.map((section) => ({
             subject: section.subject.display_name,
             subjectSlug: section.subject.slug,
@@ -343,7 +348,7 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
         total_questions: selected.length,
         metadata: sessionMetadata,
       })
-      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, metadata')
       .single();
 
     if (sessionError || !session) {
@@ -401,9 +406,9 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
   }
 
   try {
-    const { data: session, error: sessionError } = await supabaseAdmin
+    const { data: loadedSession, error: sessionError } = await supabaseAdmin
       .from('learning_sessions')
-      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at, metadata')
       .eq('id', sessionId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -411,7 +416,20 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
       console.error('[SABI] Session lookup failed:', sessionError.message);
       return res.status(503).json({ error: 'Learning session is temporarily unavailable.' });
     }
-    if (!session) return res.status(404).json({ error: 'Learning session not found.' });
+    if (!loadedSession) return res.status(404).json({ error: 'Learning session not found.' });
+
+    let session = loadedSession;
+    if (isCBTExpired(session)) {
+      const completedAt = new Date().toISOString();
+      const { error: expiryError } = await supabaseAdmin.from('learning_sessions')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('id', sessionId).eq('user_id', userId).eq('status', 'in_progress');
+      if (expiryError) {
+        console.error('[SABI] CBT auto-submit failed:', expiryError.message);
+        return res.status(503).json({ error: 'The expired CBT could not be finalized. Please retry.' });
+      }
+      session = { ...session, status: 'completed', completed_at: completedAt };
+    }
 
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('learning_session_items')
@@ -484,6 +502,35 @@ router.post('/sessions/:sessionId/answers', requireAuth, validateBody(answerSche
   const { questionId, selectedOption, elapsedMs } = req.body as z.infer<typeof answerSchema>;
 
   try {
+    const { data: activeSession, error: activeSessionError } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('id, mode, status, metadata')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (activeSessionError) {
+      console.error('[SABI] Answer session verification failed:', activeSessionError.message);
+      return res.status(503).json({ error: 'Your learning session could not be verified.' });
+    }
+    if (!activeSession) return res.status(404).json({ error: 'Learning session not found.' });
+    if (activeSession.status !== 'in_progress') {
+      return res.status(409).json({ error: 'This learning session has already ended.' });
+    }
+    if (isCBTExpired(activeSession)) {
+      const completedAt = new Date().toISOString();
+      const { error: expiryError } = await supabaseAdmin.from('learning_sessions')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('id', sessionId).eq('user_id', userId).eq('status', 'in_progress');
+      if (expiryError) {
+        console.error('[SABI] CBT expiry finalization failed:', expiryError.message);
+        return res.status(503).json({ error: 'The expired CBT could not be finalized. Please retry.' });
+      }
+      return res.status(409).json({
+        error: 'Time is up. Your CBT has been submitted automatically.',
+        code: 'CBT_TIME_EXPIRED',
+      });
+    }
+
     const { data, error } = await supabaseAdmin.rpc('submit_learning_answer', {
       p_session_id: sessionId,
       p_question_id: questionId,
