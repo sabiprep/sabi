@@ -27,6 +27,8 @@ import {
   generateQuestionSchema,
   loginSchema,
   onboardingSchema,
+  progressCheckinSchema,
+  learningEventsSchema,
   progressSchema,
   registerSchema,
   resetPasswordConfirmSchema,
@@ -755,11 +757,49 @@ app.post(
       }));
 
       if (responseRows.length > 0) {
+        const { data: storedResponses, error: storedResponsesError } = await supabaseAdmin
+          .from('student_onboarding_responses')
+          .select('question_key, answer_value')
+          .eq('submission_id', submissionId);
+        if (storedResponsesError) {
+          return res.status(500).json({ error: storedResponsesError.message || 'Could not verify the existing onboarding submission.' });
+        }
+        const canonicalJson = (value: any): string => JSON.stringify(
+          value && typeof value === 'object' && !Array.isArray(value)
+            ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, JSON.parse(canonicalJson(value[key]))]))
+            : Array.isArray(value) ? value.map((item) => JSON.parse(canonicalJson(item))) : value
+        );
+        const storedByKey = new Map((storedResponses ?? []).map((row: { question_key: string; answer_value: unknown }) => [row.question_key, row.answer_value]));
+        for (const row of responseRows) {
+          if (storedByKey.has(row.question_key) && canonicalJson(storedByKey.get(row.question_key)) !== canonicalJson(row.answer_value)) {
+            return res.status(409).json({ error: 'This onboarding submission key has already been used with different answers. Start a new submission.' });
+          }
+        }
         const { error: responseError } = await supabaseAdmin
           .from('student_onboarding_responses')
           .upsert(responseRows, { onConflict: 'submission_id,question_key', ignoreDuplicates: true });
         if (responseError) {
           return res.status(500).json({ error: responseError.message || 'Could not preserve onboarding responses.' });
+        }
+      }
+
+      if (typeof normalizedAnswers.motivation === 'string' && normalizedAnswers.motivation.trim()) {
+        const { error: motivationSignalError } = await supabaseAdmin
+          .from('student_signal_observations')
+          .upsert({
+            user_id: user.id,
+            signal_key: 'student.motivation',
+            schema_version: 1,
+            source_key: 'onboarding-v2',
+            value: normalizedAnswers.motivation.trim(),
+            confidence: 1,
+            purpose_key: 'personalized_learning',
+            provenance: { submission_id: submissionId, question_key: 'motivation', method: 'student_self_report' },
+            observed_at: new Date().toISOString(),
+            idempotency_key: `onboarding:${submissionId}:motivation`,
+          }, { onConflict: 'user_id,idempotency_key', ignoreDuplicates: true });
+        if (motivationSignalError) {
+          return res.status(500).json({ error: motivationSignalError.message || 'Could not register the motivation signal.' });
         }
       }
 
@@ -781,6 +821,88 @@ app.post(
       return res.json({ status: 'saved', submissionId });
     } catch (err: any) {
       return res.status(500).json({ error: err?.message || 'Failed to save onboarding answers.' });
+    }
+  });
+
+  // Voluntary learner check-ins are written atomically with normalized signals.
+  app.post('/api/profile/checkin', requireAuth, validateBody(progressCheckinSchema), async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const { submissionKey, confidenceScore, motivationScore, perceivedBarriers, reflectionText } = req.body;
+    try {
+      const { data: checkinId, error } = await supabaseAdmin.rpc('record_student_progress_checkin', {
+        p_user_id: user.id,
+        p_submission_key: submissionKey,
+        p_confidence_score: confidenceScore ?? null,
+        p_motivation_score: motivationScore ?? null,
+        p_perceived_barriers: perceivedBarriers ?? [],
+        p_reflection_text: reflectionText ?? null,
+      });
+      if (error || !checkinId) {
+        return res.status(500).json({ error: error?.message || 'Could not save the learning check-in.' });
+      }
+      return res.json({ status: 'saved', checkinId });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Could not save the learning check-in.' });
+    }
+  });
+
+  // Append-only client telemetry. Every referenced session/item is checked against
+  // the authenticated learner before service-role persistence.
+  app.post('/api/learning/events', requireAuth, validateBody(learningEventsSchema), async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const { events } = req.body;
+    try {
+      const sessionIds = [...new Set(events.map((event: any) => event.sessionId))];
+      const { data: ownedSessions, error: sessionsError } = await supabaseAdmin
+        .from('learning_sessions')
+        .select('id')
+        .eq('user_id', user.id)
+        .in('id', sessionIds);
+      if (sessionsError) return res.status(500).json({ error: sessionsError.message || 'Could not validate learning sessions.' });
+      const ownedSessionIds = new Set((ownedSessions ?? []).map((session: { id: string }) => session.id));
+      if (sessionIds.some((id) => !ownedSessionIds.has(id))) {
+        return res.status(403).json({ error: 'One or more learning sessions do not belong to this account.' });
+      }
+
+      const itemIds = [...new Set(events.map((event: any) => event.sessionItemId).filter(Boolean))];
+      const itemById = new Map<string, { id: string; session_id: string }>();
+      if (itemIds.length) {
+        const { data: ownedItems, error: itemsError } = await supabaseAdmin
+          .from('learning_session_items')
+          .select('id, session_id')
+          .eq('user_id', user.id)
+          .in('id', itemIds);
+        if (itemsError) return res.status(500).json({ error: itemsError.message || 'Could not validate learning session items.' });
+        for (const item of ownedItems ?? []) itemById.set(item.id, item);
+        if (itemIds.some((id) => !itemById.has(id))) {
+          return res.status(403).json({ error: 'One or more learning items do not belong to this account.' });
+        }
+        if (events.some((event: any) => event.sessionItemId && itemById.get(event.sessionItemId)?.session_id !== event.sessionId)) {
+          return res.status(400).json({ error: 'A learning item does not belong to the supplied session.' });
+        }
+      }
+
+      const rows = events.map((event: any) => ({
+        user_id: user.id,
+        session_id: event.sessionId,
+        session_item_id: event.sessionItemId ?? null,
+        question_id: event.questionId ?? null,
+        client_event_id: event.clientEventId,
+        event_type: event.eventType,
+        sequence_no: event.sequenceNo ?? null,
+        elapsed_ms: event.elapsedMs ?? null,
+        active_elapsed_ms: event.activeElapsedMs ?? null,
+        event_payload: event.eventPayload ?? {},
+        occurred_at: event.occurredAt,
+        schema_version: 1,
+      }));
+      const { error: insertError } = await supabaseAdmin
+        .from('learning_events')
+        .upsert(rows, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (insertError) return res.status(500).json({ error: insertError.message || 'Could not save learning events.' });
+      return res.json({ status: 'accepted', received: rows.length });
+    } catch (error: any) {
+      return res.status(500).json({ error: error?.message || 'Could not save learning events.' });
     }
   });
 
