@@ -6,6 +6,7 @@ export type PaymentProviderReadiness = {
   enabled: boolean;
   provider: PaymentProviderName | null;
   configured: boolean;
+  checkoutConfigured: boolean;
   missing: string[];
 };
 
@@ -48,8 +49,10 @@ export function getPaymentProviderReadiness(): PaymentProviderReadiness {
     if (!process.env.FLUTTERWAVE_SECRET_KEY?.trim()) missing.push('FLUTTERWAVE_SECRET_KEY');
     if (!process.env.FLW_SECRET_HASH?.trim()) missing.push('FLW_SECRET_HASH');
   }
-  if (!process.env.SABI_PAYMENT_CALLBACK_URL?.trim()) missing.push('SABI_PAYMENT_CALLBACK_URL');
-  return { enabled, provider, configured: missing.length === 0, missing };
+  const configured = missing.length === 0;
+  const callbackConfigured = Boolean(process.env.SABI_PAYMENT_CALLBACK_URL?.trim());
+  if (!callbackConfigured) missing.push('SABI_PAYMENT_CALLBACK_URL');
+  return { enabled, provider, configured, checkoutConfigured: configured && callbackConfigured, missing };
 }
 
 export function verifyPaymentWebhookSignature(
