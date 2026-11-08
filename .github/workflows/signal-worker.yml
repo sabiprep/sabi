@@ -1,6 +1,9 @@
 name: Sabi Signal and Engine Worker
 
 on:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
