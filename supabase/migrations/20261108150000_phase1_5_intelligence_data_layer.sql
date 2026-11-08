@@ -380,3 +380,234 @@ comment on table public.student_topic_mastery_history is
   'Append-only snapshots generated whenever the current topic mastery row changes.';
 comment on table public.question_review_history is
   'Human academic review decisions. AI confidence metadata is not a substitute for review.';
+
+
+-- Versioned onboarding capture: preserve what students voluntarily tell Sabi,
+-- including free-text motivation, without exposing it to client-side analytics.
+create table if not exists public.student_data_processing_purposes (
+  purpose_key text primary key,
+  description text not null,
+  consent_type text not null check (consent_type in ('personalization','learning_analytics','ai_tutor','research','marketing')),
+  is_required_for_core_service boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+insert into public.student_data_processing_purposes
+  (purpose_key, description, consent_type, is_required_for_core_service)
+values
+  ('account_and_exam_setup','Create and maintain the student account and exam setup','personalization',true),
+  ('personalized_learning','Adapt practice, explanations and study recommendations','personalization',false),
+  ('learning_analytics','Analyse learning activity and improve Sabi learning systems','learning_analytics',false),
+  ('ai_tutor','Use submitted learning context to provide AI tutor assistance','ai_tutor',false),
+  ('product_research','Use de-identified or aggregated information for product research','research',false)
+on conflict (purpose_key) do nothing;
+
+create table if not exists public.student_onboarding_question_sets (
+  id uuid primary key default gen_random_uuid(),
+  set_key text not null unique,
+  display_name text not null,
+  description text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.student_onboarding_question_versions (
+  id uuid primary key default gen_random_uuid(),
+  question_set_id uuid not null references public.student_onboarding_question_sets(id) on delete restrict,
+  version_label text not null,
+  status text not null default 'draft' check (status in ('draft','published','retired')),
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (question_set_id, version_label)
+);
+
+create table if not exists public.student_onboarding_questions (
+  id uuid primary key default gen_random_uuid(),
+  question_version_id uuid not null references public.student_onboarding_question_versions(id) on delete restrict,
+  question_key text not null,
+  prompt text not null,
+  answer_type text not null check (answer_type in ('short_text','long_text','single_select','multi_select','number','date','boolean','structured')),
+  processing_purpose text not null references public.student_data_processing_purposes(purpose_key),
+  sensitivity_level text not null default 'standard'
+    check (sensitivity_level in ('standard','personal','sensitive')),
+  is_required boolean not null default false,
+  sort_order integer not null default 0,
+  validation_rules jsonb not null default '{}'::jsonb check (jsonb_typeof(validation_rules) = 'object'),
+  created_at timestamptz not null default now(),
+  unique (question_version_id, question_key)
+);
+create index if not exists student_onboarding_questions_version_idx
+  on public.student_onboarding_questions (question_version_id, sort_order);
+
+create table if not exists public.student_onboarding_submissions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  question_version_id uuid not null references public.student_onboarding_question_versions(id) on delete restrict,
+  submission_status text not null default 'submitted' check (submission_status in ('in_progress','submitted','superseded')),
+  capture_source text not null default 'in_app'
+    check (capture_source in ('in_app','admin_import','legacy_profile_backfill')),
+  purpose_consent_snapshot jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(purpose_consent_snapshot) = 'object'),
+  legacy_profile_id uuid unique,
+  submitted_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists student_onboarding_submissions_user_time_idx
+  on public.student_onboarding_submissions (user_id, submitted_at desc);
+
+create table if not exists public.student_onboarding_responses (
+  id uuid primary key default gen_random_uuid(),
+  submission_id uuid not null references public.student_onboarding_submissions(id) on delete cascade,
+  question_id uuid references public.student_onboarding_questions(id) on delete restrict,
+  question_key text not null,
+  answer_value jsonb not null,
+  answer_text text,
+  capture_source text not null default 'in_app'
+    check (capture_source in ('in_app','admin_import','legacy_profile_backfill')),
+  answered_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (submission_id, question_key)
+);
+create index if not exists student_onboarding_responses_submission_idx
+  on public.student_onboarding_responses (submission_id, question_key);
+
+-- Voluntary, longitudinal self-reports. These are learning-experience signals,
+-- not clinical assessments or diagnoses.
+create table if not exists public.student_progress_checkins (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  confidence_score smallint check (confidence_score between 1 and 5),
+  motivation_score smallint check (motivation_score between 1 and 5),
+  perceived_barriers text[] not null default '{}',
+  reflection_text text,
+  capture_source text not null default 'in_app'
+    check (capture_source in ('in_app','teacher','admin_import')),
+  captured_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists student_progress_checkins_user_time_idx
+  on public.student_progress_checkins (user_id, captured_at desc);
+
+-- Keep submitted answers and check-ins immutable. Erasure remains possible through
+-- privileged account/data deletion; normal application roles cannot rewrite history.
+create or replace function public.reject_student_history_update()
+returns trigger
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  raise exception 'Student history records are immutable; append a new record instead';
+end;
+$$;
+
+drop trigger if exists student_onboarding_submissions_immutable on public.student_onboarding_submissions;
+create trigger student_onboarding_submissions_immutable
+before update on public.student_onboarding_submissions
+for each row execute function public.reject_student_history_update();
+
+drop trigger if exists student_onboarding_responses_immutable on public.student_onboarding_responses;
+create trigger student_onboarding_responses_immutable
+before update on public.student_onboarding_responses
+for each row execute function public.reject_student_history_update();
+
+drop trigger if exists student_progress_checkins_immutable on public.student_progress_checkins;
+create trigger student_progress_checkins_immutable
+before update on public.student_progress_checkins
+for each row execute function public.reject_student_history_update();
+
+-- Preserve existing JSON onboarding answers without inventing question wording.
+-- Each legacy key and its exact JSON value is retained as an explicitly labelled
+-- legacy response, then future forms use versioned question definitions.
+do $$
+declare
+  v_set_id uuid;
+  v_version_id uuid;
+  v_profile record;
+  v_submission_id uuid;
+  v_answer record;
+begin
+  insert into public.student_onboarding_question_sets (set_key, display_name, description)
+  values ('legacy-profile-import', 'Legacy profile onboarding', 'Preserved answers from the pre-versioned profile onboarding JSON')
+  on conflict (set_key) do update set display_name = excluded.display_name
+  returning id into v_set_id;
+
+  insert into public.student_onboarding_question_versions (question_set_id, version_label, status, published_at)
+  values (v_set_id, 'legacy-v1', 'retired', now())
+  on conflict (question_set_id, version_label) do update set status = 'retired'
+  returning id into v_version_id;
+
+  for v_profile in
+    select id, onboarding_answers
+    from public.profiles
+    where onboarding_answers is not null
+      and jsonb_typeof(onboarding_answers) = 'object'
+      and onboarding_answers <> '{}'::jsonb
+  loop
+    insert into public.student_onboarding_submissions
+      (user_id, question_version_id, submission_status, capture_source, legacy_profile_id)
+    values
+      (v_profile.id, v_version_id, 'submitted', 'legacy_profile_backfill', v_profile.id)
+    on conflict (legacy_profile_id) do nothing
+    returning id into v_submission_id;
+
+    if v_submission_id is null then
+      select id into v_submission_id
+      from public.student_onboarding_submissions
+      where legacy_profile_id = v_profile.id;
+    end if;
+
+    for v_answer in
+      select key, value from jsonb_each(v_profile.onboarding_answers)
+    loop
+      insert into public.student_onboarding_responses
+        (submission_id, question_key, answer_value, answer_text, capture_source)
+      values
+        (v_submission_id, 'legacy:' || v_answer.key, v_answer.value,
+         case when jsonb_typeof(v_answer.value) = 'string' then v_answer.value #>> '{}' else null end,
+         'legacy_profile_backfill')
+      on conflict (submission_id, question_key) do nothing;
+    end loop;
+  end loop;
+end;
+$$;
+
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'student_data_processing_purposes','student_onboarding_question_sets',
+    'student_onboarding_question_versions','student_onboarding_questions',
+    'student_onboarding_submissions','student_onboarding_responses',
+    'student_progress_checkins'
+  ] loop
+    execute format('alter table public.%I enable row level security', t);
+    execute format('revoke all on public.%I from anon, authenticated', t);
+    execute format('grant all on public.%I to service_role', t);
+  end loop;
+end;
+$$;
+
+grant select on public.student_onboarding_submissions,
+  public.student_onboarding_responses, public.student_progress_checkins
+  to authenticated;
+
+create policy "Students read own onboarding submissions"
+  on public.student_onboarding_submissions for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+create policy "Students read own onboarding responses"
+  on public.student_onboarding_responses for select to authenticated
+  using (exists (
+    select 1 from public.student_onboarding_submissions s
+    where s.id = submission_id and s.user_id = (select auth.uid())
+  ));
+
+create policy "Students read own progress check-ins"
+  on public.student_progress_checkins for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+comment on table public.student_onboarding_responses is
+  'Version-linked student-provided onboarding answers, including original free text. Restricted to trusted server access and owner reads; not a general analytics export.';
+comment on table public.student_progress_checkins is
+  'Voluntary longitudinal confidence, motivation and barrier self-reports; not clinical or diagnostic data.';
