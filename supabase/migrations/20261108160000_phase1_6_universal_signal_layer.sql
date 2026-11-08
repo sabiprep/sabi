@@ -109,7 +109,7 @@ create table if not exists public.student_signal_current (
   value jsonb not null,
   confidence numeric(5,4) check (confidence is null or confidence between 0 and 1),
   purpose_key text not null references public.student_data_processing_purposes(purpose_key),
-  source_observation_id uuid not null references public.student_signal_observations(id) on delete restrict,
+  source_observation_id uuid not null references public.student_signal_observations(id) on delete cascade,
   observed_at timestamptz not null,
   updated_at timestamptz not null default now(),
   primary key (user_id, signal_key),
@@ -178,6 +178,25 @@ create table if not exists public.engine_run_signal_inputs (
 );
 create index if not exists engine_run_signal_inputs_run_idx
   on public.engine_run_signal_inputs(engine_run_id, signal_key);
+
+-- Schema and engine contracts are immutable once published. Create a new version.
+create or replace function public.reject_versioned_contract_mutation()
+returns trigger language plpgsql security invoker set search_path = ''
+as $
+begin
+  raise exception 'Published contracts are immutable; create a new version';
+end;
+$;
+
+drop trigger if exists signal_schema_versions_immutable on public.signal_schema_versions;
+create trigger signal_schema_versions_immutable
+before update or delete on public.signal_schema_versions
+for each row execute function public.reject_versioned_contract_mutation();
+
+drop trigger if exists engine_contract_versions_immutable on public.engine_contract_versions;
+create trigger engine_contract_versions_immutable
+before update or delete on public.engine_contract_versions
+for each row execute function public.reject_versioned_contract_mutation();
 
 -- Keep all signal evidence immutable. Corrections are new observations.
 create or replace function public.reject_signal_history_mutation()
