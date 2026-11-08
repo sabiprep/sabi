@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { z } from 'zod';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
@@ -7,7 +8,7 @@ import { validateBody } from '../middleware/validate';
 import { aiLimiter } from '../middleware/rateLimit';
 import { generateAIText, getAIReadiness } from './gateway';
 import { AIUnavailableError } from './types';
-import { recordAIUsage } from './usage';
+import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './usage';
 import { formatApprovedKnowledgeContext, searchApprovedKnowledge } from './retrieval';
 
 const router = Router();
@@ -148,6 +149,8 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
   const userId = (req as AuthenticatedRequest).user?.id;
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
   const { messages, subject, topic, sessionId } = req.body as z.infer<typeof chatRequestSchema>;
+  let aiRequestId: string | null = null;
+  let reservedCreditCost = 0;
 
   try {
     if (sessionId) {
@@ -232,15 +235,30 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       'Respond to the latest student message. Do not output hidden reasoning or claim an action was performed.',
     ].join('\n');
 
+    aiRequestId = randomUUID();
     const readiness = getAIReadiness('tutor_chat');
     if (!readiness.enabled || readiness.configuredProviders.length === 0) {
       await recordAIUsage(supabaseAdmin, {
         userId, task: 'tutor_chat', provider: 'none', model: 'none',
-        outcome: 'blocked', promptVersion: 'tutor-chat-v1',
+        outcome: 'blocked', promptVersion: 'tutor-chat-v1', requestId: aiRequestId,
         metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' },
       });
       return res.json({ aiAvailable: false, reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' });
     }
+
+    const creditReservation = await reserveAIRequestCredits(supabaseAdmin, userId, 'tutor_chat', aiRequestId);
+    if (!creditReservation.allowed) {
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'tutor_chat', provider: 'none', model: 'none',
+        outcome: 'blocked', promptVersion: 'tutor-chat-v1', requestId: aiRequestId,
+        metadata: { reason: creditReservation.reason },
+      });
+      return res.status(creditReservation.reason === 'insufficient_credits' ? 402 : 503).json({
+        aiAvailable: false,
+        reason: creditReservation.reason === 'insufficient_credits' ? 'AI_CREDITS_EXHAUSTED' : 'AI_CREDIT_PRICING_NOT_CONFIGURED',
+      });
+    }
+    reservedCreditCost = creditReservation.creditCost;
 
     const aiStartedAt = Date.now();
     const generated = await generateAIText({
@@ -254,7 +272,8 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
     await recordAIUsage(supabaseAdmin, {
       userId, task: 'tutor_chat', provider: generated.provider, model: generated.model,
       usage: generated.usage, outcome: 'success', promptVersion: 'tutor-chat-v1',
-      durationMs: Date.now() - aiStartedAt,
+      durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
+      creditCost: reservedCreditCost,
     });
     return res.json({
       aiAvailable: true,
@@ -263,20 +282,24 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       model: generated.model,
     });
   } catch (error) {
+    if (aiRequestId && reservedCreditCost > 0) {
+      try { await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'ai_provider_or_accounting_failed'); }
+      catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
+    }
     if (error instanceof AIUnavailableError) {
       try {
         await recordAIUsage(supabaseAdmin, {
           userId, task: 'tutor_chat', provider: 'none', model: 'none',
           outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
-          promptVersion: 'tutor-chat-v1',
-          metadata: { reason: error.code, providersTried: error.providersTried },
+          promptVersion: 'tutor-chat-v1', requestId: aiRequestId || undefined,
+          metadata: { reason: error.code, providersTried: error.providersTried, refundedCredits: reservedCreditCost },
         });
       } catch {
         return res.status(503).json({ error: 'AI usage accounting is temporarily unavailable.' });
       }
       return res.json({ aiAvailable: false, reason: error.code });
     }
-    console.error('[SABI AI] Tutor chat failed:', error);
+    console.error('[SABI AI] Tutor chat failed:', error instanceof Error ? error.name : 'unknown_error');
     return res.status(503).json({ error: 'Sabi AI Coach is temporarily unavailable.' });
   }
 });
