@@ -34,6 +34,19 @@ BEGIN
   IF v_catalog_count <> 25 THEN RAISE EXCEPTION 'Expected 25 JAMB subjects after catalogue seed; found %', v_catalog_count; END IF;
   SELECT count(*) INTO v_catalog_count FROM public.jamb_subject_availability WHERE exam_year=2026;
   IF v_catalog_count <> 25 THEN RAISE EXCEPTION 'Expected 25 2026 subject availability records; found %', v_catalog_count; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.question_bank
+    WHERE id='phase15-provenance-fixture' AND source_id IS NOT NULL AND content_fingerprint IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'Legacy question provenance or content fingerprint backfill failed';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.question_sources
+    WHERE source_key='legacy-source-' || md5('CI fixture source')
+      AND permitted_use='unknown' AND verification_status='unverified'
+  ) THEN
+    RAISE EXCEPTION 'Legacy source must remain explicitly unverified';
+  END IF;
   IF (SELECT count(*) FROM public.engine_registry) < 10 THEN
     RAISE EXCEPTION 'Expected seeded engine registry entries';
   END IF;
