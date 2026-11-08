@@ -2,7 +2,7 @@
 
 ## Current verified snapshot — 8 November 2026
 
-- **Main commit:** `ccf21bfe2fe5568ceee05438e09c7d1ca7f1df32`.
+- **Latest application code merge:** `ccf21bfe2fe5568ceee05438e09c7d1ca7f1df32` (PR #18).
 - **Latest merged change:** [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18).
 - **Latest Backend CI:** run #411 (`42521946286`) passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
 - **Other recently merged work:** PR #14 backend service foundations; PR #15 official JAMB syllabus ingestion schema; PR #16 active-CBT answer feedback lockout; PR #17 concurrency-safe question-attempt capture.
