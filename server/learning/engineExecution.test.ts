@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildLearningAnalytics, buildScorePrediction, buildStudyPlan, buildTopicRecommendations } from './engineExecution';
+import { buildLearningAnalytics, buildScorePrediction, buildStudyPlan, buildSyllabusCoverage, buildTopicRecommendations } from './engineExecution';
 
 describe('buildScorePrediction', () => {
   it('requires ten answered questions in each of four subjects', () => {
@@ -73,5 +73,34 @@ describe('buildLearningAnalytics', () => {
       attempted: 2, correct: 1, accuracy: 50, average_elapsed_ms: 2000,
     });
     expect(result.weakest_topics[0]).toMatchObject({ subject: 'Math', topic: 'Algebra', accuracy: 50 });
+  });
+});
+
+describe('buildSyllabusCoverage', () => {
+  it('does not claim coverage when there are no verified syllabus objectives', () => {
+    expect(buildSyllabusCoverage([], []).status).toBe('syllabus_not_verified');
+  });
+
+  it('measures objective exposure separately from mastery', () => {
+    const result = buildSyllabusCoverage([
+      { subject: 'Mathematics', topicId: 'topic-1', subtopicId: null },
+      { subject: 'Mathematics', topicId: 'topic-1', subtopicId: 'sub-2' },
+      { subject: 'Physics', topicId: 'topic-3', subtopicId: null },
+    ], [
+      { topicId: 'topic-1', subtopicId: null },
+      { topicId: 'topic-1', subtopicId: 'sub-2' },
+    ]);
+    expect(result.status).toBe('ready');
+    expect(result.total_objectives).toBe(3);
+    expect(result.covered_objectives).toBe(2);
+    expect(result.coverage_percent).toBe(67);
+    expect(result.subjects.find((row) => row.subject === 'Physics')?.coverage_percent).toBe(0);
+  });
+
+  it('requires subtopic evidence when an objective is subtopic-specific', () => {
+    const result = buildSyllabusCoverage([
+      { subject: 'Chemistry', topicId: 'topic-1', subtopicId: 'sub-1' },
+    ], [{ topicId: 'topic-1', subtopicId: null }]);
+    expect(result.covered_objectives).toBe(0);
   });
 });
