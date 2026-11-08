@@ -115,7 +115,7 @@ router.patch('/admin/plans/:planId', requireAuth, requireRole('ADMIN', 'MASTER_A
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(planId)) {
     return res.status(400).json({ error: 'A valid plan ID is required.' });
   }
-  const patchSchema = planSchema.partial().strict();
+  const patchSchema = planSchema.omit({ planKey: true }).partial().strict();
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid plan update.', details: parsed.error.flatten() });
   const input = parsed.data;
