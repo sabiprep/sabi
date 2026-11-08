@@ -31,6 +31,8 @@ export function BackendLearningPage() {
   const [index,setIndex] = useState(0);
   const [choice,setChoice] = useState<'A'|'B'|'C'|'D'|null>(null);
   const [answerResult,setAnswerResult] = useState<any>(null);
+  const [aiExplanation,setAiExplanation] = useState<any>(null);
+  const [aiLoading,setAiLoading] = useState(false);
   const [loading,setLoading] = useState(false);
   const [error,setError] = useState('');
   const [history,setHistory] = useState<any[]>([]);
@@ -81,7 +83,16 @@ export function BackendLearningPage() {
     setLoading(false);await loadOverview();
   };
 
-  const next = () => {setIndex(v=>Math.min(v+1,questions.length-1));setChoice(null);setAnswerResult(null);};
+  const requestAIExplanation = async () => {
+    if(!session||!current||aiLoading)return;
+    setAiLoading(true);setAiExplanation(null);
+    const result=await apiPostJson('/api/ai/explanations',{sessionId:session.id,questionId:current.id,preference:'detailed',language:'english'});
+    setAiLoading(false);
+    if(!result.ok){setAiExplanation({aiAvailable:false,message:describeApiFailure(result,'AI explanation is temporarily unavailable.')});return;}
+    setAiExplanation(result.data||{aiAvailable:false,message:'No explanation was returned.'});
+  };
+
+  const next = () => {setIndex(v=>Math.min(v+1,questions.length-1));setChoice(null);setAnswerResult(null);setAiExplanation(null);};
   const resume = async (id:string) => {
     setLoading(true);setError('');
     const response=await apiFetch(`/api/learning/sessions/${id}`);
@@ -121,7 +132,7 @@ export function BackendLearningPage() {
         <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-blue-600" style={{width:`${((index+1)/questions.length)*100}%`}}/></div>
         <div className="text-lg sm:text-xl font-bold leading-relaxed"><MathText text={current.question}/></div>
         <div className="grid gap-3">{(['A','B','C','D'] as const).map(key=><button key={key} disabled={Boolean(answerResult)||Boolean(current.answerState)||loading} onClick={()=>setChoice(key)} className={`text-left p-4 rounded-xl border flex gap-3 items-start ${choice===key?'border-blue-500 bg-blue-50 dark:bg-blue-950/40':'border-slate-200 dark:border-slate-700'}`}><span className="font-black">{key}.</span><span><MathText text={current.options[key]||''}/></span></button>)}</div>
-        {(answerResult||current.answerState)&&<div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 space-y-2"><div className="font-black flex items-center gap-2"><CheckCircle2 size={18} className="text-emerald-600"/>Answer recorded by SABI</div><p className="text-sm">{(answerResult||current.answerState).isCorrect?'Correct answer.':'Answer saved. Review the correct option and explanation below.'} Correct option: {(answerResult||current.answerState).correctOption||'Recorded'}</p>{(answerResult||current.answerState).explanation&&<p className="text-sm text-slate-600 dark:text-slate-300"><MathText text={(answerResult||current.answerState).explanation}/></p>}</div>}
+        {(answerResult||current.answerState)&&<div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 space-y-2"><div className="font-black flex items-center gap-2"><CheckCircle2 size={18} className="text-emerald-600"/>Answer recorded by SABI</div><p className="text-sm">{(answerResult||current.answerState).isCorrect?'Correct answer.':'Answer saved. Review the correct option and explanation below.'} Correct option: {(answerResult||current.answerState).correctOption||'Recorded'}</p>{(answerResult||current.answerState).explanation&&<p className="text-sm text-slate-600 dark:text-slate-300"><MathText text={(answerResult||current.answerState).explanation}/></p>}{session.mode!=='cbt'&&<button disabled={aiLoading} onClick={()=>void requestAIExplanation()} className="mt-2 px-4 py-2 rounded-lg border border-blue-200 text-blue-700 dark:text-blue-300 dark:border-blue-800 text-sm font-black disabled:opacity-60">{aiLoading?'Preparing explanation…':'Explain this answer with Sabi AI'}</button>}{aiExplanation?.aiAvailable&&<div className="mt-3 border-t pt-3 text-sm leading-relaxed"><b className="block mb-2">Sabi AI explanation</b><MathText text={aiExplanation.explanation}/></div>}{aiExplanation&&!aiExplanation.aiAvailable&&<p role="status" className="mt-2 text-xs text-slate-500">{aiExplanation.storedExplanation?'AI is currently unavailable. The approved explanation above is still available.':(aiExplanation.message||'AI explanations are not configured yet.')}</p>}</div>}
         <div className="flex justify-between gap-3"><button onClick={startAnother} className="px-4 py-3 rounded-xl border font-bold text-sm">Exit session</button>{!answerResult&&!current.answerState?<button disabled={!choice||loading} onClick={()=>void submit()} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm disabled:opacity-50">{loading?'Saving…':'Submit answer'}</button>:index<questions.length-1?<button onClick={next} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm">Next question <ArrowRight size={16} className="inline"/></button>:<button onClick={()=>void resume(session.id)} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm">Refresh final result</button>}</div>
       </section>}
       {session&&completed&&<section className="rounded-3xl border border-emerald-200 bg-white dark:bg-slate-900 p-6 space-y-3"><CheckCircle2 size={32} className="text-emerald-600"/><h2 className="text-2xl font-black">Session completed</h2><p className="text-lg font-bold">{session.correct_count} / {session.total_questions} correct · {accuracy}% accuracy</p><p className="text-sm text-slate-500">Your answers and topic mastery have been saved to your SABI account.</p><button onClick={startAnother} className="px-5 py-3 rounded-xl bg-blue-600 text-white font-black">Start another session</button></section>}
