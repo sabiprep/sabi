@@ -671,11 +671,27 @@ router.get('/coverage', requireAuth, async (req, res) => {
       }
       verifiedVersionIds = new Set((versions || []).map((version) => version.id));
     }
+    const objectiveSubtopicIds = [...new Set(objectiveRows.map((objective) => objective.subtopic_id).filter(Boolean))] as string[];
+    let verifiedSubtopicIds = new Set<string>();
+    if (objectiveSubtopicIds.length) {
+      const { data: subtopics, error: subtopicError } = await supabaseAdmin
+        .from('jamb_subtopics')
+        .select('id, topic_id')
+        .in('id', objectiveSubtopicIds)
+        .eq('verification_status', 'verified')
+        .eq('is_active', true);
+      if (subtopicError) {
+        console.error('[SABI] Verified subtopic lookup failed:', subtopicError.message);
+        return res.status(503).json({ error: 'Syllabus coverage is temporarily unavailable.' });
+      }
+      verifiedSubtopicIds = new Set((subtopics || []).map((subtopic) => subtopic.id));
+    }
     const subjectNames = new Map((subjectResult.data || []).map((subject) => [subject.slug, subject.display_name]));
     const objectives = objectiveRows.flatMap((objective) => {
       const topic = topicById.get(objective.topic_id);
       if (!topic) return [];
       if (topic.syllabus_version_id && !verifiedVersionIds.has(topic.syllabus_version_id)) return [];
+      if (objective.subtopic_id && !verifiedSubtopicIds.has(objective.subtopic_id)) return [];
       const subjectName = subjectNames.get(topic.subject_slug);
       if (!subjectName) return [];
       return [{
