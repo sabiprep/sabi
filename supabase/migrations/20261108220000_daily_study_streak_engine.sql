@@ -47,7 +47,7 @@ begin
       case
         when streak.last_activity_date = excluded.last_activity_date then streak.current_streak
         when streak.last_activity_date = excluded.last_activity_date - 1 then streak.current_streak + 1
-        when streak.last_activity_date < excluded.last_activity_date then 1
+        when streak.last_activity_date is null or streak.last_activity_date < excluded.last_activity_date then 1
         else streak.current_streak
       end
     ),
