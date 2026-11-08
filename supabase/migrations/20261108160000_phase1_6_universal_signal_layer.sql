@@ -191,11 +191,11 @@ create index if not exists engine_run_signal_inputs_run_idx
 -- Schema and engine contracts are immutable once published. Create a new version.
 create or replace function public.reject_versioned_contract_mutation()
 returns trigger language plpgsql security invoker set search_path = ''
-as $
+as $$
 begin
   raise exception 'Published contracts are immutable; create a new version';
 end;
-$;
+$$;
 
 drop trigger if exists signal_schema_versions_immutable on public.signal_schema_versions;
 create trigger signal_schema_versions_immutable
@@ -350,7 +350,7 @@ begin
 
   return v_checkin_id;
 end;
-$;
+$$;
 
 revoke all on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) from public,anon,authenticated;
 grant execute on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) to service_role;
@@ -359,7 +359,7 @@ grant execute on function public.record_student_progress_checkin(uuid,text,small
 -- transaction so accepted telemetry cannot be lost between storage and processing.
 create or replace function public.enqueue_learning_event_for_signal_processing()
 returns trigger language plpgsql security invoker set search_path = ''
-as $
+as $$
 begin
   insert into public.signal_processing_outbox(
     event_kind,user_id,payload,idempotency_key
@@ -377,7 +377,7 @@ begin
   ) on conflict (idempotency_key) do nothing;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists learning_event_signal_outbox on public.learning_events;
 create trigger learning_event_signal_outbox
