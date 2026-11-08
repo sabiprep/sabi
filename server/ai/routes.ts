@@ -10,11 +10,14 @@ import { generateAIText, getAIReadiness } from './gateway';
 import { AIUnavailableError } from './types';
 import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './usage';
 import { formatApprovedKnowledgeContext, searchApprovedKnowledge } from './retrieval';
+import { getAICreditBalance } from '../billing/entitlements';
 
 const router = Router();
 
 
 const aiConsentSchema = z.strictObject({ granted: z.boolean() });
+const aiTaskPricingSchema = z.strictObject({ creditCost: z.number().int().min(0).max(100000), isActive: z.boolean() });
+const aiTaskSchema = z.enum(['explanation', 'tutor_chat', 'content_draft', 'study_plan']);
 
 async function hasAICoConsent(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
@@ -136,11 +139,61 @@ const chatRequestSchema = z.strictObject({
 });
 
 
+
+router.get('/credits', requireAuth, async (req, res) => {
+  const userId = (req as AuthenticatedRequest).user?.id;
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  try {
+    return res.json({
+      enabled: process.env.SABI_AI_CREDITS_ENABLED?.trim().toLowerCase() === 'true',
+      balance: await getAICreditBalance(supabaseAdmin, userId),
+    });
+  } catch {
+    return res.status(503).json({ error: 'AI credit balance is temporarily unavailable.' });
+  }
+});
+
+router.get('/admin/task-pricing', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), async (_req, res) => {
+  const { data, error } = await supabaseAdmin.from('ai_task_pricing')
+    .select('task, credit_cost, is_active, updated_at')
+    .order('task');
+  if (error) return res.status(503).json({ error: 'AI task pricing is temporarily unavailable.' });
+  return res.json({ pricing: data || [], creditsEnforced: process.env.SABI_AI_CREDITS_ENABLED?.trim().toLowerCase() === 'true' });
+});
+
+router.put('/admin/task-pricing/:task', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(aiTaskPricingSchema), async (req, res) => {
+  const taskResult = aiTaskSchema.safeParse(req.params.task);
+  if (!taskResult.success) return res.status(400).json({ error: 'Unsupported AI task.' });
+  const userId = (req as AuthenticatedRequest).user?.id;
+  const input = req.body as z.infer<typeof aiTaskPricingSchema>;
+  const { data, error } = await supabaseAdmin.from('ai_task_pricing')
+    .upsert({
+      task: taskResult.data,
+      credit_cost: input.creditCost,
+      is_active: input.isActive,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'task' })
+    .select('task, credit_cost, is_active, updated_at')
+    .single();
+  if (error) return res.status(503).json({ error: 'AI task pricing could not be saved.' });
+  const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
+    actor_user_id: userId,
+    actor_role: (req as AuthenticatedRequest).role || 'ADMIN',
+    action: 'ai_task_pricing.updated',
+    resource_type: 'ai_task_pricing',
+    resource_id: taskResult.data,
+    metadata: { credit_cost: input.creditCost, is_active: input.isActive },
+  });
+  if (auditError) console.error('[SABI AI] Task pricing audit failed:', auditError.message);
+  return res.json({ pricing: data });
+});
+
 router.get('/status', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), (_req, res) => {
-  const tasks = ['explanation', 'tutor_chat', 'content_draft'] as const;
+  const tasks = ['explanation', 'tutor_chat', 'content_draft', 'study_plan'] as const;
   return res.json({
     enabled: process.env.SABI_AI_ENABLED?.trim().toLowerCase() === 'true',
     tasks: tasks.map((task) => getAIReadiness(task)),
+    creditsEnforced: process.env.SABI_AI_CREDITS_ENABLED?.trim().toLowerCase() === 'true',
     credentialsExposed: false,
   });
 });
