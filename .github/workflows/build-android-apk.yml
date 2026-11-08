@@ -1,8 +1,7 @@
 name: Build SABI Android APK
 
 on:
-  push:
-    branches: [ main, master ]
+  # Keep native compilation paused unless explicitly requested.
   workflow_dispatch:
 
 jobs:
