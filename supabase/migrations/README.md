@@ -46,3 +46,22 @@ The simulation persona seed creates a private `sabi_simulation` schema and synth
 ## Disposable CI execution
 
 The backend CI workflow applies source SQL directly to an ephemeral PostgreSQL service and runs assertions. This validates the SQL and app build, but it does not reconcile or update the production migration ledger and is not a production deployment workflow.
+
+## Phase 1.6 status
+
+`20261108160000_phase1_6_universal_signal_layer.sql` is an additive migration staged after Phase 1.5. It has **not** been applied to production.
+
+The layer introduces:
+- Canonical semantic signal definitions and immutable JSON Schema versions.
+- Registered signal sources with trust and allowed-purpose metadata.
+- Append-only learner signal observations, current projections and history.
+- Versioned engine input/output contracts and declarative signal subscriptions.
+- Exact signal snapshots (including explicit missing-input reasons) for every engine run.
+- A transactional outbox for signal observations, learning telemetry and engine requests.
+- An atomic, idempotent progress-check-in RPC that writes the learner check-in and confidence/motivation signals together.
+- Authenticated API endpoints for learner check-ins and append-only telemetry batches, with session/item ownership checks.
+- RLS, service-role-only writes, immutable evidence/contract records and account-erasure cascades.
+
+The Phase 1.6 seed catalogue registers starter student, learning and exam signals and contracts for the Phase 2 engines. These contracts define integration requirements; they do not claim that every future engine adapter or background worker is already deployed. The transactional outbox is the durable handoff boundary for the next orchestration worker.
+
+Do not apply this migration to production until Phase 1.5 is merged, the remote migration ledger is reconciled, disposable PostgreSQL CI passes on the stacked PR, and the owner approves production migration execution.
