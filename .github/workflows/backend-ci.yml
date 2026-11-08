@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - 'feat/phase-1-5-intelligence-data-layer'
+      - 'chore/reconcile-production-migration-history'
 
 permissions:
   contents: read
@@ -16,7 +17,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     services:
       postgres:
         image: postgres:16
@@ -59,31 +60,40 @@ jobs:
           sudo apt-get install --yes postgresql-client
       - name: Prepare disposable Phase 0 schema
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_fixture.sql
-      - name: Apply Phase 1 migrations
+      - name: Apply exact production Phase 1 migrations
         run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0004_profile_public_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261105140638_create_question_bank.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261106185031_profile_privilege_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261106185050_phase1_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261106185843_profile_public_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107091631_phase1_3_catalog_acl_hardening.sql
       - name: Verify Phase 1 schema and security
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
       - name: Prepare disposable question bank
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_learning_fixture.sql
-      - name: Apply Phase 1 learning and Phase 2 migrations
+      - name: Apply exact production Phase 1.4 and profile policy migrations
         run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107000000_core_learning_attempts_and_mastery.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107003000_learning_data_read_policies.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107004500_support_full_utme_cbt_sessions.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108120000_phase2_adaptive_learning.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108123000_phase2_atomic_mastery_upsert.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107091641_phase1_4_syllabus_taxonomy_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107094659_phase1_5_profiles_select_rls_initplan.sql
+      - name: Apply exact production learning and Phase 2 migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107202019_core_learning_attempts_and_mastery.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107202140_learning_data_read_policies.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107202321_support_full_utme_cbt_sessions.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108080305_phase2_adaptive_learning.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108080415_phase2_atomic_mastery_upsert.sql
       - name: Verify Phase 2 adaptive learning behaviour
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_adaptive_learning_assertions.sql
-      - name: Verify Phase 1/2 migrations are idempotent
+      - name: Verify historical migrations are idempotent
         run: |
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_phase1_foundation.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_profile_privilege_hardening.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/0004_profile_public_acl_hardening.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108120000_phase2_adaptive_learning.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108123000_phase2_atomic_mastery_upsert.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261106185031_profile_privilege_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261106185050_phase1_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261106185843_profile_public_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107091631_phase1_3_catalog_acl_hardening.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107091641_phase1_4_syllabus_taxonomy_foundation.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107094659_phase1_5_profiles_select_rls_initplan.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108080305_phase2_adaptive_learning.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108080415_phase2_atomic_mastery_upsert.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_foundation_assertions.sql
           psql -v ON_ERROR_STOP=1 -f supabase/tests/phase2_adaptive_learning_assertions.sql
       - name: Apply Phase 1.5 intelligence data layer
@@ -95,7 +105,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/seeds/simulation_personas.sql
       - name: Verify Phase 1.5 intelligence data layer
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_5_intelligence_assertions.sql
-
       - name: Apply Phase 1.6 universal signal layer
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108160000_phase1_6_universal_signal_layer.sql

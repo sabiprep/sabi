@@ -83,3 +83,13 @@ CREATE POLICY "Candidates can update their own profile"
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO anon, authenticated;
 GRANT ALL ON public.profiles TO service_role;
+
+
+-- Live Phase 0 also contains server-only audit records used by Phase 1.3 ACL hardening.
+CREATE TABLE public.audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  actor_id uuid,
+  action text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;

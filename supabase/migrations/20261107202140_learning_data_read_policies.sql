@@ -1,3 +1,4 @@
+
 grant select on public.learning_sessions to authenticated;
 grant select on public.learning_session_items to authenticated;
 grant select on public.student_topic_mastery to authenticated;

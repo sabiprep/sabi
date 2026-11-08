@@ -1,10 +1,10 @@
-# Supabase migration directory — deployment guard
+# Supabase migration history and production deployment guard
 
-## Do not run `supabase db push` against production yet
+## Reconciled production baseline
 
-The live Sabi project's remote migration ledger was inspected on **2026-11-08**. It currently contains:
+The production project's migration ledger was inspected read-only on 2026-11-08. The exact SQL for all 12 applied migrations was recovered from `supabase_migrations.schema_migrations.statements` in the live database. The repository now contains canonical timestamped files with the exact remote versions and names:
 
-| Version | Remote name |
+| Version | Migration |
 | --- | --- |
 | 20261105140638 | create_question_bank |
 | 20261106185031 | profile_privilege_hardening |
@@ -19,50 +19,39 @@ The live Sabi project's remote migration ledger was inspected on **2026-11-08**.
 | 20261108080305 | phase2_adaptive_learning |
 | 20261108080415 | phase2_atomic_mastery_upsert |
 
-The repository does **not** currently contain a one-to-one local migration file for every remote ledger entry. Several repository files use different timestamps/names from the remote ledger, and the source for remote `create_question_bank`, Phase 1.3, Phase 1.4 and the Phase 1.5 profile policy migration is not represented by a matching local migration file. The numbered Phase 0 scripts are retained as reviewed SQL source scripts and are not a reconciled CLI migration history.
+The old noncanonical migration filenames were removed from `supabase/migrations` so the Supabase CLI will not mistake them for additional pending versions. The Phase 0 security reference script is preserved at `supabase/reference/phase0_security.sql`; it is not a migration in the remote ledger.
 
-The live schema effects of Phase 0, Phase 1, Phase 1.3, Phase 1.4 and Phase 2 were inspected separately. Do not infer that a local file is pending merely because its name differs from the remote ledger.
+## New migrations awaiting production
 
-## Required reconciliation before production migration deployment
+The following files are new, additive migrations and were not present in the production ledger at the time of inspection:
 
-1. Preserve the remote migration ledger exactly as found; do not insert synthetic history rows or delete remote rows.
-2. Recover the exact source SQL for each remote migration whose matching local file is missing.
-3. Compare the live schema, functions, grants and RLS policies with those source files. Record any manually applied SQL separately.
-4. Agree a baseline strategy with the project owner. Do not replay historical SQL to make the local migration list look aligned.
-5. Ensure every new migration is timestamp-prefixed and is genuinely new relative to the remote ledger.
-6. Verify the reconciled migration list against a dedicated active staging project before any production push.
+- `20261108150000_phase1_5_intelligence_data_layer.sql`
+- `20261108160000_phase1_6_universal_signal_layer.sql`
 
-## Phase 1.5 status
+Phase 1.5 adds normalized learner profiles, subject selections, goals/preferences, consent history, syllabus objectives, question provenance/review history, learning telemetry, mastery history, engine registry/run traces, recommendation feedback and score-prediction history.
 
-`20261108150000_phase1_5_intelligence_data_layer.sql` is a new additive migration staged in the Phase 1.5 pull request. It has **not** been applied to production. Its seed scripts are separate and idempotent:
+Phase 1.6 adds canonical signal definitions and versions, signal observations/current/history, engine contracts and subscriptions, engine input snapshots, transactional outbox, and atomic onboarding/check-in projection RPCs.
+
+Associated idempotent seeds are separate:
 
 - `supabase/seeds/phase1_5_engine_registry.sql`
 - `supabase/seeds/legacy_question_provenance_backfill.sql`
 - `supabase/seeds/2026_jamb_subject_catalogue.sql`
 - `supabase/seeds/simulation_personas.sql`
+- `supabase/seeds/phase1_6_signal_registry.sql`
 
-The simulation persona seed creates a private `sabi_simulation` schema and synthetic archetypes only. It does not create auth users or pollute production learner metrics.
+The simulation persona seed uses a private `sabi_simulation` schema and synthetic archetypes only. It does not create auth users or mix synthetic activity into production learner metrics.
 
-## Disposable CI execution
+## Verification and production guard
 
-The backend CI workflow applies source SQL directly to an ephemeral PostgreSQL service and runs assertions. This validates the SQL and app build, but it does not reconcile or update the production migration ledger and is not a production deployment workflow.
+Backend CI uses disposable PostgreSQL and runs the recovered production migrations in ledger order, followed by Phase 1.5 and Phase 1.6 migrations, seeds and assertions. CI does not change the live Supabase project.
 
-## Phase 1.6 status
+Before production migration execution:
 
-`20261108160000_phase1_6_universal_signal_layer.sql` is an additive migration staged after Phase 1.5. It has **not** been applied to production.
+1. Merge the migration-history reconciliation only after CI passes.
+2. Run `supabase migration list` against the linked project and confirm the 12 historical versions match exactly, with only Phase 1.5 and Phase 1.6 pending.
+3. Confirm the live schema preconditions and seed impact; do not publish AI-draft questions.
+4. Apply only the two new migrations and their seeds, then run post-migration assertions and Supabase advisors.
+5. Preserve the existing production ledger. Never insert synthetic history rows or replay historical SQL against production.
 
-The layer introduces:
-- Canonical semantic signal definitions and immutable JSON Schema versions.
-- Registered signal sources with trust and allowed-purpose metadata.
-- Append-only learner signal observations, current projections and history.
-- Versioned engine input/output contracts and declarative signal subscriptions.
-- Exact signal snapshots (including explicit missing-input reasons) for every engine run.
-- A transactional outbox for signal observations, learning telemetry and engine requests.
-- An atomic, idempotent onboarding projection RPC that populates normalized academic profiles, subject selections, goals and learning preferences.
-- An atomic, idempotent progress-check-in RPC that writes the learner check-in and confidence/motivation signals together.
-- Authenticated API endpoints for learner check-ins and append-only telemetry batches, with session/item ownership checks.
-- RLS, service-role-only writes, immutable evidence/contract records and account-erasure cascades.
-
-The Phase 1.6 seed catalogue registers starter student, learning and exam signals and contracts for the Phase 2 engines. These contracts define integration requirements; they do not claim that every future engine adapter or background worker is already deployed. The transactional outbox is the durable handoff boundary for the next orchestration worker.
-
-Do not apply this migration to production until Phase 1.5 is merged, the remote migration ledger is reconciled, disposable PostgreSQL CI passes on the stacked PR, and the owner approves production migration execution.
+No paid Supabase branch is required or should be created for this workflow.
