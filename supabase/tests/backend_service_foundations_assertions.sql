@@ -1,6 +1,6 @@
 do $$
 declare
-  table_name text;
+  v_table_name text;
   required_tables text[] := array[
     'entitlement_catalogue','subscription_plans','student_subscriptions','student_entitlements','ai_task_pricing',
     'payment_transactions','payment_webhook_events','ai_usage_events','ai_credit_ledger',
@@ -9,13 +9,13 @@ declare
     'knowledge_chunks','parent_student_relationships','school_organizations','school_memberships','gamification_rules'
   ];
 begin
-  foreach table_name in array required_tables loop
+  foreach v_table_name in array required_tables loop
     if not exists (
       select 1 from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'public' and c.relname = table_name and c.relkind = 'r' and c.relrowsecurity
+      where n.nspname = 'public' and c.relname = v_table_name and c.relkind = 'r' and c.relrowsecurity
     ) then
-      raise exception 'Missing table or RLS: %', table_name;
+      raise exception 'Missing table or RLS: %', v_table_name;
     end if;
   end loop;
 
