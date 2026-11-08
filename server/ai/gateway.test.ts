@@ -20,7 +20,7 @@ describe('Sabi AI gateway configuration', () => {
     process.env.GEMINI_API_KEY = 'test-key';
     delete process.env.SABI_GEMINI_MODEL;
     expect(getAIReadiness().configuredProviders).toEqual([]);
-    expect(getAIReadiness().missingConfiguration[0].missing).toContain('SABI_GEMINI_MODEL');
+    expect(getAIReadiness().missingConfiguration[0].missing).toContain('SABI_GEMINI_MODEL (or SABI_GEMINI_EXPLANATION_MODEL)');
   });
 
   it('reports configured providers without exposing credentials', () => {
