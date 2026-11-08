@@ -3,6 +3,7 @@ insert into public.signal_definitions
   (signal_key,display_name,description,domain,value_type,unit,sensitivity_level,default_purpose,lifecycle_status,current_schema_version)
 values
  ('student.motivation','Learner motivation','Voluntary learner-stated reasons and goals for exam preparation','student','string',null,'personal','personalized_learning','active',1),
+ ('student.motivation_score','Learner motivation score','Voluntary self-reported motivation level on a 1-5 scale','student','number','1-5','personal','personalized_learning','active',1),
  ('student.confidence','Learner confidence','Voluntary self-reported confidence level on a 1-5 scale','student','number','1-5','personal','personalized_learning','active',1),
  ('student.study_consistency','Study consistency','Derived consistency score from completed study activity','student','number','0-1','standard','personalized_learning','active',1),
  ('student.daily_study_minutes','Daily study time','Derived active study minutes per local calendar day','student','integer','minutes','standard','personalized_learning','active',1),
@@ -31,7 +32,7 @@ select d.signal_key,1,
   'backward','active','Initial stable signal contract'
 from public.signal_definitions d
 where d.signal_key in (
- 'student.motivation','student.confidence','student.study_consistency','student.daily_study_minutes',
+ 'student.motivation','student.motivation_score','student.confidence','student.study_consistency','student.daily_study_minutes',
  'learning.answer_accuracy','learning.answer_time_ms','learning.topic_avoidance','learning.revisit_rate',
  'learning.hint_dependency','learning.explanation_engagement','learning.mastery_score','exam.predicted_score'
 )
@@ -55,7 +56,7 @@ values
  ('mastery-engine',1,'{"inputs":[{"signal":"learning.answer_accuracy","requirement":"required"},{"signal":"learning.answer_time_ms","requirement":"optional"}],"outputs":[{"signal":"learning.mastery_score"}],"missing_data":"skip_optional_and_preserve_existing_mastery"}','backward','active','Initial mastery engine signal contract'),
  ('spaced-repetition-engine',1,'{"inputs":[{"signal":"learning.mastery_score","requirement":"required"},{"signal":"learning.answer_accuracy","requirement":"required"},{"signal":"learning.answer_time_ms","requirement":"optional"}],"outputs":[],"missing_data":"do_not_schedule_without_required_mastery_and_accuracy"}','backward','active','Initial spaced repetition signal contract'),
  ('adaptive-practice-engine',1,'{"inputs":[{"signal":"learning.mastery_score","requirement":"required"},{"signal":"learning.answer_accuracy","requirement":"required"},{"signal":"learning.topic_avoidance","requirement":"optional"},{"signal":"learning.hint_dependency","requirement":"optional"}],"outputs":[],"missing_data":"fallback_to_existing_phase2_selection"}','backward','active','Initial adaptive practice signal contract'),
- ('recommendation-engine',1,'{"inputs":[{"signal":"learning.mastery_score","requirement":"required"},{"signal":"student.confidence","requirement":"optional"},{"signal":"student.study_consistency","requirement":"optional"},{"signal":"student.motivation","requirement":"optional"},{"signal":"learning.topic_avoidance","requirement":"optional"}],"outputs":[],"missing_data":"rank_using_available_signals_only"}','backward','active','Initial recommendation signal contract'),
+ ('recommendation-engine',1,'{"inputs":[{"signal":"learning.mastery_score","requirement":"required"},{"signal":"student.confidence","requirement":"optional"},{"signal":"student.study_consistency","requirement":"optional"},{"signal":"student.motivation","requirement":"optional"},{"signal":"student.motivation_score","requirement":"optional"},{"signal":"learning.topic_avoidance","requirement":"optional"}],"outputs":[],"missing_data":"rank_using_available_signals_only"}','backward','active','Initial recommendation signal contract'),
  ('score-prediction-engine',1,'{"inputs":[{"signal":"learning.answer_accuracy","requirement":"required"},{"signal":"learning.mastery_score","requirement":"required"},{"signal":"student.study_consistency","requirement":"optional"}],"outputs":[{"signal":"exam.predicted_score"}],"missing_data":"return_insufficient_evidence_instead_of_fabricating_prediction"}','backward','active','Initial score prediction signal contract'),
  ('diagnostic-engine',1,'{"inputs":[{"signal":"learning.answer_accuracy","requirement":"required"},{"signal":"student.confidence","requirement":"optional"}],"outputs":[],"missing_data":"request_baseline_assessment_if_accuracy_missing"}','backward','active','Initial diagnostic signal contract'),
  ('ai-tutor-engine',1,'{"inputs":[{"signal":"student.motivation","requirement":"optional"},{"signal":"student.confidence","requirement":"optional"},{"signal":"learning.topic_avoidance","requirement":"optional"},{"signal":"learning.mastery_score","requirement":"optional"}],"outputs":[],"missing_data":"continue_tutor_without_optional_context"}','backward','active','Initial AI tutor signal contract'),
@@ -80,6 +81,7 @@ from (values
  ('recommendation-engine','student.confidence','optional'),
  ('recommendation-engine','student.study_consistency','optional'),
  ('recommendation-engine','student.motivation','optional'),
+ ('recommendation-engine','student.motivation_score','optional'),
  ('recommendation-engine','learning.topic_avoidance','optional'),
  ('score-prediction-engine','learning.answer_accuracy','required'),
  ('score-prediction-engine','learning.mastery_score','required'),
@@ -87,6 +89,7 @@ from (values
  ('diagnostic-engine','learning.answer_accuracy','required'),
  ('diagnostic-engine','student.confidence','optional'),
  ('ai-tutor-engine','student.motivation','optional'),
+ ('ai-tutor-engine','student.motivation_score','optional'),
  ('ai-tutor-engine','student.confidence','optional'),
  ('ai-tutor-engine','learning.topic_avoidance','optional'),
  ('ai-tutor-engine','learning.mastery_score','optional'),
