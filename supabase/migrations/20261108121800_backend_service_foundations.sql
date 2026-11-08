@@ -339,7 +339,7 @@ returns table(allowed boolean, credit_cost integer, reason text)
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare
   task_cost integer;
   current_balance bigint;
@@ -391,7 +391,7 @@ begin
 
   return query select true, task_cost, 'reserved';
 end;
-$;
+$function$;
 
 create or replace function public.refund_ai_credits(
   p_user_id uuid,
@@ -402,7 +402,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare
   debit_amount integer;
 begin
@@ -428,7 +428,7 @@ begin
 
   return true;
 end;
-$;
+$function$;
 
 revoke all on function public.reserve_ai_credits(uuid, text, text) from public, anon, authenticated;
 revoke all on function public.refund_ai_credits(uuid, text, text) from public, anon, authenticated;
@@ -446,7 +446,7 @@ returns table(awarded boolean, xp_delta integer, reason text)
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $
+as $function$
 declare
   rule_row public.gamification_rules%rowtype;
   awards_today integer;
@@ -496,7 +496,7 @@ begin
 
   return query select true, rule_row.xp_delta, 'awarded';
 end;
-$;
+$function$;
 
 revoke all on function public.award_student_xp(uuid, text, text, text, text) from public, anon, authenticated;
 grant execute on function public.award_student_xp(uuid, text, text, text, text) to service_role;
