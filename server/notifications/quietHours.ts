@@ -5,13 +5,8 @@ export type QuietHours = {
   timezone: string;
 };
 
-function clockMinutes(date: Date, timezone: string): number {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: timezone,
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date);
+function clockMinutes(date: Date, formatter: Intl.DateTimeFormat): number {
+  const parts = formatter.formatToParts(date);
   const hour = Number(parts.find((part) => part.type === 'hour')?.value);
   const minute = Number(parts.find((part) => part.type === 'minute')?.value);
   return hour * 60 + minute;
@@ -41,17 +36,28 @@ export function getQuietHoursDeferral(value: unknown, now = new Date()): Date | 
     : 'Africa/Lagos';
   if (start === null || end === null || start === end) return null;
 
-  let currentMinutes: number;
+  let formatter: Intl.DateTimeFormat;
   try {
-    currentMinutes = clockMinutes(now, timezone);
+    formatter = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    });
   } catch {
     throw new Error('NOTIFICATION_QUIET_HOURS_TIMEZONE_INVALID');
   }
+  const currentMinutes = clockMinutes(now, formatter);
   if (!isQuietAt(currentMinutes, start, end)) return null;
 
+  /* Scan local minutes using one cached formatter for this job. */
   for (let offset = 1; offset <= 26 * 60; offset += 1) {
     const candidate = new Date(Math.ceil(now.getTime() / 60000) * 60000 + offset * 60000);
-    if (!isQuietAt(clockMinutes(candidate, timezone), start, end)) return candidate;
+    if (!isQuietAt(clockMinutes(candidate, formatter), start, end)) return candidate;
   }
   throw new Error('NOTIFICATION_QUIET_HOURS_END_NOT_FOUND');
 }
+
+  } catch {
+    throw new Error('NOTIFICATION_QUIET_HOURS_TIMEZONE_INVALID');
+  }
