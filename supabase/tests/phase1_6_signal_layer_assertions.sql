@@ -71,7 +71,7 @@ begin
   ) then raise exception 'Normalized learning preferences were not populated'; end if;
 
   v_checkin_id := public.record_student_progress_checkin(
-    v_checkin_user,'phase16-checkin-key-0001',4,3,array['limited_time'],
+    v_checkin_user,'phase16-checkin-key-0001',4::smallint,3::smallint,array['limited_time'],
     'I need a more consistent routine'
   );
   v_checkin_retry_id := public.record_student_progress_checkin(
@@ -96,7 +96,7 @@ begin
   end if;
   begin
     perform public.record_student_progress_checkin(
-      v_checkin_user,'phase16-checkin-key-0001',2,3,array['limited_time'],
+      v_checkin_user,'phase16-checkin-key-0001',2::smallint,3::smallint,array['limited_time'],
       'I need a more consistent routine'
     );
     raise exception 'Expected check-in idempotency mismatch to be rejected';
