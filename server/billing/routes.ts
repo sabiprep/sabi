@@ -22,7 +22,7 @@ const planSchema = z.strictObject({
   displayName: z.string().trim().min(2).max(100),
   description: z.string().trim().max(1000).optional(),
   priceAmount: z.number().finite().min(0),
-  currency: z.string().trim().length(3).default('NGN'),
+  currency: z.literal('NGN').default('NGN'),
   billingInterval: z.enum(['monthly', 'quarterly', 'yearly', 'one_time']),
   features: z.record(z.string(), z.unknown()).default({}),
   limits: z.record(z.string(), z.unknown()).default({}),
@@ -117,8 +117,12 @@ router.patch('/admin/plans/:planId', requireAuth, requireRole('ADMIN', 'MASTER_A
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid plan update.', details: parsed.error.flatten() });
   const input = parsed.data;
+  const { data: currentPlan, error: currentPlanError } = await supabaseAdmin
+    .from('subscription_plans').select('features').eq('id', planId).maybeSingle();
+  if (currentPlanError) return res.status(503).json({ error: 'The subscription plan could not be loaded.' });
+  if (!currentPlan) return res.status(404).json({ error: 'Subscription plan not found.' });
   if (input.isActive === true || input.features) {
-    const featureCheck = await validatePlanFeatureKeys(input.features || {});
+    const featureCheck = await validatePlanFeatureKeys(input.features || currentPlan.features || {});
     if (!featureCheck.ok) return res.status(409).json({ error: 'Plan references inactive or unknown entitlements.', ...featureCheck });
   }
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
