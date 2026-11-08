@@ -574,7 +574,7 @@ router.get('/score-prediction', requireAuth, async (req, res) => {
       supabaseAdmin.from('profiles').select('registered_subjects').eq('id', userId).maybeSingle(),
       supabaseAdmin.from('jamb_subjects').select('slug, display_name, aliases').eq('is_active', true),
       supabaseAdmin.from('learning_session_items')
-        .select('question_id, is_correct')
+        .select('question_id, is_correct, question_bank(subject)')
         .eq('user_id', userId)
         .not('answered_at', 'is', null)
         .order('answered_at', { ascending: false })
@@ -611,20 +611,9 @@ router.get('/score-prediction', requireAuth, async (req, res) => {
     }
 
     const attempts = attemptsResult.data || [];
-    const questionIds = [...new Set(attempts.map((item) => item.question_id))];
-    const questionResult = questionIds.length
-      ? await supabaseAdmin.from('question_bank').select('id, subject').in('id', questionIds)
-      : { data: [], error: null };
-    if (questionResult.error) {
-      console.error('[SABI] Score prediction question lookup failed:', questionResult.error.message);
-      return res.status(503).json({ error: 'Your score prediction is temporarily unavailable.' });
-    }
-    const subjectByQuestion = new Map((questionResult.data || []).map((question) => [
-      question.id, String(question.subject || '').toLowerCase(),
-    ]));
     const breakdown = subjects.map((subject: any) => {
-      const relevant = attempts.filter((attempt) =>
-        subjectByQuestion.get(attempt.question_id) === String(subject.bankName).toLowerCase()
+      const relevant = attempts.filter((attempt: any) =>
+        String(attempt.question_bank?.subject || '').toLowerCase() === String(subject.bankName).toLowerCase()
       );
       const attempted = relevant.length;
       const correct = relevant.filter((attempt) => attempt.is_correct).length;
