@@ -61,6 +61,8 @@ begin
   ) then raise exception 'Normalized academic profile was not populated'; end if;
   if (select count(*) from public.student_subject_selections where user_id=v_user and exam_year=2026) <> 4 then
     raise exception 'Normalized subject selections were not populated'; end if;
+  if (select count(*) from public.student_subject_selections where user_id=v_user and exam_year=2026 and is_compulsory) <> 1 then
+    raise exception 'Only Use of English should be marked compulsory'; end if;
   if (select count(*) from public.student_goals where user_id=v_user and exam_year=2026 and status='active') <> 1 then
     raise exception 'Onboarding retry created duplicate active goals'; end if;
   if not exists (
