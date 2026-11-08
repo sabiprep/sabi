@@ -244,6 +244,7 @@ export function SmartPracticePage() {
             <Calculator size={17} />
           </button>
         </div>
+      <Link to="/learning?mode=smart_practice" className="px-3 py-2 rounded-xl bg-blue-600 text-white text-xs font-black">Live Smart Practice</Link>
       </header>
 
       {/* ======================================================== */}

@@ -9,6 +9,7 @@ import {
 import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { supabase } from '../lib/supabase';
+import { apiFetch } from '../utils/apiClient';
 import { getRealUserProgress, UserRealProgress } from '../utils/userProgressStore';
 import {
   getMistakeRecords,
@@ -24,6 +25,7 @@ import SyllabusFrequencyHeatmapModal from '../components/mobile/SyllabusFrequenc
 
 const MAIN_NAV = [
   { to: '/home', label: 'Dashboard', Icon: Home },
+  { to: '/learning', label: 'Learning', Icon: BookOpenCheck },
   { to: '/blitz', label: 'Blitz 60s', Icon: Zap },
   { to: '/smart', label: 'Smart Practice', Icon: Compass },
   { to: '/custom-simulator', label: 'Custom Simulator', Icon: Sliders },
@@ -96,6 +98,24 @@ function getCandidateOnboardingMeta() {
       targetScore: 320,
     };
   }
+}
+
+
+function LearningSnapshot() {
+  const [data,setData]=useState<any>(null);
+  const [error,setError]=useState('');
+  useEffect(()=>{let active=true;apiFetch('/api/learning/progress').then(async r=>{if(!r.ok)throw new Error('Learning progress is not available right now.');const d=await r.json();if(active)setData(d);}).catch(e=>{if(active)setError(e.message||'Unable to load learning progress.');});return()=>{active=false;};},[]);
+  const sessions=data?.recentSessions||[];
+  const mastery=data?.mastery||[];
+  return <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
+    <div className="flex items-center justify-between gap-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Backend synced</span><h2 className="text-lg font-black text-slate-900 dark:text-white">Learning activity</h2></div><Link to="/learning" className="text-xs font-black text-blue-600">Open learning hub →</Link></div>
+    {error?<p className="text-xs text-slate-500">{error}</p>:!data?<p className="text-xs text-slate-500">Loading saved learning activity…</p>:<div className="grid sm:grid-cols-3 gap-3">
+      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{sessions.length}</b><p className="text-xs text-slate-500">Recent sessions</p></div>
+      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{mastery.length}</b><p className="text-xs text-slate-500">Tracked topics</p></div>
+      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{(data.dueReviews||[]).length}</b><p className="text-xs text-slate-500">Reviews due</p></div>
+    </div>}
+    {sessions.length>0&&<div className="space-y-2">{sessions.slice(0,4).map((item:any)=><div key={item.id} className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-2 text-xs"><span className="font-bold">{item.mode.replace('_',' ')} · {item.answered_count}/{item.total_questions} answered</span><span className="text-slate-500">{item.status}</span></div>)}</div>}
+  </section>;
 }
 
 export function AppShell() {
@@ -804,6 +824,7 @@ export function HomePage() {
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
+      <LearningSnapshot />
       {showSubjectRates && (
         <SubjectRatesFullScreenView onClose={() => setShowSubjectRates(false)} />
       )}
@@ -1524,6 +1545,7 @@ export function CbtPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Link to="/learning?mode=cbt" className="p-6 rounded-3xl border text-left transition bg-blue-600 text-white border-blue-600"><span className="text-xs font-black uppercase">Backend-connected CBT</span><h3 className="text-xl font-black mt-1">Start saved CBT session</h3><p className="text-xs text-blue-100 mt-1">Uses your saved UTME subjects and server-side answer evaluation.</p></Link>
         <button
           type="button"
           onClick={() => setIsExamModalOpen(true)}
@@ -1584,6 +1606,7 @@ export function ProgressPage() {
 
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
+      <LearningSnapshot />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">

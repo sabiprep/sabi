@@ -21,6 +21,7 @@ const DailyMissionsPage = lazy(() => import('./pages/StudentPages').then(module 
 const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubjectRatesPage })));
 const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubscriptionPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
+const BackendLearningPage = lazy(() => import('./pages/BackendLearningPage').then(module => ({ default: module.BackendLearningPage })));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/smart" element={<SmartPracticePage />} />
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
+              <Route path="/learning" element={<BackendLearningPage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/subjects" element={<SubjectRatesPage />} />
               <Route path="/subject-rates" element={<SubjectRatesPage />} />
