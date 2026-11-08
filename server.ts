@@ -807,6 +807,17 @@ app.post(
         }
       }
 
+      const { error: normalizedProfileError } = await supabaseAdmin.rpc('save_student_onboarding_profile', {
+        p_user_id: user.id,
+        p_exam_year: new Date().getFullYear(),
+        p_registered_subjects: canonicalSubjects,
+        p_target_score: targetScore ?? 320,
+        p_answers: normalizedAnswers,
+      });
+      if (normalizedProfileError) {
+        return res.status(500).json({ error: normalizedProfileError.message || 'Could not save the normalized academic profile.' });
+      }
+
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .update({
