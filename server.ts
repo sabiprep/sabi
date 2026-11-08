@@ -19,6 +19,7 @@ import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandl
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
 import aiRouter from './server/ai/routes';
+import paymentRouter from './server/billing/routes';
 import { generateAIText, getAIReadiness } from './server/ai/gateway';
 import { recordAIUsage } from './server/ai/usage';
 import { AIUnavailableError } from './server/ai/types';
@@ -70,7 +71,10 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: config.maxJsonBody }));
+app.use(express.json({
+  limit: config.maxJsonBody,
+  verify: (req, _res, buffer) => { (req as any).rawBody = Buffer.from(buffer); },
+}));
 
 // CORS: an explicit allow-list (local development, the Capacitor Android WebView
 // and any origin configured through ALLOWED_ORIGINS / SABI_APP_URL) instead of a
@@ -128,6 +132,7 @@ app.use('/api', globalLimiter);
 app.use(configurationGuard);
 app.use('/api/learning', learningRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/payments', paymentRouter);
 
 
 
