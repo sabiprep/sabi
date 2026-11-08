@@ -604,7 +604,10 @@ router.post('/webhooks/:provider', async (req, res) => {
         .eq('is_active', true);
       if (catalogueError) throw new Error('ENTITLEMENT_CATALOGUE_LOOKUP_FAILED');
       const activeKeys = new Set((catalogue || []).map((row) => row.entitlement_key));
-      const entitlementRows = featureKeys.filter((key) => activeKeys.has(key)).map((key) => ({
+      if (featureKeys.some((key) => !activeKeys.has(key))) {
+        throw new Error('PLAN_ENTITLEMENTS_NOT_ACTIVE');
+      }
+      const entitlementRows = featureKeys.map((key) => ({
         user_id: transaction.user_id,
         entitlement_key: key,
         source_type: 'subscription',
