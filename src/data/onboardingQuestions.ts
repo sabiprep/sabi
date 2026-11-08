@@ -6,7 +6,7 @@ export interface OnboardingQuestion {
   category: string;
   question: string;
   subtext: string;
-  type: 'subjects' | 'course_uni' | 'radio' | 'select' | 'confidence' | 'weak_topic';
+  type: 'subjects' | 'course_uni' | 'radio' | 'select' | 'confidence' | 'weak_topic' | 'long_text';
   options?: string[];
   fieldName: string;
 }
@@ -123,5 +123,13 @@ export const ONBOARDING_QUESTIONS: OnboardingQuestion[] = [
       'Dual-Layer Clarity — Standard English explanation paired with Nigerian Pidgin summary'
     ],
     fieldName: 'explanationPreference'
+  },
+  {
+    id: 11,
+    category: 'Personal Motivation',
+    question: 'What motivates you to pursue your JAMB and admission goal?',
+    subtext: 'Optional. Your own words help SABI understand what matters to you and support your learning journey.',
+    type: 'long_text',
+    fieldName: 'motivation'
   }
 ];

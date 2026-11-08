@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { apiPostJson, describeApiFailure } from '../utils/apiClient';
 
 const STORAGE_KEY = 'sabi_onboarding_v2_10q';
+const SUBMISSION_KEY_STORAGE = 'sabi_onboarding_submission_key';
 const CLASS_OPTIONS = ['SS2 Candidate', 'SS3 Candidate', 'Post-Secondary / Resitter'];
 const ATTEMPT_OPTIONS = ['First UTME Sitting (0 prior)', '1 Previous UTME Sitting', '2+ Previous UTME Sittings'];
 const POPULAR_COURSES = [
@@ -122,6 +123,8 @@ export function OnboardingPage() {
         return Boolean(answers.dailyStudyHours);
       case 10:
         return Boolean(answers.explanationPreference);
+      case 11:
+        return true;
       default:
         return false;
     }
@@ -166,7 +169,10 @@ export function OnboardingPage() {
 
       // Phase 0: the server writes onboarding data for the token's own user, so
       // no email is sent and the direct profiles write is no longer needed.
+      const submissionKey = localStorage.getItem(SUBMISSION_KEY_STORAGE) || crypto.randomUUID();
+      localStorage.setItem(SUBMISSION_KEY_STORAGE, submissionKey);
       const onboardingResult = await apiPostJson('/api/profile/onboarding', {
+        submissionKey,
         onboardingAnswers: answers,
         registeredSubjects: selectedSubjects,
         targetScore: Number(answers.targetScore) || 320,
@@ -182,6 +188,7 @@ export function OnboardingPage() {
         return;
       }
 
+      localStorage.removeItem(SUBMISSION_KEY_STORAGE);
       navigate('/home');
     } finally {
       setIsSubmitting(false);
@@ -511,6 +518,31 @@ export function OnboardingPage() {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+
+
+            {/* Q11: OPTIONAL PERSONAL MOTIVATION */}
+            {question.id === 11 && (
+              <div className="flex-1 flex flex-col gap-3">
+                <label
+                  htmlFor="student-motivation"
+                  className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}
+                >
+                  Share what is driving you. You can skip this question.
+                </label>
+                <textarea
+                  id="student-motivation"
+                  value={String(answers.motivation ?? '')}
+                  onChange={event => setAnswer('motivation', event.target.value)}
+                  maxLength={2000}
+                  rows={7}
+                  placeholder="For example: the course I want to study, the people I hope to support, or the future I am working towards..."
+                  className={`w-full min-h-[180px] rounded-2xl border-2 p-4 text-sm font-medium outline-none resize-y focus:border-blue-500 ${isDark ? 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Only share what you are comfortable sharing. This answer is stored with your onboarding record.
+                </p>
               </div>
             )}
 
