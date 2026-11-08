@@ -33,7 +33,3 @@ set content_fingerprint = md5(concat_ws(
   lower(regexp_replace(trim(coalesce(q.option_d, '')), '\s+', ' ', 'g'))
 ))
 where q.content_fingerprint is null;
-
-create index if not exists question_bank_content_fingerprint_idx
-  on public.question_bank (content_fingerprint)
-  where content_fingerprint is not null;
