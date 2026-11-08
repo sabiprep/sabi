@@ -22,7 +22,7 @@ import aiRouter from './server/ai/routes';
 import paymentRouter from './server/billing/routes';
 import notificationRouter from './server/notifications/routes';
 import { generateAIText, getAIReadiness } from './server/ai/gateway';
-import { recordAIUsage } from './server/ai/usage';
+import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './server/ai/usage';
 import { AIUnavailableError } from './server/ai/types';
 import { buildAnswerSignalObservations, buildMasterySignalObservation } from './server/learning/signalWorker';
 import { executeEngineRequest } from './server/learning/engineExecution';
@@ -1329,11 +1329,14 @@ app.post(
       const { subject, topic, subtopic } = req.body;
       const contentCreatorId = (req as any).user?.id as string | undefined;
       if (!contentCreatorId) return res.status(401).json({ error: 'Authentication required.' });
+      let aiRequestId: string | null = null;
+      let reservedCreditCost = 0;
+      aiRequestId = randomUUID();
       const readiness = getAIReadiness('content_draft');
       if (!readiness.enabled || readiness.configuredProviders.length === 0) {
         await recordAIUsage(supabaseAdmin, {
           userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
-          outcome: 'blocked', promptVersion: 'question-draft-v1',
+          outcome: 'blocked', promptVersion: 'question-draft-v1', requestId: aiRequestId,
           metadata: { reason: readiness.enabled ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_DISABLED' },
         });
         return res.status(503).json({
@@ -1368,6 +1371,20 @@ app.post(
         'Check the solution and ensure exactly one option is correct. Do not claim official provenance.',
       ].join('\n');
 
+      const creditReservation = await reserveAIRequestCredits(supabaseAdmin, contentCreatorId, 'content_draft', aiRequestId);
+      if (!creditReservation.allowed) {
+        await recordAIUsage(supabaseAdmin, {
+          userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
+          outcome: 'blocked', promptVersion: 'question-draft-v1', requestId: aiRequestId,
+          metadata: { reason: creditReservation.reason },
+        });
+        return res.status(creditReservation.reason === 'insufficient_credits' ? 402 : 503).json({
+          error: creditReservation.reason === 'insufficient_credits' ? 'AI credits are exhausted.' : 'AI credit pricing is not configured.',
+          code: creditReservation.reason === 'insufficient_credits' ? 'AI_CREDITS_EXHAUSTED' : 'AI_CREDIT_PRICING_NOT_CONFIGURED',
+        });
+      }
+      reservedCreditCost = creditReservation.creditCost;
+
       try {
         const aiStartedAt = Date.now();
         const generated = await generateAIText({
@@ -1382,7 +1399,8 @@ app.post(
           userId: contentCreatorId, task: 'content_draft',
           provider: generated.provider, model: generated.model, usage: generated.usage,
           outcome: 'success', promptVersion: 'question-draft-v1',
-          durationMs: Date.now() - aiStartedAt,
+          durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
+          creditCost: reservedCreditCost,
         });
         const raw = generated.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
         const parsed = JSON.parse(raw);
@@ -1498,13 +1516,17 @@ app.post(
           model: generated.model,
         });
       } catch (error) {
+        if (aiRequestId && reservedCreditCost > 0) {
+          try { await refundAIRequestCredits(supabaseAdmin, contentCreatorId, aiRequestId, 'ai_question_draft_provider_or_accounting_failed'); }
+          catch { return res.status(503).json({ error: 'AI credit recovery is temporarily unavailable.' }); }
+        }
         if (error instanceof AIUnavailableError) {
           try {
             await recordAIUsage(supabaseAdmin, {
               userId: contentCreatorId, task: 'content_draft', provider: 'none', model: 'none',
               outcome: error.code === 'AI_PROVIDER_FAILED' ? 'provider_failed' : 'blocked',
-              promptVersion: 'question-draft-v1',
-              metadata: { reason: error.code, providersTried: error.providersTried },
+              promptVersion: 'question-draft-v1', requestId: aiRequestId || undefined,
+              metadata: { reason: error.code, providersTried: error.providersTried, refundedCredits: reservedCreditCost },
             });
           } catch {
             return res.status(503).json({ error: 'AI usage accounting is temporarily unavailable.' });
