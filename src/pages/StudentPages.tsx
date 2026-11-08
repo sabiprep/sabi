@@ -103,10 +103,16 @@ function getCandidateOnboardingMeta() {
 
 function LearningSnapshot() {
   const [data,setData]=useState<any>(null);
+  const [recommendations,setRecommendations]=useState<any>(null);
   const [error,setError]=useState('');
-  useEffect(()=>{let active=true;apiFetch('/api/learning/progress').then(async r=>{if(!r.ok)throw new Error('Learning progress is not available right now.');const d=await r.json();if(active)setData(d);}).catch(e=>{if(active)setError(e.message||'Unable to load learning progress.');});return()=>{active=false;};},[]);
+  useEffect(()=>{let active=true;Promise.all([apiFetch('/api/learning/progress'),apiFetch('/api/learning/recommendations')]).then(async ([p,r])=>{
+    if(!p.ok)throw new Error('Learning progress is not available right now.');
+    const d=await p.json();const rec=r.ok?await r.json():null;
+    if(active){setData(d);setRecommendations(rec);}
+  }).catch(e=>{if(active)setError(e.message||'Unable to load learning progress.');});return()=>{active=false;};},[]);
   const sessions=data?.recentSessions||[];
   const mastery=data?.mastery||[];
+  const due=recommendations?.reviewPlan||[];
   return <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
     <div className="flex items-center justify-between gap-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Backend synced</span><h2 className="text-lg font-black text-slate-900 dark:text-white">Learning activity</h2></div><Link to="/learning" className="text-xs font-black text-blue-600">Open learning hub →</Link></div>
     {error?<p className="text-xs text-slate-500">{error}</p>:!data?<p className="text-xs text-slate-500">Loading saved learning activity…</p>:<div className="grid sm:grid-cols-3 gap-3">
@@ -114,10 +120,30 @@ function LearningSnapshot() {
       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{mastery.length}</b><p className="text-xs text-slate-500">Tracked topics</p></div>
       <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{(data.dueReviews||[]).length}</b><p className="text-xs text-slate-500">Reviews due</p></div>
     </div>}
+    {due.length>0&&<div className="space-y-2"><p className="text-xs font-black uppercase tracking-wider text-amber-600">Recommended reviews</p>{due.slice(0,4).map((item:any)=><div key={item.subject+'-'+item.topic} className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-xs"><span className="font-bold">{item.subject} · {item.topic}</span><span className="text-slate-500">{Math.round(item.masteryScore)}% mastery</span></div>)}</div>}
     {sessions.length>0&&<div className="space-y-2">{sessions.slice(0,4).map((item:any)=><div key={item.id} className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-2 text-xs"><span className="font-bold">{item.mode.replace('_',' ')} · {item.answered_count}/{item.total_questions} answered</span><span className="text-slate-500">{item.status}</span></div>)}</div>}
   </section>;
 }
 
+function ScorePredictionCard() {
+  const [data,setData]=useState<any>(null);
+  const [error,setError]=useState('');
+  useEffect(()=>{let active=true;apiFetch('/api/learning/score-prediction').then(async r=>{
+    const payload=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(payload.error||'Score prediction is unavailable.');
+    if(active)setData(payload);
+  }).catch(e=>{if(active)setError(e.message||'Unable to calculate score prediction.');});return()=>{active=false;};},[]);
+  return <section className="rounded-3xl border border-blue-100 dark:border-blue-900 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Phase 2 · performance model</span><h2 className="text-xl font-black text-slate-900 dark:text-white">UTME score projection</h2><p className="text-xs text-slate-500 mt-1">A rolling estimate from your saved, answered UTME questions.</p></div>
+      {data?.predictedScore!==null&&data?.predictedScore!==undefined?<div className="text-right"><b className="text-3xl text-blue-600">{data.predictedScore}<span className="text-sm text-slate-400">/400</span></b><p className="text-[10px] text-slate-500">{data.scoreRange?.lower}–{data.scoreRange?.upper} likely range</p></div>:<span className="text-xs font-black text-amber-600">Building evidence</span>}
+    </div>
+    {error?<p className="text-xs text-slate-500">{error}</p>:!data?<p className="text-xs text-slate-500">Calculating from your saved performance…</p>:<>
+      <div className="grid sm:grid-cols-2 gap-2">{(data.subjects||[]).map((item:any)=><div key={item.subject} className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3"><div className="flex justify-between gap-2 text-xs"><b>{item.subject}</b><span className="text-slate-500">{item.attempted} attempts</span></div><p className="mt-1 text-sm font-black">{item.projectedScore===null?'Not enough data':item.projectedScore+'/100'}</p><div className="h-1.5 mt-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-blue-600" style={{width:`${item.projectedScore||0}%`}}/></div></div>)}</div>
+      <p className="text-xs text-slate-500">{data.message}</p>
+      {data.predictedScore!==null&&<p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Confidence: {data.confidence} · {data.totalAttempts} total answers analysed</p>}
+    </>}
+  </section>;
+}
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
@@ -1607,6 +1633,7 @@ export function ProgressPage() {
   return (
     <div className="space-y-8 pb-16 lg:pb-0">
       <LearningSnapshot />
+      <ScorePredictionCard />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
