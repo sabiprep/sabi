@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getAIReadiness } from './gateway';
+import { generateAIText, getAIReadiness } from './gateway';
 
 const originalEnv = { ...process.env };
 
@@ -12,6 +12,12 @@ describe('Sabi AI gateway configuration', () => {
   it('keeps AI disabled unless explicitly enabled', () => {
     delete process.env.SABI_AI_ENABLED;
     expect(getAIReadiness().enabled).toBe(false);
+  });
+
+  it('returns an explicit disabled error instead of fabricating a response', async () => {
+    delete process.env.SABI_AI_ENABLED;
+    await expect(generateAIText({ task: 'explanation', systemInstruction: 'test', prompt: 'test' }))
+      .rejects.toMatchObject({ code: 'AI_DISABLED' });
   });
 
   it('does not mark a provider ready without both a key and model ID', () => {
