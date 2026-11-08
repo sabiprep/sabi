@@ -14,6 +14,7 @@ import {
   type PaymentProviderName,
 } from './providers';
 import { addBillingPeriod } from './period';
+import { getAICreditBalance, listActiveEntitlements } from './entitlements';
 
 const router = Router();
 
@@ -154,6 +155,36 @@ router.post('/admin/entitlements', requireAuth, requireRole('ADMIN', 'MASTER_ADM
     return res.status(503).json({ error: 'The entitlement could not be saved.' });
   }
   return res.status(201).json({ entitlement: data });
+});
+
+
+router.get('/me', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req as AuthenticatedRequest);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  try {
+    const [subscriptionsResult, entitlements, aiCredits] = await Promise.all([
+      supabaseAdmin.from('student_subscriptions')
+        .select('id, status, current_period_start, current_period_end, cancel_at_period_end, subscription_plans(plan_key, display_name, billing_interval)')
+        .eq('user_id', userId)
+        .in('status', ['active', 'past_due', 'pending'])
+        .order('created_at', { ascending: false }),
+      listActiveEntitlements(supabaseAdmin, userId),
+      getAICreditBalance(supabaseAdmin, userId),
+    ]);
+    if (subscriptionsResult.error) return res.status(503).json({ error: 'Your subscription status is temporarily unavailable.' });
+    return res.json({
+      subscriptions: subscriptionsResult.data || [],
+      entitlements: entitlements.map((item) => ({
+        key: item.entitlement_key,
+        value: item.entitlement_value,
+        expiresAt: item.expires_at,
+      })),
+      aiCredits: Math.max(0, aiCredits),
+    });
+  } catch (error) {
+    console.error('[SABI BILLING] Account billing summary failed:', error instanceof Error ? error.name : 'unknown_error');
+    return res.status(503).json({ error: 'Your billing summary is temporarily unavailable.' });
+  }
 });
 
 router.get('/plans', requireAuth, async (_req, res) => {
