@@ -190,12 +190,12 @@ $$;
 
 drop trigger if exists student_signal_observations_immutable on public.student_signal_observations;
 create trigger student_signal_observations_immutable
-before update or delete on public.student_signal_observations
+before update on public.student_signal_observations
 for each row execute function public.reject_signal_history_mutation();
 
 drop trigger if exists student_signal_history_immutable on public.student_signal_history;
 create trigger student_signal_history_immutable
-before update or delete on public.student_signal_history
+before update on public.student_signal_history
 for each row execute function public.reject_signal_history_mutation();
 
 -- Materialize each accepted observation as current state + immutable history + outbox event.
