@@ -2,10 +2,10 @@
 
 ## Current verified snapshot — 8 November 2026
 
-- **Latest application code merge:** `ccf21bfe2fe5568ceee05438e09c7d1ca7f1df32` (PR #18).
-- **Latest merged change:** [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18).
-- **Latest Backend CI:** run #411 (`42521946286`) passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
-- **Other recently merged work:** PR #14 backend service foundations; PR #15 official JAMB syllabus ingestion schema; PR #16 active-CBT answer feedback lockout; PR #17 concurrency-safe question-attempt capture.
+- **Latest application code merge:** `9e06d7f9de127b4519104a8882e6bbbcd7c935de` (PR #19).
+- **Latest merged changes:** [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18) and [PR #19 — real answer-RPC learner journey assertions](https://github.com/sabiprep/sabi/pull/19).
+- **Latest Backend CI:** run #415 (`42522183403`) passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
+- **Other recently merged work:** PR #14 backend service foundations; PR #15 official JAMB syllabus ingestion schema; PR #16 active-CBT answer feedback lockout; PR #17 concurrency-safe question-attempt capture; PR #19 now tests the actual answer RPC, session completion, and attempt capture in a rollback-only learner fixture.
 - **Production deployment:** not confirmed. Vercel rejected the recent deployment because the project exceeded its free daily deployment quota. A green Backend CI run is not proof that the latest code is live.
 - **Production database:** 21 migrations recorded; 0 learner sessions; 0 captured question attempts; 0 verified syllabus versions; 0 verified syllabus objectives; 104 syllabus import rows still pending validation; 0 question-to-objective mappings.
 - **Syllabus content:** 13 general objectives have been staged as drafts. The four pilot subject versions and import batches remain drafts / needs-review. Detailed topic objectives and content items have not been imported or approved.
