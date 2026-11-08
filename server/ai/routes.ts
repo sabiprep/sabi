@@ -148,10 +148,6 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
   const { messages, subject, topic, sessionId } = req.body as z.infer<typeof chatRequestSchema>;
 
   try {
-    if (!(await hasAICoConsent(userId))) {
-      return res.status(403).json({ aiAvailable: false, reason: 'AI_CONSENT_REQUIRED' });
-    }
-
     if (sessionId) {
       const { data: session, error } = await supabaseAdmin
         .from('learning_sessions').select('id, mode, status')
@@ -161,6 +157,10 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       if (session.mode === 'cbt' && session.status !== 'completed') {
         return res.status(403).json({ error: 'AI tutoring is unavailable during an active CBT.', code: 'CBT_AI_LOCKED' });
       }
+    }
+
+    if (!(await hasAICoConsent(userId))) {
+      return res.status(403).json({ aiAvailable: false, reason: 'AI_CONSENT_REQUIRED' });
     }
 
     const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
