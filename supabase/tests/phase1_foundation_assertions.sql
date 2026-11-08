@@ -124,8 +124,11 @@ END
 $$;
 
 -- Prove an authenticated PostgREST-style caller cannot promote their own role.
-INSERT INTO public.profiles (id, email, sabi_unique_id)
-VALUES ('22222222-2222-4222-8222-222222222222', 'rls-regression@sabi.test', '9876Z')
+-- This profile intentionally has no auth.users row and carries legacy answers.
+-- Phase 1.5 must preserve it in profiles while skipping user-owned history backfill.
+INSERT INTO public.profiles (id, email, sabi_unique_id, onboarding_answers)
+VALUES ('22222222-2222-4222-8222-222222222222', 'rls-regression@sabi.test', '9876Z',
+        '{"legacy_fixture":"preserve"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 SET SESSION AUTHORIZATION authenticator;

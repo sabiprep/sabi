@@ -540,12 +540,16 @@ begin
   on conflict (question_set_id, version_label) do update set status = 'retired'
   returning id into v_version_id;
 
+  -- A small number of legacy profile rows may no longer have an auth.users
+  -- row (for example, pre-auth imports). Keep those rows untouched in profiles;
+  -- user-owned onboarding history must only be created for real auth accounts.
   for v_profile in
-    select id, onboarding_answers
-    from public.profiles
-    where onboarding_answers is not null
-      and jsonb_typeof(onboarding_answers) = 'object'
-      and onboarding_answers <> '{}'::jsonb
+    select p.id, p.onboarding_answers
+    from public.profiles p
+    where p.onboarding_answers is not null
+      and jsonb_typeof(p.onboarding_answers) = 'object'
+      and p.onboarding_answers <> '{}'::jsonb
+      and exists (select 1 from auth.users u where u.id = p.id)
   loop
     insert into public.student_onboarding_submissions
       (user_id, question_version_id, submission_status, capture_source, legacy_profile_id)
