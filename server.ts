@@ -769,6 +769,10 @@ app.post(
             ? Object.fromEntries(Object.keys(value).sort().map((key) => [key, JSON.parse(canonicalJson(value[key]))]))
             : Array.isArray(value) ? value.map((item) => JSON.parse(canonicalJson(item))) : value
         );
+        const incomingKeys = new Set(responseRows.map((row) => row.question_key));
+        if ((storedResponses ?? []).some((row: { question_key: string }) => !incomingKeys.has(row.question_key))) {
+          return res.status(409).json({ error: 'This onboarding submission key has already been used for a different answer set. Start a new submission.' });
+        }
         const storedByKey = new Map((storedResponses ?? []).map((row: { question_key: string; answer_value: unknown }) => [row.question_key, row.answer_value]));
         for (const row of responseRows) {
           if (storedByKey.has(row.question_key) && canonicalJson(storedByKey.get(row.question_key)) !== canonicalJson(row.answer_value)) {
@@ -865,11 +869,11 @@ app.post(
       }
 
       const itemIds = [...new Set(events.map((event: any) => event.sessionItemId).filter(Boolean))];
-      const itemById = new Map<string, { id: string; session_id: string }>();
+      const itemById = new Map<string, { id: string; session_id: string; question_id: string }>();
       if (itemIds.length) {
         const { data: ownedItems, error: itemsError } = await supabaseAdmin
           .from('learning_session_items')
-          .select('id, session_id')
+          .select('id, session_id, question_id')
           .eq('user_id', user.id)
           .in('id', itemIds);
         if (itemsError) return res.status(500).json({ error: itemsError.message || 'Could not validate learning session items.' });
@@ -880,13 +884,16 @@ app.post(
         if (events.some((event: any) => event.sessionItemId && itemById.get(event.sessionItemId)?.session_id !== event.sessionId)) {
           return res.status(400).json({ error: 'A learning item does not belong to the supplied session.' });
         }
+        if (events.some((event: any) => event.sessionItemId && event.questionId && itemById.get(event.sessionItemId)?.question_id !== event.questionId)) {
+          return res.status(400).json({ error: 'A question does not match the supplied learning item.' });
+        }
       }
 
       const rows = events.map((event: any) => ({
         user_id: user.id,
         session_id: event.sessionId,
         session_item_id: event.sessionItemId ?? null,
-        question_id: event.questionId ?? null,
+        question_id: event.questionId ?? (event.sessionItemId ? itemById.get(event.sessionItemId)?.question_id : null) ?? null,
         client_event_id: event.clientEventId,
         event_type: event.eventType,
         sequence_no: event.sequenceNo ?? null,
