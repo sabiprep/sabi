@@ -115,14 +115,6 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/seeds/phase1_6_signal_registry.sql
       - name: Verify Phase 1.6 signal and engine contracts
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_6_signal_layer_assertions.sql
-      - name: Apply backend service foundation migration
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108121800_backend_service_foundations.sql
-      - name: Verify backend service foundations
-        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/backend_service_foundations_assertions.sql
-      - name: Apply notification worker migration
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108122647_notification_worker.sql
-      - name: Verify notification worker security
-        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/notification_worker_assertions.sql
       - name: Apply adaptive question bank foundation migrations
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108154532_adaptive_question_bank_foundation_v1.sql
@@ -130,3 +122,11 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108154801_capture_learning_question_attempts_v1.sql
       - name: Verify adaptive question bank foundation security and contracts
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/question_intelligence_foundation_assertions.sql
+      - name: Apply production-reconciled backend service foundation migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108171326_backend_service_foundations.sql
+      - name: Verify backend service foundations
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/backend_service_foundations_assertions.sql
+      - name: Apply production-reconciled notification worker migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108171333_notification_worker.sql
+      - name: Verify notification worker security
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/notification_worker_assertions.sql
