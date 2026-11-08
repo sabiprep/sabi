@@ -47,17 +47,12 @@ export function getQuietHoursDeferral(value: unknown, now = new Date()): Date | 
   } catch {
     throw new Error('NOTIFICATION_QUIET_HOURS_TIMEZONE_INVALID');
   }
-  const currentMinutes = clockMinutes(now, formatter);
-  if (!isQuietAt(currentMinutes, start, end)) return null;
+  if (!isQuietAt(clockMinutes(now, formatter), start, end)) return null;
 
-  /* Scan local minutes using one cached formatter for this job. */
+  // Reuse one formatter for the bounded local-minute scan.
   for (let offset = 1; offset <= 26 * 60; offset += 1) {
     const candidate = new Date(Math.ceil(now.getTime() / 60000) * 60000 + offset * 60000);
     if (!isQuietAt(clockMinutes(candidate, formatter), start, end)) return candidate;
   }
   throw new Error('NOTIFICATION_QUIET_HOURS_END_NOT_FOUND');
 }
-
-  } catch {
-    throw new Error('NOTIFICATION_QUIET_HOURS_TIMEZONE_INVALID');
-  }
