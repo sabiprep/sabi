@@ -19,6 +19,7 @@ import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandl
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
 import aiRouter from './server/ai/routes';
+import knowledgeRouter from './server/ai/knowledgeRoutes';
 import paymentRouter from './server/billing/routes';
 import notificationRouter from './server/notifications/routes';
 import { generateAIText, getAIReadiness } from './server/ai/gateway';
@@ -133,6 +134,7 @@ app.use('/api', globalLimiter);
 app.use(configurationGuard);
 app.use('/api/learning', learningRouter);
 app.use('/api/ai', aiRouter);
+app.use('/api/ai/knowledge', knowledgeRouter);
 app.use('/api/payments', paymentRouter);
 app.use('/api/internal/notifications', notificationRouter);
 
