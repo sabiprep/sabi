@@ -22,6 +22,7 @@ import aiRouter from './server/ai/routes';
 import knowledgeRouter from './server/ai/knowledgeRoutes';
 import paymentRouter from './server/billing/routes';
 import notificationRouter from './server/notifications/routes';
+import gamificationRouter from './server/gamification/routes';
 import { generateAIText, getAIReadiness } from './server/ai/gateway';
 import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './server/ai/usage';
 import { AIUnavailableError } from './server/ai/types';
@@ -137,6 +138,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/ai/knowledge', knowledgeRouter);
 app.use('/api/payments', paymentRouter);
 app.use('/api/internal/notifications', notificationRouter);
+app.use('/api/gamification', gamificationRouter);
 
 
 
