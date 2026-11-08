@@ -12,6 +12,7 @@ create table if not exists public.question_bank (
   option_c text,
   option_d text,
   answer text not null,
+  source text not null default 'CI fixture',
   explanation text,
   explanation_short text,
   difficulty text default 'medium',
@@ -44,3 +45,8 @@ create table if not exists public.jamb_subtopics (
   updated_at timestamptz not null default now(),
   unique(topic_id, slug)
 );
+
+-- A synthetic source row lets the Phase 1.5 provenance seed be tested.
+insert into public.question_bank (id, subject, topic, question, option_a, option_b, option_c, option_d, answer, source, status)
+values ('phase15-provenance-fixture','Biology','Provenance fixture','Which cell structure contains DNA?','Nucleus','Ribosome','Cell wall','Vacuole','A','CI fixture source','ai-draft')
+on conflict (id) do nothing;
