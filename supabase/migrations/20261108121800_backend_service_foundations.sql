@@ -294,6 +294,7 @@ create table if not exists public.school_memberships (
 
 create index if not exists idx_student_subscriptions_user_status on public.student_subscriptions(user_id, status);
 create index if not exists idx_student_subscriptions_period_end on public.student_subscriptions(current_period_end);
+create unique index if not exists idx_student_subscriptions_one_active_plan on public.student_subscriptions(user_id, plan_id) where status = 'active';
 create index if not exists idx_student_entitlements_user_status_expiry on public.student_entitlements(user_id, status, expires_at);
 create index if not exists idx_payment_transactions_user_created on public.payment_transactions(user_id, created_at desc);
 create index if not exists idx_payment_transactions_status_created on public.payment_transactions(status, created_at);
@@ -301,6 +302,8 @@ create index if not exists idx_payment_webhook_events_status_received on public.
 create index if not exists idx_ai_usage_events_user_created on public.ai_usage_events(user_id, created_at desc);
 create index if not exists idx_ai_usage_events_task_created on public.ai_usage_events(task, created_at desc);
 create index if not exists idx_ai_credit_ledger_user_created on public.ai_credit_ledger(user_id, created_at desc);
+create unique index if not exists idx_ai_prompt_versions_one_active on public.ai_prompt_versions(task) where status = 'active';
+create unique index if not exists idx_notification_templates_one_active on public.notification_templates(template_key, channel, locale) where status = 'active';
 create index if not exists idx_notification_queue_pending on public.notification_queue(status, available_at) where status in ('pending','failed');
 create index if not exists idx_notification_queue_user_created on public.notification_queue(user_id, created_at desc);
 create index if not exists idx_student_xp_ledger_user_created on public.student_xp_ledger(user_id, created_at desc);
@@ -352,10 +355,25 @@ grant all on public.entitlement_catalogue, public.subscription_plans, public.stu
 grant select on public.entitlement_catalogue, public.subscription_plans,
   public.student_subscriptions, public.student_entitlements, public.payment_transactions,
   public.ai_usage_events, public.ai_credit_ledger, public.student_xp_ledger,
-  public.student_streak_state, public.parent_student_relationships, public.school_memberships
+  public.student_streak_state, public.school_memberships
   to authenticated;
 grant select, insert, update on public.notification_preferences to authenticated;
 grant select on public.school_organizations to authenticated;
+
+drop policy if exists entitlement_catalogue_active_read on public.entitlement_catalogue;
+drop policy if exists subscription_plans_active_read on public.subscription_plans;
+drop policy if exists student_subscriptions_owner_read on public.student_subscriptions;
+drop policy if exists student_entitlements_owner_read on public.student_entitlements;
+drop policy if exists payment_transactions_owner_read on public.payment_transactions;
+drop policy if exists ai_usage_events_owner_read on public.ai_usage_events;
+drop policy if exists ai_credit_ledger_owner_read on public.ai_credit_ledger;
+drop policy if exists student_xp_ledger_owner_read on public.student_xp_ledger;
+drop policy if exists student_streak_state_owner_read on public.student_streak_state;
+drop policy if exists notification_preferences_owner_read on public.notification_preferences;
+drop policy if exists notification_preferences_owner_insert on public.notification_preferences;
+drop policy if exists notification_preferences_owner_update on public.notification_preferences;
+drop policy if exists school_memberships_owner_read on public.school_memberships;
+drop policy if exists school_organizations_member_read on public.school_organizations;
 
 create policy entitlement_catalogue_active_read on public.entitlement_catalogue
   for select to authenticated using (is_active);
@@ -381,15 +399,13 @@ create policy notification_preferences_owner_insert on public.notification_prefe
   for insert to authenticated with check (user_id = auth.uid());
 create policy notification_preferences_owner_update on public.notification_preferences
   for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
-create policy parent_student_relationships_party_read on public.parent_student_relationships
-  for select to authenticated using (parent_user_id = auth.uid() or student_user_id = auth.uid());
 create policy school_memberships_owner_read on public.school_memberships
   for select to authenticated using (user_id = auth.uid());
 create policy school_organizations_member_read on public.school_organizations
   for select to authenticated using (
     exists (
       select 1 from public.school_memberships membership
-      where membership.organization_id = id
+      where membership.organization_id = school_organizations.id
         and membership.user_id = auth.uid()
         and membership.status = 'active'
     )
