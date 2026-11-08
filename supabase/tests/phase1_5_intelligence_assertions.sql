@@ -134,7 +134,7 @@ BEGIN
   INSERT INTO public.student_onboarding_question_versions(question_set_id,version_label,status)
   SELECT id,'v1','published' FROM public.student_onboarding_question_sets WHERE set_key='ci-onboarding';
   INSERT INTO public.student_onboarding_questions(question_version_id,question_key,prompt,answer_type,processing_purpose,sensitivity_level)
-  SELECT id,'motivation','What motivates you to prepare for this exam?','long_text','ci_personalization','personal'
+  SELECT v.id,'motivation','What motivates you to prepare for this exam?','long_text','ci_personalization','personal'
   FROM public.student_onboarding_question_versions v
   JOIN public.student_onboarding_question_sets s ON s.id=v.question_set_id
   WHERE s.set_key='ci-onboarding' AND v.version_label='v1';
