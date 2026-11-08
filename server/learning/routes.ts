@@ -82,7 +82,7 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
   try {
     const { data: question, error: lookupError } = await supabaseAdmin
       .from('question_bank')
-      .select('id, exam_type, question, option_a, option_b, option_c, option_d, answer, status')
+      .select('id, exam_type, question, option_a, option_b, option_c, option_d, answer, explanation, source_id, content_fingerprint, status')
       .eq('id', questionId)
       .maybeSingle();
     if (lookupError) {
@@ -106,12 +106,16 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
 
     const nextStatus = action === 'publish' ? 'published' : action === 'reject' ? 'rejected' : 'needs-review';
+    const nextReviewStatus = action === 'publish' ? 'approved' : action === 'reject' ? 'rejected' : 'needs_review';
+    const reviewedAt = new Date().toISOString();
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('question_bank')
       .update({
         status: nextStatus,
+        review_status: nextReviewStatus,
+        last_reviewed_at: reviewedAt,
         verified_by: action === 'publish' ? userId : null,
-        updated_at: new Date().toISOString(),
+        updated_at: reviewedAt,
       })
       .eq('id', questionId)
       .in('status', ['ai-draft', 'needs-review'])
@@ -124,6 +128,15 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     }
     if (!updated) return res.status(409).json({ error: 'The question changed during review. Reload the queue and try again.' });
 
+    const { error: historyError } = await supabaseAdmin.from('question_review_history').insert({
+      question_id: questionId,
+      reviewer_user_id: userId,
+      review_decision: action === 'publish' ? 'approved' : action === 'reject' ? 'rejected' : 'needs_revision',
+      reviewer_notes: notes || null,
+      reviewed_at: reviewedAt,
+    });
+    if (historyError) console.error('[SABI] Question review history write failed:', historyError.message);
+
     const { error: auditError } = await supabaseAdmin.from('audit_logs').insert({
       actor_user_id: userId,
       actor_role: reviewerRole,
@@ -134,7 +147,7 @@ router.post('/content-review/:questionId', requireAuth, requireRole('CONTENT_MAN
     });
     if (auditError) console.error('[SABI] Question review audit log failed:', auditError.message);
 
-    return res.json({ status: 'updated', question: updated });
+    return res.json({ status: 'updated', question: updated, reviewHistoryRecorded: !historyError });
   } catch (error) {
     console.error('[SABI] Unexpected content review error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while reviewing the question.' });
