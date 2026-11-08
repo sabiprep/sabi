@@ -21,9 +21,9 @@ describe('buildScorePrediction', () => {
       { subject: 'Chemistry', attempted: 50, correct: 45 },
     ]);
     expect(result.status).toBe('ready');
-    expect(result.predictedScore).toBe(300);
-    expect(result.lowerBound).toBe(295);
-    expect(result.upperBound).toBe(305);
+    expect(result.predictedScore).toBe(283);
+    expect(result.lowerBound).toBe(277);
+    expect(result.upperBound).toBe(289);
     expect(result.confidence).toBe('high');
   });
 });
