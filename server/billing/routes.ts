@@ -583,9 +583,10 @@ router.post('/webhooks/:provider', async (req, res) => {
       .eq('id', transaction.id);
     if (transactionUpdateError) throw new Error('PAYMENT_TRANSACTION_FINALIZE_FAILED');
 
-    await supabaseAdmin.from('payment_webhook_events')
+    const { error: eventFinalizeError } = await supabaseAdmin.from('payment_webhook_events')
       .update({ processing_status: 'processed', processed_at: new Date().toISOString(), failure_reason: null })
       .eq('id', webhookEvent.id);
+    if (eventFinalizeError) throw new Error('PAYMENT_WEBHOOK_FINALIZE_FAILED');
     return res.json({ received: true, processed: true });
   } catch (error) {
     console.error('[SABI PAYMENTS] Webhook processing failed:', error instanceof Error ? error.name : 'unknown_error');
