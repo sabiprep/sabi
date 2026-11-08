@@ -284,8 +284,8 @@ for each row execute function public.materialize_student_signal_observation();
 create or replace function public.record_student_progress_checkin(
   p_user_id uuid,
   p_submission_key text,
-  p_confidence_score smallint default null,
-  p_motivation_score smallint default null,
+  p_confidence_score integer default null,
+  p_motivation_score integer default null,
   p_perceived_barriers text[] default '{}',
   p_reflection_text text default null
 )
@@ -300,6 +300,10 @@ declare
 begin
   if p_submission_key is null or length(p_submission_key) < 8 or length(p_submission_key) > 120 then
     raise exception 'A valid check-in idempotency key is required';
+  end if;
+  if (p_confidence_score is not null and p_confidence_score not between 1 and 5)
+     or (p_motivation_score is not null and p_motivation_score not between 1 and 5) then
+    raise exception 'Check-in scores must be between 1 and 5';
   end if;
   if p_confidence_score is null and p_motivation_score is null
      and coalesce(cardinality(p_perceived_barriers),0)=0
@@ -360,7 +364,7 @@ begin
 end;
 $$;
 
-revoke all on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) from public,anon,authenticated;
+revoke all on function public.record_student_progress_checkin(uuid,text,integer,integer,text[],text) from public,anon,authenticated;
 grant execute on function public.record_student_progress_checkin(uuid,text,smallint,smallint,text[],text) to service_role;
 
 
