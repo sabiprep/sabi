@@ -1,10 +1,11 @@
 # Sabi Backend Execution Status
 
-## Current verified snapshot — 8 November 2026
+## Current verified snapshot — 8 November 2026 (updated after PR #21)
 
-- **Latest application code merge:** `9e06d7f9de127b4519104a8882e6bbbcd7c935de` (PR #19).
-- **Latest merged changes:** [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18) and [PR #19 — real answer-RPC learner journey assertions](https://github.com/sabiprep/sabi/pull/19).
-- **Latest Backend CI:** run #415 (`42522183403`) passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites.
+- **Latest application code merge:** `0c5f11e989b2d84a970acb3958eefa38494ef35f` (squash merge of PR #21).
+- **Latest merged changes:** [PR #21 — daily study streak engine and session integration](https://github.com/sabiprep/sabi/pull/21), following [PR #19 — real answer-RPC learner journey assertions](https://github.com/sabiprep/sabi/pull/19) and [PR #18 — idempotent answer submission](https://github.com/sabiprep/sabi/pull/18).
+- **Latest Backend CI:** PR #21 run `42525471270` passed type-checking, unit tests, web/API build, disposable PostgreSQL migration chain, and all configured database assertion suites, including the new streak migration and service-role security assertions.
+- **Gamification update:** daily streak recording is now integrated with completed learning sessions, idempotent per learner/date, timezone-aware, and covered by migration assertions. The current product default is `Africa/Lagos`; learner-configurable timezones remain future work.
 - **Other recently merged work:** PR #14 backend service foundations; PR #15 official JAMB syllabus ingestion schema; PR #16 active-CBT answer feedback lockout; PR #17 concurrency-safe question-attempt capture; PR #19 now tests the actual answer RPC, session completion, and attempt capture in a rollback-only learner fixture.
 - **Production deployment:** not confirmed. Vercel rejected the recent deployment because the project exceeded its free daily deployment quota. A green Backend CI run is not proof that the latest code is live.
 - **Production database:** 21 migrations recorded; 0 learner sessions; 0 captured question attempts; 0 verified syllabus versions; 0 verified syllabus objectives; 104 syllabus import rows still pending validation; 0 question-to-objective mappings.
@@ -45,7 +46,7 @@ The workstream table and implementation notes below are the earlier PR #12 basel
 | 7 | Learning events/contracts | **Implemented, live flow unverified** — typed events, versioned contracts, server-derived identity, idempotency, signal observations and outbox exist. | Exercise real authenticated event ingestion and retries with production-like traffic. |
 | 8 | Answer evaluation | **Implemented, live flow unverified** — service-only answer RPC checks the stored key and updates the session atomically. | Add complete changed-version, malformed-data, duplicate, expiry and cross-user integration tests. |
 | 9 | Mastery | **Implemented, needs validation** — atomic mastery update, spaced review state and history snapshots exist. | Validate evidence eligibility, confidence separation, calibration and edge cases. |
-| 10 | Syllabus coverage | **Missing** | Implement a separate coverage model; do not conflate question exposure with mastery. |
+| 10 | Syllabus coverage | **Implemented, production evidence pending** — `/coverage` computes exposure against verified syllabus objectives and keeps coverage separate from mastery. | Populate and approve verified syllabus objectives; validate against learner sessions after deployment. |
 | 11 | Question selection | **Partial** — server-side published-question selection and Smart Practice ranking exist. | Centralize ranking, log algorithm/config version, enforce exposure/difficulty/tie rules and test empty pools. |
 | 12 | Recommendations | **Implemented, needs validation** — deterministic due-review and weak-topic recommendations exist. | Lifecycle, staleness, feedback and recommendation effectiveness. |
 | 13 | Readiness estimation | **Missing** | Define and approve evidence dimensions/formula before implementing a readiness score. |
@@ -57,7 +58,7 @@ The workstream table and implementation notes below are the earlier PR #12 basel
 | 19 | AI Coach | **Implemented in working branch, not activated** — gateway-backed chat route uses authenticated context and approved question context. | Connect remaining client surfaces, consent experience, prompt versioning, abuse controls and end-to-end tests. |
 | 20 | RAG/retrieval | **Partial** — approved knowledge-document/chunk schema, admin draft ingestion/approval/archive workflow and approved-only full-text retrieval are implemented. | Add embeddings/vector retrieval when provider/dimensions are chosen; expand corpus and evaluate retrieval quality/citations. |
 | 21 | AI credits/model routing | **Partial** — Gemini/OpenAI/Anthropic gateway, task routing/fallback, durable token usage events, AI credit ledger, configurable task pricing and atomic reserve/refund RPCs exist. Credits remain disabled by default. | Provider pricing calibration, prompt management, circuit breaker, full quota/abuse tests and consent experience review. |
-| 22 | Gamification | **Partial** — XP ledger, configurable admin rules, atomic per-user/idempotent XP award RPC and verified answer/session-completion award hooks exist. No XP rules are seeded. | Implement timezone-aware streak transitions, leaderboard/privacy rules, anti-abuse tests and pilot balancing. |
+| 22 | Gamification | **Partial** — XP ledger, configurable admin rules, atomic per-user/idempotent XP award RPC, answer/session-completion award hooks, and timezone-aware daily streak recording are merged. | Seed approved XP rules; add leaderboard/privacy rules, anti-abuse coverage and pilot balancing. Streak uses `Africa/Lagos` until learner timezone settings exist. |
 | 23 | Entitlements/subscriptions | **Partial** — plan and entitlement catalogues, learner billing summary, owner-scoped entitlement reads, reusable entitlement guard and admin plan APIs exist. No plans or entitlements are seeded. | Subscription lifecycle management, trials, cancellation, expiry jobs, plan UX and end-to-end tests. |
 | 24 | Payments/webhooks | **Partial** — Paystack/Flutterwave initialization adapters, raw-body signature verification, provider-side transaction verification, idempotent webhook processing and entitlement/credit activation exist. Disabled until credentials, callback URL and plans are configured. | Recurring provider lifecycle, cancellations/refunds/reversals, reconciliation, fraud controls and provider sandbox E2E. |
 | 25 | Notifications/background jobs | **Partial** — durable queue with atomic claim/finalize RPCs, retries/dead-letter, in-app inbox, preferences, admin templates, Brevo email/Termii SMS adapters and scheduled worker exist. External channels wait for credentials. | Push provider, reminder schedules, template catalogue, delivery monitoring and operational alerting. |
@@ -85,10 +86,10 @@ The workstream table and implementation notes below are the earlier PR #12 basel
 
 ## Execution gates
 
-1. Get PR #12 TypeScript, test, build and disposable PostgreSQL CI fully green after the latest commit.
+1. Keep Backend CI green on `main`; PR #21 passed type-check, tests, web/API builds, migration chain and database assertions.
 2. Finish Phase 1 verification and resolve or explicitly accept security/configuration gaps.
 3. Complete question quality and published-pool sufficiency checks before expanding CBT availability.
-4. Implement syllabus coverage and readiness without silently choosing unresolved product formulas.
+4. Validate verified-objective syllabus coverage after syllabus content is approved; define and approve readiness dimensions/formula before implementing a readiness score.
 5. Build entitlement/payment, notifications and XP ledgers with migrations and tests before activating those features.
 6. Apply any new migrations and configure provider secrets only after separate explicit approval.
 7. Deploy only after CI, environment readiness, and user approval; Vercel daily deployment limit was previously reported.
