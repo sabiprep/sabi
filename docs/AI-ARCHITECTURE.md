@@ -63,7 +63,7 @@ Task-specific model variables can override the general model ID, e.g. `SABI_GEMI
 
 ## Completion requirements
 
-The provider gateway, session-bound explanation endpoint, AI Coach endpoint, and question-drafting integration are implemented in this change. The practice UI and post-exam review UI now expose on-demand explanations. Before production activation, the remaining integration work includes:
+The provider gateway, session-bound explanation endpoint, AI Coach endpoint, and question-drafting integration are implemented in this change. The practice UI and post-exam review UI now expose on-demand explanations and an explicit consent action. The backend appends consent grants/revocations to `student_consent_history` and checks the latest AI-tutor consent before processing tutoring context. Before production activation, the remaining integration work includes:
 - add durable AI usage/credit accounting, consent enforcement, prompt versioning, and admin configuration visibility;
 - add end-to-end tests for active CBT denial, completed CBT review, ownership isolation, missing provider, provider fallback, and verified answer-key preservation.
 
