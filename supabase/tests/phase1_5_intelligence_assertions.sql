@@ -7,6 +7,7 @@ DECLARE
   v_question text := 'phase15-ci-q1';
   v_events integer;
   v_history integer;
+  v_catalog_count integer;
 BEGIN
   IF to_regclass('public.learning_events') IS NULL
     OR to_regclass('public.engine_runs') IS NULL
@@ -24,6 +25,17 @@ BEGIN
   END IF;
   IF NOT has_table_privilege('service_role','public.learning_events','INSERT') THEN
     RAISE EXCEPTION 'Service role must be able to ingest learning telemetry';
+  END IF;
+  IF has_table_privilege('authenticated','public.learning_events','UPDATE')
+    OR has_table_privilege('authenticated','public.learning_events','DELETE') THEN
+    RAISE EXCEPTION 'Learning telemetry must remain append-only for client roles';
+  END IF;
+  SELECT count(*) INTO v_catalog_count FROM public.jamb_subjects;
+  IF v_catalog_count <> 25 THEN RAISE EXCEPTION 'Expected 25 JAMB subjects after catalogue seed; found %', v_catalog_count; END IF;
+  SELECT count(*) INTO v_catalog_count FROM public.jamb_subject_availability WHERE exam_year=2026;
+  IF v_catalog_count <> 25 THEN RAISE EXCEPTION 'Expected 25 2026 subject availability records; found %', v_catalog_count; END IF;
+  IF (SELECT count(*) FROM public.engine_registry) < 10 THEN
+    RAISE EXCEPTION 'Expected seeded engine registry entries';
   END IF;
 
   INSERT INTO auth.users(id,email) VALUES(v_user,'phase15-ci-'||v_user::text||'@sabi.test');
