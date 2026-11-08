@@ -9,7 +9,13 @@ import { dispatchNotificationBatch } from './worker';
 
 const router = Router();
 const dispatchSchema = z.strictObject({ limit: z.number().int().min(1).max(100).default(25) });
-const quietHoursSchema = z.strictObject({\n  enabled: z.boolean().default(false),\n  start: z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/).default('22:00'),\n  end: z.string().regex(/^([01]\\d|2[0-3]):[0-5]\\d$/).default('07:00'),\n  timezone: z.string().trim().min(1).max(80).default('Africa/Lagos'),\n});\nconst preferenceSchema = z.strictObject({
+const quietHoursSchema = z.strictObject({
+  enabled: z.boolean().default(false),
+  start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('22:00'),
+  end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default('07:00'),
+  timezone: z.string().trim().min(1).max(80).default('Africa/Lagos'),
+});
+const preferenceSchema = z.strictObject({
   channel: z.enum(['email', 'push', 'in_app', 'sms']),
   notificationKey: z.string().trim().min(1).max(100),
   enabled: z.boolean(),
