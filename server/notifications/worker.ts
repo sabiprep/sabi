@@ -39,7 +39,8 @@ export async function dispatchNotificationBatch(limit = 25) {
 
   let sent = 0;
   let failed = 0;
-  let cancelled = 0;\n  let deferred = 0;
+  let cancelled = 0;
+  let deferred = 0;
   for (const job of (jobs || []) as NotificationJob[]) {
     try {
       if (job.user_id) {
