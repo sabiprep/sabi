@@ -20,6 +20,7 @@ import { validateBody } from './server/middleware/validate';
 import { apiNotFoundHandler, errorHandler } from './server/middleware/errorHandler';
 import { configurationGuard } from './server/middleware/configurationGuard';
 import learningRouter from './server/learning/routes';
+import aiRouter from './server/ai/routes';
 import { buildAnswerSignalObservations, buildMasterySignalObservation } from './server/learning/signalWorker';
 import { executeEngineRequest } from './server/learning/engineExecution';
 import { generateDeterministicSabiId } from './server/utils/sabiId';
@@ -127,6 +128,7 @@ app.use('/api', globalLimiter);
 // Mounted at the app root so the middleware sees the full /api/... request path.
 app.use(configurationGuard);
 app.use('/api/learning', learningRouter);
+app.use('/api/ai', aiRouter);
 
 
 
