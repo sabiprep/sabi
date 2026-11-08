@@ -285,7 +285,7 @@ returns uuid
 language plpgsql
 security invoker
 set search_path = ''
-as $
+as $$
 declare
   v_checkin_id uuid;
   v_existing public.student_progress_checkins%rowtype;
