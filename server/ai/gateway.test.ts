@@ -20,16 +20,33 @@ describe('Sabi AI gateway configuration', () => {
       .rejects.toMatchObject({ code: 'AI_DISABLED' });
   });
 
-  it('does not mark a provider ready without both a key and model ID', () => {
+  it('does not mark a native provider ready without both a key and model ID', () => {
     process.env.SABI_AI_ENABLED = 'true';
     process.env.SABI_AI_PROVIDER_ORDER = 'gemini';
     process.env.GEMINI_API_KEY = 'test-key';
     delete process.env.SABI_GEMINI_MODEL;
     expect(getAIReadiness().configuredProviders).toEqual([]);
-    expect(getAIReadiness().missingConfiguration[0].missing).toContain('SABI_GEMINI_MODEL (or SABI_GEMINI_EXPLANATION_MODEL)');
+    expect(getAIReadiness().missingConfiguration[0].missing).toContain('SABI_GEMINI_MODEL (or task-specific model)');
   });
 
-  it('reports configured providers without exposing credentials', () => {
+  it('supports arbitrary OpenAI-compatible provider IDs without exposing credentials', () => {
+    process.env.SABI_AI_ENABLED = 'true';
+    process.env.SABI_AI_PROVIDER_ORDER = 'openrouter,groq';
+    process.env.OPENROUTER_API_KEY = 'secret-openrouter';
+    process.env.SABI_OPENROUTER_MODEL = 'free-model';
+    process.env.SABI_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
+    process.env.GROQ_API_KEY = 'secret-groq';
+    process.env.SABI_GROQ_MODEL = 'fast-model';
+    delete process.env.SABI_GROQ_BASE_URL;
+
+    const readiness = getAIReadiness('explanation');
+    expect(readiness.configuredProviders).toEqual(['openrouter']);
+    expect(readiness.missingConfiguration[0].provider).toBe('groq');
+    expect(JSON.stringify(readiness)).not.toContain('secret-openrouter');
+    expect(JSON.stringify(readiness)).not.toContain('secret-groq');
+  });
+
+  it('reports configured native providers without exposing credentials', () => {
     process.env.SABI_AI_ENABLED = 'true';
     process.env.SABI_AI_PROVIDER_ORDER = 'gemini,openai';
     process.env.GEMINI_API_KEY = 'secret-test-key';
