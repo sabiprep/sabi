@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { AI_PROVIDER_NAMES, invokeProvider } from './providers';
+import { assertProviderPrivacyAllowed, calculateAttemptCost, classifyAIData, minimizeExternalPayload, writeAICostAttempt } from './controlPlane';
 import {
   AIUnavailableError,
   type AIGenerationInput,
@@ -50,9 +52,13 @@ function estimateCost(config: AIProviderConfig, input: AIGenerationInput): numbe
     || config.outputPricePerMillion === null || config.outputPricePerMillion === undefined) {
     return Number.POSITIVE_INFINITY;
   }
-  const inputTokens = Math.ceil((input.systemInstruction.length + input.prompt.length) / 4);
+  // Reserve conservatively: UTF-8 character estimates can undercount tokens,
+  // so use a tighter chars-per-token ratio and a configurable safety margin.
+  const inputTokens = Math.ceil((input.systemInstruction.length + input.prompt.length) / 3);
   const outputTokens = input.maxOutputTokens ?? 900;
-  return (inputTokens * config.inputPricePerMillion + outputTokens * config.outputPricePerMillion) / 1_000_000;
+  const configuredMargin = Number(process.env.SABI_AI_BUDGET_RESERVATION_MULTIPLIER || '1.25');
+  const margin = Number.isFinite(configuredMargin) ? Math.min(3, Math.max(1, configuredMargin)) : 1.25;
+  return ((inputTokens * config.inputPricePerMillion + outputTokens * config.outputPricePerMillion) / 1_000_000) * margin;
 }
 
 export function getAIReadiness(task: AIGenerationInput['task'] = 'explanation') {
@@ -74,30 +80,103 @@ export function getAIReadiness(task: AIGenerationInput['task'] = 'explanation') 
   };
 }
 
-export async function generateAIText(input: AIGenerationInput): Promise<AIProviderResult> {
+export async function generateAIText(input: AIGenerationInput & {
+  control?: { db: any; userId: string; consentGranted: boolean; requestId?: string };
+}): Promise<AIProviderResult> {
   if (!enabled(process.env.SABI_AI_ENABLED)) {
     throw new AIUnavailableError('AI_DISABLED', 'AI features are currently disabled.');
   }
 
+  const control = input.control;
+  if (!control) throw new Error('AI_CONTROL_CONTEXT_REQUIRED');
+  const dataClass = classifyAIData({ userId: control.userId, prompt: input.prompt, systemInstruction: input.systemInstruction });
+  const privacyPolicy = {
+    allowExternalPublic: enabled(process.env.SABI_AI_ALLOW_EXTERNAL_PUBLIC),
+    allowExternalPseudonymous: enabled(process.env.SABI_AI_ALLOW_EXTERNAL_PSEUDONYMOUS),
+    allowExternalSensitive: false,
+  };
+  assertProviderPrivacyAllowed(dataClass, privacyPolicy, control.consentGranted);
+  const safeSystemInstruction = minimizeExternalPayload(input.systemInstruction);
+  const safePrompt = minimizeExternalPayload(input.prompt);
+  const requestId = control.requestId || randomUUID();
+
   const configured = providerOrder(input.task).map((name) => providerConfig(name, input.task))
-    .filter((provider) => provider.configured)
-    .sort((a, b) => estimateCost(a, input) - estimateCost(b, input));
+    .filter((provider) => provider.configured && Number.isFinite(estimateCost(provider, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt })))
+    .sort((a, b) => estimateCost(a, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt })
+      - estimateCost(b, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt }));
   if (!configured.length) {
-    throw new AIUnavailableError('AI_NOT_CONFIGURED', 'No AI provider is fully configured.');
+    throw new AIUnavailableError('AI_NOT_CONFIGURED', 'No AI provider with complete credentials and pricing is configured.');
   }
 
   const failures: AIProviderName[] = [];
+  let attempt = 0;
   for (const config of configured) {
+    attempt += 1;
+    const reservedUsd = estimateCost(config, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt });
+    const reservation = await control.db.rpc('reserve_ai_budget', {
+      p_request_id: requestId,
+      p_user_id: control.userId,
+      p_task: input.task,
+      p_provider: config.name,
+      p_estimated_usd: reservedUsd,
+    });
+    if (reservation.error) throw new Error('AI_BUDGET_RESERVATION_FAILED');
+    const reservationRow = Array.isArray(reservation.data) ? reservation.data[0] : reservation.data;
+    if (!reservationRow?.allowed || !reservationRow?.reservation_id) {
+      throw new Error(reservationRow?.reason || 'AI_BUDGET_BLOCKED');
+    }
+
+    const startedAt = Date.now();
     try {
       const result = await invokeProvider(config.name, config, {
-        systemInstruction: input.systemInstruction,
-        prompt: input.prompt,
+        systemInstruction: safeSystemInstruction,
+        prompt: safePrompt,
         temperature: input.temperature ?? 0.3,
         maxOutputTokens: input.maxOutputTokens ?? 900,
         timeoutMs: input.timeoutMs ?? 8000,
       });
+      const actualUsd = calculateAttemptCost({
+        usage: result.usage,
+        inputPricePerMillion: config.inputPricePerMillion ?? null,
+        outputPricePerMillion: config.outputPricePerMillion ?? null,
+      });
+      if (actualUsd === null) throw new Error('AI_PROVIDER_USAGE_UNAVAILABLE');
+      await writeAICostAttempt(control.db, {
+        requestId, attempt, userId: control.userId, task: input.task,
+        provider: config.name, model: config.model!, usage: result.usage,
+        inputPricePerMillion: config.inputPricePerMillion ?? null,
+        outputPricePerMillion: config.outputPricePerMillion ?? null,
+        outcome: 'success', durationMs: Date.now() - startedAt,
+        promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
+      });
+      const settlement = await control.db.rpc('settle_ai_budget', {
+        p_reservation_id: reservationRow.reservation_id,
+        p_actual_usd: actualUsd,
+        p_release: false,
+      });
+      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
       return { ...result, provider: config.name, model: config.model! };
     } catch (error) {
+      // If the provider call itself failed, retain the full estimate as a
+      // conservative charge. For post-response accounting failures, fail closed.
+      const providerFailure = error instanceof Error
+        && /provider_|provider_http_|provider_empty_response|AbortError|TimeoutError/.test(error.message + error.name);
+      if (!providerFailure) throw error;
+      await writeAICostAttempt(control.db, {
+        requestId, attempt, userId: control.userId, task: input.task,
+        provider: config.name, model: config.model!,
+        usage: { inputTokens: null, outputTokens: null },
+        inputPricePerMillion: config.inputPricePerMillion ?? null,
+        outputPricePerMillion: config.outputPricePerMillion ?? null,
+        outcome: 'provider_failed', durationMs: Date.now() - startedAt,
+        promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
+      });
+      const settlement = await control.db.rpc('settle_ai_budget', {
+        p_reservation_id: reservationRow.reservation_id,
+        p_actual_usd: reservedUsd,
+        p_release: false,
+      });
+      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
       failures.push(config.name);
       console.warn(`[SABI AI] ${config.name} provider failed:`, error instanceof Error ? error.name : 'unknown_error');
     }

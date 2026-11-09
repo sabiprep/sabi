@@ -412,6 +412,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
 
     const aiStartedAt = Date.now();
     const generated = await generateAIText({
+      control: { db: supabaseAdmin, userId, consentGranted: true, requestId: aiRequestId || undefined },
       task: 'tutor_chat',
       systemInstruction,
       prompt,
@@ -596,6 +597,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
     try {
       const aiStartedAt = Date.now();
       const generated = await generateAIText({
+        control: { db: supabaseAdmin, userId, consentGranted: true, requestId: aiRequestId || undefined },
         task: 'explanation',
         ...prompt,
         temperature: 0.2,
