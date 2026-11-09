@@ -47,12 +47,12 @@ export default function App() {
             <Route path="/mascots" element={<MascotsGalleryPage />} />
             <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/admin/content" element={<AdminContentReviewPage />} />
-            <Route path="/portals" element={<ParentSchoolPortalPage />} />
             <Route path="/onboarding/:step" element={<OnboardingPage />} />
             <Route path="/diagnostic" element={<DiagnosticPage />} />
             <Route path="/blitz" element={<BlitzPage />} />
             <Route path="/smart" element={<SmartPracticePage />} />
             <Route element={<AppShell />}>
+              <Route path="/portals" element={<ParentSchoolPortalPage />} />
               <Route path="/home" element={<HomePage />} />
               <Route path="/learning" element={<BackendLearningPage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
