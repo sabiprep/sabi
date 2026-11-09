@@ -13,7 +13,7 @@ import { requireRole } from '../middleware/requireRole';
 import { isCBTExpired } from './cbtTimer';
 import { isCbtFeedbackLocked } from './answerVisibility';
 import { buildStoredAnswerReplay } from './answerReplay';
-import { buildSyllabusCoverage } from './engineExecution';
+import { buildLearningAnalytics, buildStudyPlan, buildSyllabusCoverage } from './engineExecution';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP, recordStudyActivity } from '../gamification/service';
 
@@ -1387,6 +1387,76 @@ router.get('/progress', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('[SABI] Unexpected progress retrieval error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while loading progress.' });
+  }
+});
+
+
+/**
+ * Learner-owned analytics are derived only from server-recorded answer outcomes.
+ * The endpoint reports when the recent-history query reaches its safety cap.
+ */
+router.get('/analytics', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+  try {
+    const { data, error } = await supabaseAdmin.from('learning_session_items')
+      .select('is_correct, elapsed_ms, question_bank(subject, topic)')
+      .eq('user_id', userId)
+      .not('answered_at', 'is', null)
+      .order('answered_at', { ascending: false })
+      .limit(5000);
+    if (error) {
+      console.error('[SABI] Learning analytics lookup failed:', error.message);
+      return res.status(503).json({ error: 'Learning analytics are temporarily unavailable.' });
+    }
+
+    // PostgREST may return a one-to-many relation as an array; the analytics
+    // engine consumes the single related question row for each session item.
+    const attempts = (data || []).map((item) => ({
+      ...item,
+      question_bank: Array.isArray(item.question_bank) ? item.question_bank[0] || null : item.question_bank,
+    }));
+    const analytics = buildLearningAnalytics(attempts);
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      ...analytics,
+      sample: {
+        basis: 'server_recorded_answered_attempts',
+        returned_attempts: attempts.length,
+        capped: attempts.length === 5000,
+      },
+    });
+  } catch (error) {
+    console.error('[SABI] Unexpected learning analytics error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while preparing learning analytics.' });
+  }
+});
+
+router.get('/study-plan', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+  const requestedDays = req.query.days === undefined ? 7 : Number(req.query.days);
+  if (!Number.isInteger(requestedDays) || requestedDays < 1 || requestedDays > 14) {
+    return res.status(400).json({ error: 'Study plan days must be an integer between 1 and 14.' });
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.from('student_topic_mastery')
+      .select('subject, topic, attempted_count, correct_count, mastery_score, next_review_at, interval_days, last_result')
+      .eq('user_id', userId)
+      .order('mastery_score', { ascending: true });
+    if (error) {
+      console.error('[SABI] Study plan mastery lookup failed:', error.message);
+      return res.status(503).json({ error: 'Your study plan is temporarily unavailable.' });
+    }
+
+    res.set('Cache-Control', 'no-store');
+    return res.json(buildStudyPlan(data || [], Date.now(), requestedDays));
+  } catch (error) {
+    console.error('[SABI] Unexpected study plan error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while preparing your study plan.' });
   }
 });
 
