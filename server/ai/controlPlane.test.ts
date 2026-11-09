@@ -60,3 +60,31 @@ describe('AI cost accounting', () => {
     })).toBeNull();
   });
 });
+
+
+describe('AI cost ledger failed attempts', () => {
+  it('persists conservative reserved cost when provider usage is unavailable', async () => {
+    const inserted: any[] = [];
+    const db = {
+      from: () => ({
+        insert: async (row: any) => { inserted.push(row); return { error: null }; },
+      }),
+    };
+    const { writeAICostAttempt } = await import('./controlPlane');
+    await writeAICostAttempt(db, {
+      requestId: '00000000-0000-4000-8000-000000000001',
+      attempt: 1,
+      task: 'tutor_chat',
+      provider: 'openrouter',
+      model: 'test-model',
+      usage: { inputTokens: null, outputTokens: null },
+      inputPricePerMillion: 1,
+      outputPricePerMillion: 2,
+      outcome: 'provider_failed',
+      promptVersion: 'test',
+      costOverrideUsd: 0.0042,
+    });
+    expect(inserted[0].estimated_cost_usd).toBe(0.0042);
+    expect(inserted[0].final_cost_usd).toBe(0.0042);
+  });
+});
