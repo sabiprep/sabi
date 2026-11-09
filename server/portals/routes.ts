@@ -155,25 +155,44 @@ router.post('/institutions/:institutionId/classes', requireAuth, async (req, res
   return res.status(201).json({ class: data });
 });
 
-router.post('/institutions/:institutionId/enrollments', requireAuth, async (req, res) => {
+router.post('/institutions/:institutionId/enrollment-invites', requireAuth, async (req, res) => {
   const userId = getUserId(req as AuthenticatedRequest);
   const institutionId = String(req.params.institutionId || '');
   if (!userId || !uuid.safeParse(institutionId).success) return res.status(400).json({ error: 'A valid institution is required.' });
   const access = await institutionAccess(institutionId, userId, ['owner','admin','teacher']);
-  if (!access) return res.status(403).json({ error: 'You do not have permission to enrol students.' });
-  const parsed = enrollmentSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Provide a valid student account and optional class.' });
+  if (!access) return res.status(403).json({ error: 'You do not have permission to invite students to this institution.' });
+  const parsed = z.strictObject({ classId: uuid.optional() }).safeParse(req.body || {});
+  if (!parsed.success) return res.status(400).json({ error: 'Provide a valid optional class.' });
   if (parsed.data.classId) {
     const { data: classRow, error: classError } = await supabaseAdmin.from('institution_classes')
       .select('id').eq('id', parsed.data.classId).eq('institution_id', institutionId).maybeSingle();
     if (classError || !classRow) return res.status(400).json({ error: 'The selected class does not belong to this institution.' });
   }
-  const { data, error } = await supabaseAdmin.from('institution_enrollments').upsert({
-    institution_id: institutionId, class_id: parsed.data.classId || null, student_user_id: parsed.data.studentUserId,
-    status: 'active',
-  }, { onConflict: 'institution_id,student_user_id' }).select('id,institution_id,class_id,student_user_id,status,enrolled_at').single();
-  if (error) return res.status(503).json({ error: 'The student could not be enrolled.' });
-  return res.status(201).json({ enrollment: data });
+  const code = randomBytes(24).toString('base64url');
+  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabaseAdmin.from('institution_enrollment_invites').insert({
+    institution_id: institutionId, class_id: parsed.data.classId || null,
+    token_hash: hashCode(code), expires_at: expiresAt, created_by: userId,
+  });
+  if (error) return res.status(503).json({ error: 'The student invitation could not be created.' });
+  return res.status(201).json({ code, expiresAt });
+});
+
+router.post('/institutions/enroll', requireAuth, async (req, res) => {
+  const studentId = getUserId(req as AuthenticatedRequest);
+  if (!studentId) return res.status(401).json({ error: 'Authentication required.' });
+  const parsed = z.strictObject({ code: z.string().trim().min(20).max(100) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Enter a valid institution invitation code.' });
+  const { data: institutionId, error } = await supabaseAdmin.rpc('redeem_institution_enrollment_invite', {
+    p_token_hash: hashCode(parsed.data.code), p_student_user_id: studentId,
+  });
+  if (error) {
+    if ((error.message || '').includes('invalid_or_expired_enrollment_invite')) {
+      return res.status(400).json({ error: 'This institution invitation is invalid, expired or already used.' });
+    }
+    return res.status(503).json({ error: 'The institution enrolment could not be completed.' });
+  }
+  return res.status(201).json({ enrolled: true, institutionId });
 });
 
 router.get('/institutions/:institutionId/overview', requireAuth, async (req, res) => {
