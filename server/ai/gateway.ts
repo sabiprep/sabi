@@ -135,12 +135,6 @@ export async function generateAIText(input: AIGenerationInput & {
         outputPricePerMillion: config.outputPricePerMillion ?? null,
       });
       if (actualUsd === null) throw new Error('AI_PROVIDER_USAGE_UNAVAILABLE');
-      const settlement = await input.control.db.rpc('settle_ai_budget', {
-        p_reservation_id: reservationRow.reservation_id,
-        p_actual_usd: actualUsd,
-        p_release: false,
-      });
-      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
       await writeAICostAttempt(input.control.db, {
         requestId, attempt, userId: input.control.userId, task: input.task,
         provider: config.name, model: config.model!, usage: result.usage,
@@ -149,6 +143,12 @@ export async function generateAIText(input: AIGenerationInput & {
         outcome: 'success', durationMs: Date.now() - startedAt,
         promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
       });
+      const settlement = await input.control.db.rpc('settle_ai_budget', {
+        p_reservation_id: reservationRow.reservation_id,
+        p_actual_usd: actualUsd,
+        p_release: false,
+      });
+      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
       return { ...result, provider: config.name, model: config.model! };
     } catch (error) {
       // If the provider call itself failed, retain the full estimate as a
