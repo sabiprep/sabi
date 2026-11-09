@@ -158,12 +158,6 @@ export async function generateAIText(input: AIGenerationInput & {
       const providerFailure = error instanceof Error
         && /provider_|provider_http_|provider_empty_response|AbortError|TimeoutError/.test(error.message + error.name);
       if (!providerFailure) throw error;
-      const settlement = await control.db.rpc('settle_ai_budget', {
-        p_reservation_id: reservationRow.reservation_id,
-        p_actual_usd: reservedUsd,
-        p_release: false,
-      });
-      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
       await writeAICostAttempt(control.db, {
         requestId, attempt, userId: control.userId, task: input.task,
         provider: config.name, model: config.model!,
@@ -173,6 +167,12 @@ export async function generateAIText(input: AIGenerationInput & {
         outcome: 'provider_failed', durationMs: Date.now() - startedAt,
         promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
       });
+      const settlement = await control.db.rpc('settle_ai_budget', {
+        p_reservation_id: reservationRow.reservation_id,
+        p_actual_usd: reservedUsd,
+        p_release: false,
+      });
+      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
       failures.push(config.name);
       console.warn(`[SABI AI] ${config.name} provider failed:`, error instanceof Error ? error.name : 'unknown_error');
     }
