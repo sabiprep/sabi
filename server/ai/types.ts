@@ -1,4 +1,4 @@
-export type AIProviderName = 'gemini' | 'openai' | 'anthropic';
+export type AIProviderName = string;
 export type AITask = 'explanation' | 'tutor_chat' | 'content_draft' | 'study_plan';
 
 export type AIUsage = {
@@ -26,6 +26,9 @@ export type AIProviderConfig = {
   name: AIProviderName;
   apiKey: string | null;
   model: string | null;
+  baseUrl?: string | null;
+  inputPricePerMillion?: number | null;
+  outputPricePerMillion?: number | null;
   configured: boolean;
 };
 
