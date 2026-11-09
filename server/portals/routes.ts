@@ -97,8 +97,8 @@ router.get('/parent/children', requireAuth, async (req, res) => {
         questionsAnswered: (sessions.data || []).reduce((sum, item) => sum + (item.answered_count || 0), 0),
       },
     };
-  }).catch(() => null));
-  return res.json({ children: children.filter(Boolean) });
+  })).catch(() => null);
+  return res.json({ children: (children || []).filter(Boolean) });
 });
 
 router.delete('/parent/children/:studentId', requireAuth, async (req, res) => {
