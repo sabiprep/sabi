@@ -24,7 +24,7 @@ export function classifyAIData(input: { userId?: string; prompt: string; systemI
 /** Remove direct identifiers before any external provider call. */
 export function minimizeExternalPayload(text: string): string {
   return DIRECT_IDENTIFIERS.reduce((value, pattern) =>
-    value.replace(new RegExp(pattern.source, pattern.flags), '[REDACTED]'), text);
+    value.replace(new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : pattern.flags + 'g'), '[REDACTED]'), text);
 }
 
 export function assertProviderPrivacyAllowed(
