@@ -52,9 +52,13 @@ function estimateCost(config: AIProviderConfig, input: AIGenerationInput): numbe
     || config.outputPricePerMillion === null || config.outputPricePerMillion === undefined) {
     return Number.POSITIVE_INFINITY;
   }
-  const inputTokens = Math.ceil((input.systemInstruction.length + input.prompt.length) / 4);
+  // Reserve conservatively: UTF-8 character estimates can undercount tokens,
+  // so use a tighter chars-per-token ratio and a configurable safety margin.
+  const inputTokens = Math.ceil((input.systemInstruction.length + input.prompt.length) / 3);
   const outputTokens = input.maxOutputTokens ?? 900;
-  return (inputTokens * config.inputPricePerMillion + outputTokens * config.outputPricePerMillion) / 1_000_000;
+  const configuredMargin = Number(process.env.SABI_AI_BUDGET_RESERVATION_MULTIPLIER || '1.25');
+  const margin = Number.isFinite(configuredMargin) ? Math.min(3, Math.max(1, configuredMargin)) : 1.25;
+  return ((inputTokens * config.inputPricePerMillion + outputTokens * config.outputPricePerMillion) / 1_000_000) * margin;
 }
 
 export function getAIReadiness(task: AIGenerationInput['task'] = 'explanation') {
