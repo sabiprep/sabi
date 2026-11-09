@@ -77,19 +77,21 @@ export function getAIReadiness(task: AIGenerationInput['task'] = 'explanation') 
 }
 
 export async function generateAIText(input: AIGenerationInput & {
-  control: { db: any; userId: string; consentGranted: boolean; requestId?: string };
+  control?: { db: any; userId: string; consentGranted: boolean; requestId?: string };
 }): Promise<AIProviderResult> {
   if (!enabled(process.env.SABI_AI_ENABLED)) {
     throw new AIUnavailableError('AI_DISABLED', 'AI features are currently disabled.');
   }
 
-  const dataClass = classifyAIData({ userId: input.control.userId, prompt: input.prompt, systemInstruction: input.systemInstruction });
+  const control = input.control;
+  if (!control) throw new Error('AI_CONTROL_CONTEXT_REQUIRED');
+  const dataClass = classifyAIData({ userId: control.userId, prompt: input.prompt, systemInstruction: input.systemInstruction });
   const privacyPolicy = {
     allowExternalPublic: enabled(process.env.SABI_AI_ALLOW_EXTERNAL_PUBLIC),
     allowExternalPseudonymous: enabled(process.env.SABI_AI_ALLOW_EXTERNAL_PSEUDONYMOUS),
     allowExternalSensitive: false,
   };
-  assertProviderPrivacyAllowed(dataClass, privacyPolicy, input.control.consentGranted);
+  assertProviderPrivacyAllowed(dataClass, privacyPolicy, control.consentGranted);
   const safeSystemInstruction = minimizeExternalPayload(input.systemInstruction);
   const safePrompt = minimizeExternalPayload(input.prompt);
   const requestId = input.control.requestId || randomUUID();
