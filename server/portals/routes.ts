@@ -55,24 +55,22 @@ router.post('/parent/link', requireAuth, async (req, res) => {
   if (!parentId) return res.status(401).json({ error: 'Authentication required.' });
   const parsed = redeemSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Enter a valid invitation code.' });
-  const { data: invite, error: lookupError } = await supabaseAdmin.from('parent_link_invites')
-    .select('id,student_user_id,expires_at,redeemed_at')
-    .eq('token_hash', hashCode(parsed.data.code)).maybeSingle();
-  if (lookupError) return res.status(503).json({ error: 'The invitation could not be verified.' });
-  if (!invite || invite.redeemed_at || new Date(invite.expires_at).getTime() <= Date.now()) {
-    return res.status(400).json({ error: 'This invitation is invalid, expired or already used.' });
+  const { data: studentId, error } = await supabaseAdmin.rpc('redeem_parent_link_invite', {
+    p_token_hash: hashCode(parsed.data.code),
+    p_parent_user_id: parentId,
+    p_relationship: parsed.data.relationship,
+  });
+  if (error) {
+    const message = error.message || '';
+    if (message.includes('invalid_or_expired_invite')) {
+      return res.status(400).json({ error: 'This invitation is invalid, expired or already used.' });
+    }
+    if (message.includes('self_link_not_allowed')) {
+      return res.status(400).json({ error: 'You cannot link your account to itself.' });
+    }
+    return res.status(503).json({ error: 'The parent relationship could not be created.' });
   }
-  if (invite.student_user_id === parentId) return res.status(400).json({ error: 'You cannot link your account to itself.' });
-  const { error: linkError } = await supabaseAdmin.from('parent_student_links').upsert({
-    parent_user_id: parentId, student_user_id: invite.student_user_id,
-    relationship: parsed.data.relationship, status: 'active', consented_at: new Date().toISOString(),
-  }, { onConflict: 'parent_user_id,student_user_id' });
-  if (linkError) return res.status(503).json({ error: 'The parent relationship could not be saved.' });
-  const { error: redeemError } = await supabaseAdmin.from('parent_link_invites')
-    .update({ redeemed_by: parentId, redeemed_at: new Date().toISOString() })
-    .eq('id', invite.id).is('redeemed_at', null);
-  if (redeemError) return res.status(503).json({ error: 'The invitation could not be finalised.' });
-  return res.status(201).json({ linked: true, studentUserId: invite.student_user_id });
+  return res.status(201).json({ linked: true, studentUserId: studentId });
 });
 
 router.get('/parent/children', requireAuth, async (req, res) => {
