@@ -138,6 +138,12 @@ begin
   end if;
   perform pg_advisory_xact_lock(hashtextextended('sabi-ai-budget-reservations-v1', 0));
 
+  -- Require both global periods; an empty limits table must never mean unlimited spend.
+  if not exists (select 1 from ai_budget_limits where is_active and scope_type = 'global' and period = 'daily')
+     or not exists (select 1 from ai_budget_limits where is_active and scope_type = 'global' and period = 'monthly') then
+    return query select false, 'global_budget_not_configured'::text, null::uuid; return;
+  end if;
+
   -- Tenant limits are declared in the schema but cannot be safely evaluated
   -- until tenant identity is passed into this RPC. Fail closed rather than
   -- silently ignoring an active tenant-level limit.
