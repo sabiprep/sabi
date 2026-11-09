@@ -95,24 +95,82 @@ export async function generateAIText(input: AIGenerationInput & {
   const requestId = input.control.requestId || randomUUID();
 
   const configured = providerOrder(input.task).map((name) => providerConfig(name, input.task))
-    .filter((provider) => provider.configured)
-    .sort((a, b) => estimateCost(a, input) - estimateCost(b, input));
+    .filter((provider) => provider.configured && Number.isFinite(estimateCost(provider, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt })))
+    .sort((a, b) => estimateCost(a, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt })
+      - estimateCost(b, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt }));
   if (!configured.length) {
-    throw new AIUnavailableError('AI_NOT_CONFIGURED', 'No AI provider is fully configured.');
+    throw new AIUnavailableError('AI_NOT_CONFIGURED', 'No AI provider with complete credentials and pricing is configured.');
   }
 
   const failures: AIProviderName[] = [];
+  let attempt = 0;
   for (const config of configured) {
+    attempt += 1;
+    const reservedUsd = estimateCost(config, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt });
+    const reservation = await input.control.db.rpc('reserve_ai_budget', {
+      p_request_id: requestId,
+      p_user_id: input.control.userId,
+      p_task: input.task,
+      p_provider: config.name,
+      p_estimated_usd: reservedUsd,
+    });
+    if (reservation.error) throw new Error('AI_BUDGET_RESERVATION_FAILED');
+    const reservationRow = Array.isArray(reservation.data) ? reservation.data[0] : reservation.data;
+    if (!reservationRow?.allowed || !reservationRow?.reservation_id) {
+      throw new Error(reservationRow?.reason || 'AI_BUDGET_BLOCKED');
+    }
+
+    const startedAt = Date.now();
     try {
       const result = await invokeProvider(config.name, config, {
-        systemInstruction: input.systemInstruction,
-        prompt: input.prompt,
+        systemInstruction: safeSystemInstruction,
+        prompt: safePrompt,
         temperature: input.temperature ?? 0.3,
         maxOutputTokens: input.maxOutputTokens ?? 900,
         timeoutMs: input.timeoutMs ?? 8000,
       });
+      const actualUsd = calculateAttemptCost({
+        usage: result.usage,
+        inputPricePerMillion: config.inputPricePerMillion ?? null,
+        outputPricePerMillion: config.outputPricePerMillion ?? null,
+      });
+      if (actualUsd === null) throw new Error('AI_PROVIDER_USAGE_UNAVAILABLE');
+      const settlement = await input.control.db.rpc('settle_ai_budget', {
+        p_reservation_id: reservationRow.reservation_id,
+        p_actual_usd: actualUsd,
+        p_release: false,
+      });
+      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
+      await writeAICostAttempt(input.control.db, {
+        requestId, attempt, userId: input.control.userId, task: input.task,
+        provider: config.name, model: config.model!, usage: result.usage,
+        inputPricePerMillion: config.inputPricePerMillion ?? null,
+        outputPricePerMillion: config.outputPricePerMillion ?? null,
+        outcome: 'success', durationMs: Date.now() - startedAt,
+        promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
+      });
       return { ...result, provider: config.name, model: config.model! };
     } catch (error) {
+      // If the provider call itself failed, retain the full estimate as a
+      // conservative charge. For post-response accounting failures, fail closed.
+      const providerFailure = error instanceof Error
+        && /provider_|provider_http_|provider_empty_response|AbortError|TimeoutError/.test(error.message + error.name);
+      if (!providerFailure) throw error;
+      const settlement = await input.control.db.rpc('settle_ai_budget', {
+        p_reservation_id: reservationRow.reservation_id,
+        p_actual_usd: reservedUsd,
+        p_release: false,
+      });
+      if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
+      await writeAICostAttempt(input.control.db, {
+        requestId, attempt, userId: input.control.userId, task: input.task,
+        provider: config.name, model: config.model!,
+        usage: { inputTokens: null, outputTokens: null },
+        inputPricePerMillion: config.inputPricePerMillion ?? null,
+        outputPricePerMillion: config.outputPricePerMillion ?? null,
+        outcome: 'provider_failed', durationMs: Date.now() - startedAt,
+        promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
+      });
       failures.push(config.name);
       console.warn(`[SABI AI] ${config.name} provider failed:`, error instanceof Error ? error.name : 'unknown_error');
     }
