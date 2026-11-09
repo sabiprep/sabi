@@ -93,8 +93,8 @@ export type CostSimulatorInput = {
   taskMix: Partial<Record<AITask, number>>;
   providers: Array<{
     id: string;
-    inputPricePerMillion: number | null;
-    outputPricePerMillion: number | null;
+    inputPricePerMillion?: number | null;
+    outputPricePerMillion?: number | null;
     avgInputTokens: number;
     avgOutputTokens: number;
     expectedSuccessRate: number;
@@ -111,7 +111,7 @@ export function simulateAICost(input: CostSimulatorInput) {
   const retryRate = Math.min(3, Math.max(0, input.retryRate || 0));
   const billableRequests = requests * (1 - cacheHitRate);
   const providerRows = input.providers.map((provider) => {
-    const known = provider.inputPricePerMillion !== null && provider.outputPricePerMillion !== null;
+    const known = provider.inputPricePerMillion != null && provider.outputPricePerMillion != null;
     const successRate = Math.min(1, Math.max(0.01, provider.expectedSuccessRate));
     const perAttempt = known
       ? (provider.avgInputTokens * provider.inputPricePerMillion!
