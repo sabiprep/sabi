@@ -94,7 +94,7 @@ export async function generateAIText(input: AIGenerationInput & {
   assertProviderPrivacyAllowed(dataClass, privacyPolicy, control.consentGranted);
   const safeSystemInstruction = minimizeExternalPayload(input.systemInstruction);
   const safePrompt = minimizeExternalPayload(input.prompt);
-  const requestId = input.control.requestId || randomUUID();
+  const requestId = control.requestId || randomUUID();
 
   const configured = providerOrder(input.task).map((name) => providerConfig(name, input.task))
     .filter((provider) => provider.configured && Number.isFinite(estimateCost(provider, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt })))
@@ -109,9 +109,9 @@ export async function generateAIText(input: AIGenerationInput & {
   for (const config of configured) {
     attempt += 1;
     const reservedUsd = estimateCost(config, { ...input, systemInstruction: safeSystemInstruction, prompt: safePrompt });
-    const reservation = await input.control.db.rpc('reserve_ai_budget', {
+    const reservation = await control.db.rpc('reserve_ai_budget', {
       p_request_id: requestId,
-      p_user_id: input.control.userId,
+      p_user_id: control.userId,
       p_task: input.task,
       p_provider: config.name,
       p_estimated_usd: reservedUsd,
@@ -137,15 +137,15 @@ export async function generateAIText(input: AIGenerationInput & {
         outputPricePerMillion: config.outputPricePerMillion ?? null,
       });
       if (actualUsd === null) throw new Error('AI_PROVIDER_USAGE_UNAVAILABLE');
-      await writeAICostAttempt(input.control.db, {
-        requestId, attempt, userId: input.control.userId, task: input.task,
+      await writeAICostAttempt(control.db, {
+        requestId, attempt, userId: control.userId, task: input.task,
         provider: config.name, model: config.model!, usage: result.usage,
         inputPricePerMillion: config.inputPricePerMillion ?? null,
         outputPricePerMillion: config.outputPricePerMillion ?? null,
         outcome: 'success', durationMs: Date.now() - startedAt,
         promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
       });
-      const settlement = await input.control.db.rpc('settle_ai_budget', {
+      const settlement = await control.db.rpc('settle_ai_budget', {
         p_reservation_id: reservationRow.reservation_id,
         p_actual_usd: actualUsd,
         p_release: false,
@@ -158,14 +158,14 @@ export async function generateAIText(input: AIGenerationInput & {
       const providerFailure = error instanceof Error
         && /provider_|provider_http_|provider_empty_response|AbortError|TimeoutError/.test(error.message + error.name);
       if (!providerFailure) throw error;
-      const settlement = await input.control.db.rpc('settle_ai_budget', {
+      const settlement = await control.db.rpc('settle_ai_budget', {
         p_reservation_id: reservationRow.reservation_id,
         p_actual_usd: reservedUsd,
         p_release: false,
       });
       if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
-      await writeAICostAttempt(input.control.db, {
-        requestId, attempt, userId: input.control.userId, task: input.task,
+      await writeAICostAttempt(control.db, {
+        requestId, attempt, userId: control.userId, task: input.task,
         provider: config.name, model: config.model!,
         usage: { inputTokens: null, outputTokens: null },
         inputPricePerMillion: config.inputPricePerMillion ?? null,
