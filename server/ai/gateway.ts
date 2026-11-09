@@ -169,6 +169,7 @@ export async function generateAIText(input: AIGenerationInput & {
         inputPricePerMillion: config.inputPricePerMillion ?? null,
         outputPricePerMillion: config.outputPricePerMillion ?? null,
         outcome: 'provider_failed', durationMs: Date.now() - startedAt,
+        costOverrideUsd: reservedUsd,
         promptVersion: process.env.SABI_AI_PROMPT_VERSION || 'v1',
       });
       const settlement = await control.db.rpc('settle_ai_budget', {

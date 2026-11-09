@@ -147,7 +147,7 @@ export async function writeAICostAttempt(db: any, input: {
   provider: string; model: string; usage: AIUsage; inputPricePerMillion: number | null;
   outputPricePerMillion: number | null; outcome: 'success' | 'provider_failed' | 'quality_rejected' | 'budget_blocked' | 'cache_hit';
   durationMs?: number; cacheStatus?: 'hit' | 'miss' | 'bypass'; qualityStatus?: string;
-  promptVersion: string; metadata?: Record<string, unknown>;
+  promptVersion: string; metadata?: Record<string, unknown>; costOverrideUsd?: number | null;
 }) {
   const estimated = calculateAttemptCost({
     usage: input.usage,
@@ -160,7 +160,7 @@ export async function writeAICostAttempt(db: any, input: {
     input_tokens: input.usage.inputTokens, output_tokens: input.usage.outputTokens,
     input_price_per_million: input.inputPricePerMillion,
     output_price_per_million: input.outputPricePerMillion,
-    estimated_cost_usd: estimated, final_cost_usd: estimated,
+    estimated_cost_usd: input.costOverrideUsd ?? estimated, final_cost_usd: input.costOverrideUsd ?? estimated,
     outcome: input.outcome, duration_ms: input.durationMs ?? null,
     cache_status: input.cacheStatus || 'miss', quality_status: input.qualityStatus || null,
     prompt_version: input.promptVersion, metadata: input.metadata || {},
