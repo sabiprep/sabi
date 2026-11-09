@@ -113,8 +113,8 @@ alter table public.ai_control_audit enable row level security;
 revoke all on public.ai_control_audit from anon, authenticated;
 grant select, insert on public.ai_control_audit to service_role;
 
--- Atomic multi-scope budget reservation. All active global/provider/task/user
--- limits are checked under a transaction-scoped advisory lock to prevent races.
+-- Atomic multi-scope budget reservation. A single transaction-scoped lock
+-- serializes every reservation so global limits cannot race across providers/users.
 create or replace function public.reserve_ai_budget(
   p_request_id uuid,
   p_user_id uuid,
@@ -136,7 +136,14 @@ begin
   if p_estimated_usd is null or p_estimated_usd < 0 then
     return query select false, 'invalid_estimate'::text, null::uuid; return;
   end if;
-  perform pg_advisory_xact_lock(hashtextextended(p_task || ':' || p_provider || ':' || coalesce(p_user_id::text,'*'), 0));
+  perform pg_advisory_xact_lock(hashtextextended('sabi-ai-budget-reservations-v1', 0));
+
+  -- Tenant limits are declared in the schema but cannot be safely evaluated
+  -- until tenant identity is passed into this RPC. Fail closed rather than
+  -- silently ignoring an active tenant-level limit.
+  if exists (select 1 from ai_budget_limits where is_active and scope_type = 'tenant') then
+    return query select false, 'tenant_scope_not_supported'::text, null::uuid; return;
+  end if;
 
   for v_limit in
     select * from ai_budget_limits
