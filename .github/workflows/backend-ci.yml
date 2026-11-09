@@ -142,5 +142,6 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110000000_parent_school_portals.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110000001_parent_invite_atomic_redemption.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110000002_student_approved_institution_enrollment.sql
       - name: Verify parent and school portal security and contracts
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/parent_school_portals_assertions.sql
