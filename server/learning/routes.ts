@@ -1411,7 +1411,12 @@ router.get('/analytics', requireAuth, async (req, res) => {
       return res.status(503).json({ error: 'Learning analytics are temporarily unavailable.' });
     }
 
-    const attempts = data || [];
+    // PostgREST may return a one-to-many relation as an array; the analytics
+    // engine consumes the single related question row for each session item.
+    const attempts = (data || []).map((item) => ({
+      ...item,
+      question_bank: Array.isArray(item.question_bank) ? item.question_bank[0] || null : item.question_bank,
+    }));
     const analytics = buildLearningAnalytics(attempts);
     res.set('Cache-Control', 'no-store');
     return res.json({
