@@ -22,6 +22,7 @@ const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module =
 const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubscriptionPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 const BackendLearningPage = lazy(() => import('./pages/BackendLearningPage').then(module => ({ default: module.BackendLearningPage })));
+const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/auth/verify" element={<AuthPage mode="verify" />} />
             <Route path="/auth/forgot-password" element={<AuthPage mode="forgot-password" />} />
             <Route path="/mascots" element={<MascotsGalleryPage />} />
+            <Route path="/admin" element={<AdminDashboardPage />} />
             <Route path="/onboarding/:step" element={<OnboardingPage />} />
             <Route path="/diagnostic" element={<DiagnosticPage />} />
             <Route path="/blitz" element={<BlitzPage />} />
