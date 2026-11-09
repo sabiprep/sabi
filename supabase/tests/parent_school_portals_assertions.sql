@@ -7,6 +7,10 @@ DECLARE
   v_token text := repeat('a', 64);
   v_linked uuid;
   v_rejected boolean := false;
+  v_institution uuid;
+  v_class uuid;
+  v_school_token text := repeat('b', 64);
+  v_joined_institution uuid;
 BEGIN
   INSERT INTO auth.users (id,email) VALUES
     (v_student,'portal-student@example.test'),
@@ -53,6 +57,42 @@ BEGIN
   IF has_table_privilege('anon','public.parent_student_links','SELECT')
      OR has_table_privilege('authenticated','public.parent_student_links','SELECT') THEN
     RAISE EXCEPTION 'Parent relationship table must not be directly readable by client roles';
+  END IF;
+
+  INSERT INTO public.educational_institutions (name,institution_type,owner_user_id)
+  VALUES ('Portal Test School','school',v_parent)
+  RETURNING id INTO v_institution;
+
+  INSERT INTO public.institution_memberships (institution_id,user_id,member_role)
+  VALUES (v_institution,v_parent,'owner');
+
+  INSERT INTO public.institution_classes (institution_id,name,programme,created_by)
+  VALUES (v_institution,'JAMB 2027','jamb',v_parent)
+  RETURNING id INTO v_class;
+
+  INSERT INTO public.institution_enrollment_invites (
+    institution_id,class_id,token_hash,expires_at,created_by
+  ) VALUES (
+    v_institution,v_class,v_school_token,now() + interval '1 hour',v_parent
+  );
+
+  v_joined_institution := public.redeem_institution_enrollment_invite(v_school_token,v_student);
+  IF v_joined_institution <> v_institution OR NOT EXISTS (
+    SELECT 1 FROM public.institution_enrollments
+    WHERE institution_id = v_institution AND student_user_id = v_student
+      AND class_id = v_class AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Student-approved institution enrolment was not created';
+  END IF;
+
+  v_rejected := false;
+  BEGIN
+    PERFORM public.redeem_institution_enrollment_invite(v_school_token,v_student);
+  EXCEPTION WHEN OTHERS THEN
+    v_rejected := true;
+  END;
+  IF NOT v_rejected THEN
+    RAISE EXCEPTION 'An institution invitation was accepted more than once';
   END IF;
 END
 $$;
