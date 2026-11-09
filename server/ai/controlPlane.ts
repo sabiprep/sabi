@@ -9,9 +9,9 @@ export type PrivacyPolicy = {
 };
 
 const DIRECT_IDENTIFIERS = [
-  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,
-  /(?:\+?234|0)[789][01]\d{8}\b/g,
-  /\b(?:SABI[- ]?ID|student\s?id|learner\s?id)\s*[:#-]?\s*[A-Z0-9-]{5,}\b/gi,
+  /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i,
+  /(?:\+?234|0)[789][01]\d{8}\b/,
+  /\b(?:SABI[- ]?ID|student\s?id|learner\s?id)\s*[:#-]?\s*[A-Z0-9-]{5,}\b/i,
 ];
 
 export function classifyAIData(input: { userId?: string; prompt: string; systemInstruction: string }): PrivacyClass {
