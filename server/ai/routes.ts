@@ -11,6 +11,7 @@ import { AIUnavailableError } from './types';
 import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './usage';
 import { formatApprovedKnowledgeContext, searchApprovedKnowledge } from './retrieval';
 import { getAICreditBalance } from '../billing/entitlements';
+import { simulateAICost } from './controlPlane';
 
 const router = Router();
 
@@ -235,6 +236,52 @@ router.put('/admin/task-pricing/:task', requireAuth, requireRole('ADMIN', 'MASTE
   });
   if (auditError) console.error('[SABI AI] Task pricing audit failed:', auditError.message);
   return res.json({ pricing: data });
+});
+
+const costSimulationSchema = z.strictObject({
+  requestsPerMonth: z.number().int().min(0).max(100000000),
+  taskMix: z.record(z.string(), z.number().min(0).max(1)).optional(),
+  cacheHitRate: z.number().min(0).max(1).default(0),
+  retryRate: z.number().min(0).max(3).default(0),
+  providers: z.array(z.strictObject({
+    id: z.string().trim().min(1).max(64),
+    inputPricePerMillion: z.number().min(0).nullable(),
+    outputPricePerMillion: z.number().min(0).nullable(),
+    avgInputTokens: z.number().int().min(0).max(1000000),
+    avgOutputTokens: z.number().int().min(0).max(1000000),
+    expectedSuccessRate: z.number().min(0.01).max(1),
+    fallbackShare: z.number().min(0).max(5).optional(),
+  })).min(1).max(30),
+});
+
+router.post('/admin/cost-simulator', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), validateBody(costSimulationSchema), async (req, res) => {
+  const input = req.body as z.infer<typeof costSimulationSchema>;
+  try {
+    const forecast = simulateAICost({
+      requestsPerMonth: input.requestsPerMonth,
+      taskMix: input.taskMix as any,
+      providers: input.providers,
+      cacheHitRate: input.cacheHitRate,
+      retryRate: input.retryRate,
+    });
+    const actorId = (req as AuthenticatedRequest).user?.id;
+    const { error } = await supabaseAdmin.from('ai_control_audit').insert({
+      actor_user_id: actorId,
+      action: 'ai_cost_simulation.run',
+      resource_type: 'ai_cost_simulation',
+      after_state: {
+        requests_per_month: input.requestsPerMonth,
+        provider_ids: input.providers.map((provider) => provider.id),
+        cache_hit_rate: input.cacheHitRate,
+        retry_rate: input.retryRate,
+      },
+    });
+    if (error) console.error('[SABI AI] Cost simulator audit failed:', error.message);
+    res.set('Cache-Control', 'no-store');
+    return res.json({ forecast });
+  } catch {
+    return res.status(400).json({ error: 'The cost simulation inputs could not be processed.' });
+  }
 });
 
 router.get('/status', requireAuth, requireRole('ADMIN', 'MASTER_ADMIN'), (_req, res) => {
