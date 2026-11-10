@@ -14,7 +14,7 @@ import { isCBTExpired } from './cbtTimer';
 import { isCbtFeedbackLocked } from './answerVisibility';
 import { buildStoredAnswerReplay } from './answerReplay';
 import { buildLearningAnalytics, buildStudyPlan, buildSyllabusCoverage } from './engineExecution';
-import { selectPersonalizedQuestions } from './selectors';
+import { buildAdaptiveDecisionRows, selectPersonalizedQuestions, type PersonalizedSelection } from './selectors';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP, recordStudyActivity } from '../gamification/service';
 
@@ -495,6 +495,7 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
 
   try {
     let selected: any[] = [];
+    let adaptiveSelectionTrace: Array<{ question: any; reason: PersonalizedSelection<any>['reason'] }> = [];
     const requestedSubjects = [...new Set([...(subjects || []), ...(subject ? [subject] : [])]
       .map((value) => /^english language$/i.test(value.trim()) ? 'Use of English' : value.trim()))];
     if (mode === 'custom' && !requestedSubjects.length && !topic && !topics?.length && !subtopic && !difficulty && year === undefined) {
@@ -664,6 +665,7 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
           limit,
           mode,
         });
+        adaptiveSelectionTrace = ranked;
         selected = ranked.map((item) => item.question);
         sessionMetadata = {
           ...sessionMetadata,
@@ -718,6 +720,21 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       await supabaseAdmin.from('learning_sessions').delete().eq('id', session.id).eq('user_id', userId);
       console.error('[SABI] Learning session item creation failed:', itemsError.message);
       return res.status(503).json({ error: 'Could not prepare the questions. Please try again.' });
+    }
+
+    if (adaptiveSelectionTrace.length) {
+      const decisionRows = buildAdaptiveDecisionRows({
+        userId,
+        sessionId: session.id,
+        mode: mode as 'smart_practice' | 'blitz',
+        selections: adaptiveSelectionTrace,
+      });
+      const { error: decisionError } = await supabaseAdmin.from('adaptive_decisions').insert(decisionRows);
+      if (decisionError) {
+        await supabaseAdmin.from('learning_sessions').delete().eq('id', session.id).eq('user_id', userId);
+        console.error('[SABI] Adaptive decision audit could not be persisted:', decisionError.message);
+        return res.status(503).json({ error: 'The adaptive session could not be safely prepared. Please try again.' });
+      }
     }
 
     res.set('Cache-Control', 'no-store');

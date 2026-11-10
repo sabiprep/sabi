@@ -84,3 +84,35 @@ export function selectPersonalizedQuestions<T extends LearningCandidate>(input: 
     reason: targetedIds.has(row.question.id) ? row.reason : 'syllabus_discovery',
   }));
 }
+
+export function buildAdaptiveDecisionRows(input: {
+  userId: string;
+  sessionId: string;
+  mode: 'smart_practice' | 'blitz';
+  selections: Array<{ question: LearningCandidate; reason: PersonalizedSelection<LearningCandidate>['reason'] }>;
+}) {
+  return input.selections.map(({ question, reason }) => {
+    const rawDifficulty = String(question.difficulty || '').toLowerCase();
+    const selectedDifficulty = rawDifficulty.includes('easy') || rawDifficulty.includes('beginner') || rawDifficulty.includes('foundation')
+      ? 'foundation'
+      : rawDifficulty.includes('hard') || rawDifficulty.includes('advanced') || rawDifficulty.includes('challenge')
+        ? 'challenge'
+        : 'standard';
+    return {
+      user_id: input.userId,
+      session_id: input.sessionId,
+      selected_difficulty: selectedDifficulty,
+      selected_question_id: question.id,
+      decision_reason: reason,
+      evidence: {
+        mode: input.mode,
+        subject: question.subject,
+        topic: question.topic,
+        year: question.year ?? null,
+        source_difficulty: question.difficulty,
+        policy_version: input.mode === 'blitz' ? 'hybrid_personalized_discovery_v1' : 'mastery_adaptive_v1',
+      },
+      engine_version: 'adaptive-selector-v1',
+    };
+  });
+}

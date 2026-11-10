@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectPersonalizedQuestions } from './selectors';
+import { buildAdaptiveDecisionRows, selectPersonalizedQuestions } from './selectors';
 
 const candidates = [
   { id: 'due', subject: 'Math', topic: 'Algebra', difficulty: 'standard' },
@@ -38,5 +38,29 @@ describe('selectPersonalizedQuestions', () => {
 
   it('returns an empty selection for an empty eligible pool', () => {
     expect(selectPersonalizedQuestions({ candidates: [], mastery, recentQuestionIds: [], limit: 10, mode: 'blitz' })).toEqual([]);
+  });
+});
+
+describe('buildAdaptiveDecisionRows', () => {
+  it('persists bounded difficulty labels and selection evidence for engine audit', () => {
+    const rows = buildAdaptiveDecisionRows({
+      userId: 'student-1',
+      sessionId: 'session-1',
+      mode: 'smart_practice',
+      selections: [
+        { question: { id: 'q1', subject: 'Math', topic: 'Algebra', difficulty: 'Easy' }, reason: 'spaced_review_due' },
+        { question: { id: 'q2', subject: 'Physics', topic: 'Motion', difficulty: 'Hard' }, reason: 'weak_topic' },
+        { question: { id: 'q3', subject: 'Chemistry', topic: 'Atoms', difficulty: 'Medium' }, reason: 'syllabus_discovery' },
+      ],
+    });
+    expect(rows.map((row) => row.selected_difficulty)).toEqual(['foundation', 'challenge', 'standard']);
+    expect(rows[0]).toMatchObject({
+      user_id: 'student-1',
+      session_id: 'session-1',
+      selected_question_id: 'q1',
+      decision_reason: 'spaced_review_due',
+      engine_version: 'adaptive-selector-v1',
+      evidence: { mode: 'smart_practice', subject: 'Math', topic: 'Algebra' },
+    });
   });
 });
