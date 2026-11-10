@@ -193,7 +193,7 @@ export function BackendLearningPage() {
           </>}
         </div>
         <button disabled={loading} onClick={()=>void start()} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm disabled:opacity-60 inline-flex items-center gap-2">{loading?<LoaderCircle className="animate-spin" size={17}/>:<ArrowRight size={17}/>}Start {MODE_LABELS[mode]}</button>
-        <p className="text-xs text-slate-500">Only approved and published UTME questions are served. If a subject does not yet have enough approved questions, the API will block the session rather than use unreviewed drafts.</p>
+        <p className="text-xs text-slate-500">Only reviewer-approved, published UTME questions with verified sources and permitted student-practice rights are served. If the eligible pool is too small, SABI blocks the session rather than serving unreviewed or uncleared content.</p>
       </section>}
       {session&&current&&!completed&&<section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 space-y-5">
         <div className="flex flex-wrap justify-between gap-3"><div><span className="text-xs font-black uppercase tracking-wider text-blue-600">{MODE_LABELS[session.mode]}</span><h2 className="text-lg font-black">{current.subject} · {current.topic}</h2></div><span className="text-xs font-bold text-slate-500">Question {index+1} of {questions.length}{session.mode==='cbt'&&cbtRemainingSeconds!==null&&<span> · {Math.floor(cbtRemainingSeconds/60)}:{String(cbtRemainingSeconds%60).padStart(2,'0')} remaining</span>}</span></div>
