@@ -51,7 +51,7 @@ begin
     insert into public.question_bank
       (id,exam_type,subject,topic,question,option_a,option_b,option_c,option_d,answer,explanation,status)
     values
-      (v_q,'UTME','Mathematics','Learner E2E topic','What is 2 + 2?','4','3','5','6','A',
+      (v_q,'UTME','Mathematics','Learner E2E topic','What is 2 + 2?','4','3','5','6','a',
        'Two plus two equals four.','published');
 
     insert into public.learning_sessions(user_id,mode,subject,total_questions,metadata)
@@ -146,8 +146,8 @@ begin
   if exists(select 1 from public.learning_sessions where user_id=v_user)
      or exists(select 1 from public.student_topic_mastery where user_id=v_user)
      or exists(select 1 from public.student_streak_state where user_id=v_user)
-     or exists(select 1 from public.notification_queue where id=v_job) then
-    raise exception 'Learner deletion did not cascade through workflow-owned records';
+     or not exists(select 1 from public.notification_queue where id=v_job and user_id is null) then
+    raise exception 'Learner deletion did not cascade learner-owned records or detach queued notifications';
   end if;
 end
 $$;
