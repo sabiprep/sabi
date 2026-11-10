@@ -1387,227 +1387,59 @@ export function DailyMissionsPage() {
 // PRACTICE HUB PAGE
 // ==========================================
 export function PracticePage() {
-  const { isDark } = useTheme();
-
+  const modes = [
+    { title: 'Smart Practice', tag: 'Adaptive guidance', description: 'Let Sabi choose useful practice based on your learning evidence. Recommendations refresh as you answer.', href: '/smart', icon: BrainCircuit, tone: 'blue', action: 'Start Smart Practice' },
+    { title: 'Blitz', tag: 'Focused reinforcement', description: 'Strengthen what you know with one question at a time, immediate feedback and no speed pressure.', href: '/blitz', icon: Zap, tone: 'yellow', action: 'Start Blitz' },
+    { title: 'Custom Practice', tag: 'Your choices', description: 'Choose the subjects and topics you want to work on when you have a specific goal in mind.', href: '/practice/custom', icon: SlidersHorizontal, tone: 'slate', action: 'Build a practice set' },
+    { title: 'CBT Simulator', tag: 'Exam conditions', description: 'Practise in a structured JAMB-style mock with a server-controlled timer and exam review flow.', href: '/learning?mode=cbt', icon: FileQuestion, tone: 'navy', action: 'Enter CBT Simulator' },
+  ];
   return (
-    <div className="space-y-8 pb-16 lg:pb-0">
-      <div>
-        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-          Practice Hub
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Choose How You Want to Drill
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Select between the high-speed 60s Blitz level map or the 4-subject branching Smart Practice campus road.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Blitz Card (Clean White Surface + Royal Blue CTA) */}
-        <div className={`rounded-3xl p-6 sm:p-8 border shadow-md flex flex-col justify-between ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider">
-                Endless 60s Mode
-              </span>
-              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-3">
-                SABI BLITZ
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
-                Eagle mascot, continuous Z-path with 10Q and 15Q levels, formula rendering, and instant step-by-step corrections.
-              </p>
+    <div className="space-y-7 pb-16 lg:pb-0">
+      <header className="max-w-3xl">
+        <span className="text-xs font-bold uppercase tracking-[.18em] text-[var(--sabi-blue)]">Your learning space</span>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--sabi-navy)] sm:text-4xl">Choose how you want to learn.</h1>
+        <p className="mt-3 text-sm leading-7 text-[var(--sabi-muted)] sm:text-base">Every mode has a different purpose. Pick the one that matches what you need right now.</p>
+      </header>
+      <section className="grid gap-4 sm:grid-cols-2">
+        {modes.map(({title,tag,description,href,icon:Icon,tone,action}) => (
+          <article key={title} className="sabi-card flex min-h-[250px] flex-col p-5 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tone==='yellow'?'bg-yellow-50 text-amber-600':tone==='navy'?'bg-indigo-50 text-indigo-800':tone==='slate'?'bg-slate-100 text-slate-700':'bg-blue-50 text-blue-700'}`}><Icon size={23}/></span>
+              <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{tag}</span>
             </div>
-            <img src="/assets/mascots/blitz/eagle_idle.svg" alt="Eagle" className="w-20 h-20 object-contain shrink-0" />
-          </div>
-          <Link
-            to="/blitz"
-            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white text-center transition shadow-md shadow-blue-600/20"
-          >
-            Launch Blitz Level Path →
-          </Link>
-        </div>
-
-        {/* Smart Practice Card (Clean White Surface + Royal Blue CTA) */}
-        <div className={`rounded-3xl p-6 sm:p-8 border shadow-md flex flex-col justify-between ${
-          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider">
-                4-Subject Road
-              </span>
-              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white mt-3">
-                SMART PRACTICE
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
-                Forward branches (Straight, Left, Right) past campus faculties. Study room with animated student and desk calculator.
-              </p>
-            </div>
-            <img src="/assets/mascots/smart/student_desk_studying.svg" alt="Student" className="w-20 h-20 object-contain shrink-0" />
-          </div>
-          <Link
-            to="/smart"
-            className="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white text-center transition shadow-md shadow-blue-600/20"
-          >
-            Launch Smart Practice Road →
-          </Link>
-        </div>
-      </div>
-
-      {/* Additional Modes Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link
-          to="/cbt"
-          className={`p-6 rounded-3xl border transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
-          } flex items-center justify-between group`}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
-              <FileQuestion size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                180-Q UTME CBT Mock
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Official 120-minute timer and onscreen calculator
-              </p>
-            </div>
-          </div>
-          <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
-        </Link>
-
-        <Link
-          to="/diagnostic"
-          className={`p-6 rounded-3xl border transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
-          } flex items-center justify-between group`}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
-              <Activity size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Weak Topic Diagnostic
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Rapid evaluation of Organic Chem, Waves, and Concord
-              </p>
-            </div>
-          </div>
-          <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
-        </Link>
-
-        <Link
-          to="/custom-simulator"
-          className={`p-6 rounded-3xl border transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-300 shadow-xs'
-          } flex items-center justify-between group sm:col-span-2`}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
-              <Sliders size={24} />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
-                Custom JAMB Simulator Dashboard
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Dedicated simulator workspace directory
-              </p>
-            </div>
-          </div>
-          <ArrowRight size={20} className="text-blue-600 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
+            <h2 className="mt-5 text-xl font-bold text-[var(--sabi-ink)]">{title}</h2>
+            <p className="mt-2 flex-1 text-sm leading-6 text-[var(--sabi-muted)]">{description}</p>
+            <Link to={href} className="sabi-primary-button sabi-focus mt-5 w-full">{action}<ArrowRight size={17}/></Link>
+          </article>
+        ))}
+      </section>
+      <p className="text-xs leading-5 text-[var(--sabi-muted)]">Your learning history and authoritative results are saved through Sabi’s learning service. Availability may depend on your account and current content access.</p>
     </div>
   );
 }
 
-// ==========================================
-// CBT SIMULATOR PAGE (REAL INTERACTIVE EXAM LAUNCHER)
-// ==========================================
 export function CbtPage() {
-  const { isDark } = useTheme();
-  const [isExamModalOpen, setIsExamModalOpen] = useState(false);
-
   return (
-    <div className="space-y-8 pb-16 lg:pb-0">
-      <div>
-        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-          JAMB CBT Simulator
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Prepare Under Strict Exam Conditions
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Simulate the official JAMB UTME environment with 4-subject switching, question navigation grid, and onscreen calculator.
-        </p>
+    <div className="space-y-7 pb-16 lg:pb-0">
+      <header className="max-w-3xl">
+        <span className="text-xs font-bold uppercase tracking-[.18em] text-[var(--sabi-blue)]">JAMB examination practice</span>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--sabi-navy)] sm:text-4xl">Prepare under exam conditions.</h1>
+        <p className="mt-3 text-sm leading-7 text-[var(--sabi-muted)] sm:text-base">Use a structured mock to practise time management, question navigation and exam discipline. Your session is managed by the Sabi learning service.</p>
+      </header>
+      <section className="rounded-[2rem] bg-[var(--sabi-navy)] p-6 text-white sm:p-9">
+        <span className="text-xs font-bold uppercase tracking-[.18em] text-blue-200">Full UTME simulation</span>
+        <h2 className="mt-3 max-w-xl text-3xl font-bold leading-tight sm:text-4xl">180 questions. 120 minutes. One focused attempt.</h2>
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-blue-100">English Language plus your three registered subjects. The exam timer and answer submission are controlled by the server. Explanations are held until the exam is over.</p>
+        <Link to="/learning?mode=cbt" className="sabi-primary-button sabi-focus mt-7 !border-yellow-400 !bg-yellow-400 !text-[var(--sabi-navy)] hover:!bg-yellow-300">Configure CBT session <ArrowRight size={18}/></Link>
+      </section>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <article className="sabi-card p-5 sm:p-6"><h3 className="font-bold text-[var(--sabi-ink)]">Quick Mock</h3><p className="mt-2 text-sm leading-6 text-[var(--sabi-muted)]">40 questions in 30 minutes for a shorter exam-style practice session.</p><Link to="/learning?mode=cbt&configuration=quick-mock" className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--sabi-blue)]">Start Quick Mock <ArrowRight size={16}/></Link></article>
+        <article className="sabi-card p-5 sm:p-6"><h3 className="font-bold text-[var(--sabi-ink)]">Full Mock</h3><p className="mt-2 text-sm leading-6 text-[var(--sabi-muted)]">The complete 180-question, 120-minute examination simulation.</p><Link to="/learning?mode=cbt&configuration=full-mock" className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--sabi-blue)]">Start Full Mock <ArrowRight size={16}/></Link></article>
       </div>
-
-      <div className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[10px] uppercase">
-            Official UTME Mock
-          </span>
-          <h2 className="text-2xl font-black text-white">Full 4-Subject UTME Mock · 120 Minutes</h2>
-          <p className="text-xs font-medium max-w-xl text-blue-100">
-            English Language + 3 Chosen Subjects. Features accurate 8-digit onscreen calculator, question flagging, and instant JAMB score breakdown out of 400.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsExamModalOpen(true)}
-          className="px-7 py-4 rounded-2xl font-black text-sm bg-white hover:bg-blue-50 text-blue-800 transition flex items-center gap-2 shrink-0 shadow-lg cursor-pointer"
-        >
-          <span>Start Full Exam Now</span>
-          <ArrowRight size={18} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Link to="/learning?mode=cbt" className="p-6 rounded-3xl border text-left transition bg-blue-600 text-white border-blue-600"><span className="text-xs font-black uppercase">Backend-connected CBT</span><h3 className="text-xl font-black mt-1">Start saved CBT session</h3><p className="text-xs text-blue-100 mt-1">Uses your saved UTME subjects and server-side answer evaluation.</p></Link>
-        <button
-          type="button"
-          onClick={() => setIsExamModalOpen(true)}
-          className={`p-6 rounded-3xl border text-left transition cursor-pointer ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-400 shadow-xs'
-          }`}
-        >
-          <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">Quick Mock</span>
-          <h3 className="text-xl font-black mt-1">Rapid 4-Subject CBT Sprint</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Launch the interactive CBT simulator for a focused timed session.</p>
-        </button>
-
-        <Link
-          to="/blitz"
-          className={`p-6 rounded-3xl border text-left transition ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-400 shadow-xs'
-          }`}
-        >
-          <span className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase">Subject Speed Drill</span>
-          <h3 className="text-xl font-black mt-1">Single Subject · 60s Blitz</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Deep drill in English, Mathematics, Physics, or Chemistry.</p>
-        </Link>
-      </div>
-
-      <FullMockExamModal
-        isOpen={isExamModalOpen}
-        onClose={() => setIsExamModalOpen(false)}
-        onAddXP={() => {}}
-      />
     </div>
   );
 }
 
-// ==========================================
-// PROGRESS PAGE (DAILY ACTIVITY TRACKER & STRICT 100%-FLAWLESS SUBJECT RATINGS)
-// ==========================================
 export function ProgressPage() {
   const { isDark } = useTheme();
   const progress = useLiveUserProgress();
