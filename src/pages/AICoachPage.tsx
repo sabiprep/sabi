@@ -194,7 +194,7 @@ export function AICoachPage() {
               </div>}
               {messages.map((message,index)=><div key={index} className={`flex ${message.role==='user'?'justify-end':'justify-start'}`}>
                 <article className={`max-w-[92%] rounded-2xl p-4 sm:max-w-[82%] ${message.role==='user'?'bg-blue-600 text-white':'bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100'}`}>
-                  <div className="text-sm leading-7"><MathText text={message.content}/></div>
+                  <div className="text-sm leading-7 [&_strong]:!text-inherit [&_em]:!text-inherit"><MathText text={message.content}/></div>
                   {message.provider&&<p className="mt-2 text-[10px] opacity-60">Sabi AI · {message.provider}{message.model? ` / ${message.model}`:''}</p>}
                 </article>
               </div>)}
