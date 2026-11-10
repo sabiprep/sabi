@@ -677,7 +677,7 @@ app.post(
         .from('student_onboarding_question_versions')
         .select('id')
         .eq('question_set_id', questionSet.id)
-        .eq('version_label', 'v2')
+        .eq('version_label', req.body.questionSetVersion === 'v3' ? 'v3' : 'v2')
         .single();
       if (versionError || !questionVersion?.id) {
         return res.status(500).json({ error: 'The active onboarding question version is not available.' });
@@ -786,7 +786,7 @@ app.post(
             user_id: user.id,
             signal_key: 'student.motivation',
             schema_version: 1,
-            source_key: 'onboarding-v2',
+            source_key: 'onboarding-v3',
             value: normalizedAnswers.motivation.trim(),
             confidence: 1,
             purpose_key: 'personalized_learning',
