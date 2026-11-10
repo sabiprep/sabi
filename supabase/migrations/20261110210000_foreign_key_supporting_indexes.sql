@@ -51,4 +51,24 @@ create index if not exists idx_fk_signal_observations_source on public.student_s
 create index if not exists idx_fk_student_subject_selections_subject on public.student_subject_selections(subject_slug);
 create index if not exists idx_fk_student_subscriptions_plan on public.student_subscriptions(plan_id);
 
+
+-- Additional foreign keys found by the second, constraint-wide production audit.
+create index if not exists idx_fk_adaptive_decisions_selected_question on public.adaptive_decisions(selected_question_id);
+create index if not exists idx_fk_adaptive_decisions_session on public.adaptive_decisions(session_id);
+create index if not exists idx_fk_adaptive_decisions_trigger_attempt on public.adaptive_decisions(trigger_attempt_id);
+create index if not exists idx_fk_adaptive_decisions_variant_group on public.adaptive_decisions(variant_group_id);
+create index if not exists idx_fk_jamb_syllabus_objectives_version on public.jamb_syllabus_objectives(syllabus_version_id);
+create index if not exists idx_fk_question_attempts_session on public.question_attempts(session_id);
+create index if not exists idx_fk_question_attempts_session_item on public.question_attempts(session_item_id);
+create index if not exists idx_fk_question_attempts_variant_group on public.question_attempts(variant_group_id);
+create index if not exists idx_fk_question_generation_jobs_created_by on public.question_generation_jobs(created_by);
+create index if not exists idx_fk_question_generation_jobs_objective on public.question_generation_jobs(objective_id);
+create index if not exists idx_fk_question_generation_jobs_source on public.question_generation_jobs(source_id);
+create index if not exists idx_fk_question_generation_jobs_subject on public.question_generation_jobs(subject_slug);
+create index if not exists idx_fk_question_variant_groups_created_by on public.question_variant_groups(created_by);
+create index if not exists idx_fk_question_variant_groups_objective on public.question_variant_groups(objective_id);
+create index if not exists idx_fk_question_variant_groups_subtopic on public.question_variant_groups(subtopic_id);
+create index if not exists idx_fk_question_variant_groups_topic on public.question_variant_groups(topic_id);
+create index if not exists idx_fk_signal_observations_source_event on public.student_signal_observations(source_event_id);
+
 commit;
