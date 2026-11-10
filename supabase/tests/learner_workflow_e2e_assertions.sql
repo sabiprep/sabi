@@ -84,6 +84,7 @@ begin
       perform public.submit_learning_answer(v_session,v_q,'A',1234,v_user);
       raise exception 'Duplicate answer replay was accepted for %',v_mode;
     exception when no_data_found then null;
+      when sqlstate '55000' then null;
       when raise_exception then
         if sqlerrm like 'Duplicate answer replay was accepted%' then raise; end if;
     end;
