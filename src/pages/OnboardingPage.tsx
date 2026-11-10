@@ -78,12 +78,11 @@ export function OnboardingPage() {
         submissionKey,
         onboardingAnswers: answers,
         registeredSubjects: selectedSubjects,
-        targetScore: 320,
       });
       if (!result.ok) { setError(describeApiFailure(result, 'Could not save your onboarding answers.')); return; }
       localStorage.removeItem(SUBMISSION_KEY);
       localStorage.removeItem(DRAFT_KEY);
-      localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(answers));
+      localStorage.setItem('sabi_onboarding_v3_answers', JSON.stringify(answers));
       navigate('/home');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save your onboarding answers.');
