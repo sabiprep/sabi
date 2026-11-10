@@ -148,7 +148,10 @@ router.get('/institutions', requireAuth, asyncRoute(async (req, res) => {
     .eq('user_id', userId).eq('status', 'active').eq('school_organizations.status', 'active');
   if (error) return res.status(503).json({ error: 'Your institutions are unavailable.' });
   return res.json({ institutions: (data || []).map(row => ({
-    ...(Array.isArray(row.school_organizations) ? row.school_organizations[0] : row.school_organizations),
+    ...((Array.isArray(row.school_organizations) ? row.school_organizations[0] : row.school_organizations) || {}),
+    institution_type: ((Array.isArray(row.school_organizations) ? row.school_organizations[0] : row.school_organizations) as any)?.metadata?.institution_type || 'school',
+    state: ((Array.isArray(row.school_organizations) ? row.school_organizations[0] : row.school_organizations) as any)?.metadata?.state || null,
+    city: ((Array.isArray(row.school_organizations) ? row.school_organizations[0] : row.school_organizations) as any)?.metadata?.city || null,
     memberRole: row.role,
   })) });
 }));
