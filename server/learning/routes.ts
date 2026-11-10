@@ -14,6 +14,7 @@ import { isCBTExpired } from './cbtTimer';
 import { isCbtFeedbackLocked } from './answerVisibility';
 import { buildStoredAnswerReplay } from './answerReplay';
 import { buildLearningAnalytics, buildStudyPlan, buildSyllabusCoverage } from './engineExecution';
+import { selectPersonalizedQuestions } from './selectors';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP, recordStudyActivity } from '../gamification/service';
 
@@ -656,7 +657,6 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
           console.error('[SABI] Adaptive practice lookup failed:', masteryResult.error?.message || recentResult.error?.message);
           return res.status(503).json({ error: 'Personalized practice is temporarily unavailable.' });
         }
-        const { selectPersonalizedQuestions } = await import('./selectors');
         const ranked = selectPersonalizedQuestions({
           candidates: orderedCandidates,
           mastery: masteryResult.data || [],
