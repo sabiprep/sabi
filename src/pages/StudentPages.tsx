@@ -1215,183 +1215,69 @@ export function ProgressPage() {
 
 export function SubscriptionPage() {
   const { isDark } = useTheme();
-  const progress = useLiveUserProgress();
+  const [plans,setPlans]=useState<any[]>([]);
+  const [account,setAccount]=useState<any>(null);
+  const [transactions,setTransactions]=useState<any[]>([]);
+  const [readiness,setReadiness]=useState<any>(null);
+  const [loading,setLoading]=useState(true);
+  const [busyPlan,setBusyPlan]=useState('');
+  const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
 
-  const DIAMOND_SECTIONS = [
-    {
-      title: 'Blitz Speed Z-Path Sets & General Tests',
-      allocation: '1,500 💎',
-      desc: 'Unlocks all advanced Blitz sets, Set 2+ Z-Path levels, and comprehensive end-of-set General Tests.',
-    },
-    {
-      title: 'Smart Practice Branching Campus Road',
-      allocation: '1,500 💎',
-      desc: 'Unlocks all merged & unmerged 4-subject campus road sets, faculty laboratories, and road checkpoints.',
-    },
-    {
-      title: 'Official 180-Q CBT Mocks & Custom Simulator',
-      allocation: '1,000 💎',
-      desc: 'Unlimited full-length 120-minute UTME CBT mock exams and custom simulator configurations.',
-    },
-    {
-      title: 'Sabi AI Solution Verifications & Explanations',
-      allocation: '1,000 💎',
-      desc: 'On-demand step-by-step KaTeX & Pidgin AI verifications on every question in Blitz and Smart levels.',
-    },
-  ];
+  const refresh=async()=>{
+    setLoading(true);setError('');
+    try{
+      const [p,m,t,r]=await Promise.all([
+        apiFetch('/api/billing/plans'),apiFetch('/api/billing/me'),
+        apiFetch('/api/billing/transactions?limit=10'),apiFetch('/api/billing/readiness'),
+      ]);
+      const bodies=await Promise.all([p,m,t,r].map(x=>x.json().catch(()=>({}))));
+      if(!p.ok||!m.ok||!t.ok||!r.ok)throw new Error(bodies.find((x,i)=>![p,m,t,r][i].ok)?.error||'Billing information could not be loaded.');
+      setPlans(bodies[0].plans||[]);setAccount(bodies[1]);setTransactions(bodies[2].transactions||[]);setReadiness(bodies[3]);
+    }catch(e){setError(e instanceof Error?e.message:'Billing information is temporarily unavailable.');}
+    finally{setLoading(false);}
+  };
+  useEffect(()=>{void refresh();},[]);
 
-  return (
-    <div className="space-y-8 pb-16 lg:pb-0 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-            Official Nigerian UTME Pass · ₦10,000 One-Time Payment
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-            SABI Subscription & 5,000 💎 Diamond Vault
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            One-time payment of <strong>₦10,000</strong> credits <strong>5,000 Diamonds (5,000 💎)</strong> split across all study sections, protected by your Duolingo-style <strong>Streak Bonus Shield</strong>.
-          </p>
+  const checkout=async(planKey:string)=>{
+    setBusyPlan(planKey);setError('');setNotice('');
+    try{
+      const idempotencyKey=typeof crypto!=='undefined'&&'randomUUID'in crypto?crypto.randomUUID():`sabi-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const response=await apiFetch('/api/billing/checkout',{method:'POST',body:JSON.stringify({planKey,idempotencyKey})});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||'Checkout could not be started.');
+      if(body.checkoutUrl){window.location.assign(body.checkoutUrl);return;}
+      setNotice(body.reference?`Payment reference created: ${body.reference}`:'Checkout request accepted. Check your payment history for the latest status.');
+      await refresh();
+    }catch(e){setError(e instanceof Error?e.message:'Checkout is temporarily unavailable.');}
+    finally{setBusyPlan('');}
+  };
+  const money=(amount:number,currency='NGN')=>new Intl.NumberFormat('en-NG',{style:'currency',currency,maximumFractionDigits:2}).format(amount);
+  const card=isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200';
+
+  return <div className="mx-auto max-w-5xl space-y-7 pb-16 lg:pb-0">
+    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-blue-600">Account billing</p><h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Plans & subscription</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Plans, active access, AI credits and payment history shown from your SABI billing account. No assumed balance or invented benefits.</p></div><button onClick={()=>void refresh()} disabled={loading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700">{loading?'Refreshing…':'Refresh billing'}</button></header>
+    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
+    {notice&&<div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{notice}</div>}
+    {loading&&!account?<div className={`rounded-2xl border p-6 ${card}`}>Loading your billing account…</div>:<>
+      <section className={`rounded-2xl border p-5 sm:p-6 ${card}`}>
+        <h2 className="font-black text-slate-900 dark:text-white">Your current access</h2>
+        <p className="mt-1 text-xs text-slate-500">AI credits and entitlements returned by the billing service.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/40"><p className="text-xs text-blue-700 dark:text-blue-300">Available AI credits</p><p className="mt-1 text-2xl font-black text-blue-950 dark:text-white">{account?.aiCredits??'—'}</p></div>
+          <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Active / pending subscriptions</p><p className="mt-1 text-2xl font-black">{account?.subscriptions?.length??0}</p></div>
+          <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Payment provider</p><p className="mt-1 text-sm font-black">{readiness?.configured?readiness.provider||'Configured':'Not configured'}</p><p className="mt-1 text-xs text-slate-500">{readiness?.checkoutConfigured?'Checkout available':'Checkout unavailable'}</p></div>
         </div>
-
-        <Link
-          to="/home"
-          className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-black uppercase tracking-wider self-start shadow-2xs"
-        >
-          ← Back to Dashboard
-        </Link>
-      </div>
-
-      {/* Hero Banner with Custom SVG (/assets/environment/subscription_banner.svg) */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-blue-800 via-blue-900 to-slate-950 border border-blue-600/50 text-white shadow-xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-        <div className="lg:col-span-7 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-xs uppercase tracking-wider">
-            <Coins size={14} className="text-blue-700" />
-            <span>One-Time UTME Access · ₦10,000 = 5,000 💎</span>
-          </div>
-
-          <h2 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">
-            Unlock All Study Sets & Protect Your Vault with Daily Streaks
-          </h2>
-
-          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-            No recurring monthly charges. A single <strong>₦10,000</strong> payment allocates <strong>5,000 💎</strong> across Blitz, Smart Practice, CBT Mocks, and AI Verifications. Even better: serious candidates with an active daily streak earn free <strong>Streak Bonus Diamonds</strong> that are <strong>always spent first before your main 5,000 💎 balance is ever touched</strong>!
-          </p>
-
-          {/* Live User Diamond Balances */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15">
-              <span className="text-[10px] font-black uppercase tracking-wider text-yellow-200 block">
-                Streak Bonus Shield (Used 1st)
-              </span>
-              <span className="text-2xl font-mono font-black text-white">
-                {progress.streakBonusDiamonds} 💎
-              </span>
-              <span className="text-[10px] text-emerald-300 font-bold block mt-0.5">
-                Earned free via {progress.streakDays}d streak
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white/10 border border-white/15">
-              <span className="text-[10px] font-black uppercase tracking-wider text-blue-200 block">
-                Main Purchased Vault
-              </span>
-              <span className="text-2xl font-mono font-black text-white">
-                {progress.mainDiamonds} 💎
-              </span>
-              <span className="text-[10px] text-blue-200/80 font-bold block mt-0.5">
-                {progress.subscriptionPlan === 'free' ? '0 / 5,000 💎 (Unpaid)' : 'Active Pass'}
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-white text-blue-950 shadow-md">
-              <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 block">
-                Total Available Diamonds
-              </span>
-              <span className="text-2xl font-mono font-black text-blue-950">
-                {progress.diamonds} 💎
-              </span>
-              <span className="text-[10px] font-black text-blue-600 block mt-0.5">
-                Zero Fake Diamonds Policy
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 flex justify-center">
-          <img
-            src="/assets/environment/subscription_banner.svg"
-            alt="₦10,000 = 5,000 Diamonds Subscription Vault Banner"
-            className="w-full max-w-[360px] h-auto object-contain drop-shadow-2xl"
-          />
-        </div>
+        <div className="mt-5 space-y-2">{account?.subscriptions?.length?account.subscriptions.map((sub:any)=><div key={sub.id} className="flex flex-wrap justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700"><div><b>{sub.subscription_plans?.display_name||sub.subscription_plans?.plan_key||'Subscription'}</b><p className="text-xs text-slate-500">{sub.subscription_plans?.billing_interval||'Billing period'} · {sub.status}</p></div><span className="text-xs text-slate-500">{sub.current_period_end?`Until ${new Date(sub.current_period_end).toLocaleDateString()}`:'No period end supplied'}</span></div>):<p className="text-sm text-slate-500">No active, pending or past-due subscription was returned for this account.</p>}</div>
+        <div className="mt-4 flex flex-wrap gap-2">{(account?.entitlements||[]).map((item:any)=><span key={item.key} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{item.key}</span>)}</div>
       </section>
-
-      {/* How the 5,000 Diamonds Are Split Across Sections */}
-      <section className="space-y-4">
-        <h3 className="text-xl font-black text-slate-900 dark:text-white">
-          How Your 5,000 💎 Vault Is Split Across SABI Sections
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {DIAMOND_SECTIONS.map(sec => (
-            <div
-              key={sec.title}
-              className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-3 ${
-                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-xs uppercase">
-                  Section Allocation
-                </span>
-                <span className="text-xl font-mono font-black text-blue-700 dark:text-blue-400">
-                  {sec.allocation}
-                </span>
-              </div>
-              <h4 className="text-lg font-black text-slate-900 dark:text-white">{sec.title}</h4>
-              <p className="text-xs font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
-                {sec.desc}
-              </p>
-            </div>
-          ))}
-        </div>
+      <section className="space-y-4"><div><h2 className="text-xl font-black text-slate-900 dark:text-white">Available plans</h2><p className="text-sm text-slate-500">Prices and features come directly from the active plan catalogue.</p></div>
+        {plans.length? <div className="grid gap-4 md:grid-cols-2">{plans.map((plan:any)=><article key={plan.plan_key} className={`flex flex-col rounded-2xl border p-5 ${card}`}><div className="flex-1"><h3 className="text-lg font-black">{plan.display_name}</h3><p className="mt-2 text-2xl font-black text-blue-700 dark:text-blue-300">{money(Number(plan.price_amount),plan.currency||'NGN')}</p><p className="mt-1 text-xs text-slate-500">{String(plan.billing_interval||'').replace('_',' ')}</p>{plan.description&&<p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">{plan.description}</p>}<div className="mt-4 space-y-2 text-xs text-slate-500">{Object.entries(plan.features||{}).filter(([,v])=>v!==false&&v!==null).map(([key,value])=><p key={key}>• {key.replace(/[_-]/g,' ')}: {typeof value==='object'?JSON.stringify(value):String(value)}</p>)}</div></div><button onClick={()=>void checkout(plan.plan_key)} disabled={Boolean(busyPlan)||!readiness?.checkoutConfigured} className="mt-5 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{busyPlan===plan.plan_key?'Preparing secure checkout…':readiness?.checkoutConfigured?'Continue to secure checkout':'Checkout not configured'}</button></article>)}</div>:<div className={`rounded-2xl border border-dashed p-6 text-sm text-slate-500 ${card}`}>No active subscription plans are currently published.</div>}
       </section>
-
-      {/* Duolingo-Style Streak Bonus Explanation & Payment Gateway Readiness */}
-      <section
-        className={`p-6 sm:p-8 rounded-3xl border flex flex-col md:flex-row items-center justify-between gap-6 ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-        }`}
-      >
-        <div className="space-y-2 max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800/50 text-xs font-black uppercase tracking-wider text-amber-800 dark:text-yellow-300">
-            <Flame size={15} className="text-amber-500" />
-            <span>Duolingo-Style Serious Streak Protection</span>
-          </div>
-          <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-            Keep Your Daily Streak Alive & Spend Free Bonus Diamonds First
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Every consecutive day you practice (+15 💎) and every level you clear 100% flawlessly (+10 💎) adds free <strong>Streak Bonus Diamonds</strong> to your account. Whenever diamonds are required, SABI automatically deducts from your Streak Bonus bucket first—preserving your main 5,000 💎 vault!
-          </p>
-        </div>
-
-        <div className="w-full md:w-auto shrink-0 text-center space-y-2">
-          <button
-            type="button"
-            disabled
-            className="w-full md:w-auto px-7 py-4 rounded-2xl bg-blue-600 text-white font-black text-xs sm:text-sm uppercase tracking-wider opacity-90 cursor-not-allowed shadow-md"
-          >
-            ₦10,000 Payment Gateway (Integrating Soon)
-          </button>
-          <span className="text-[11px] font-bold text-blue-600 dark:text-blue-400 block">
-            Standard Subscription Vault Ready for Live Naira Checkout
-          </span>
-        </div>
-      </section>
-    </div>
-  );
+      <section className={`rounded-2xl border p-5 ${card}`}><h2 className="font-black">Recent payment activity</h2>{transactions.length?<div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{transactions.map((tx:any)=><div key={tx.reference} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><div><b>{tx.reference}</b><p className="text-xs text-slate-500">{new Date(tx.created_at).toLocaleString()}</p></div><div className="text-right"><b>{money(Number(tx.amount),tx.currency)}</b><p className="text-xs capitalize text-slate-500">{tx.status}</p>{tx.checkout_url&&tx.status==='pending'&&<a className="text-xs font-bold text-blue-600 underline" href={tx.checkout_url}>Resume payment</a>}</div></div>)}</div>:<p className="mt-3 text-sm text-slate-500">No payment transactions recorded yet.</p>}</section>
+    </>}
+    <Link to="/home" className="inline-flex text-sm font-bold text-blue-700 dark:text-blue-300">← Back to dashboard</Link>
+  </div>;
 }
 
 // ==========================================
