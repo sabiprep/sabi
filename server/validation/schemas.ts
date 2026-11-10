@@ -101,7 +101,7 @@ export const onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
       invalidV3 = true;
       ctx.addIssue({ code: 'custom', path: ['onboardingAnswers','subjectConfidence'], message: 'Provide a confidence rating from 1 to 5 for every selected subject.' });
     }
-    if (typeof a.motivation !== 'string') {
+    if (a.motivation !== undefined && typeof a.motivation !== 'string') {
       invalidV3 = true;
       ctx.addIssue({ code: 'custom', path: ['onboardingAnswers','motivation'], message: 'Motivation must be text.' });
     }
