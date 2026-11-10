@@ -805,8 +805,10 @@ router.post('/sessions/:sessionId/next', requireAuth, async (req, res) => {
     const pending = (items || []).find((item) => !item.answered_at);
     const loadQuestion = async (questionId: string, position: number) => {
       const { data: question, error } = await supabaseAdmin.from('question_bank')
-        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
-        .eq('id', questionId).eq('status', 'published').maybeSingle();
+        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, question_sources!inner(verification_status, permitted_use)')
+        .eq('id', questionId).eq('exam_type', 'UTME').eq('status', 'published').eq('review_status', 'approved')
+        .eq('question_sources.verification_status', 'verified')
+        .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed']).maybeSingle();
       if (error || !question) return null;
       return {
         id: question.id, position, subject: question.subject, topic: question.topic,
@@ -981,9 +983,13 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
     const { data: questions, error: questionsError } = questionIds.length
       ? await supabaseAdmin
           .from('question_bank')
-          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, answer, explanation_short, explanation')
+          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, answer, explanation_short, explanation, question_sources!inner(verification_status, permitted_use)')
           .in('id', questionIds)
+          .eq('exam_type', 'UTME')
           .eq('status', 'published')
+          .eq('review_status', 'approved')
+          .eq('question_sources.verification_status', 'verified')
+          .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed'])
       : { data: [], error: null };
     if (questionsError) {
       console.error('[SABI] Session question content lookup failed:', questionsError.message);
