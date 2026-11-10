@@ -65,7 +65,9 @@ export function selectPersonalizedQuestions<T extends LearningCandidate>(input: 
   }
 
   // Blitz deliberately reserves at least 30% of its feed for new topic/question discovery.
-  const discoveryCount = Math.min(limit, Math.max(1, Math.floor(limit * 0.3)));
+  // A one-question continuation request must still prioritize due/weak topics.
+  // Reserve discovery only when a multi-question batch can contain both intents.
+  const discoveryCount = limit <= 1 ? 0 : Math.min(limit, Math.max(1, Math.floor(limit * 0.3)));
   const targetedCount = limit - discoveryCount;
   const targeted = ranked.filter((row) => row.reason !== 'balanced_practice').slice(0, targetedCount);
   const targetedIds = new Set(targeted.map((row) => row.question.id));
