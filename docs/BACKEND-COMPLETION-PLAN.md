@@ -113,3 +113,23 @@ This is an evidence-based execution register. A table, route, migration, or test
 - Provider credentials, email/SMS credentials, and payment credentials are intentionally not configured. Simulation must use mock adapters.
 - A previous GitHub signal-worker workflow failed because the required worker URL/secret were not configured. This must be rechecked after staging configuration; secrets must be set through provider secret stores, never source control.
 - Production Vercel deployment availability/quota must be checked before any release.
+
+
+## Verification addendum — 10 November 2026
+
+A second read-only audit of the live database found 145 public-schema foreign keys, all validated, with 65 lacking a valid, non-partial supporting leading-column index. The branch migration now adds 65 indexes covering that complete audit result; the disposable PostgreSQL assertion checks the leading index key attributes in order. This is a proposed additive migration only and has not been applied to production.
+
+The live security snapshot also confirmed 91/91 public tables have RLS enabled, with zero public-schema SECURITY DEFINER functions executable by either anon or authenticated roles. This is a point-in-time baseline, not a substitute for policy-by-policy and cross-tenant integration tests.
+
+The synthetic QA catalogue contains 25 archetypes in the non-exposed `sabi_simulation` schema. CI now asserts its count, data bounds, and lack of anon/authenticated access. Existing SQL integration tests exercise a learner answer-to-mastery/spaced-repetition path; this is not yet a full browser-driven journey across every learner feature.
+
+The AI mock gateway is fully offline and explicitly opt-in. Its mock configuration does not use a placeholder API credential. The AI provider gateway still obtains real provider credentials and model/pricing configuration from server-side environment variables; dynamic secret management and operator-controlled provider configuration are not yet evidenced as complete.
+
+## Release gates still open
+
+- Run and pass the latest branch CI, including all 65 FK indexes and simulation isolation assertions.
+- Create/use an isolated Supabase staging environment and complete end-to-end integration plus backup/restore verification. No branch/project was created because the separate environment has a cost and requires the user's approval.
+- Ingest and approve official JAMB syllabus objectives with source provenance. The current syllabus versions remain drafts and the objective table was empty in the audited production snapshot.
+- Review question-source redistribution rights and provenance before exposing the existing question bank broadly. Do not import the user's separate question backup until the final schema and dry-run report are reviewed.
+- Complete provider configuration lifecycle, prompt activation/rollback and output-quality event integration before enabling real AI in production.
+- Obtain explicit approval for production migration/deployment after backup and rollback procedures are verified.
