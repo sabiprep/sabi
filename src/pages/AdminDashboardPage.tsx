@@ -33,7 +33,7 @@ const modules: ModuleInfo[] = [
   { key: 'learning', name: 'Learning Engine', description: 'Adaptive learning, mastery rules, revision schedules and score prediction.', icon: GraduationCap },
   { key: 'content', name: 'Question Bank HQ', description: 'Question authoring, source provenance, moderation and publication.', icon: FileQuestion, href: '/admin/content' },
   { key: 'academics', name: 'Syllabus & Exams', description: 'Syllabus versions, objectives, subject mappings and exam configuration.', icon: BookOpen },
-  { key: 'access', name: 'People & Access', description: 'Hybrid roles, scoped assignments, permission reviews and admin activity.', icon: LockKeyhole },
+  { key: 'access', name: 'People & Access', description: 'Hybrid roles, scoped assignments, permission reviews and admin activity.', icon: LockKeyhole, href: '/admin/access' },
   { key: 'institutions', name: 'Schools & Parents', description: 'Institution verification, classes, enrolment and parent consent.', icon: Building2 },
   { key: 'revenue', name: 'Revenue & Payments', description: 'Plans, transactions, provider reconciliation, refunds and subscriptions.', icon: CreditCard },
   { key: 'credits', name: 'Credits & Entitlements', description: 'Credit ledgers, allowances, grants, expiry and subscription access.', icon: Coins },
