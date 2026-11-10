@@ -14,18 +14,16 @@ import {
   Coins,
   Award,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useTheme } from '../app/ThemeProvider';
-import { SEED_QUESTIONS } from '../data/questions';
-import type { Question, SubjectName } from '../types';
+import type { SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
 import {
   getRealUserProgress,
   recordLevelCompletion,
 } from '../utils/userProgressStore';
 import JAMBCalculatorModal from '../components/mobile/JAMBCalculatorModal';
-import LevelSimulatorWorkspace from '../components/LevelSimulatorWorkspace';
 
 const BLITZ_SUBJECTS: SubjectName[] = [
   'English Language',
@@ -64,11 +62,10 @@ const SET_2_BASE_LEVELS: Omit<BlitzLevel, 'unlocked' | 'completed' | 'stars'>[] 
 
 export function BlitzPage() {
   const { isDark } = useTheme();
+  const navigate = useNavigate();
   const [userProgress, setUserProgress] = useState(() => getRealUserProgress());
 
   const [activeSubject, setActiveSubject] = useState<SubjectName>('Mathematics');
-  const [activeLevel, setActiveLevel] = useState<BlitzLevel | null>(null);
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showChestModal, setShowChestModal] = useState(false);
@@ -101,19 +98,6 @@ export function BlitzPage() {
     });
   }, [userProgress, isSet2Unlocked]);
 
-  // Build question list for the active level & subject
-  const activeQuestionList = useMemo(() => {
-    if (!activeLevel) return [];
-    const subjectPool = SEED_QUESTIONS.filter(q => q.subject === activeSubject);
-    const pool = subjectPool.length > 0 ? subjectPool : SEED_QUESTIONS;
-    const count = activeLevel.questionCount;
-    const result: Question[] = [];
-    for (let i = 0; i < count; i++) {
-      result.push(pool[(i + (activeLevel.id - 1) * 3) % pool.length]);
-    }
-    return result;
-  }, [activeLevel, activeSubject]);
-
   const handleStartLevel = (level: BlitzLevel) => {
     if (!level.unlocked) return;
     if (level.type === 'chest') {
@@ -124,8 +108,12 @@ export function BlitzPage() {
       return;
     }
     sound.playTap();
-    setActiveLevel(level);
-    setIsSimulatorOpen(true);
+    const params = new URLSearchParams({
+      mode: 'blitz',
+      subject: activeSubject === 'English Language' ? 'Use of English' : activeSubject,
+      limit: String(level.questionCount),
+    });
+    navigate(`/learning?${params.toString()}`);
   };
 
   // Fixed Zigzag coordinates for Set 1 (6 nodes) so the sharp Z-line connects center-to-center
@@ -575,122 +563,7 @@ export function BlitzPage() {
       {/* ======================================================== */}
       {/* SHARED FULL-SCREEN LEVEL SIMULATOR + SOLUTION DASHBOARD + AI */}
       {/* ======================================================== */}
-      {isSimulatorOpen && activeLevel && (
-        <LevelSimulatorWorkspace
-          mode="blitz"
-          levelId={activeLevel.id}
-          levelTitle={`${activeSubject} · ${activeLevel.title}`}
-          subjectLabel={activeSubject}
-          questions={activeQuestionList}
-          secondsPerQuestion={timerSecondsPerQuestion}
-          isGeneralTest={activeLevel.type === 'general_test'}
-          onClose={() => setIsSimulatorOpen(false)}
-          onProgressUpdated={next => setUserProgress(next)}
-        />
-      )}
 
-      {/* ======================================================== */}
-      {/* TREASURE CHEST UNLOCKED MODAL */}
-      {/* ======================================================== */}
-      {showChestModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0E172A] border-2 border-blue-600 rounded-3xl p-6 sm:p-8 max-w-sm w-full text-center text-slate-900 dark:text-white shadow-2xl">
-            <div className="w-28 h-28 mx-auto mb-4">
-              <img
-                src="/assets/environment/treasure_chest_open.svg"
-                alt="Treasure Chest Open"
-                className="w-full h-full object-contain filter drop-shadow-md"
-              />
-            </div>
-            <h3 className="text-xl font-black text-blue-700 dark:text-blue-400 mb-1">
-              Milestone Vault Cleared!
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-300 mb-6">
-              You unlocked Milestone Vault Level {claimedChestLevel}! Continue down the Z-path toward the Set 1 General Test.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                if (claimedChestLevel) {
-                  const nextProg = recordLevelCompletion('blitz', claimedChestLevel, 3);
-                  setUserProgress(nextProg);
-                }
-                setShowChestModal(false);
-              }}
-              className="w-full py-3.5 rounded-xl font-black text-sm bg-blue-600 text-white hover:bg-blue-700 transition cursor-pointer"
-            >
-              Unlock Next Level →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ======================================================== */}
-      {/* SETTINGS / SPEED MODAL */}
-      {/* ======================================================== */}
-      {showSettingsModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0E172A] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-sm w-full text-slate-900 dark:text-white shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-black">Blitz Speed Settings</h3>
-              <button
-                type="button"
-                onClick={() => setShowSettingsModal(false)}
-                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 block">
-                  Seconds Per Question (Blitz Speed):
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[45, 60, 90].map(sec => (
-                    <button
-                      key={sec}
-                      type="button"
-                      onClick={() => setTimerSecondsPerQuestion(sec)}
-                      className={`py-2 rounded-xl text-xs font-bold border-2 transition cursor-pointer ${
-                        timerSecondsPerQuestion === sec
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'border-slate-200 dark:border-slate-800'
-                      }`}
-                    >
-                      {sec} seconds
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                <span className="text-xs font-bold">Sound Effects:</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !audioEnabled;
-                    setAudioEnabled(next);
-                    sound.setEnabled(next);
-                  }}
-                  className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 cursor-pointer"
-                >
-                  {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowSettingsModal(false)}
-              className="mt-6 w-full py-3 rounded-xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-500 transition cursor-pointer"
-            >
-              Save & Return
-            </button>
-          </div>
-        </div>
-      )}
 
       <JAMBCalculatorModal
         isOpen={isCalculatorOpen}

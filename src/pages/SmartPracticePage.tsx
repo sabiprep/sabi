@@ -11,14 +11,12 @@ import {
   Lock,
   Coins,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
-import { SEED_QUESTIONS } from '../data/questions';
-import type { Question, SubjectName } from '../types';
+import type { SubjectName } from '../types';
 import { sound } from '../utils/soundEffects';
 import { getRealUserProgress } from '../utils/userProgressStore';
 import JAMBCalculatorModal from '../components/mobile/JAMBCalculatorModal';
-import LevelSimulatorWorkspace from '../components/LevelSimulatorWorkspace';
 
 const SMART_SUBJECTS: SubjectName[] = [
   'English Language',
@@ -122,14 +120,13 @@ const BASE_ROAD_LEVELS: Omit<SmartBranchLevel, 'unlocked' | 'completed' | 'stars
 
 export function SmartPracticePage() {
   const { isDark } = useTheme();
+  const navigate = useNavigate();
   const [userProgress, setUserProgress] = useState(() => getRealUserProgress());
 
   // TOP MODE CONTROLS: Merge all 4 subjects OR Unmerge (handle 1 subject at a time)
   const [subjectMode, setSubjectMode] = useState<'merged' | 'unmerged'>('merged');
   const [activeSingleSubject, setActiveSingleSubject] = useState<SubjectName>('Mathematics');
 
-  const [activeLevel, setActiveLevel] = useState<SmartBranchLevel | null>(null);
-  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
 
   const roadLevels: SmartBranchLevel[] = useMemo(() => {
@@ -150,38 +147,17 @@ export function SmartPracticePage() {
     });
   }, [userProgress, subjectMode, activeSingleSubject]);
 
-  // Build questions for the selected level based on Merged (all 4 subjects) vs Unmerged (single subject)
-  const levelQuestions: Question[] = useMemo(() => {
-    if (!activeLevel) return [];
-    const count = activeLevel.questionCount;
-
-    if (subjectMode === 'unmerged') {
-      const singlePool = SEED_QUESTIONS.filter(q => q.subject === activeSingleSubject);
-      const pool = singlePool.length > 0 ? singlePool : SEED_QUESTIONS;
-      const list: Question[] = [];
-      for (let i = 0; i < count; i++) {
-        list.push(pool[(i + (activeLevel.id - 1) * 2) % pool.length]);
-      }
-      return list;
-    }
-
-    // Merged Mode: Balanced rotation across all 4 registered UTME subjects
-    const mergedPool = SEED_QUESTIONS.filter(q =>
-      SMART_SUBJECTS.includes(q.subject as SubjectName)
-    );
-    const pool = mergedPool.length > 0 ? mergedPool : SEED_QUESTIONS;
-    const list: Question[] = [];
-    for (let i = 0; i < count; i++) {
-      list.push(pool[(i + (activeLevel.id - 1) * 3) % pool.length]);
-    }
-    return list;
-  }, [activeLevel, subjectMode, activeSingleSubject]);
-
   const handleOpenLevel = (lvl: SmartBranchLevel) => {
     if (!lvl.unlocked) return;
     sound.playTap();
-    setActiveLevel(lvl);
-    setIsSimulatorOpen(true);
+    const params = new URLSearchParams({ mode: 'smart_practice', limit: String(lvl.questionCount) });
+    const canonicalSubjects = SMART_SUBJECTS.map((value) => value === 'English Language' ? 'Use of English' : value);
+    if (subjectMode === 'unmerged') {
+      params.set('subject', activeSingleSubject === 'English Language' ? 'Use of English' : activeSingleSubject);
+    } else {
+      params.set('subjects', canonicalSubjects.join(','));
+    }
+    navigate(`/learning?${params.toString()}`);
   };
 
   return (
@@ -600,21 +576,7 @@ export function SmartPracticePage() {
       {/* ======================================================== */}
       {/* SHARED FULL-SCREEN LEVEL SIMULATOR + SOLUTION DASHBOARD + AI */}
       {/* ======================================================== */}
-      {isSimulatorOpen && activeLevel && (
-        <LevelSimulatorWorkspace
-          mode="smart"
-          levelId={activeLevel.id}
-          levelTitle={activeLevel.title}
-          subjectLabel={
-            subjectMode === 'unmerged' ? activeSingleSubject : activeLevel.subjectTag
-          }
-          questions={levelQuestions}
-          secondsPerQuestion={75}
-          isGeneralTest={Boolean(activeLevel.isGeneralTest)}
-          onClose={() => setIsSimulatorOpen(false)}
-          onProgressUpdated={next => setUserProgress(next)}
-        />
-      )}
+
 
       <JAMBCalculatorModal
         isOpen={isCalculatorOpen}

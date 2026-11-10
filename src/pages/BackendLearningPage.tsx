@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, Clock3, LoaderCircle, RefreshCw, Target } from 'lucide-react';
 import MathText from '../components/MathText';
@@ -23,8 +23,14 @@ export function BackendLearningPage() {
   const [params] = useSearchParams();
   const initialMode = (params.get('mode') || 'diagnostic') as Mode;
   const [mode,setMode] = useState<Mode>(MODE_LABELS[initialMode] ? initialMode : 'diagnostic');
-  const [subject,setSubject] = useState('Use of English');
-  const [limit,setLimit] = useState(20);
+  const [subject,setSubject] = useState(params.get('subject') || 'Use of English');
+  const [subjects] = useState<string[]>(() => (params.get('subjects') || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4));
+  const [topic] = useState(params.get('topic') || '');
+  const [limit,setLimit] = useState(() => {
+    const requested = Number(params.get('limit') || 20);
+    return Number.isInteger(requested) ? Math.max(1, Math.min(180, requested)) : 20;
+  });
+  const questionStartedAt = useRef(Date.now());
   const [configurationKey,setConfigurationKey] = useState<'quick-mock'|'full-mock'>('quick-mock');
   const [session,setSession] = useState<LearningSession|null>(null);
   const [questions,setQuestions] = useState<LearningQuestion[]>([]);
@@ -79,9 +85,12 @@ export function BackendLearningPage() {
 
   const start = async () => {
     setLoading(true);setError('');setSession(null);setQuestions([]);setIndex(0);setChoice(null);setAnswerResult(null);
-    const payload:any={mode,limit,metadata:{source:'phase1-learning-ui'}};
+    questionStartedAt.current=Date.now();
+    const payload:any={mode,limit,metadata:{source:'unified-learning-ui'}};
     if(mode==='cbt'){payload.configurationKey=configurationKey;}
+    else if(subjects.length){payload.subjects=subjects;}
     else if(subject.trim()){payload.subject=subject.trim();}
+    if(topic.trim())payload.topic=topic.trim();
     const result=await apiPostJson('/api/learning/sessions',payload);
     setLoading(false);
     if(!result.ok){setError(describeApiFailure(result,'Could not start this learning session.'));return;}
@@ -94,7 +103,7 @@ export function BackendLearningPage() {
     if(!session||!current||!choice||loading)return;
     setLoading(true);setError('');
     const result=await apiPostJson(`/api/learning/sessions/${session.id}/answers`,{
-      questionId:current.id,selectedOption:choice,elapsedMs:0
+      questionId:current.id,selectedOption:choice,elapsedMs:Math.max(0,Math.min(3600000,Date.now()-questionStartedAt.current))
     });
     if(!result.ok){setLoading(false);setError(describeApiFailure(result,'Your answer was not saved.'));return;}
     const fresh=await apiFetch(`/api/learning/sessions/${session.id}`);
@@ -139,12 +148,12 @@ export function BackendLearningPage() {
     await requestPostExamExplanation(questionId);
   };
 
-  const next = () => {setIndex(v=>Math.min(v+1,questions.length-1));setChoice(null);setAnswerResult(null);setAiExplanation(null);};
+  const next = () => {questionStartedAt.current=Date.now();setIndex(v=>Math.min(v+1,questions.length-1));setChoice(null);setAnswerResult(null);setAiExplanation(null);};
   const resume = async (id:string) => {
     setLoading(true);setError('');
     const response=await apiFetch(`/api/learning/sessions/${id}`);
     if(!response.ok){setLoading(false);setError('Could not resume this session.');return;}
-    const data=await response.json();setSession(data.session);setQuestions(data.questions||[]);
+    const data=await response.json();questionStartedAt.current=Date.now();setSession(data.session);setQuestions(data.questions||[]);
     const firstUnanswered=(data.questions||[]).findIndex((q:LearningQuestion)=>!q.answerState);
     setIndex(firstUnanswered<0?Math.max(0,(data.questions||[]).length-1):firstUnanswered);
     setChoice(null);setAnswerResult(null);setLoading(false);
