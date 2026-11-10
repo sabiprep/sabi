@@ -34,17 +34,6 @@ begin
     raise exception 'An active v1 engine contract is required before activation';
   end if;
 
-  if exists (
-    select 1
-    from public.engine_registry e
-    where e.engine_key in ('study-plan-engine', 'learning-analytics-engine')
-      and not exists (
-        select 1 from public.signal_engine_subscriptions s
-        where s.engine_key = e.engine_key and s.is_enabled
-      )
-  ) then
-    raise exception 'Enabled signal subscriptions are required before activation';
-  end if;
 end;
 $$;
 
