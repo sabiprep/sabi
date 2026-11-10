@@ -165,3 +165,5 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110210000_foreign_key_supporting_indexes.sql
       - name: Verify every foreign key has a supporting index
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/foreign_key_index_assertions.sql
+      - name: Verify complete learner workflow end to end
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/learner_workflow_e2e_assertions.sql
