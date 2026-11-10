@@ -11,6 +11,7 @@ import { AIUnavailableError } from './types';
 import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from './usage';
 import { formatApprovedKnowledgeContext, searchApprovedKnowledge } from './retrieval';
 import { getAICreditBalance } from '../billing/entitlements';
+import { isCBTExpired } from '../learning/cbtTimer';
 import { simulateAICost } from './controlPlane';
 
 const router = Router();
@@ -25,6 +26,19 @@ const aiCreditGrantSchema = z.strictObject({
   reason: z.string().trim().min(3).max(300),
   idempotencyKey: z.string().trim().min(12).max(128),
 });
+
+async function hasLiveCBTSession(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('learning_sessions')
+    .select('id, mode, status, metadata')
+    .eq('user_id', userId)
+    .eq('mode', 'cbt')
+    .eq('status', 'in_progress')
+    .order('started_at', { ascending: false })
+    .limit(10);
+  if (error) throw error;
+  return (data || []).some((session) => !isCBTExpired(session));
+}
 
 async function hasAICoConsent(userId: string): Promise<boolean> {
   const { data, error } = await supabaseAdmin
@@ -303,13 +317,20 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
   let aiUsageRecorded = false;
 
   try {
+    if (await hasLiveCBTSession(userId)) {
+      return res.status(403).json({
+        error: 'AI tutoring is unavailable while you have an active CBT. Submit the exam before using AI Coach.',
+        code: 'CBT_AI_LOCKED',
+      });
+    }
+
     if (sessionId) {
       const { data: session, error } = await supabaseAdmin
-        .from('learning_sessions').select('id, mode, status')
+        .from('learning_sessions').select('id, mode, status, metadata')
         .eq('id', sessionId).eq('user_id', userId).maybeSingle();
       if (error) return res.status(503).json({ error: 'The learning session could not be verified.' });
       if (!session) return res.status(404).json({ error: 'Learning session not found.' });
-      if (session.mode === 'cbt' && session.status !== 'completed') {
+      if (session.mode === 'cbt' && session.status !== 'completed' && !isCBTExpired(session)) {
         return res.status(403).json({ error: 'AI tutoring is unavailable during an active CBT.', code: 'CBT_AI_LOCKED' });
       }
     }
@@ -466,9 +487,16 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
   let aiUsageRecorded = false;
 
   try {
+    if (await hasLiveCBTSession(userId)) {
+      return res.status(403).json({
+        error: 'AI explanations are unavailable while you have an active CBT. Submit the exam before requesting help.',
+        code: 'CBT_AI_LOCKED',
+      });
+    }
+
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('learning_sessions')
-      .select('id, mode, status')
+      .select('id, mode, status, metadata')
       .eq('id', sessionId)
       .eq('user_id', userId)
       .maybeSingle();
@@ -481,7 +509,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
 
     // AI assistance is prohibited while a timed CBT is active. A completed CBT
     // may request explanations only in its post-exam review state.
-    if (session.mode === 'cbt' && session.status !== 'completed') {
+    if (session.mode === 'cbt' && session.status !== 'completed' && !isCBTExpired(session)) {
       return res.status(403).json({
         error: 'AI explanations are available after you submit your CBT.',
         code: 'CBT_AI_LOCKED',
