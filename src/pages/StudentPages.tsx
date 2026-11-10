@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Activity, ArrowRight, Bell, BookMarked, BookOpen, BookOpenCheck,
+  Activity, ArrowRight, Bell, BookMarked, BookOpen, BookOpenCheck, BrainCircuit,
   CheckCircle, ChevronRight, ClipboardList, Coins, Copy, Check, Download,
   Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
-  Menu, Moon, Settings, ShieldCheck, Sliders, Sun, Target,
+  Menu, Moon, Settings, ShieldCheck, Sliders, SlidersHorizontal, Sun, Target,
   X, Zap, Award, Trash2, CheckCircle2
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
