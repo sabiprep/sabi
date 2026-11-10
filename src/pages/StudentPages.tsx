@@ -898,239 +898,77 @@ export function HomePage() {
 }
 
 export function DailyMissionsPage() {
-  const { isDark } = useTheme();
-  const progress = useLiveUserProgress();
+  const [progress, setProgress] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<any>(null);
+  const [plan, setPlan] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const blitzGoal = 15;
-  const blitzDone = Math.min(blitzGoal, progress.dailyBlitzSolved);
-  const smartDone = Math.min(1, progress.dailySmartLevelsCleared);
-  const diagDone = Math.min(1, progress.dailyDiagnosticsCompleted);
+  const refresh = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [p, r, s] = await Promise.all([
+        apiFetch('/api/learning/progress'),
+        apiFetch('/api/learning/recommendations'),
+        apiFetch('/api/learning/study-plan?days=7'),
+      ]);
+      const bodies = await Promise.all([p, r, s].map(response => response.json().catch(() => ({}))));
+      if (!p.ok || !r.ok || !s.ok) {
+        const failed = bodies.find((body, index) => ![p, r, s][index].ok);
+        throw new Error(failed?.error || 'Your learning activity could not be loaded.');
+      }
+      setProgress(bodies[0]);
+      setRecommendations(bodies[1]);
+      setPlan(bodies[2]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Your learning activity is temporarily unavailable.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void refresh(); }, []);
+
+  const sessions = progress?.recentSessions || [];
+  const mastery = progress?.mastery || [];
+  const dueReviews = recommendations?.reviewPlan || [];
+  const card = 'rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900';
 
   return (
-    <div className="space-y-8 pb-16 lg:pb-0 max-w-5xl mx-auto">
-      <div>
-        <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
-          Daily Missions & Study Consistency
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Daily UTME Missions
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Track your real daily study targets across Blitz, Smart Practice, and Weak Topic Diagnostics.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className={`p-5 rounded-3xl border-2 flex items-center gap-4 ${
-          isDark ? 'bg-slate-900/80 border-amber-500/30' : 'bg-white border-amber-200'
-        }`}>
-          <div className="p-3.5 rounded-2xl bg-amber-500 text-slate-950 font-black shadow-md shadow-amber-500/20">
-            <Flame size={26} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider block">
-              Streak Flame
-            </span>
-            <span className="text-xl font-black text-slate-900 dark:text-white">
-              {progress.streakDays} {progress.streakDays === 1 ? 'Day' : 'Days'} Active 🔥
-            </span>
-          </div>
+    <div className="mx-auto max-w-5xl space-y-6 pb-16 lg:pb-0">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-blue-600">Learning consistency</p>
+          <h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Your study activity</h1>
+          <p className="mt-2 text-sm text-slate-500">A record of your saved learning sessions, topic evidence and recommended reviews. Figures come from your SABI account.</p>
         </div>
-
-        <div className={`p-5 rounded-3xl border-2 flex items-center gap-4 ${
-          isDark ? 'bg-slate-900/80 border-blue-500/30' : 'bg-white border-blue-200'
-        }`}>
-          <div className="p-3.5 rounded-2xl bg-blue-600 text-white font-black shadow-md shadow-blue-600/20">
-            <Coins size={26} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-              Verified Diamonds
-            </span>
-            <span className="text-xl font-black text-slate-900 dark:text-white">
-              {progress.diamonds} 💎
-            </span>
-          </div>
-        </div>
-
-        <div className={`p-5 rounded-3xl border-2 flex items-center gap-4 ${
-          isDark ? 'bg-slate-900/80 border-emerald-500/30' : 'bg-white border-emerald-200'
-        }`}>
-          <div className="p-3.5 rounded-2xl bg-emerald-500 text-slate-950 font-black shadow-md shadow-emerald-500/20">
-            <Zap size={26} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider block">
-              Today's Blitz Count
-            </span>
-            <span className="text-xl font-black text-slate-900 dark:text-white">
-              {progress.dailyBlitzSolved} Solved Today
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Real Daily Quests Container */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className={`lg:col-span-7 p-6 sm:p-8 rounded-3xl border-2 space-y-5 ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-        } shadow-sm`}>
-          <div className="flex items-center justify-between">
-            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Award size={22} className="text-amber-500" />
-              <span>Today's Live Missions</span>
-            </h3>
-            <span className="text-xs font-black text-amber-500 uppercase tracking-wider">
-              Real-Time Tracking
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {/* Mission 1 */}
-            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
-              isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                {blitzDone >= blitzGoal ? (
-                  <CheckCircle size={22} className="text-emerald-500" />
-                ) : (
-                  <span className="w-5 h-5 rounded-full border-2 border-amber-400 inline-block" />
-                )}
-                <div>
-                  <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
-                    Solve 15 Blitz Speed Questions Today
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    {blitzDone} / {blitzGoal} Completed today
-                  </span>
-                </div>
-              </div>
-              <Link
-                to="/blitz"
-                className="px-4 py-2 rounded-xl text-xs font-black bg-blue-700 hover:bg-blue-800 text-white transition"
-              >
-                {blitzDone >= blitzGoal ? 'Completed ✓' : 'Drill Blitz →'}
-              </Link>
-            </div>
-
-            {/* Mission 2 */}
-            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
-              isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                {smartDone >= 1 ? (
-                  <CheckCircle size={22} className="text-emerald-500" />
-                ) : (
-                  <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
-                )}
-                <div>
-                  <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
-                    Clear 1 Campus Level in Smart Practice
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Progress: {smartDone} / 1 Level today
-                  </span>
-                </div>
-              </div>
-              <Link
-                to="/smart"
-                className="text-xs font-black text-blue-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-              >
-                <span>{smartDone >= 1 ? 'Completed ✓' : 'Go to Campus'}</span>
-                <ChevronRight size={14} />
-              </Link>
-            </div>
-
-            {/* Mission 3 */}
-            <div className={`p-4 rounded-2xl border flex items-center justify-between ${
-              isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'
-            }`}>
-              <div className="flex items-center gap-3">
-                {diagDone >= 1 ? (
-                  <CheckCircle size={22} className="text-emerald-500" />
-                ) : (
-                  <span className="w-5 h-5 rounded-full border-2 border-slate-400 inline-block" />
-                )}
-                <div>
-                  <span className="text-xs sm:text-sm font-bold block text-slate-900 dark:text-white">
-                    Complete 1 Diagnostic on Weak Topics
-                  </span>
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    Progress: {diagDone} / 1 Completed today
-                  </span>
-                </div>
-              </div>
-              <Link
-                to="/diagnostic"
-                className="text-xs font-black text-blue-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-              >
-                <span>Start Diagnostic</span>
-                <ChevronRight size={14} />
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        {/* 180-Q Mock Exam Quick Launch */}
-        <div className="lg:col-span-5 p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 text-white shadow-xl flex flex-col justify-between border border-blue-600">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[10px] uppercase tracking-wider mb-3">
-              <FileQuestion size={12} className="text-blue-700" /> Official JAMB UTME Simulator
-            </div>
-            <h3 className="text-xl sm:text-2xl font-black tracking-tight leading-tight text-white">
-              180-Question Timed Mock Exam
-            </h3>
-            <p className="text-xs text-blue-100 font-medium mt-2 leading-relaxed">
-              Simulate full UTME exam conditions with 120-minute countdown, 8-digit onscreen calculator, and instant official JAMB result slip.
-            </p>
-          </div>
-
-          <div className="pt-6">
-            <Link
-              to="/cbt"
-              className="w-full py-4 rounded-2xl font-black text-sm bg-white hover:bg-blue-50 text-blue-800 transition flex items-center justify-center gap-2 shadow-lg"
-            >
-              <span>Launch Official CBT Exam</span>
-              <ArrowRight size={16} />
-            </Link>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-// ==========================================
-// PRACTICE HUB PAGE
-// ==========================================
-export function PracticePage() {
-  const modes = [
-    { title: 'Smart Practice', tag: 'Adaptive guidance', description: 'Let Sabi choose useful practice based on your learning evidence. Recommendations refresh as you answer.', href: '/smart', icon: BrainCircuit, tone: 'blue', action: 'Start Smart Practice' },
-    { title: 'Blitz', tag: 'Focused reinforcement', description: 'Strengthen what you know with one question at a time, immediate feedback and no speed pressure.', href: '/blitz', icon: Zap, tone: 'yellow', action: 'Start Blitz' },
-    { title: 'Custom Practice', tag: 'Your choices', description: 'Choose the subjects and topics you want to work on when you have a specific goal in mind.', href: '/practice/custom', icon: SlidersHorizontal, tone: 'slate', action: 'Build a practice set' },
-    { title: 'CBT Simulator', tag: 'Exam conditions', description: 'Practise in a structured JAMB-style mock with a server-controlled timer and exam review flow.', href: '/learning?mode=cbt', icon: FileQuestion, tone: 'navy', action: 'Enter CBT Simulator' },
-  ];
-  return (
-    <div className="space-y-7 pb-16 lg:pb-0">
-      <header className="max-w-3xl">
-        <span className="text-xs font-bold uppercase tracking-[.18em] text-[var(--sabi-blue)]">Your learning space</span>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--sabi-navy)] sm:text-4xl">Choose how you want to learn.</h1>
-        <p className="mt-3 text-sm leading-7 text-[var(--sabi-muted)] sm:text-base">Every mode has a different purpose. Pick the one that matches what you need right now.</p>
+        <button onClick={() => void refresh()} disabled={loading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700">{loading ? 'Refreshing…' : 'Refresh activity'}</button>
       </header>
-      <section className="grid gap-4 sm:grid-cols-2">
-        {modes.map(({title,tag,description,href,icon:Icon,tone,action}) => (
-          <article key={title} className="sabi-card flex min-h-[250px] flex-col p-5 sm:p-6">
-            <div className="flex items-start justify-between gap-3">
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${tone==='yellow'?'bg-yellow-50 text-amber-600':tone==='navy'?'bg-indigo-50 text-indigo-800':tone==='slate'?'bg-slate-100 text-slate-700':'bg-blue-50 text-blue-700'}`}><Icon size={23}/></span>
-              <span className="rounded-full bg-slate-50 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{tag}</span>
-            </div>
-            <h2 className="mt-5 text-xl font-bold text-[var(--sabi-ink)]">{title}</h2>
-            <p className="mt-2 flex-1 text-sm leading-6 text-[var(--sabi-muted)]">{description}</p>
-            <Link to={href} className="sabi-primary-button sabi-focus mt-5 w-full">{action}<ArrowRight size={17}/></Link>
-          </article>
-        ))}
-      </section>
-      <p className="text-xs leading-5 text-[var(--sabi-muted)]">Your learning history and authoritative results are saved through Sabi’s learning service. Availability may depend on your account and current content access.</p>
+
+      {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
+      {loading && !progress ? <div className={card}>Loading your saved learning activity…</div> : progress && <>
+        <section className="grid gap-3 sm:grid-cols-3">
+          <div className={card}><p className="text-xs text-slate-500">Recent sessions</p><p className="mt-2 text-3xl font-black">{sessions.length}</p><p className="mt-1 text-xs text-slate-500">Latest 20 sessions</p></div>
+          <div className={card}><p className="text-xs text-slate-500">Tracked topics</p><p className="mt-2 text-3xl font-black">{mastery.length}</p><p className="mt-1 text-xs text-slate-500">Topics with saved mastery evidence</p></div>
+          <div className={card}><p className="text-xs text-slate-500">Reviews due</p><p className="mt-2 text-3xl font-black">{(progress.dueReviews || []).length}</p><p className="mt-1 text-xs text-slate-500">Based on saved review dates</p></div>
+        </section>
+
+        <section className={card}>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-black">Recommended study plan</h2><p className="mt-1 text-sm text-slate-500">{plan?.summary || 'No study plan summary is available.'}</p></div><Link to="/learning?mode=smart_practice" className="text-sm font-bold text-blue-600">Start Smart Practice →</Link></div>
+          {plan?.status === 'diagnostic_required' ? <p className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">Complete a diagnostic session to establish your starting evidence.</p> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{(plan?.days || []).map((day:any) => <article key={day.day} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"><p className="text-xs font-black uppercase text-blue-600">Day {day.day}</p>{day.actions?.length ? day.actions.map((action:any,index:number) => <p key={index} className="mt-2 text-sm"><b>{action.subject}</b><br/>{action.topic}<span className="block text-xs text-slate-500">{action.action === 'spaced_review' ? 'Spaced review' : 'Targeted practice'}</span></p>) : <p className="mt-2 text-sm text-slate-500">Continue balanced practice across your subjects.</p>}</article>)}</div>}
+        </section>
+
+        <section className={card}>
+          <h2 className="font-black">Topics to revisit</h2>
+          {dueReviews.length ? <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{dueReviews.map((item:any,index:number) => <div key={item.subject+'-'+item.topic+'-'+index} className="flex flex-wrap items-center justify-between gap-2 py-3"><div><p className="text-sm font-bold">{item.subject} · {item.topic}</p><p className="text-xs text-slate-500">{item.reason}</p></div><Link to={`/learning?mode=smart_practice&subject=${encodeURIComponent(item.subject)}&topic=${encodeURIComponent(item.topic)}`} className="text-xs font-bold text-blue-600">Practise topic →</Link></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No due reviews are currently recorded. Keep practising to build your learning evidence.</p>}
+        </section>
+
+        <section className={card}>
+          <h2 className="font-black">Recent sessions</h2>
+          {sessions.length ? <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{sessions.slice(0,10).map((item:any) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold capitalize">{String(item.mode).replaceAll('_',' ')}</p><p className="text-xs text-slate-500">{item.answered_count}/{item.total_questions} answered · {new Date(item.started_at).toLocaleString()}</p></div><span className="text-xs font-semibold capitalize text-slate-500">{item.status}</span></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No saved learning sessions yet. Start a diagnostic or practice session to begin.</p>}
+        </section>
+      </>}
     </div>
   );
 }
