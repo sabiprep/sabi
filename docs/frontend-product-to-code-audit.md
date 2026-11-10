@@ -378,3 +378,8 @@ Commit: `ebda22203963e93f7e5ed3075ee795aa4ed3869d` (dashboard/progress rebuild),
 - Vercel deployment status for the newest commit was pending at the last status check.
 - The code has not been run locally in this environment. Do not claim typecheck, test suite, production build or full journey success until the corresponding checks complete and are inspected.
 - Onboarding, continuous adaptive session continuation, shared learning session acceptance, AI Tutor integration, remaining profile/subscription/admin/portal screens and full end-to-end tests remain open. The 90% completion target is not yet certified.
+
+
+### CI result — dashboard/progress batch
+
+The GitHub Actions run `42858375987` completed successfully on 10 Nov 2026. All steps passed, including TypeScript type-check, automated tests, web/API build, disposable PostgreSQL migration application, schema/security checks, adaptive learning behaviour checks, historical migration idempotency, attempt-capture idempotency/sequencing, backend service foundation checks, notification security and learning-engine activation checks. This validates the current repository CI workflow on the branch; it does not certify unimplemented onboarding v3, adaptive session continuation, or unverified frontend journeys.
