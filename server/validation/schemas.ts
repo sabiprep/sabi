@@ -59,6 +59,7 @@ const onboardingBaseSchema = z.strictObject({
   registeredSubjects: registeredSubjectsSchema.optional(),
   targetScore: z.number().min(0).max(400).optional(),
   submissionKey: z.string().uuid().optional(),
+  questionSetVersion: z.enum(['v2', 'v3']).optional(),
 });
 
 // Older clients submitted the selected subjects only inside onboardingAnswers.
