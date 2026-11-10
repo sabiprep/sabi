@@ -1176,7 +1176,7 @@ export function ProgressPage() {
     try {
       const [a,p,r,c] = await Promise.all([
         apiFetch('/api/learning/analytics'), apiFetch('/api/learning/progress'),
-        apiFetch('/api/learning/recommendations'), apiFetch('/api/learning/syllabus-coverage'),
+        apiFetch('/api/learning/recommendations'), apiFetch('/api/learning/coverage'),
       ]);
       if (!a.ok || !p.ok || !r.ok) throw new Error('Progress information is temporarily unavailable.');
       const [ad,pd,rd] = await Promise.all([a.json(),p.json(),r.json()]);
