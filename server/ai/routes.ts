@@ -34,8 +34,7 @@ async function hasLiveCBTSession(userId: string): Promise<boolean> {
     .eq('user_id', userId)
     .eq('mode', 'cbt')
     .eq('status', 'in_progress')
-    .order('started_at', { ascending: false })
-    .limit(10);
+    .order('started_at', { ascending: false });
   if (error) throw error;
   return (data || []).some((session) => !isCBTExpired(session));
 }
