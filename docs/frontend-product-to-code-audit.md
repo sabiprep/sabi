@@ -361,3 +361,20 @@ The frontend is **not yet 90% aligned and is not implementation-ready for launch
 - Record evidence for accessibility, small-screen Android layouts, slow-network behavior, and session recovery.
 
 **Release status:** Continue on this feature branch. Do not merge or deploy production until the acceptance gate is satisfied and reviewed.
+
+
+## 12. Second implementation batch — dashboard and progress
+
+Commit: `ebda22203963e93f7e5ed3075ee795aa4ed3869d` (dashboard/progress rebuild), followed by `8eef75fbdb8318e3d9040efee4eca90f3f303893` (coverage route correction).
+
+- Replaced the student dashboard's primary presentation with a product-led learning workspace.
+- Dashboard metrics now come from authenticated server endpoints: `/api/learning/analytics`, `/api/learning/progress`, and `/api/learning/recommendations`.
+- The dashboard now displays recorded answered attempts, observed accuracy, backend mastery record count, recommendation/next action, due reviews, priority topics, and recent sessions. It no longer treats local diamond/streak counters or a locally stored candidate name as the core learning state.
+- Replaced the legacy Progress page with subject attempt accuracy, backend topic mastery, due reviews, weakest topics from server-recorded answers, and verified syllabus coverage from `/api/learning/coverage`.
+- Added loading, retry/error and insufficient-data states. Score prediction is deliberately not presented as guaranteed admission or mastery.
+
+### Validation update
+- The branch triggered the repository's Backend CI workflow after the dashboard changes; the run was still in progress at the last status check.
+- Vercel deployment status for the newest commit was pending at the last status check.
+- The code has not been run locally in this environment. Do not claim typecheck, test suite, production build or full journey success until the corresponding checks complete and are inspected.
+- Onboarding, continuous adaptive session continuation, shared learning session acceptance, AI Tutor integration, remaining profile/subscription/admin/portal screens and full end-to-end tests remain open. The 90% completion target is not yet certified.
