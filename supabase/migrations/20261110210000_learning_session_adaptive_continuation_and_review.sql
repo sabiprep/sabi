@@ -57,9 +57,16 @@ begin
     raise exception 'Question is not part of this active session or was already answered' using errcode = 'P0002';
   end if;
 
-  select * into v_question
-  from public.question_bank
-  where id = p_question_id and status = 'published';
+  select qb.* into v_question
+  from public.question_bank qb
+  join public.question_sources qs on qs.id = qb.source_id
+  where qb.id = p_question_id
+    and qb.exam_type = 'UTME'
+    and qb.status = 'published'
+    and qb.review_status = 'approved'
+    and qs.verification_status = 'verified'
+    and qs.permitted_use in ('practice_display', 'redistribution_allowed')
+  limit 1;
 
   if not found then
     raise exception 'Question is no longer available' using errcode = 'P0002';
