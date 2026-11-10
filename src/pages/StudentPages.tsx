@@ -973,6 +973,34 @@ export function DailyMissionsPage() {
   );
 }
 
+export function PracticePage() {
+  const experiences = [
+    { title: 'Smart Practice', description: 'Let Sabi choose what you should practise next using your recorded learning evidence.', detail: 'Adaptive, recommendation-led practice', href: '/smart', action: 'Start Smart Practice', tone: 'blue' },
+    { title: 'Blitz', description: 'Reinforce concepts with focused question-and-feedback cycles. Stop whenever you are ready.', detail: 'Quick, focused reinforcement', href: '/blitz', action: 'Start Blitz', tone: 'yellow' },
+    { title: 'Custom Practice', description: 'Choose the subjects and topics you intentionally want to work on.', detail: 'You choose the practice scope', href: '/practice/custom', action: 'Configure practice', tone: 'slate' },
+    { title: 'CBT Simulator', description: 'Attempt a timed mock examination under structured UTME conditions.', detail: 'Exam-style simulation', href: '/cbt', action: 'Open CBT simulator', tone: 'navy' },
+  ];
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 pb-16 lg:pb-0">
+      <header className="max-w-3xl">
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--sabi-blue)]">Choose how to learn</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--sabi-navy)] sm:text-4xl">Practice that moves you forward.</h1>
+        <p className="mt-3 text-sm leading-7 text-[var(--sabi-muted)] sm:text-base">Each practice mode has a different purpose. Choose adaptive guidance, focused reinforcement, your own topic selection or a full exam simulation.</p>
+      </header>
+      <section className="grid gap-4 sm:grid-cols-2">
+        {experiences.map(item => (
+          <article key={item.title} className="sabi-card flex flex-col p-5 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-[var(--sabi-blue)]">{item.detail}</p>
+            <h2 className="mt-3 text-xl font-bold text-[var(--sabi-ink)]">{item.title}</h2>
+            <p className="mt-2 flex-1 text-sm leading-6 text-[var(--sabi-muted)]">{item.description}</p>
+            <Link to={item.href} className="sabi-primary-button sabi-focus mt-5 w-fit">{item.action}<ArrowRight size={17}/></Link>
+          </article>
+        ))}
+      </section>
+    </div>
+  );
+}
+
 export function CbtPage() {
   return (
     <div className="space-y-7 pb-16 lg:pb-0">
