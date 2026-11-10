@@ -59,3 +59,21 @@ describe('Sabi AI gateway configuration', () => {
     expect(JSON.stringify(readiness)).not.toContain('another-secret');
   });
 });
+
+
+describe('Sabi AI mock provider readiness', () => {
+  it('keeps the mock provider disabled unless explicitly enabled', () => {
+    process.env.SABI_AI_PROVIDER_ORDER = 'mock';
+    delete process.env.SABI_AI_MOCK_ENABLED;
+    expect(getAIReadiness().configuredProviders).toEqual([]);
+    expect(getAIReadiness().missingConfiguration[0].missing).toContain('SABI_AI_MOCK_ENABLED=true');
+  });
+
+  it('reports an enabled mock provider without requiring or exposing a vendor key', () => {
+    process.env.SABI_AI_PROVIDER_ORDER = 'mock';
+    process.env.SABI_AI_MOCK_ENABLED = 'true';
+    const readiness = getAIReadiness('tutor_chat');
+    expect(readiness.configuredProviders).toEqual(['mock']);
+    expect(JSON.stringify(readiness)).not.toContain('mock-provider-no-secret');
+  });
+});
