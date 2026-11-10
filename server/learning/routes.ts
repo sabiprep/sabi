@@ -27,7 +27,7 @@ const createSessionSchema = z.strictObject({
   topic: z.string().trim().min(1).max(160).optional(),
   topics: z.array(z.string().trim().min(1).max(160)).max(20).optional(),
   subtopic: z.string().trim().min(1).max(160).optional(),
-  difficulty: z.string().trim().min(1).max(40).optional(),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
   year: z.number().int().min(1990).max(2100).optional(),
   limit: z.number().int().min(1).max(180).default(20),
   configurationKey: z.enum(['quick-mock', 'full-mock']).optional(),
@@ -579,7 +579,7 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
           .eq('review_status', 'approved')
           .eq('question_sources.verification_status', 'verified')
           .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed'])
-          .ilike('subject', questionBankSubject)
+          .eq('subject', questionBankSubject)
           .limit(1000);
 
         if (subjectError) {
@@ -626,11 +626,11 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
         .eq('question_sources.verification_status', 'verified')
         .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed']);
 
-      if (requestedSubjects.length === 1) query = query.ilike('subject', requestedSubjects[0]);
+      if (requestedSubjects.length === 1) query = query.eq('subject', requestedSubjects[0]);
       else if (requestedSubjects.length > 1) query = query.in('subject', requestedSubjects);
-      if (topic) query = query.ilike('topic', topic);
+      if (topic) query = query.eq('topic', topic);
       if (topics?.length) query = query.in('topic', topics);
-      if (subtopic) query = query.ilike('subtopic', subtopic);
+      if (subtopic) query = query.eq('subtopic', subtopic);
       if (difficulty) query = query.ilike('difficulty', difficulty);
       if (year !== undefined) query = query.eq('year', year);
 
