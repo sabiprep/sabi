@@ -78,7 +78,7 @@ router.post('/parent/link', requireAuth, asyncRoute(async (req, res) => {
     }
     return res.status(503).json({ error: 'The parent relationship could not be confirmed.' });
   }
-  return res.status(201).json({ linked: true, parentUserId: parentId });
+  return res.status(201).json({ linked: true });
 }));
 
 router.get('/parent/children', requireAuth, asyncRoute(async (req, res) => {
