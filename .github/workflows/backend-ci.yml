@@ -140,5 +140,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/notification_worker_assertions.sql
       - name: Activate implemented study plan and learning analytics engines
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110150131_activate_study_plan_and_learning_analytics_engines.sql
+      - name: Activate the AI tutor context adapter
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110150316_activate_ai_tutor_context_engine.sql
       - name: Verify implemented learning engine activation
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/learning_engine_activation_assertions.sql
