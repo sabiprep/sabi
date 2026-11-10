@@ -36,6 +36,31 @@ Phase 1.6 adds canonical signal definitions and schema versions, signal sources,
 
 The legacy onboarding backfill only creates user-owned records for profile IDs that still exist in `auth.users`. A legacy profile without a matching auth account was deliberately skipped; its original `profiles` row and JSON answers were left untouched.
 
+## Additional production migrations verified on 10 November 2026
+
+The hosted SABI project reports the following subsequent migrations in
+`supabase_migrations.schema_migrations`:
+
+| Version | Migration |
+| --- | --- |
+| 20261108154532 | adaptive_question_bank_foundation_v1 |
+| 20261108154655 | adaptive_question_bank_fk_indexes_v1 |
+| 20261108154801 | capture_learning_question_attempts_v1 |
+| 20261108171326 | backend_service_foundations |
+| 20261108171333 | notification_worker |
+| 20261108173139 | official_jamb_syllabus_ingestion_v1 |
+| 20261108203403 | harden_question_attempt_capture_v2 |
+| 20261109233858 | ai_engine_controls |
+| 20261110070908 | sabi_command_admin_rbac |
+| 20261110145846 | daily_study_streak_engine |
+| 20261110150131 | activate_study_plan_and_learning_analytics_engines |
+| 20261110150316 | activate_ai_tutor_context_engine |
+| 20261110194211 | candidate_onboarding_v3 |
+
+The candidate onboarding migration file is named with its exact production
+ledger version. This prevents the CLI from treating the same SQL as a second,
+unapplied migration under a different timestamp.
+
 ## Production seeds applied
 
 - Engine registry: 10 engine records.
@@ -49,7 +74,7 @@ The optional `simulation_personas.sql` seed was not applied to production. It re
 
 Backend CI on the migration-history reconciliation passed against disposable PostgreSQL, including the recovered historical migrations, Phase 1.5 and Phase 1.6 migrations, seeds, and assertions. The orphan-profile regression is also covered in CI.
 
-Production migration ledger now contains all 14 versions above. The migration-history reconciliation is complete; no synthetic history rows were inserted and no paid Supabase branch was created.
+The hosted production ledger was re-queried on 10 November 2026 and contains 27 migration versions: the 14 historical/Phase 1 versions above plus the 13 subsequent versions listed below. The migration-history reconciliation is complete; no synthetic history rows were inserted and no paid Supabase branch was created.
 
 ## Remaining operational work
 
@@ -59,3 +84,23 @@ Production migration ledger now contains all 14 versions above. The migration-hi
 4. Review the Supabase advisor findings: service-only tables intentionally use RLS with no client policies (deny by default); leaked-password protection and foreign-key index recommendations remain follow-up hardening.
 
 Never replay historical SQL or fabricate migration-history rows. Apply future schema changes as new timestamped migrations and verify them in disposable CI first.
+
+
+## Frontend completion — adaptive continuation and CBT review (PR #42 follow-up)
+
+The pending frontend-completion branch adds the timestamped migration
+`20261110210000_learning_session_adaptive_continuation_and_review.sql`.
+It is **not applied to production** by this change.
+
+The migration:
+- Adds a non-null `marked_for_review` flag to learning session items.
+- Keeps Smart Practice and Blitz sessions active between completed batches.
+- Adds a service-role-only, row-locking RPC to append exactly one eligible question
+  and increment the session question count atomically.
+- Preserves the existing answer grading and spaced-repetition updates.
+
+The matching disposable-PostgreSQL assertion script is
+`supabase/tests/learning_session_continuation_assertions.sql`, and Backend CI
+applies the migration after the current production-aligned migration sequence
+before running those assertions. Apply the migration to the hosted project only
+after the PR has passed CI and has been reviewed.

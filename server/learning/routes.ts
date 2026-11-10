@@ -50,6 +50,8 @@ const questionReviewSchema = z.strictObject({
   notes: z.string().trim().max(1000).optional(),
 });
 
+const reviewFlagSchema = z.strictObject({ markedForReview: z.boolean() });
+
 const answerSchema = z.strictObject({
   questionId: z.string().trim().min(1).max(100),
   selectedOption: z.enum(['A', 'B', 'C', 'D']),
@@ -764,6 +766,163 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
 });
 
 
+
+/**
+ * Append exactly one server-selected question to a completed Smart Practice or
+ * Blitz batch. The database RPC serializes concurrent requests and owns the
+ * session item + total_questions update in one transaction.
+ */
+router.post('/sessions/:sessionId/next', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const sessionId = String(req.params.sessionId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+    return res.status(400).json({ error: 'A valid session ID is required.' });
+  }
+
+  try {
+    const { data: session, error: sessionError } = await supabaseAdmin
+      .from('learning_sessions')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, metadata')
+      .eq('id', sessionId).eq('user_id', userId).maybeSingle();
+    if (sessionError) return res.status(503).json({ error: 'The learning session could not be loaded.' });
+    if (!session) return res.status(404).json({ error: 'Learning session not found.' });
+    if (!['smart_practice', 'blitz'].includes(session.mode)) {
+      return res.status(400).json({ error: 'Continuous question delivery is available only in Smart Practice and Blitz.' });
+    }
+    if (session.status !== 'in_progress') {
+      return res.status(409).json({ error: 'This learning session has already ended.' });
+    }
+
+    const { data: items, error: itemsError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('question_id, position, answered_at')
+      .eq('session_id', sessionId).eq('user_id', userId)
+      .order('position', { ascending: true });
+    if (itemsError) return res.status(503).json({ error: 'The session question list is temporarily unavailable.' });
+
+    const existingIds = new Set((items || []).map((item) => item.question_id));
+    const pending = (items || []).find((item) => !item.answered_at);
+    const loadQuestion = async (questionId: string, position: number) => {
+      const { data: question, error } = await supabaseAdmin.from('question_bank')
+        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, question_sources!inner(verification_status, permitted_use)')
+        .eq('id', questionId).eq('exam_type', 'UTME').eq('status', 'published').eq('review_status', 'approved')
+        .eq('question_sources.verification_status', 'verified')
+        .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed']).maybeSingle();
+      if (error || !question) return null;
+      return {
+        id: question.id, position, subject: question.subject, topic: question.topic,
+        subtopic: question.subtopic, year: question.year, question: question.question,
+        options: { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d },
+        difficulty: question.difficulty, answerState: null,
+      };
+    };
+
+    if (pending) {
+      const question = await loadQuestion(pending.question_id, pending.position);
+      if (!question) return res.status(409).json({ error: 'The next saved question is no longer available.' });
+      res.set('Cache-Control', 'no-store');
+      return res.json({ question, session, appended: false });
+    }
+
+    const finishSession = async () => {
+      const completedAt = new Date().toISOString();
+      const { data: finished, error } = await supabaseAdmin.from('learning_sessions')
+        .update({ status: 'completed', completed_at: completedAt })
+        .eq('id', sessionId).eq('user_id', userId).eq('status', 'in_progress')
+        .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at, metadata')
+        .maybeSingle();
+      if (error) return res.status(503).json({ error: 'The completed learning session could not be finalized.' });
+      await supabaseAdmin.from('learning_events').upsert({
+        user_id: userId, session_id: sessionId,
+        client_event_id: `adaptive-exhausted:${sessionId}`,
+        event_type: 'session_completed',
+        event_payload: { source: 'server_adaptive_selector', reason: 'question_pool_exhausted_or_limit_reached' },
+        occurred_at: completedAt, schema_version: 1,
+      }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      await enqueueSessionCompletionNotification(userId, sessionId, session.mode);
+      res.set('Cache-Control', 'no-store');
+      return res.json({ completed: true, session: finished || { ...session, status: 'completed', completed_at: completedAt } });
+    };
+
+    if (Number(session.answered_count) !== Number(session.total_questions)) {
+      return res.status(409).json({ error: 'Answer the current question before requesting the next one.' });
+    }
+    if (Number(session.total_questions) >= 180) return finishSession();
+
+    const [masteryResult, recentResult, candidateResult] = await Promise.all([
+      supabaseAdmin.from('student_topic_mastery')
+        .select('subject, topic, mastery_score, next_review_at, attempted_count, correct_streak, interval_days, last_result')
+        .eq('user_id', userId),
+      supabaseAdmin.from('learning_session_items')
+        .select('question_id')
+        .eq('user_id', userId).not('answered_at', 'is', null)
+        .order('answered_at', { ascending: false }).limit(120),
+      supabaseAdmin.from('question_bank')
+        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, question_sources!inner(verification_status, permitted_use)')
+        .eq('exam_type', 'UTME').eq('status', 'published').eq('review_status', 'approved')
+        .eq('question_sources.verification_status', 'verified')
+        .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed'])
+        .limit(1000),
+    ]);
+
+    if (masteryResult.error || recentResult.error || candidateResult.error) {
+      console.error('[SABI] Adaptive next-question lookup failed:',
+        masteryResult.error?.message || recentResult.error?.message || candidateResult.error?.message);
+      return res.status(503).json({ error: 'Personalized practice is temporarily unavailable.' });
+    }
+
+    const candidates = (candidateResult.data || []).filter((question) => !existingIds.has(question.id));
+    const recentIds = [...new Set([
+      ...(recentResult.data || []).map((row) => row.question_id),
+      ...existingIds,
+    ])];
+    const selected = selectPersonalizedQuestions({
+      candidates,
+      mastery: masteryResult.data || [],
+      recentQuestionIds: recentIds,
+      limit: 1,
+      mode: session.mode as 'smart_practice' | 'blitz',
+    });
+
+    if (!selected.length) return finishSession();
+
+    const nextCandidate = selected[0];
+    const { data: appended, error: appendError } = await supabaseAdmin.rpc('append_learning_session_item', {
+      p_session_id: sessionId,
+      p_user_id: userId,
+      p_question_id: nextCandidate.question.id,
+    });
+    if (appendError) {
+      console.error('[SABI] Atomic adaptive question append failed:', appendError.message);
+      return res.status(503).json({ error: 'The next personalized question could not be saved. Please retry.' });
+    }
+    if (appended?.at_limit) return finishSession();
+
+    if (appended?.appended) {
+      const decisionRows = buildAdaptiveDecisionRows({
+        userId, sessionId, mode: session.mode as 'smart_practice' | 'blitz',
+        selections: selected as Array<{ question: any; reason: PersonalizedSelection<any>['reason'] }>,
+      });
+      const { error: decisionError } = await supabaseAdmin.from('adaptive_decisions').insert(decisionRows);
+      if (decisionError) console.error('[SABI] Adaptive continuation decision audit failed:', decisionError.message);
+    }
+
+    const question = await loadQuestion(String(appended.question_id), Number(appended.position));
+    if (!question) return res.status(503).json({ error: 'The next saved question could not be loaded. Please retry.' });
+    const { data: updatedSession, error: updatedSessionError } = await supabaseAdmin.from('learning_sessions')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at, metadata')
+      .eq('id', sessionId).eq('user_id', userId).maybeSingle();
+    if (updatedSessionError || !updatedSession) return res.status(503).json({ error: 'The updated session could not be loaded.' });
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({ question, session: updatedSession, appended: Boolean(appended.appended) });
+  } catch (error) {
+    console.error('[SABI] Unexpected adaptive continuation error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while selecting the next question.' });
+  }
+});
+
 router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
   const userId = authenticatedUser(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
@@ -811,7 +970,7 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
 
     const { data: items, error: itemsError } = await supabaseAdmin
       .from('learning_session_items')
-      .select('question_id, position, selected_option, is_correct, elapsed_ms, answered_at')
+      .select('question_id, position, selected_option, is_correct, elapsed_ms, answered_at, marked_for_review')
       .eq('session_id', sessionId)
       .eq('user_id', userId)
       .order('position', { ascending: true });
@@ -824,9 +983,13 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
     const { data: questions, error: questionsError } = questionIds.length
       ? await supabaseAdmin
           .from('question_bank')
-          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, answer, explanation_short, explanation')
+          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, answer, explanation_short, explanation, question_sources!inner(verification_status, permitted_use)')
           .in('id', questionIds)
+          .eq('exam_type', 'UTME')
           .eq('status', 'published')
+          .eq('review_status', 'approved')
+          .eq('question_sources.verification_status', 'verified')
+          .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed'])
       : { data: [], error: null };
     if (questionsError) {
       console.error('[SABI] Session question content lookup failed:', questionsError.message);
@@ -844,6 +1007,7 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
         return [{
           id: question.id,
           position: item.position,
+          markedForReview: Boolean(item.marked_for_review),
           subject: question.subject,
           topic: question.topic,
           subtopic: question.subtopic,
@@ -871,6 +1035,88 @@ router.get('/sessions/:sessionId', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('[SABI] Unexpected session retrieval error:', error);
     return res.status(500).json({ error: 'An unexpected error occurred while loading the session.' });
+  }
+});
+
+
+router.patch('/sessions/:sessionId/questions/:questionId/flag', requireAuth, validateBody(reviewFlagSchema), async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const sessionId = String(req.params.sessionId || '');
+  const questionId = String(req.params.questionId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+    return res.status(400).json({ error: 'A valid session ID is required.' });
+  }
+  const { markedForReview } = req.body as z.infer<typeof reviewFlagSchema>;
+  try {
+    const { data: session, error: sessionError } = await supabaseAdmin.from('learning_sessions')
+      .select('id, mode, status, metadata').eq('id', sessionId).eq('user_id', userId).maybeSingle();
+    if (sessionError) return res.status(503).json({ error: 'The CBT session could not be verified.' });
+    if (!session) return res.status(404).json({ error: 'CBT session not found.' });
+    if (session.mode !== 'cbt') return res.status(400).json({ error: 'Review flags are available only during a CBT.' });
+    if (session.status !== 'in_progress' || isCBTExpired(session)) {
+      return res.status(409).json({ error: 'This CBT has ended. Review flags can no longer be changed.' });
+    }
+    const { data: item, error } = await supabaseAdmin.from('learning_session_items')
+      .update({ marked_for_review: markedForReview })
+      .eq('session_id', sessionId).eq('user_id', userId).eq('question_id', questionId)
+      .select('question_id, marked_for_review').maybeSingle();
+    if (error) return res.status(503).json({ error: 'The review flag could not be saved.' });
+    if (!item) return res.status(404).json({ error: 'That question is not part of this CBT.' });
+    res.set('Cache-Control', 'no-store');
+    return res.json({ questionId: item.question_id, markedForReview: item.marked_for_review });
+  } catch (error) {
+    console.error('[SABI] CBT review flag update failed:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while updating the review flag.' });
+  }
+});
+
+router.post('/sessions/:sessionId/submit', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const sessionId = String(req.params.sessionId || '');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)) {
+    return res.status(400).json({ error: 'A valid session ID is required.' });
+  }
+  try {
+    const { data: session, error: sessionError } = await supabaseAdmin.from('learning_sessions')
+      .select('id, mode, status, total_questions, answered_count, metadata')
+      .eq('id', sessionId).eq('user_id', userId).maybeSingle();
+    if (sessionError) return res.status(503).json({ error: 'The learning session could not be verified.' });
+    if (!session) return res.status(404).json({ error: 'Learning session not found.' });
+    if (session.status === 'completed') return res.json({ status: 'completed', session });
+    if (session.status !== 'in_progress') return res.status(409).json({ error: 'This learning session cannot be submitted.' });
+
+    const completedAt = new Date().toISOString();
+    const { data: completedSession, error: completeError } = await supabaseAdmin.from('learning_sessions')
+      .update({ status: 'completed', completed_at: completedAt })
+      .eq('id', sessionId).eq('user_id', userId).eq('status', 'in_progress')
+      .select('id, mode, subject, status, total_questions, answered_count, correct_count, started_at, completed_at, metadata')
+      .maybeSingle();
+    if (completeError) return res.status(503).json({ error: 'Your session could not be submitted. Please retry.' });
+
+    if (completedSession) {
+      const { error: eventError } = await supabaseAdmin.from('learning_events').upsert({
+        user_id: userId, session_id: sessionId,
+        client_event_id: `session-submit:${sessionId}`,
+        event_type: 'session_completed',
+        event_payload: {
+          source: 'student_submit',
+          mode: session.mode,
+          answered_count: session.answered_count,
+          total_questions: session.total_questions,
+        },
+        occurred_at: completedAt, schema_version: 1,
+      }, { onConflict: 'user_id,client_event_id', ignoreDuplicates: true });
+      if (eventError) console.error('[SABI] Session submission event could not be recorded:', eventError.message);
+      await enqueueSessionCompletionNotification(userId, sessionId, session.mode);
+    }
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({ status: 'completed', session: completedSession || { ...session, status: 'completed', completed_at: completedAt } });
+  } catch (error) {
+    console.error('[SABI] Session submission failed:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while submitting the session.' });
   }
 });
 

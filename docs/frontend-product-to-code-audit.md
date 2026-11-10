@@ -22,6 +22,23 @@
 9. The latest open PRs #34 and #35 are draft work and must be preserved. PR #34 adds parent/school portals and consent/invitation workflows; PR #35 documents the SABI COMMAND admin control plane. Neither should be merged or overwritten as part of the frontend audit.
 10. The next phase should be a product-led screen rebuild in a dedicated branch, followed by systematic API wiring. Existing safe API contracts should be reused; frontend must not invent backend operations or authoritative learning calculations.
 
+## 1.1 Post-PR #41 integration verification — 10 November 2026
+
+The following checks were performed against the merged `main` baseline while preparing the frontend-completion branch:
+
+- **Billing route mismatch corrected:** student subscription UI now calls the mounted `/api/payments/*` router instead of the nonexistent `/api/billing/*` path.
+- **Notification route mismatch corrected:** student notification UI now calls the mounted `/api/internal/notifications/*` router instead of the nonexistent `/api/notifications/*` path.
+- **Smart Practice / Blitz continuation implemented:** an authenticated `POST /api/learning/sessions/:sessionId/next` endpoint uses the existing mastery selector, excludes questions already used in the current session, records the adaptive decision and calls a row-locking service-role RPC to append one eligible question atomically. Adaptive sessions remain open between batches. Blitz's one-question continuation now retains mastery targeting before falling back to discovery.
+- **Question rights revalidated:** adaptive continuation, session retrieval and answer grading verify that a question is published, reviewer-approved, sourced from a verified source and permitted for student practice.
+- **CBT controls implemented:** session items now persist review flags; authenticated flag and explicit-submit endpoints are available; the learner screen includes a question palette, question navigation, review-flag controls and explicit exam submission. The final review distinguishes unanswered questions and shows flagged questions.
+- **AI Coach frontend implemented:** a new authenticated `/coach` page calls the existing `POST /api/ai/chat` service, handles explicit AI consent and revocation, passes optional subject/topic context, displays provider/availability errors and respects the server's 12-message context limit. It is linked from the student navigation and dashboard.
+- **Database migration is pending:** `20261110210000_learning_session_adaptive_continuation_and_review.sql` is version-controlled on the feature branch and included in disposable-PostgreSQL CI. It has **not** been applied to the hosted Supabase project.
+- **Custom Practice:** the setup page delegates to the shared learning page; the API requires at least one explicit filter. Browser acceptance is still required for supported filters and empty eligible-question pools.
+- **Onboarding:** the current question source contains the approved 15-question sequence and the v3 page uses a versioned draft key. Browser acceptance is still required for interrupted/resumed onboarding, subject validation, submission retries and the authenticated profile projection.
+
+**Release gate:** the previous Backend CI run passed TypeScript, Vitest, production build, migration replay and the new SQL assertions. A fresh run is pending after the latest AI Coach and source-rights changes. Real authenticated browser acceptance remains required before this branch can be called production-ready.
+
+
 ## 2. Locked product model
 
 SABI is a JAMB-only preparation platform described as **a data engine wrapped in a CBT platform**. The four learning experiences are distinct:

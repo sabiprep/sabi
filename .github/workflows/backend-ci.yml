@@ -146,4 +146,8 @@ jobs:
       - name: Verify implemented learning engine activation
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/learning_engine_activation_assertions.sql
       - name: Publish candidate onboarding v3 question set
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110170000_candidate_onboarding_v3.sql
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110194211_candidate_onboarding_v3.sql
+      - name: Add adaptive continuation and CBT review contracts
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110210000_learning_session_adaptive_continuation_and_review.sql
+      - name: Verify adaptive continuation and CBT review contracts
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/learning_session_continuation_assertions.sql
