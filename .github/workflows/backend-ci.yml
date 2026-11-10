@@ -110,6 +110,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/seeds/simulation_personas.sql
       - name: Verify Phase 1.5 intelligence data layer
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_5_intelligence_assertions.sql
+      - name: Verify isolated synthetic learner archetypes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/simulation_persona_assertions.sql
       - name: Apply Phase 1.6 universal signal layer
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108111356_phase1_6_universal_signal_layer.sql
