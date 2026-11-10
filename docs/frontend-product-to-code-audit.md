@@ -297,3 +297,67 @@ The first frontend rebuild batch is committed on `audit/frontend-product-gap`.
 - The onboarding flow still needs a full 15-question rebuild and server contract review.
 - Dashboard and progress screens still need replacement of any remaining local/demo-derived metrics with server-authoritative endpoints and evidence.
 - This batch has not been built or tested in a local checkout. Run typecheck, tests and production build in CI before merging.
+
+
+## 11. Follow-up implementation verification — 10 Nov 2026
+
+This section records a second pass against the current audit branch after the first product-led UI changes. It is deliberately evidence-based; a successful Vercel deployment status is not equivalent to a complete frontend acceptance test.
+
+### 11.1 Verified branch state
+
+- The audit branch exists at commit `51446e60ebb3b6b3b373cbd5eeb55b000d55c6bb`.
+- The branch's Vercel status is successful. This confirms that the deployment integration completed for that commit; it does not prove the full application journey, API contracts, accessibility, or product acceptance.
+- No GitHub Actions workflow runs were returned for this branch at the time of this check.
+- Draft PRs #34 (parent/school portals) and #35 (SABI COMMAND foundations) remain separate work and must be preserved.
+- No merge to `main`, production data mutation, secrets change, or production deployment was performed as part of this follow-up.
+
+### 11.2 Screens verified as changed
+
+- **Brand foundation:** official Sabi tokens and typography are imported by the application.
+- **Blitz entry:** replaced the former level/road-map framing with a focused reinforcement entry point and no speed-based promise.
+- **Smart Practice entry:** replaced the former level-road framing with a recommendation-led entry point.
+- **Practice Hub:** exposes the four distinct learning experiences.
+- **CBT entry:** exposes Full Mock (180 questions / 120 minutes) and Quick Mock (40 questions / 30 minutes) configurations.
+- **Shared learning page:** reads CBT configuration from the route, avoids presenting question-count and subject setup controls for Smart Practice/Blitz, and avoids sending student-selected filters for those adaptive modes.
+
+### 11.3 Confirmed remaining product blockers
+
+**P0 — Onboarding is still not compliant.** The current source has 11 onboarding question objects and the page still has hard-coded handling for the old question IDs/fields. The approved master specification requires exactly 15 fields in this order:
+1. Full name.
+2. Subject combination (English locked + exactly three additional subjects).
+3. Current class/status and prior JAMB attempts; collect years out when out-of-school.
+4. Target course and university.
+5. Exam timeline (≤1 month; 2–3 months; 4–6 months; >6 months).
+6. Self-reported confidence 1–5 for each selected subject (not mastery).
+7. Self-identified weakest/priority subject.
+8. Root cause (careless mistakes/time pressure; running out of time; methods/formulas; inconsistency).
+9. Specific trouble topic (free text).
+10. Study style (structured; flexible; don't study).
+11. Daily study dedication (≤1h; 2–3h; 4+h).
+12. Study environment (quiet/private; busy/noisy).
+13. Explanation preference (brief; detailed).
+14. Language style (Plain Formal English; West African Pidgin; Mixed Nigerian English).
+15. Core motivation (long text).
+The current old question model cannot be safely converted by changing the question-data array alone: the page's validation, rendering, submission, storage-versioning, and profile API payload all need to be migrated together. Do not silently map old answers into new fields.
+
+**P0 — Adaptive sessions are not yet truly continuous.** The shared learning API currently accepts a bounded `limit` (1–180) when creating a session and returns a batch. The entry pages correctly avoid exposing a fixed setup count, but the shared session does not yet establish a compliant backend-driven next-question continuation contract for Blitz and Smart Practice. A client-side loop or fabricated next-best selection would violate the product architecture. This requires an explicit backend contract and session-resume implementation before those experiences can be declared complete.
+
+**P1 — Home and Progress remain legacy/gamified surfaces.** Home still derives its primary HUD from the legacy local progress store and onboarding answers in localStorage, includes diamond/streak/strict-rating concepts, and uses speed-themed copy. A supplementary backend snapshot has been added, but it does not replace the legacy source of truth. Progress still foregrounds legacy 100%-flawless-level subject ratings and local activity logs rather than a backend-authoritative presentation of mastery, syllabus coverage, readiness, trends, and recommendations. These screens need full product-led rebuilds.
+
+**P1 — Learning session experience requires a complete pass.** The shared question page has the backend session and answer submission foundation, but all mode-specific state, resume/recovery, no-question/empty-pool behavior, answer feedback, explanation, result and next-action states need end-to-end verification. CBT must remain isolated from AI and practice rewards while active.
+
+**P1 — The rest of the student and operational surfaces need acceptance checks.** Diagnostic, Custom Practice, subject selection, AI Coach/Tutor, notifications, missions, profile/settings, subscriptions/entitlements, admin/content operations, and any parent/school surfaces must be checked against their actual API permissions and contracts. Existing draft portal/control-plane work must not be overwritten.
+
+### 11.4 Acceptance gate
+
+The frontend is **not yet 90% aligned and is not implementation-ready for launch**. The first batch improves the learning-mode entry points and brand foundation, but the P0/P1 blockers above remain. Completion requires, at minimum:
+
+- Implement and test the exact 15-question onboarding flow with backend persistence and resume.
+- Establish a server-authoritative continuation contract for Smart Practice and Blitz; no client-invented adaptive selection.
+- Rebuild Home and Progress around actual backend responses; distinguish self-report, attempts, mastery, syllabus coverage, readiness, and score estimates.
+- Verify diagnostic, custom practice, shared question/explanation/results, CBT timer and two-step submission against backend contracts.
+- Complete role/entitlement and AI consent/error-state checks.
+- Run typecheck, unit/integration tests, production build, and a full signup → onboarding → diagnostic → home → practice → progress → CBT → results journey on a test environment.
+- Record evidence for accessibility, small-screen Android layouts, slow-network behavior, and session recovery.
+
+**Release status:** Continue on this feature branch. Do not merge or deploy production until the acceptance gate is satisfied and reviewed.
