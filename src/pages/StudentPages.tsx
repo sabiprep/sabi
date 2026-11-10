@@ -1385,7 +1385,7 @@ export function NotificationsPage() {
     try{
       const response=await apiFetch('/api/notifications/preferences',{method:'PUT',body:JSON.stringify({
         channel:pref.channel,notificationKey:pref.notification_key,enabled:!pref.enabled,
-        quietHours:pref.quiet_hours||{enabled:false,start:'22:00',end:'07:00',timezone:'Africa/Lagos'},
+        ...(pref.quiet_hours ? {quietHours:pref.quiet_hours} : {}),
       })});
       const body=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(body.error||'Notification preference could not be saved.');
