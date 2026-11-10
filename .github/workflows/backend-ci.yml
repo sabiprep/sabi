@@ -1,4 +1,5 @@
 name: Backend CI
+# Release verification: learning engine selectors, engine activation and production-aligned migration history.
 
 on:
   push:
