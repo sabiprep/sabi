@@ -1285,159 +1285,53 @@ export function SubscriptionPage() {
 // ==========================================
 export function ProfilePage() {
   const { isDark, toggleTheme } = useTheme();
-  const [copiedId, setCopiedId] = useState(false);
-  const progress = useLiveUserProgress();
+  const [profile,setProfile]=useState<any>(null);
+  const [authUser,setAuthUser]=useState<any>(null);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
 
-  const userName = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
-  const userEmail = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) || 'scholar@sabi.ng';
-  const userPhone = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_phone')) || '+234';
-  const userState = (typeof window !== 'undefined' && localStorage.getItem('sabi_user_state')) || 'Lagos';
-  const uniqueId = (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) || '4829K';
+  useEffect(()=>{
+    let active=true;
+    (async()=>{
+      setLoading(true);setError('');
+      try{
+        const {data:userData,error:userError}=await supabase.auth.getUser();
+        if(userError||!userData.user)throw new Error('Sign in to view your account profile.');
+        const {data:profileData,error:profileError}=await supabase.from('profiles').select('*').eq('id',userData.user.id).maybeSingle();
+        if(profileError)throw new Error('Your account profile could not be loaded.');
+        if(active){setAuthUser(userData.user);setProfile(profileData);}
+      }catch(e){if(active)setError(e instanceof Error?e.message:'Profile is temporarily unavailable.');}
+      finally{if(active)setLoading(false);}
+    })();
+    return()=>{active=false;};
+  },[]);
 
-  const handleCopyId = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(uniqueId);
-      setCopiedId(true);
-      setTimeout(() => setCopiedId(false), 2000);
-    }
-  };
+  const metadata=authUser?.user_metadata||{};
+  const name=profile?.full_name||profile?.name||metadata.full_name||metadata.name||'Name not provided';
+  const email=authUser?.email||profile?.email||'Email not available';
+  const phone=profile?.phone||metadata.phone||'Not provided';
+  const state=profile?.state_of_origin||metadata.state_of_origin||'Not provided';
+  const uniqueId=profile?.sabi_unique_id||'Not assigned';
+  const subjects=Array.isArray(profile?.registered_subjects)?profile.registered_subjects:[];
+  const answers=profile?.onboarding_answers&&typeof profile.onboarding_answers==='object'?profile.onboarding_answers:{};
 
-  const handleDownloadRecoveryDoc = () => {
-    const docText = [
-      '====================================================',
-      'SABI JAMB UTME PLATFORM — OFFICIAL ACCOUNT RECOVERY SLIP',
-      '====================================================',
-      `Candidate Name   : ${userName}`,
-      `Email Address    : ${userEmail}`,
-      `Phone Number     : ${userPhone}`,
-      `State of Origin  : ${userState}`,
-      `UNIQUE SABI ID   : ${uniqueId}`,
-      '----------------------------------------------------',
-      'IMPORTANT SECURITY NOTICE:',
-      'Keep this 5-character Unique SABI ID (4 digits + 1 letter)',
-      'in a safe place. It is your mandatory verification grant',
-      'required to reset your password or recover your SABI account.',
-      '====================================================',
-    ].join('\n');
-
-    const blob = new Blob([docText], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `SABI-Recovery-ID-${uniqueId}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div className="space-y-8 pb-16 lg:pb-0 max-w-3xl">
-      <div>
-        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-          Account & Verification Vault
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Student Profile & Unique ID
-        </h1>
+  return <div className="mx-auto max-w-3xl space-y-6 pb-16 lg:pb-0">
+    <header><p className="text-xs font-black uppercase tracking-widest text-blue-600">Account settings</p><h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Your profile</h1><p className="mt-2 text-sm text-slate-500">Account identity and academic details retrieved from your signed-in SABI account.</p></header>
+    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
+    {loading?<div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Loading your account…</div>:profile&&<section className={`rounded-3xl border p-6 sm:p-8 ${isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200'}`}>
+      <div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-700 text-2xl font-black text-white">{String(name).charAt(0).toUpperCase()}</div><div className="min-w-0"><h2 className="text-xl font-black">{name}</h2><p className="break-all text-sm text-slate-500">{email}</p><p className="mt-1 text-xs text-slate-500">{profile.onboarding_completed?'Onboarding completed':'Onboarding not completed'}</p></div></div>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Phone</p><p className="mt-1 font-bold">{phone}</p></div>
+        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">State of origin</p><p className="mt-1 font-bold">{state}</p></div>
+        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">SABI ID</p><p className="mt-1 font-mono font-bold">{uniqueId}</p></div>
+        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Target score</p><p className="mt-1 font-bold">{profile.target_score??'Not set'}</p></div>
       </div>
-
-      {/* Unique SABI ID Vault Card (Royal Blue Primary + White Secondary) */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-xl space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[11px] uppercase tracking-wider mb-2">
-              <ShieldCheck size={13} className="text-blue-700" /> Mandatory Account Recovery Grant
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black text-white">
-              Your Unique SABI Verification ID
-            </h2>
-            <p className="text-xs sm:text-sm font-medium text-blue-100 mt-1 max-w-md">
-              This 5-character code (4 digits + 1 letter) is permanently linked to your email and Google account. It is required whenever you reset your password.
-            </p>
-          </div>
-
-          <div className="px-6 py-4 rounded-2xl bg-white text-blue-950 border border-blue-200 text-center shrink-0 shadow-md">
-            <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 block">
-              UNIQUE ID
-            </span>
-            <span className="text-3xl font-mono font-black tracking-widest text-blue-950">
-              {uniqueId}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-white/15">
-          <button
-            type="button"
-            onClick={handleCopyId}
-            className="px-5 py-3 rounded-xl bg-white hover:bg-blue-50 text-blue-800 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition cursor-pointer"
-          >
-            {copiedId ? <Check size={15} /> : <Copy size={15} />}
-            <span>{copiedId ? 'Copied to Clipboard' : 'Copy Unique ID'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDownloadRecoveryDoc}
-            className="px-5 py-3 rounded-xl bg-blue-950/60 hover:bg-blue-950 text-white border border-white/20 font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-sm transition cursor-pointer"
-          >
-            <Download size={15} />
-            <span>Download Recovery ID Doc (.txt)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Candidate Details, Verified Diamond Balance & Preferences */}
-      <div className={`p-6 sm:p-8 rounded-3xl border space-y-6 ${
-        isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-      }`}>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-600 text-white font-black text-2xl flex items-center justify-center shadow-md">
-              {userName.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h2 className="text-xl font-black">{userName}</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">{userEmail} · {userPhone} · {userState}</p>
-              <span className="inline-block text-xs font-bold text-blue-600 dark:text-blue-400 mt-1">
-                Active Candidate (2026/2027 UTME) · ID: {uniqueId}
-              </span>
-            </div>
-          </div>
-
-          <div className={`px-4 py-3 rounded-2xl border text-right ${
-            isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'
-          }`}>
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
-              Verified Diamond Balance
-            </span>
-            <span className="text-xl font-black text-blue-600 dark:text-blue-400">
-              {progress.diamonds} 💎
-            </span>
-            <span className="text-[10px] font-bold text-slate-400 block">
-              Plan: {progress.subscriptionPlan === 'free' ? 'Free Tier' : progress.subscriptionPlan}
-            </span>
-          </div>
-        </div>
-
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-sm font-bold block">Theme Mode</span>
-              <span className="text-xs text-slate-400">Toggle between Dark and Light mode</span>
-            </div>
-            <button
-              onClick={toggleTheme}
-              className="px-4 py-2.5 rounded-xl text-xs font-black bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
-            >
-              {isDark ? 'Dark Mode (Active)' : 'Light Mode (Active)'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+      <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800"><h3 className="font-black">UTME subject combination</h3>{subjects.length?<div className="mt-3 flex flex-wrap gap-2">{subjects.map((subject:string)=><span key={subject} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-200">{subject}</span>)}</div>:<p className="mt-2 text-sm text-slate-500">No subject combination saved yet. Complete onboarding to set your four UTME subjects.</p>}</div>
+      <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800"><h3 className="font-black">Study preferences</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">{[['Study style',answers.studyStyle],['Daily study time',answers.dailyStudyHours],['Study environment',answers.studyEnvironment],['Explanation preference',answers.explanationPreference],['Language preference',answers.languagePreference],['Priority subject',answers.prioritySubject]].map(([label,value])=><div key={String(label)}><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 font-semibold">{value||'Not provided'}</dd></div>)}</dl></div>
+    </section>}
+    <section className={`flex items-center justify-between gap-4 rounded-2xl border p-5 ${isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200'}`}><div><h2 className="font-bold">Appearance</h2><p className="text-xs text-slate-500">Choose light or dark mode for this device.</p></div><button onClick={toggleTheme} className="rounded-xl bg-blue-700 px-4 py-2.5 text-xs font-black text-white">{isDark?'Dark mode · On':'Light mode · On'}</button></section>
+    <p className="text-xs text-slate-500">To change protected account details such as your email or SABI ID, contact SABI support. This screen does not alter account credentials or permissions.</p>
+  </div>;
 }
 
 // ==========================================
