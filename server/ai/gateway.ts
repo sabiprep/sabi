@@ -21,6 +21,18 @@ function priceFromEnv(name: string, direction: 'INPUT' | 'OUTPUT'): number | nul
 }
 
 function providerConfig(name: AIProviderName, task: AIGenerationInput['task']): AIProviderConfig {
+  if (name === 'mock') {
+    const mockEnabled = enabled(process.env.SABI_AI_MOCK_ENABLED);
+    return {
+      name,
+      apiKey: mockEnabled ? 'mock-provider-no-secret' : null,
+      model: process.env.SABI_MOCK_MODEL?.trim() || 'sabi-mock-v1',
+      baseUrl: null,
+      inputPricePerMillion: 0,
+      outputPricePerMillion: 0,
+      configured: mockEnabled,
+    };
+  }
   const upper = name.toUpperCase();
   const taskKey = task.toUpperCase();
   const apiKey = process.env[`${upper}_API_KEY`]?.trim() || null;
@@ -71,9 +83,10 @@ export function getAIReadiness(task: AIGenerationInput['task'] = 'explanation') 
     missingConfiguration: providers.filter((provider) => !provider.configured).map((provider) => ({
       provider: provider.name,
       missing: [
-        ...(!provider.apiKey ? [`${provider.name.toUpperCase()}_API_KEY`] : []),
+        ...(provider.name === 'mock' ? ['SABI_AI_MOCK_ENABLED=true'] : []),
+        ...(provider.name !== 'mock' && !provider.apiKey ? [`${provider.name.toUpperCase()}_API_KEY`] : []),
         ...(!provider.model ? [`SABI_${provider.name.toUpperCase()}_MODEL (or task-specific model)`] : []),
-        ...(provider.name !== 'gemini' && provider.name !== 'openai' && provider.name !== 'anthropic' && !provider.baseUrl
+        ...(provider.name !== 'mock' && provider.name !== 'gemini' && provider.name !== 'openai' && provider.name !== 'anthropic' && !provider.baseUrl
           ? [`SABI_${provider.name.toUpperCase()}_BASE_URL`] : []),
       ],
     })),
@@ -90,12 +103,12 @@ export async function generateAIText(input: AIGenerationInput & {
   const control = input.control;
   if (!control) throw new Error('AI_CONTROL_CONTEXT_REQUIRED');
   const dataClass = classifyAIData({ userId: control.userId, prompt: input.prompt, systemInstruction: input.systemInstruction });
+  if (dataClass === 'sensitive') throw new Error('AI_PRIVACY_SENSITIVE_PAYLOAD_BLOCKED');
   const privacyPolicy = {
     allowExternalPublic: enabled(process.env.SABI_AI_ALLOW_EXTERNAL_PUBLIC),
     allowExternalPseudonymous: enabled(process.env.SABI_AI_ALLOW_EXTERNAL_PSEUDONYMOUS),
     allowExternalSensitive: false,
   };
-  assertProviderPrivacyAllowed(dataClass, privacyPolicy, control.consentGranted);
   const safeSystemInstruction = minimizeExternalPayload(input.systemInstruction);
   const safePrompt = minimizeExternalPayload(input.prompt);
   const requestId = control.requestId || randomUUID();
@@ -128,7 +141,9 @@ export async function generateAIText(input: AIGenerationInput & {
 
     const startedAt = Date.now();
     try {
+      if (config.name !== 'mock') assertProviderPrivacyAllowed(dataClass, privacyPolicy, control.consentGranted);
       const result = await invokeProvider(config.name, config, {
+        task: input.task,
         systemInstruction: safeSystemInstruction,
         prompt: safePrompt,
         temperature: input.temperature ?? 0.3,
@@ -155,7 +170,7 @@ export async function generateAIText(input: AIGenerationInput & {
         p_release: false,
       });
       if (settlement.error || settlement.data !== true) throw new Error('AI_BUDGET_SETTLEMENT_FAILED');
-      return { ...result, provider: config.name, model: config.model! };
+      return { ...result, provider: config.name, model: config.model!, simulated: config.name === 'mock' };
     } catch (error) {
       // If the provider call itself failed, retain the full estimate as a
       // conservative charge. For post-response accounting failures, fail closed.
