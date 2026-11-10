@@ -1445,29 +1445,74 @@ export function ProfilePage() {
 // ==========================================
 export function NotificationsPage() {
   const { isDark } = useTheme();
-  return (
-    <div className="space-y-8 pb-16 lg:pb-0 max-w-2xl">
-      <div>
-        <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-          Updates
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          Notifications
-        </h1>
-      </div>
+  const [notifications,setNotifications]=useState<any[]>([]);
+  const [preferences,setPreferences]=useState<any[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [busy,setBusy]=useState('');
+  const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
 
-      <div className={`p-8 rounded-3xl border text-center space-y-3 ${
-        isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-      }`}>
-        <Bell size={32} className="mx-auto text-blue-600 dark:text-blue-400 opacity-70" />
-        <h3 className="text-lg font-black">You're All Caught Up</h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">No pending notifications. Keep drilling your subjects!</p>
-        <Link to="/home" className="inline-block px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs mt-2">
-          Return to Dashboard
-        </Link>
-      </div>
-    </div>
-  );
+  const refresh=async()=>{
+    setLoading(true);setError('');
+    try{
+      const [n,p]=await Promise.all([apiFetch('/api/notifications?limit=50'),apiFetch('/api/notifications/preferences')]);
+      const [nd,pd]=await Promise.all([n.json().catch(()=>({})),p.json().catch(()=>({}))]);
+      if(!n.ok||!p.ok)throw new Error(nd.error||pd.error||'Notifications could not be loaded.');
+      setNotifications(nd.notifications||[]);setPreferences(pd.preferences||[]);
+    }catch(e){setError(e instanceof Error?e.message:'Notifications are temporarily unavailable.');}
+    finally{setLoading(false);}
+  };
+  useEffect(()=>{void refresh();},[]);
+
+  const markRead=async(id:string)=>{
+    setBusy(id);setError('');setNotice('');
+    try{
+      const response=await apiFetch('/api/notifications/'+encodeURIComponent(id)+'/read',{method:'PATCH'});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||'Notification could not be marked as read.');
+      setNotifications(rows=>rows.map(row=>row.id===id?{...row,read_at:body.notification?.read_at||new Date().toISOString()}:row));
+    }catch(e){setError(e instanceof Error?e.message:'Could not update notification.');}
+    finally{setBusy('');}
+  };
+  const markAllRead=async()=>{
+    setBusy('all');setError('');setNotice('');
+    try{
+      const response=await apiFetch('/api/notifications/read-all',{method:'PATCH'});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||'Notifications could not be marked as read.');
+      setNotifications(rows=>rows.map(row=>({...row,read_at:row.read_at||new Date().toISOString()})));
+      setNotice('All notifications marked as read.');
+    }catch(e){setError(e instanceof Error?e.message:'Could not update notifications.');}
+    finally{setBusy('');}
+  };
+  const togglePreference=async(pref:any)=>{
+    const key=pref.channel+':'+pref.notification_key;
+    setBusy(key);setError('');setNotice('');
+    try{
+      const response=await apiFetch('/api/notifications/preferences',{method:'PUT',body:JSON.stringify({
+        channel:pref.channel,notificationKey:pref.notification_key,enabled:!pref.enabled,
+        quietHours:pref.quiet_hours||{enabled:false,start:'22:00',end:'07:00',timezone:'Africa/Lagos'},
+      })});
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(body.error||'Notification preference could not be saved.');
+      setPreferences(rows=>rows.map(row=>row.channel===pref.channel&&row.notification_key===pref.notification_key?body.preference:row));
+    }catch(e){setError(e instanceof Error?e.message:'Preference update failed.');}
+    finally{setBusy('');}
+  };
+  const card=isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200';
+  const unread=notifications.filter(n=>!n.read_at).length;
+
+  return <div className="mx-auto max-w-3xl space-y-6 pb-16 lg:pb-0">
+    <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-blue-600">Your account updates</p><h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Notifications</h1><p className="mt-1 text-sm text-slate-500">{unread} unread · {notifications.length} shown</p></div><div className="flex gap-2"><button onClick={()=>void refresh()} disabled={loading} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold dark:border-slate-700">{loading?'Refreshing…':'Refresh'}</button><button onClick={()=>void markAllRead()} disabled={!unread||Boolean(busy)} className="rounded-xl bg-blue-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Mark all read</button></div></header>
+    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
+    {notice&&<div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{notice}</div>}
+    <section className="space-y-3">
+      {loading&&notifications.length===0?<div className={`rounded-2xl border p-6 text-sm text-slate-500 ${card}`}>Loading notifications…</div>:notifications.length===0?<div className={`rounded-2xl border p-8 text-center ${card}`}><Bell size={32} className="mx-auto text-blue-600"/><h2 className="mt-3 font-black">No notifications yet</h2><p className="mt-1 text-sm text-slate-500">Important learning and account updates will appear here.</p></div>:notifications.map(item=><article key={item.id} className={`rounded-2xl border p-4 sm:p-5 ${card} ${item.read_at?'opacity-75':''}`}><div className="flex items-start gap-3"><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${item.read_at?'bg-slate-300':'bg-blue-600'}`}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-2"><h2 className="font-bold">{item.title}</h2><time className="text-[11px] text-slate-500">{new Date(item.created_at).toLocaleString()}</time></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600 dark:text-slate-300">{item.body}</p>{!item.read_at&&<button onClick={()=>void markRead(item.id)} disabled={Boolean(busy)} className="mt-3 text-xs font-bold text-blue-700 underline dark:text-blue-300">{busy===item.id?'Saving…':'Mark as read'}</button>}</div></div></article>)}
+    </section>
+    <section className={`rounded-2xl border p-5 ${card}`}><h2 className="font-black">Notification preferences</h2><p className="mt-1 text-xs text-slate-500">Manage channels and categories already configured for your account.</p>
+      {preferences.length? <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{preferences.map(pref=><div key={pref.channel+':'+pref.notification_key} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{String(pref.notification_key).replace(/[._-]/g,' ')}</p><p className="text-xs text-slate-500 capitalize">{pref.channel}</p></div><button role="switch" aria-checked={Boolean(pref.enabled)} onClick={()=>void togglePreference(pref)} disabled={Boolean(busy)} className={`rounded-full px-4 py-2 text-xs font-bold ${pref.enabled?'bg-blue-700 text-white':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{busy===pref.channel+':'+pref.notification_key?'Saving…':pref.enabled?'Enabled':'Disabled'}</button></div>)}</div>:<p className="mt-3 text-sm text-slate-500">No notification preferences have been configured for this account yet.</p>}
+    </section>
+  </div>;
 }
 
 // ==========================================
