@@ -4,6 +4,7 @@ import { ArrowUp, BrainCircuit, CheckCircle2, CircleHelp, LoaderCircle, LockKeyh
 import { apiFetch, apiPostJson, describeApiFailure } from '../utils/apiClient';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../app/ThemeProvider';
+import MathText from '../components/MathText';
 
 type ChatMessage = {
   role: 'user' | 'assistant';
@@ -193,7 +194,7 @@ export function AICoachPage() {
               </div>}
               {messages.map((message,index)=><div key={index} className={`flex ${message.role==='user'?'justify-end':'justify-start'}`}>
                 <article className={`max-w-[92%] rounded-2xl p-4 sm:max-w-[82%] ${message.role==='user'?'bg-blue-600 text-white':'bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100'}`}>
-                  <p className="whitespace-pre-wrap text-sm leading-7">{message.content}</p>
+                  <div className="text-sm leading-7"><MathText text={message.content}/></div>
                   {message.provider&&<p className="mt-2 text-[10px] opacity-60">Sabi AI · {message.provider}{message.model? ` / ${message.model}`:''}</p>}
                 </article>
               </div>)}
