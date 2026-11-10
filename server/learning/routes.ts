@@ -175,7 +175,7 @@ router.get('/content-review/sources', requireAuth, requireRole('ADMIN', 'MASTER_
     .from('question_sources')
     .select('id, source_key, source_name, source_type, source_url, license_name, attribution_required, permitted_use, verification_status, notes')
     .order('updated_at', { ascending: false })
-    .limit(100);
+    .limit(500);
   if (error) return res.status(503).json({ error: 'Question source review is temporarily unavailable.' });
   return res.json({ sources: data || [] });
 });
