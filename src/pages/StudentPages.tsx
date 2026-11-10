@@ -4,19 +4,13 @@ import {
   CheckCircle, ChevronRight, ClipboardList, Coins, Copy, Check, Download,
   Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
   Menu, Moon, Settings, ShieldCheck, Sliders, SlidersHorizontal, Sun, Target,
-  X, Zap, Award, Trash2, CheckCircle2
+  X, Zap, Award, CheckCircle2
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { supabase } from '../lib/supabase';
 import { apiFetch } from '../utils/apiClient';
 import { getRealUserProgress, UserRealProgress } from '../utils/userProgressStore';
-import {
-  getMistakeRecords,
-  markMistakeMastered,
-  removeMistakeRecord,
-  MistakeRecord,
-} from '../utils/mistakeStore';
 import MathText from '../components/MathText';
 import FullMockExamModal from '../components/mobile/FullMockExamModal';
 import FormulaCheatSheetModal from '../components/mobile/FormulaCheatSheetModal';
@@ -1598,134 +1592,94 @@ export function MainPage({ page }: { page: string }) {
   const { isDark } = useTheme();
   const navigate = useNavigate();
 
-  // Mistake Notebook State
-  const [mistakes, setMistakes] = useState<MistakeRecord[]>(() => getMistakeRecords());
+  // Mistake Notebook reads verified attempts from the authenticated learning API.
+  type ServerMistake = {
+    id: string; sessionId: string; questionId: string; subject: string; topic: string | null;
+    subtopic: string | null; question: string; options: Record<'A'|'B'|'C'|'D',string>;
+    selectedOption: 'A'|'B'|'C'|'D'; correctOption: 'A'|'B'|'C'|'D'; explanation: string; answeredAt: string;
+  };
+  const [mistakes, setMistakes] = useState<ServerMistake[]>([]);
   const [mistakeSubjectFilter, setMistakeSubjectFilter] = useState<string>('All');
+  const [mistakesLoading, setMistakesLoading] = useState(false);
+  const [mistakesError, setMistakesError] = useState('');
 
   // Study Resources Modals State
   const [showFormulaModal, setShowFormulaModal] = useState(false);
   const [showBrochureModal, setShowBrochureModal] = useState(false);
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
 
+  const loadMistakes = async () => {
+    setMistakesLoading(true);
+    setMistakesError('');
+    try {
+      const response = await apiFetch('/api/learning/mistakes?limit=200');
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Your mistake notebook could not be loaded.');
+      setMistakes(Array.isArray(body.mistakes) ? body.mistakes : []);
+    } catch (error) {
+      setMistakesError(error instanceof Error ? error.message : 'Your mistake notebook is temporarily unavailable.');
+    } finally {
+      setMistakesLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setMistakes(getMistakeRecords());
+    if (section === 'mistakes') void loadMistakes();
   }, [section]);
 
-  // 1. REAL MISTAKE NOTEBOOK (/menu/mistakes)
+  // 1. VERIFIED MISTAKE NOTEBOOK (/menu/mistakes)
   if (section === 'mistakes') {
-    const filteredMistakes =
-      mistakeSubjectFilter === 'All'
-        ? mistakes
-        : mistakes.filter(m => m.question.subject === mistakeSubjectFilter);
+    const filteredMistakes = mistakeSubjectFilter === 'All'
+      ? mistakes
+      : mistakes.filter(item => item.subject === mistakeSubjectFilter);
 
     return (
       <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-              Error Correction Engine
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              Mistake Notebook ({mistakes.length})
-            </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              Every question you miss in Blitz, Smart Practice, or CBT is automatically logged here with its worked solution.
-            </p>
+            <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">Error Correction Engine</span>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Mistake Notebook ({mistakes.length})</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Missed answers from your saved SABI learning sessions, with the approved correction and explanation.</p>
           </div>
-          <Link
-            to="/blitz"
-            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
-          >
-            Practice in Blitz →
-          </Link>
+          <div className="flex gap-2">
+            <button onClick={() => void loadMistakes()} disabled={mistakesLoading} className="px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold disabled:opacity-50">{mistakesLoading ? 'Refreshing…' : 'Refresh'}</button>
+            <Link to="/blitz" className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start">Practise in Blitz →</Link>
+          </div>
         </div>
-
-        {/* Subject Filter Tabs */}
+        {mistakesError && <div role="alert" className="p-4 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-sm">{mistakesError}</div>}
         <div className="flex flex-wrap gap-2">
           {['All', 'English Language', 'Mathematics', 'Physics', 'Chemistry'].map(sub => (
-            <button
-              key={sub}
-              onClick={() => setMistakeSubjectFilter(sub)}
-              className={`px-4 py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
-                mistakeSubjectFilter === sub
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : isDark
-                  ? 'bg-slate-900 border-slate-800 text-slate-300'
-                  : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
-              }`}
-            >
-              {sub}
-            </button>
+            <button key={sub} onClick={() => setMistakeSubjectFilter(sub)} className={`px-4 py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
+              mistakeSubjectFilter === sub ? 'bg-blue-600 text-white border-blue-600' : isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
+            }`}>{sub}</button>
           ))}
         </div>
-
-        {filteredMistakes.length === 0 ? (
-          <div className={`p-8 rounded-3xl border text-center space-y-3 ${
-            isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-          }`}>
-            <CheckCircle2 size={36} className="mx-auto text-emerald-500" />
-            <h3 className="text-lg font-black">No Unresolved Mistakes in {mistakeSubjectFilter}</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              As soon as you miss a question in Blitz, Smart Practice, or CBT Mock, it will appear here with step-by-step corrections.
-            </p>
+        {mistakesLoading && mistakes.length === 0 ? (
+          <div className={`p-8 rounded-3xl border text-center ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>Loading your saved mistakes…</div>
+        ) : filteredMistakes.length === 0 ? (
+          <div className={`p-8 rounded-3xl border text-center space-y-3 ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+            <CheckCircle2 size={36} className="mx-auto text-emerald-500"/>
+            <h3 className="text-lg font-black">{mistakes.length === 0 ? 'No missed answers recorded yet' : `No mistakes in ${mistakeSubjectFilter}`}</h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">When you submit an incorrect answer in a SABI learning session, it will appear here automatically.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {filteredMistakes.map(item => (
-              <div
-                key={item.question.id}
-                className={`p-6 rounded-3xl border space-y-4 ${
-                  isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">
-                    {item.question.subject} · {item.question.topic}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        markMistakeMastered(item.question.id);
-                        setMistakes(getMistakeRecords());
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 cursor-pointer"
-                    >
-                      {item.mastered ? 'Mastered ✓' : 'Mark Mastered'}
-                    </button>
-                    <button
-                      onClick={() => {
-                        removeMistakeRecord(item.question.id);
-                        setMistakes(getMistakeRecords());
-                      }}
-                      className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/15 cursor-pointer"
-                      title="Remove from Notebook"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+              <article key={item.id} className={`p-6 rounded-3xl border space-y-4 ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">{item.subject} · {item.topic || 'Topic not tagged'}</span>
+                  <time className="text-xs text-slate-500">{new Date(item.answeredAt).toLocaleString()}</time>
                 </div>
-
-                <div className="text-sm sm:text-base font-bold leading-relaxed">
-                  <MathText text={item.question.question} />
-                </div>
-
+                <div className="text-sm sm:text-base font-bold leading-relaxed"><MathText text={item.question}/></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold">
-                    Your Answer: Option {item.selectedAnswer}
-                  </div>
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold">
-                    Correct Answer: Option {item.question.answer} (
-                    <MathText text={item.question.options[item.question.answer]} />)
-                  </div>
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold">Your Answer: Option {item.selectedOption} — <MathText text={item.options[item.selectedOption] || ''}/></div>
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold">Correct Answer: Option {item.correctOption} — <MathText text={item.options[item.correctOption] || ''}/></div>
                 </div>
-
-                <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${
-                  isDark ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'
-                }`}>
-                  <strong className="font-black text-blue-600 dark:text-blue-400 block mb-1">Worked Step-by-Step Solution:</strong>
-                  <MathText text={item.question.explanation} />
+                <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${isDark ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                  <strong className="font-black text-blue-600 dark:text-blue-400 block mb-1">Approved explanation</strong>
+                  {item.explanation ? <MathText text={item.explanation}/> : 'No explanation is available for this question yet.'}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
