@@ -4,7 +4,7 @@ import {
   CheckCircle, ChevronRight, ClipboardList, Coins, Copy, Check, Download,
   Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
   Menu, Moon, Settings, ShieldCheck, Sliders, Sun, Target,
-  X, Zap, Award, Trash2, CheckCircle2
+  X, Zap, Award, Trash2, CheckCircle2, Users
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
@@ -35,6 +35,7 @@ const MAIN_NAV = [
 ];
 
 const MENU_ITEMS = [
+  { to: '/portals', label: 'Family & School Portals', Icon: Users, description: 'Parent links, school and tutorial-centre progress' },
   { to: '/subscription', label: 'Subscription & 5,000 💎 Vault', Icon: Coins, description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus' },
   { to: '/subject-rates', label: 'Subject Rates (100% Rule)', Icon: Activity, description: 'Full-screen mastery ratings earned from 100% flawless levels' },
   { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests & Streak Bonus Diamonds' },

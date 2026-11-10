@@ -24,6 +24,7 @@ const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPa
 const BackendLearningPage = lazy(() => import('./pages/BackendLearningPage').then(module => ({ default: module.BackendLearningPage })));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminContentReviewPage = lazy(() => import('./pages/AdminContentReviewPage'));
+const ParentSchoolPortalPage = lazy(() => import('./pages/ParentSchoolPortalPage'));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/blitz" element={<BlitzPage />} />
             <Route path="/smart" element={<SmartPracticePage />} />
             <Route element={<AppShell />}>
+              <Route path="/portals" element={<ParentSchoolPortalPage />} />
               <Route path="/home" element={<HomePage />} />
               <Route path="/learning" element={<BackendLearningPage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
