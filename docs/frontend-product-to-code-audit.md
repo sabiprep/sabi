@@ -277,3 +277,23 @@ This initial audit is not complete until:
 
 ---
 **Audit note:** This file records the verified initial pass and the remaining audit tasks. It must be updated as route/API inspection, test evidence and per-screen review are completed.
+
+## Implementation progress — 10 November 2026
+
+The first frontend rebuild batch is committed on `audit/frontend-product-gap`.
+
+### Completed in this batch
+- Added the official Sabi brand token layer and Poppins typography in `src/styles/sabi-brand.css`; loaded it from `src/App.tsx`.
+- Replaced the old level-map Blitz experience with a focused adaptive-practice entry screen. Removed speed-based framing, fixed level paths, stars/chests and level rewards from that screen.
+- Replaced the old branching-road Smart Practice experience with a recommendation-led entry screen.
+- Rebuilt the Practice Hub to present the four distinct learning modes: Smart Practice, Blitz, Custom Practice and CBT Simulator.
+- Rebuilt the CBT entry screen to direct candidates into the authenticated backend learning session flow and expose Quick Mock / Full Mock choices.
+- Updated the shared learning screen's mode label and removed subject and question-count setup for Smart Practice and Blitz. Those modes no longer send the default Use of English filter.
+- Updated primary navigation labels to match the product language.
+
+### Important integration caveats
+- The shared learning session component still uses the backend's current session API and its `limit` contract. The product's no-arbitrary-fixed-length Smart Practice / Blitz behaviour requires a server-side continuation/next-question contract; the frontend must not simulate that by looping through a fixed batch.
+- The CBT format selector is backed by the existing server `configurationKey` contract. Do not infer that a URL query parameter alone changes the server configuration until verified by an integration test.
+- The onboarding flow still needs a full 15-question rebuild and server contract review.
+- Dashboard and progress screens still need replacement of any remaining local/demo-derived metrics with server-authoritative endpoints and evidence.
+- This batch has not been built or tested in a local checkout. Run typecheck, tests and production build in CI before merging.
