@@ -25,7 +25,7 @@ function providerConfig(name: AIProviderName, task: AIGenerationInput['task']): 
     const mockEnabled = enabled(process.env.SABI_AI_MOCK_ENABLED);
     return {
       name,
-      apiKey: mockEnabled ? 'mock-provider-no-secret' : null,
+      apiKey: null,
       model: process.env.SABI_MOCK_MODEL?.trim() || 'sabi-mock-v1',
       baseUrl: null,
       inputPricePerMillion: 0,
