@@ -59,3 +59,23 @@ Production migration ledger now contains all 14 versions above. The migration-hi
 4. Review the Supabase advisor findings: service-only tables intentionally use RLS with no client policies (deny by default); leaked-password protection and foreign-key index recommendations remain follow-up hardening.
 
 Never replay historical SQL or fabricate migration-history rows. Apply future schema changes as new timestamped migrations and verify them in disposable CI first.
+
+
+## Frontend completion — adaptive continuation and CBT review (PR #42 follow-up)
+
+The pending frontend-completion branch adds the timestamped migration
+`20261110210000_learning_session_adaptive_continuation_and_review.sql`.
+It is **not applied to production** by this change.
+
+The migration:
+- Adds a non-null `marked_for_review` flag to learning session items.
+- Keeps Smart Practice and Blitz sessions active between completed batches.
+- Adds a service-role-only, row-locking RPC to append exactly one eligible question
+  and increment the session question count atomically.
+- Preserves the existing answer grading and spaced-repetition updates.
+
+The matching disposable-PostgreSQL assertion script is
+`supabase/tests/learning_session_continuation_assertions.sql`, and Backend CI
+applies the migration after the current production-aligned migration sequence
+before running those assertions. Apply the migration to the hosted project only
+after the PR has passed CI and has been reviewed.
