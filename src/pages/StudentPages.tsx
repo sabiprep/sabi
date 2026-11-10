@@ -20,6 +20,7 @@ import SyllabusFrequencyHeatmapModal from '../components/mobile/SyllabusFrequenc
 const MAIN_NAV = [
   { to: '/home', label: 'Dashboard', Icon: Home },
   { to: '/learning', label: 'Learning', Icon: BookOpenCheck },
+  { to: '/coach', label: 'AI Coach', Icon: BrainCircuit },
   { to: '/blitz', label: 'Blitz', Icon: Zap },
   { to: '/smart', label: 'Smart Practice', Icon: Compass },
   { to: '/practice/custom', label: 'Custom Practice', Icon: Sliders },
@@ -30,6 +31,7 @@ const MAIN_NAV = [
 
 const MENU_ITEMS = [
   { to: '/subscription', label: 'Subscription & 5,000 💎 Vault', Icon: Coins, description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus' },
+  { to: '/coach', label: 'Sabi AI Coach', Icon: BrainCircuit, description: 'Ask questions and get guided UTME explanations' },
   { to: '/subject-rates', label: 'Subject Rates (100% Rule)', Icon: Activity, description: 'Full-screen mastery ratings earned from 100% flawless levels' },
   { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests & Streak Bonus Diamonds' },
   { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review missed questions with step-by-step solutions' },
@@ -862,6 +864,7 @@ export function HomePage() {
         <div className="mt-5 flex flex-wrap gap-3">
           <Link to="/smart" className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0A1F66]">Smart Practice <ArrowRight size={16} className="ml-2 inline" /></Link>
           <Link to="/blitz" className="rounded-xl border border-white/50 px-5 py-3 text-sm font-semibold text-white">Blitz</Link>
+          <Link to="/coach" className="rounded-xl border border-white/50 px-5 py-3 text-sm font-semibold text-white">AI Coach</Link>
         </div>
       </section>
 
