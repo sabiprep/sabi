@@ -5,19 +5,12 @@ begin;
 alter table public.parent_student_relationships
   add column if not exists invitation_token_hash text,
   add column if not exists expires_at timestamptz;
-create index if not exists parent_student_relationships_invite_idx
+create unique index if not exists parent_student_relationships_invite_uidx
   on public.parent_student_relationships(invitation_token_hash)
   where invitation_token_hash is not null;
 alter table public.parent_student_relationships enable row level security;
 revoke all on public.parent_student_relationships from anon, authenticated;
 grant all on public.parent_student_relationships to service_role;
-
-alter table public.school_memberships
-  add column if not exists invitation_token_hash text,
-  add column if not exists expires_at timestamptz;
-create index if not exists school_memberships_invite_idx
-  on public.school_memberships(invitation_token_hash)
-  where invitation_token_hash is not null;
 
 create table if not exists public.school_classes (
   id uuid primary key default gen_random_uuid(),
