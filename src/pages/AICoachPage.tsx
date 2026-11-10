@@ -182,7 +182,7 @@ export function AICoachPage() {
           <section aria-label="AI Coach conversation" className={`flex min-h-[360px] flex-1 flex-col rounded-3xl border ${surface}`}>
             <div className="flex items-center gap-3 border-b border-slate-100 p-4 dark:border-slate-800">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white"><Sparkles size={19}/></div>
-              <div><h2 className="text-sm font-black">Your study conversation</h2><p className={`text-xs ${muted}`}>Recent conversation context is sent with each message (up to 12 messages).</p></div>
+              <div><h2 className="text-sm font-black">Your study conversation</h2><p className={`text-xs ${muted}`}>Recent context (up to 12 messages) is sent with each request. This chat is not saved as a learning session.</p></div>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
               {!messages.length && <div className="mx-auto max-w-xl py-8 text-center">
