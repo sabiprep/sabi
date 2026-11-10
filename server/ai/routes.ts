@@ -12,6 +12,7 @@ import { recordAIUsage, refundAIRequestCredits, reserveAIRequestCredits } from '
 import { formatApprovedKnowledgeContext, searchApprovedKnowledge } from './retrieval';
 import { getAICreditBalance } from '../billing/entitlements';
 import { isCBTExpired } from '../learning/cbtTimer';
+import { hasLiveCBTSession as hasLiveCBTAccess } from './cbtAccess';
 import { simulateAICost } from './controlPlane';
 
 const router = Router();
@@ -36,7 +37,7 @@ async function hasLiveCBTSession(userId: string): Promise<boolean> {
     .eq('status', 'in_progress')
     .order('started_at', { ascending: false });
   if (error) throw error;
-  return (data || []).some((session) => !isCBTExpired(session));
+  return hasLiveCBTAccess(data || []);
 }
 
 async function hasAICoConsent(userId: string): Promise<boolean> {
