@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { ArrowUp, BrainCircuit, CheckCircle2, CircleHelp, LoaderCircle, LockKeyhole, MessageCircle, RotateCcw, ShieldCheck, Sparkles, XCircle } from 'lucide-react';
 import { apiFetch, apiPostJson, describeApiFailure } from '../utils/apiClient';
 import { supabase } from '../lib/supabase';
