@@ -23,6 +23,7 @@ const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module =
 const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubscriptionPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
 const BackendLearningPage = lazy(() => import('./pages/BackendLearningPage').then(module => ({ default: module.BackendLearningPage })));
+const AICoachPage = lazy(() => import('./pages/AICoachPage').then(module => ({ default: module.AICoachPage })));
 const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
 const AdminContentReviewPage = lazy(() => import('./pages/AdminContentReviewPage'));
 const AdminAccessPage = lazy(() => import('./pages/AdminAccessPage'));
@@ -56,6 +57,7 @@ export default function App() {
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
               <Route path="/learning" element={<BackendLearningPage />} />
+              <Route path="/coach" element={<AICoachPage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/subjects" element={<SubjectRatesPage />} />
               <Route path="/subject-rates" element={<SubjectRatesPage />} />
