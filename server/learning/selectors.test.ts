@@ -31,6 +31,20 @@ describe('selectPersonalizedQuestions', () => {
     expect(result.some((row) => row.reason === 'syllabus_discovery')).toBe(true);
   });
 
+  it('keeps Blitz mastery targeting when the server requests one next question', () => {
+    const result = selectPersonalizedQuestions({
+      candidates,
+      mastery,
+      recentQuestionIds: [],
+      limit: 1,
+      mode: 'blitz',
+      now: Date.parse('2026-11-10T00:00:00Z'),
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].question.id).toBe('due');
+    expect(result[0].reason).toBe('spaced_review_due');
+  });
+
   it('avoids recently answered questions when enough unseen inventory exists', () => {
     const result = selectPersonalizedQuestions({ candidates, mastery, recentQuestionIds: ['due', 'weak'], limit: 3, mode: 'smart_practice', now: Date.parse('2026-11-10T00:00:00Z') });
     expect(result.every((row) => !['due', 'weak'].includes(row.question.id))).toBe(true);
