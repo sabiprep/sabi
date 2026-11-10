@@ -45,4 +45,7 @@ update public.student_onboarding_questions q set sort_order = case q.question_ke
  when 'motivation' then 15 else q.sort_order end
 from public.student_onboarding_question_versions v
 where q.question_version_id=v.id and v.version_label='v3';
+delete from public.student_onboarding_questions q
+using public.student_onboarding_question_versions v
+where q.question_version_id=v.id and v.version_label='v3' and q.question_key='targetScore';
 commit;
