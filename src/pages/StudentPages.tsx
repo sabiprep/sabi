@@ -1094,8 +1094,8 @@ export function SubscriptionPage() {
     setLoading(true);setError('');
     try{
       const [p,m,t,r]=await Promise.all([
-        apiFetch('/api/billing/plans'),apiFetch('/api/billing/me'),
-        apiFetch('/api/billing/transactions?limit=10'),apiFetch('/api/billing/readiness'),
+        apiFetch('/api/payments/plans'),apiFetch('/api/payments/me'),
+        apiFetch('/api/payments/transactions?limit=10'),apiFetch('/api/payments/readiness'),
       ]);
       const bodies=await Promise.all([p,m,t,r].map(x=>x.json().catch(()=>({}))));
       if(!p.ok||!m.ok||!t.ok||!r.ok)throw new Error(bodies.find((x,i)=>![p,m,t,r][i].ok)?.error||'Billing information could not be loaded.');
@@ -1109,7 +1109,7 @@ export function SubscriptionPage() {
     setBusyPlan(planKey);setError('');setNotice('');
     try{
       const idempotencyKey=typeof crypto!=='undefined'&&'randomUUID'in crypto?crypto.randomUUID():`sabi-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const response=await apiFetch('/api/billing/checkout',{method:'POST',body:JSON.stringify({planKey,idempotencyKey})});
+      const response=await apiFetch('/api/payments/checkout',{method:'POST',body:JSON.stringify({planKey,idempotencyKey})});
       const body=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(body.error||'Checkout could not be started.');
       if(body.checkoutUrl){window.location.assign(body.checkoutUrl);return;}
@@ -1215,7 +1215,7 @@ export function NotificationsPage() {
   const refresh=async()=>{
     setLoading(true);setError('');
     try{
-      const [n,p]=await Promise.all([apiFetch('/api/notifications?limit=50'),apiFetch('/api/notifications/preferences')]);
+      const [n,p]=await Promise.all([apiFetch('/api/internal/notifications?limit=50'),apiFetch('/api/internal/notifications/preferences')]);
       const [nd,pd]=await Promise.all([n.json().catch(()=>({})),p.json().catch(()=>({}))]);
       if(!n.ok||!p.ok)throw new Error(nd.error||pd.error||'Notifications could not be loaded.');
       setNotifications(nd.notifications||[]);setPreferences(pd.preferences||[]);
@@ -1227,7 +1227,7 @@ export function NotificationsPage() {
   const markRead=async(id:string)=>{
     setBusy(id);setError('');setNotice('');
     try{
-      const response=await apiFetch('/api/notifications/'+encodeURIComponent(id)+'/read',{method:'PATCH'});
+      const response=await apiFetch('/api/internal/notifications/'+encodeURIComponent(id)+'/read',{method:'PATCH'});
       const body=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(body.error||'Notification could not be marked as read.');
       setNotifications(rows=>rows.map(row=>row.id===id?{...row,read_at:body.notification?.read_at||new Date().toISOString()}:row));
@@ -1237,7 +1237,7 @@ export function NotificationsPage() {
   const markAllRead=async()=>{
     setBusy('all');setError('');setNotice('');
     try{
-      const response=await apiFetch('/api/notifications/read-all',{method:'PATCH'});
+      const response=await apiFetch('/api/internal/notifications/read-all',{method:'PATCH'});
       const body=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(body.error||'Notifications could not be marked as read.');
       setNotifications(rows=>rows.map(row=>({...row,read_at:row.read_at||new Date().toISOString()})));
@@ -1249,7 +1249,7 @@ export function NotificationsPage() {
     const key=pref.channel+':'+pref.notification_key;
     setBusy(key);setError('');setNotice('');
     try{
-      const response=await apiFetch('/api/notifications/preferences',{method:'PUT',body:JSON.stringify({
+      const response=await apiFetch('/api/internal/notifications/preferences',{method:'PUT',body:JSON.stringify({
         channel:pref.channel,notificationKey:pref.notification_key,enabled:!pref.enabled,
         ...(pref.quiet_hours ? {quietHours:pref.quiet_hours} : {}),
       })});
