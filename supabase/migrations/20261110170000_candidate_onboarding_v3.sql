@@ -23,7 +23,9 @@ from public.student_onboarding_question_versions v
 join public.student_onboarding_question_sets s on s.id = v.question_set_id
 cross join (values
  ('fullName','What is your full name?','short_text','account_and_exam_setup','standard',true,1),
- ('academicStatus','What is your current academic status and previous JAMB experience?','structured','account_and_exam_setup','standard',true,3),
+ ('currentClass','What is your current academic status?','short_text','account_and_exam_setup','standard',true,3),
+ ('attempts','How many previous JAMB attempts have you made?','short_text','account_and_exam_setup','standard',true,3),
+ ('yearsOutOfSchool','How long have you been out of school?','short_text','account_and_exam_setup','standard',false,3),
  ('troubleTopic','Is there a particular topic you struggle with?','long_text','personalized_learning','standard',true,9),
  ('studyStyle','Which study approach sounds most like you?','short_text','personalized_learning','standard',true,10),
  ('studyEnvironment','Where do you usually study?','short_text','personalized_learning','standard',true,12),
