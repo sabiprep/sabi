@@ -1,0 +1,92 @@
+/* Sabi design foundation — official brand tokens.
+   Keep learning state and all authoritative calculations on the server. */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --sabi-blue: #0066FF;
+  --sabi-primary: #0066FF;
+  --sabi-navy: #0A1F66;
+  --sabi-gold: #FFC700;
+  --sabi-yellow: #FFC700;
+  --sabi-ink: #0A1F66;
+  --sabi-muted: #64748B;
+  --sabi-surface: #FFFFFF;
+  --sabi-page: #F7F9FC;
+  --sabi-border: #E5EAF2;
+  --sabi-success: #15803D;
+  --sabi-danger: #DC2626;
+  --sabi-radius-sm: 0.625rem;
+  --sabi-radius-md: 1rem;
+  --sabi-radius-lg: 1.375rem;
+  --sabi-shadow-sm: 0 1px 3px rgb(10 31 102 / 0.06);
+  --sabi-shadow-md: 0 12px 32px rgb(10 31 102 / 0.08);
+  --font-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+html, body, #root {
+  font-family: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background: var(--sabi-page);
+  color: var(--sabi-ink);
+}
+
+.dark {
+  --sabi-ink: #F5F7FF;
+  --sabi-surface: #101B36;
+  --sabi-page: #080F20;
+  --sabi-border: #243250;
+  --sabi-muted: #A6B2C8;
+  --sabi-shadow-sm: 0 1px 3px rgb(0 0 0 / 0.2);
+  --sabi-shadow-md: 0 12px 32px rgb(0 0 0 / 0.24);
+}
+
+.sabi-card {
+  background: var(--sabi-surface);
+  border: 1px solid var(--sabi-border);
+  border-radius: var(--sabi-radius-lg);
+  box-shadow: var(--sabi-shadow-sm);
+}
+
+.sabi-primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--sabi-blue);
+  border-radius: 0.875rem;
+  background: var(--sabi-blue);
+  color: #fff;
+  font-weight: 600;
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+.sabi-primary-button:hover { background: #0057DB; }
+.sabi-primary-button:active { transform: translateY(1px); }
+.sabi-primary-button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.sabi-secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--sabi-border);
+  border-radius: 0.875rem;
+  background: var(--sabi-surface);
+  color: var(--sabi-ink);
+  font-weight: 600;
+}
+
+.sabi-focus:focus-visible {
+  outline: 3px solid rgb(0 102 255 / 0.35);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sabi-primary-button { transition: none; }
+}
