@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth } from '../middleware/requireAuth';
 import { requireRole } from '../middleware/requireRole';
+import { requireAdminPermission } from '../middleware/requireAdminPermission';
 
 const router = Router();
 
