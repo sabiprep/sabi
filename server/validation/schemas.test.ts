@@ -161,3 +161,62 @@ describe('explainSchema and chatSchema', () => {
     expect(chatSchema.safeParse({ messages: tooMany }).success).toBe(false);
   });
 });
+
+describe('onboardingSchema v3', () => {
+  const answers = {
+    fullName: 'Ada Obi',
+    currentClass: 'Secondary school student',
+    attempts: 'First JAMB attempt',
+    targetCourse: 'Medicine',
+    targetUniversity: 'University of Uyo',
+    monthsUntilExam: '2–3 months',
+    subjectConfidence: {
+      'English Language': 3, Mathematics: 4, Physics: 2, Chemistry: 3,
+    },
+    prioritySubject: 'Physics',
+    struggleType: 'Methods and formulas',
+    troubleTopic: 'Vectors',
+    studyStyle: 'Structured study plan',
+    dailyStudyHours: '2–3 hours',
+    studyEnvironment: 'Quiet/private',
+    explanationPreference: 'Detailed explanations',
+    languagePreference: 'Plain Formal English',
+    motivation: 'I want to study medicine.',
+    chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+  };
+
+  it('accepts the complete 15-question v3 profile without inventing a target score', () => {
+    const parsed = onboardingSchema.safeParse({
+      questionSetVersion: 'v3',
+      submissionKey: '9a4d1f44-0c2f-4b79-a69d-3a6cdb8d9a01',
+      onboardingAnswers: answers,
+      registeredSubjects: answers.chosenSubjects,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.questionSetVersion).toBe('v3');
+      expect(parsed.data.targetScore).toBeUndefined();
+    }
+  });
+
+  it('requires years out of school only for candidates currently out of school', () => {
+    const invalid = { ...answers, currentClass: 'Currently out of school' };
+    expect(onboardingSchema.safeParse({
+      questionSetVersion: 'v3', onboardingAnswers: invalid,
+      registeredSubjects: answers.chosenSubjects,
+    }).success).toBe(false);
+    expect(onboardingSchema.safeParse({
+      questionSetVersion: 'v3',
+      onboardingAnswers: { ...invalid, yearsOutOfSchool: '2 years' },
+      registeredSubjects: answers.chosenSubjects,
+    }).success).toBe(true);
+  });
+
+  it('requires confidence for all four registered subjects on the 1–5 scale', () => {
+    const invalid = { ...answers, subjectConfidence: { 'English Language': 3, Mathematics: 4, Physics: 2 } };
+    expect(onboardingSchema.safeParse({
+      questionSetVersion: 'v3', onboardingAnswers: invalid,
+      registeredSubjects: answers.chosenSubjects,
+    }).success).toBe(false);
+  });
+});
