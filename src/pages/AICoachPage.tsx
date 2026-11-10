@@ -110,7 +110,7 @@ export function AICoachPage() {
     setError('');
 
     const result = await apiPostJson('/api/ai/chat', {
-      messages: nextMessages.slice(-12).map(({ role, content }) => ({ role, content })),
+      messages: nextMessages.slice(-12).map(({ role, content }) => ({ role, content: content.slice(-4000) })),
       ...(subject ? { subject } : {}),
       ...(topic.trim() ? { topic: topic.trim() } : {}),
     });
