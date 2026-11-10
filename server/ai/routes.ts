@@ -441,6 +441,25 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       maxOutputTokens: 1000,
       timeoutMs: 10000,
     });
+    // Recheck immediately before releasing tutoring content: a CBT may have
+    // started while the model provider was generating the response.
+    if (await hasLiveCBTSession(userId)) {
+      if (reservedCreditCost > 0) {
+        await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'cbt_started_during_tutor_request');
+        reservedCreditCost = 0;
+      }
+      await recordAIUsage(supabaseAdmin, {
+        userId, task: 'tutor_chat', provider: 'none', model: 'none',
+        outcome: 'blocked', promptVersion: 'tutor-chat-v1',
+        durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
+        metadata: { reason: 'CBT_AI_LOCKED', refundedCredits: creditReservation.creditCost },
+      });
+      aiUsageRecorded = true;
+      return res.status(403).json({
+        error: 'AI tutoring is unavailable while you have an active CBT. Submit the exam before using AI Coach.',
+        code: 'CBT_AI_LOCKED',
+      });
+    }
     await recordAIUsage(supabaseAdmin, {
       userId, task: 'tutor_chat', provider: generated.provider, model: generated.model,
       usage: generated.usage, outcome: 'success', promptVersion: 'tutor-chat-v1',
@@ -632,6 +651,23 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
         maxOutputTokens: preference === 'short' ? 500 : 1100,
         timeoutMs: 9000,
       });
+      if (await hasLiveCBTSession(userId)) {
+        if (reservedCreditCost > 0) {
+          await refundAIRequestCredits(supabaseAdmin, userId, aiRequestId, 'cbt_started_during_explanation_request');
+          reservedCreditCost = 0;
+        }
+        await recordAIUsage(supabaseAdmin, {
+          userId, task: 'explanation', provider: 'none', model: 'none',
+          outcome: 'blocked', promptVersion: 'verified-explanation-v1',
+          durationMs: Date.now() - aiStartedAt, requestId: aiRequestId || undefined,
+          metadata: { questionId, reason: 'CBT_AI_LOCKED', refundedCredits: creditReservation.creditCost },
+        });
+        aiUsageRecorded = true;
+        return res.status(403).json({
+          error: 'AI explanations are unavailable while you have an active CBT. Submit the exam before requesting help.',
+          code: 'CBT_AI_LOCKED',
+        });
+      }
       await recordAIUsage(supabaseAdmin, {
         userId, task: 'explanation', provider: generated.provider, model: generated.model,
         usage: generated.usage, outcome: 'success', promptVersion: 'verified-explanation-v1',
