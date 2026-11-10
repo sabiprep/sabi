@@ -1,722 +1,127 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, Sun, Moon, Volume2, VolumeX } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Moon, Sun } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ONBOARDING_QUESTIONS, SUBJECTS_POOL } from '../data/onboardingQuestions';
 import type { SubjectName } from '../types';
-import { sound } from '../utils/soundEffects';
 import { useTheme } from '../app/ThemeProvider';
 import { supabase } from '../lib/supabase';
 import { apiPostJson, describeApiFailure } from '../utils/apiClient';
 
-const STORAGE_KEY = 'sabi_onboarding_v2_10q';
-const SUBMISSION_KEY_STORAGE = 'sabi_onboarding_submission_key';
-const CLASS_OPTIONS = ['SS2 Candidate', 'SS3 Candidate', 'Post-Secondary / Resitter'];
-const ATTEMPT_OPTIONS = ['First UTME Sitting (0 prior)', '1 Previous UTME Sitting', '2+ Previous UTME Sittings'];
-const POPULAR_COURSES = [
-  'Medicine & Surgery',
-  'Computer Science',
-  'Law',
-  'Nursing Science',
-  'Mechanical Engineering',
-  'Accounting',
-  'Pharmacy',
-  'Economics',
-];
-const POPULAR_UNIVERSITIES = [
-  'UNILAG',
-  'UI (Ibadan)',
-  'OAU Ife',
-  'UNILORIN',
-  'UNN',
-  'ABU Zaria',
-  'FUTA',
-  'UNIBEN',
-  'LASU',
-  'Covenant University',
-];
-
 type Answers = Record<string, string | string[] | Record<string, number>>;
+const DRAFT_KEY = 'sabi_onboarding_v3_draft';
+const SUBMISSION_KEY = 'sabi_onboarding_submission_key';
+const CLASS_OPTIONS = ['Secondary school student', 'Currently out of school', 'Post-secondary / resitter'];
+const ATTEMPTS = ['First JAMB attempt', 'One previous attempt', 'Two or more previous attempts'];
 
-function readAnswers(): Answers {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as Answers) : {};
-  } catch {
-    return {};
-  }
+function readDraft(): Answers {
+  try { const raw = localStorage.getItem(DRAFT_KEY); return raw ? JSON.parse(raw) as Answers : {}; }
+  catch { return {}; }
 }
 
 export function OnboardingPage() {
   const { step } = useParams();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
-
-  const totalSteps = ONBOARDING_QUESTIONS.length; // 10 mature questions
   const stepNumber = Number(step);
-  const validStep = Number.isInteger(stepNumber) && stepNumber >= 1 && stepNumber <= totalSteps;
-  const question = ONBOARDING_QUESTIONS[Math.min(Math.max(stepNumber, 1), totalSteps) - 1];
-
-  const [answers, setAnswers] = useState<Answers>(readAnswers);
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-
+  const validStep = Number.isInteger(stepNumber) && stepNumber >= 1 && stepNumber <= ONBOARDING_QUESTIONS.length;
+  const question = ONBOARDING_QUESTIONS[Math.min(Math.max(stepNumber, 1), ONBOARDING_QUESTIONS.length) - 1];
+  const [answers, setAnswers] = useState<Answers>(readDraft);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const selectedSubjects = (answers.chosenSubjects as string[] | undefined) ?? ['English Language'];
   const confidence = (answers.subjectConfidence as Record<string, number> | undefined) ?? {};
+  const dark = isDark;
+  const panel = dark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900';
+  const field = dark ? 'bg-slate-950 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900';
 
+  useEffect(() => { if (!validStep) navigate('/onboarding/1', { replace: true }); }, [validStep, navigate]);
+  useEffect(() => { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(answers)); } catch { /* optional draft only */ } }, [answers]);
   useEffect(() => {
-    if (!validStep) navigate('/onboarding/1', { replace: true });
-  }, [navigate, validStep]);
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => { if (!cancelled && !data?.user) navigate('/auth/sign-up', { replace: true }); });
+    return () => { cancelled = true; };
+  }, [navigate]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
-    } catch {
-      // Ignore storage errors in restricted contexts
-    }
-  }, [answers]);
-
-  const setAnswer = (key: string, value: Answers[string]) => {
-    sound.playTap();
-    setAnswers(previous => ({ ...previous, [key]: value }));
-  };
-
+  const setAnswer = (key: string, value: Answers[string]) => setAnswers(old => ({ ...old, [key]: value }));
   const toggleSubject = (subject: SubjectName) => {
     if (subject === 'English Language') return;
-    sound.playTap();
-    setAnswers(previous => {
-      const previousSubjects = Array.isArray(previous.chosenSubjects)
-        ? (previous.chosenSubjects as string[])
-        : ['English Language'];
-      const selected = previousSubjects.includes(subject);
-      const updated = selected
-        ? previousSubjects.filter(item => item !== subject)
-        : previousSubjects.length < 4
-        ? [...previousSubjects, subject]
-        : previousSubjects;
-      return {
-        ...previous,
-        chosenSubjects: ['English Language', ...updated.filter(item => item !== 'English Language')],
-      };
+    setAnswers(old => {
+      const current = (old.chosenSubjects as string[] | undefined) ?? ['English Language'];
+      const next = current.includes(subject) ? current.filter(x => x !== subject) : current.length < 4 ? [...current, subject] : current;
+      return { ...old, chosenSubjects: ['English Language', ...next.filter(x => x !== 'English Language')] };
     });
   };
 
   const canContinue = useMemo(() => {
-    switch (question.id) {
-      case 1:
-        return selectedSubjects.length === 4;
-      case 2:
-        return Boolean(String(answers.targetCourse ?? '').trim() && String(answers.targetUniversity ?? '').trim());
-      case 3:
-        return Boolean(answers.targetScore);
-      case 4:
-        return Boolean(answers.currentClass && answers.attempts);
-      case 5:
-        return Boolean(answers.monthsUntilExam);
-      case 6:
-        return selectedSubjects.every(subject => (confidence[subject] ?? 0) >= 1);
-      case 7:
-        return selectedSubjects.includes(String(answers.prioritySubject));
-      case 8:
-        return Boolean(answers.struggleType);
-      case 9:
-        return Boolean(answers.dailyStudyHours);
-      case 10:
-        return Boolean(answers.explanationPreference);
-      case 11:
-        return true;
-      default:
-        return false;
+    switch (question.key) {
+      case 'fullName': return String(answers.fullName ?? '').trim().length >= 2;
+      case 'chosenSubjects': return selectedSubjects.length === 4;
+      case 'academicStatus': return Boolean(answers.currentClass && answers.attempts && (answers.currentClass !== 'Currently out of school' || String(answers.yearsOutOfSchool ?? '').trim()));
+      case 'targetCourse': return Boolean(String(answers.targetCourse ?? '').trim() && String(answers.targetUniversity ?? '').trim());
+      case 'subjectConfidence': return selectedSubjects.every(s => (confidence[s] ?? 0) >= 1);
+      case 'prioritySubject': return selectedSubjects.includes(String(answers.prioritySubject ?? ''));
+      case 'troubleTopic': return String(answers.troubleTopic ?? '').trim().length > 0;
+      case 'motivation': return true;
+      default: return Boolean(answers[question.fieldName]);
     }
-  }, [answers, confidence, question.id, selectedSubjects]);
+  }, [answers, confidence, question, selectedSubjects]);
 
-  // Guard: Ensure the candidate has a live Supabase session before onboarding.
-  // Phase 0: identity comes from the session token, not from a localStorage email.
-  useEffect(() => {
-    let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      if (cancelled) return;
-      if (!data?.user) {
-        localStorage.removeItem('sabi_user_signed_in');
-        navigate('/auth/sign-up', { replace: true });
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [navigate]);
-
-  const handleNext = async () => {
-    if (!canContinue || isSubmitting) return;
-    sound.playCorrect();
-
-    if (question.id !== totalSteps) {
-      navigate(`/onboarding/${question.id + 1}`);
-      return;
-    }
-
-    setSubmitError('');
-    setIsSubmitting(true);
+  const finish = async () => {
+    setError(''); setSubmitting(true);
     try {
-      const { data: sessionData } = await supabase.auth.getUser();
-      if (!sessionData?.user) {
-        navigate('/auth/sign-up', { replace: true });
-        return;
-      }
-
-      localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(answers));
-      localStorage.setItem('sabi_user_signed_in', 'true');
-
-      // Phase 0: the server writes onboarding data for the token's own user, so
-      // no email is sent and the direct profiles write is no longer needed.
-      const submissionKey = localStorage.getItem(SUBMISSION_KEY_STORAGE) || crypto.randomUUID();
-      localStorage.setItem(SUBMISSION_KEY_STORAGE, submissionKey);
-      const scoreBand = String(answers.targetScore ?? '').match(/\d{3}/g)?.map(Number) ?? [];
-      const targetScore = scoreBand.length >= 2
-        ? Math.round((scoreBand[0] + scoreBand[1]) / 2)
-        : scoreBand.length === 1 ? Math.min(400, scoreBand[0] + 10) : 320;
-      const onboardingResult = await apiPostJson('/api/profile/onboarding', {
+      const { data } = await supabase.auth.getUser();
+      if (!data?.user) { navigate('/auth/sign-up', { replace: true }); return; }
+      const submissionKey = localStorage.getItem(SUBMISSION_KEY) || crypto.randomUUID();
+      localStorage.setItem(SUBMISSION_KEY, submissionKey);
+      const result = await apiPostJson('/api/profile/onboarding', {
+        questionSetVersion: 'v3',
         submissionKey,
         onboardingAnswers: answers,
         registeredSubjects: selectedSubjects,
-        targetScore,
       });
-
-      if (!onboardingResult.ok) {
-        setSubmitError(
-          describeApiFailure(
-            onboardingResult,
-            'Could not save your onboarding answers.'
-          )
-        );
-        return;
-      }
-
-      localStorage.removeItem(SUBMISSION_KEY_STORAGE);
+      if (!result.ok) { setError(describeApiFailure(result, 'Could not save your onboarding answers.')); return; }
+      localStorage.removeItem(SUBMISSION_KEY);
+      localStorage.removeItem(DRAFT_KEY);
+      localStorage.setItem('sabi_onboarding_v3_answers', JSON.stringify(answers));
       navigate('/home');
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not save your onboarding answers.');
+    } finally { setSubmitting(false); }
   };
 
-  const handleBack = () => {
-    sound.playTap();
-    if (question.id > 1) {
-      navigate(`/onboarding/${question.id - 1}`);
-    } else {
-      navigate('/auth/choice');
-    }
+  const next = () => {
+    if (!canContinue || submitting) return;
+    if (question.id === ONBOARDING_QUESTIONS.length) { void finish(); return; }
+    navigate('/onboarding/' + (question.id + 1));
   };
-
-  const toggleSound = () => {
-    const next = !audioEnabled;
-    setAudioEnabled(next);
-    sound.setEnabled(next);
-  };
-
+  const back = () => question.id > 1 ? navigate('/onboarding/' + (question.id - 1)) : navigate('/auth/choice');
   if (!validStep) return null;
 
-  return (
-    <main
-      className={`h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-hidden flex flex-col font-sans select-none transition-colors duration-200 ${
-        isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-[#F8FAFC] text-slate-900'
-      }`}
-    >
-      {/* ===================================================================== */}
-      {/* SIMPLE MATURE TOP HEADER (Blue Primary + White Secondary)             */}
-      {/* ===================================================================== */}
-      <header
-        className={`sabi-top-safe-bar px-4 sm:px-8 py-3.5 border-b shrink-0 flex items-center justify-between transition-colors ${
-          isDark ? 'bg-[#0B1224] border-slate-800' : 'bg-white border-slate-200'
-        }`}
-      >
-        <Link to="/welcome" className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-white text-base shadow-xs">
-            S
-          </div>
-          <span className={`font-black text-lg tracking-tight ${isDark ? 'text-white' : 'text-blue-950'}`}>
-            SABI
-          </span>
-        </Link>
-
-        {/* Clean Step Counter */}
-        <div className="flex items-center gap-3">
-          <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs sm:text-sm font-black tracking-wide text-blue-700 dark:text-blue-300 tabular-nums">
-            Step {question.id} of {totalSteps}
-          </span>
-
-          <button
-            type="button"
-            onClick={toggleTheme}
-            aria-label={isDark ? 'Switch to light theme' : 'Switch to dark theme'}
-            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-              isDark
-                ? 'border-slate-800 bg-slate-900 text-blue-300 hover:bg-slate-800'
-                : 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            {isDark ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleSound}
-            aria-label="Toggle Sound"
-            className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-              isDark
-                ? 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
-                : 'border-slate-200 bg-slate-50 text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {audioEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-          </button>
+  const optionClass = (active: boolean) => 'w-full rounded-xl border-2 p-4 text-left font-semibold transition ' + (active ? 'border-blue-600 bg-blue-600 text-white' : panel + ' hover:border-blue-400');
+  return <main className={`min-h-[100dvh] flex flex-col ${dark ? 'bg-[#080D1A] text-white' : 'bg-slate-50 text-slate-900'}`}>
+    <header className={`flex items-center justify-between border-b px-4 py-3 sm:px-8 ${dark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200'}`}>
+      <Link to="/welcome" className="font-black tracking-tight text-xl text-blue-700">SABI</Link>
+      <div className="flex items-center gap-3"><span className="text-sm font-bold tabular-nums">Step {question.id} of 15</span><button onClick={toggleTheme} aria-label="Toggle theme" className="rounded-lg border p-2">{dark ? <Sun size={18}/> : <Moon size={18}/>}</button></div>
+    </header>
+    <div className={`h-1.5 ${dark ? 'bg-slate-800' : 'bg-blue-100'}`}><div className="h-full bg-blue-600 transition-all" style={{width:`${question.id / 15 * 100}%`}}/></div>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-5 sm:px-6 sm:py-8">
+      <section className={`flex flex-1 flex-col overflow-hidden rounded-3xl border shadow-sm ${panel}`}>
+        <div className="bg-blue-700 px-5 py-6 text-white sm:px-8"><p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-100">{question.category} · {question.id}/15</p><h1 className="text-2xl font-black leading-tight sm:text-3xl">{question.question}</h1><p className="mt-2 text-sm text-blue-100">{question.subtext}</p></div>
+        <div className="flex flex-col gap-3 p-4 sm:p-7">
+          {question.type === 'text' && question.key === 'fullName' && <input autoComplete="name" value={String(answers.fullName ?? '')} onChange={e=>setAnswer('fullName',e.target.value)} placeholder="Your full name" className={`w-full rounded-xl border p-4 outline-none focus:border-blue-600 ${field}`}/>}
+          {question.type === 'subjects' && <><p className="text-sm font-bold">Selected {selectedSubjects.length} of 4 · English Language is compulsory</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{SUBJECTS_POOL.map(({name,category})=>{const active=selectedSubjects.includes(name);const compulsory=name==='English Language';return <button key={name} onClick={()=>toggleSubject(name)} type="button" className={`rounded-xl border-2 p-3 text-left ${active?'border-blue-600 bg-blue-600 text-white':panel}`}><span className="block text-[10px] font-bold uppercase opacity-70">{compulsory?'Compulsory':category}</span><span className="text-sm font-bold">{name}</span>{active&&<Check size={15} className="mt-1"/>}</button>})}</div></>}
+          {question.type === 'status' && <><label className="text-sm font-bold">Current status<select value={String(answers.currentClass ?? '')} onChange={e=>setAnswer('currentClass',e.target.value)} className={`mt-2 w-full rounded-xl border p-4 ${field}`}><option value="">Select status</option>{CLASS_OPTIONS.map(x=><option key={x}>{x}</option>)}</select></label><label className="text-sm font-bold">Previous JAMB attempts<select value={String(answers.attempts ?? '')} onChange={e=>setAnswer('attempts',e.target.value)} className={`mt-2 w-full rounded-xl border p-4 ${field}`}><option value="">Select attempts</option>{ATTEMPTS.map(x=><option key={x}>{x}</option>)}</select></label>{answers.currentClass==='Currently out of school'&&<label className="text-sm font-bold">How many years have you been out of school?<input value={String(answers.yearsOutOfSchool ?? '')} onChange={e=>setAnswer('yearsOutOfSchool',e.target.value)} placeholder="e.g. 2 years" className={`mt-2 w-full rounded-xl border p-4 ${field}`}/></label>}</>}
+          {question.type === 'course_uni' && <><label className="text-sm font-bold">Target course<input value={String(answers.targetCourse ?? '')} onChange={e=>setAnswer('targetCourse',e.target.value)} placeholder="e.g. Electrical and Electronics Engineering" className={`mt-2 w-full rounded-xl border p-4 ${field}`}/></label><label className="text-sm font-bold">Target university<input value={String(answers.targetUniversity ?? '')} onChange={e=>setAnswer('targetUniversity',e.target.value)} placeholder="e.g. University of Uyo" className={`mt-2 w-full rounded-xl border p-4 ${field}`}/></label></>}
+          {question.type === 'radio' && question.options?.map(opt=><button type="button" key={opt} onClick={()=>setAnswer(question.fieldName,opt)} className={optionClass(answers[question.fieldName]===opt)}>{opt}</button>)}
+          {question.type === 'confidence' && selectedSubjects.map(subject=><div key={subject} className={`rounded-xl border p-4 ${panel}`}><p className="mb-3 font-bold">{subject} <span className="text-xs font-normal opacity-70">· confidence</span></p><div className="grid grid-cols-5 gap-2">{[1,2,3,4,5].map(n=><button key={n} onClick={()=>setAnswer('subjectConfidence',{...confidence,[subject]:n})} className={`rounded-lg border p-3 font-bold ${confidence[subject]===n?'bg-blue-600 text-white border-blue-600':field}`}>{n}</button>)}</div></div>)}
+          {question.type === 'priority' && selectedSubjects.map(subject=><button type="button" key={subject} onClick={()=>setAnswer('prioritySubject',subject)} className={optionClass(answers.prioritySubject===subject)}>{subject}</button>)}
+          {question.type === 'text' && question.key === 'troubleTopic' && <textarea rows={5} value={String(answers.troubleTopic ?? '')} onChange={e=>setAnswer('troubleTopic',e.target.value)} placeholder="For example: quadratic equations, organic chemistry, vectors..." className={`w-full rounded-xl border p-4 ${field}`}/>}
+          {question.type === 'long_text' && <textarea rows={6} maxLength={2000} value={String(answers.motivation ?? '')} onChange={e=>setAnswer('motivation',e.target.value)} placeholder="What are you hoping to achieve through your education?" className={`w-full rounded-xl border p-4 ${field}`}/>}
         </div>
-      </header>
-
-      {/* Clean Royal Blue Progress Bar */}
-      <div className={`w-full h-1.5 shrink-0 ${isDark ? 'bg-slate-900' : 'bg-blue-100'}`}>
-        <div
-          className="h-full bg-blue-600 transition-all duration-300"
-          style={{ width: `${(question.id / totalSteps) * 100}%` }}
-        />
-      </div>
-
-      {/* ===================================================================== */}
-      {/* MAIN 10-QUESTION MATURE WORKSPACE                                     */}
-      {/* ===================================================================== */}
-      <div className="flex-1 min-h-0 w-full max-w-3xl mx-auto px-4 py-4 sm:px-6 sm:py-6 flex flex-col justify-between gap-4">
-        
-        {/* Unified Question + Scrollable Options Card */}
-        <section
-          className={`flex-1 min-h-0 rounded-3xl border flex flex-col overflow-hidden shadow-lg transition-colors ${
-            isDark ? 'bg-[#0E172B] border-slate-800' : 'bg-white border-slate-200'
-          }`}
-        >
-          {/* Royal Blue Question Header */}
-          <div className="shrink-0 bg-gradient-to-r from-blue-700 via-blue-700 to-blue-800 text-white px-5 py-4 sm:px-7 sm:py-5 border-b border-blue-600">
-            <div className="flex items-center justify-between gap-2 text-xs font-black uppercase tracking-wider text-blue-100 mb-1">
-              <span>{question.category}</span>
-              <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white tabular-nums">{question.id} / {totalSteps}</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug text-white">
-              {question.question}
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-blue-100/90 mt-1">
-              {question.subtext}
-            </p>
-          </div>
-
-          {/* Scrollable Interactive Options Container */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 flex flex-col">
-            
-            {/* Q1: 4 JAMB SUBJECTS */}
-            {question.id === 1 && (
-              <div className="flex-1 flex flex-col gap-3">
-                <div
-                  className={`sticky top-0 z-10 py-2.5 px-4 rounded-xl border flex items-center justify-between text-xs sm:text-sm font-black ${
-                    isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-blue-50/80 border-blue-200 text-blue-950'
-                  }`}
-                >
-                  <span>Selected: {selectedSubjects.length} of 4 Subjects</span>
-                  <span className={selectedSubjects.length === 4 ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}>
-                    {selectedSubjects.length === 4 ? '✓ Combination Complete' : `Select ${4 - selectedSubjects.length} more`}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {SUBJECTS_POOL.map(({ name, category }) => {
-                    const isEnglish = name === 'English Language';
-                    const checked = selectedSubjects.includes(name);
-
-                    return (
-                      <button
-                        key={name}
-                        type="button"
-                        onClick={() => toggleSubject(name)}
-                        className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
-                          isEnglish
-                            ? isDark
-                              ? 'bg-blue-950/60 border-blue-700 text-white cursor-default font-black'
-                              : 'bg-yellow-50/90 border-yellow-200 text-slate-900 cursor-default font-black'
-                            : checked
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-600/15'
-                            : isDark
-                            ? 'bg-slate-900/90 border-slate-800 hover:border-blue-500 hover:bg-slate-800 text-slate-100'
-                            : 'bg-white border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 text-slate-900'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between w-full mb-1">
-                          <span className={`text-[10px] uppercase font-bold tracking-wider ${
-                            isEnglish && !isDark ? 'text-amber-800' : 'opacity-80'
-                          }`}>
-                            {isEnglish ? 'COMPULSORY' : category}
-                          </span>
-                          {(checked || isEnglish) && (
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black ${
-                              isEnglish && !isDark
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-white text-blue-700'
-                            }`}>
-                              <Check size={12} strokeWidth={3} />
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-xs sm:text-sm font-black leading-tight">{name}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Q2: TARGET COURSE & UNIVERSITY */}
-            {question.id === 2 && (
-              <div className="flex-1 flex flex-col justify-between gap-4">
-                <div
-                  className={`flex-1 p-4 sm:p-5 rounded-2xl border flex flex-col justify-between gap-3 ${
-                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50/80 border-slate-200'
-                  }`}
-                >
-                  <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
-                      Target Course of Study
-                    </label>
-                    <input
-                      type="text"
-                      value={String(answers.targetCourse ?? '')}
-                      placeholder="e.g. Medicine & Surgery, Computer Science, Law"
-                      onChange={e => setAnswer('targetCourse', e.target.value)}
-                      className={`w-full px-4 py-3.5 rounded-xl border text-base font-black outline-none ${
-                        isDark
-                          ? 'bg-slate-950 border-slate-700 text-white focus:border-blue-500'
-                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {POPULAR_COURSES.map(course => (
-                      <button
-                        key={course}
-                        type="button"
-                        onClick={() => setAnswer('targetCourse', course)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
-                          answers.targetCourse === course
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                            : isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-blue-500 hover:text-white'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
-                        }`}
-                      >
-                        {course}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div
-                  className={`flex-1 p-4 sm:p-5 rounded-2xl border flex flex-col justify-between gap-3 ${
-                    isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-slate-50/80 border-slate-200'
-                  }`}
-                >
-                  <div>
-                    <label className="block text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1.5">
-                      First-Choice University / Institution
-                    </label>
-                    <input
-                      type="text"
-                      value={String(answers.targetUniversity ?? '')}
-                      placeholder="e.g. UNILAG, UI, OAU, UNILORIN"
-                      onChange={e => setAnswer('targetUniversity', e.target.value)}
-                      className={`w-full px-4 py-3.5 rounded-xl border text-base font-black outline-none ${
-                        isDark
-                          ? 'bg-slate-950 border-slate-700 text-white focus:border-blue-500'
-                          : 'bg-white border-slate-300 text-slate-950 focus:border-blue-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {POPULAR_UNIVERSITIES.map(uni => (
-                      <button
-                        key={uni}
-                        type="button"
-                        onClick={() => setAnswer('targetUniversity', uni)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black border transition cursor-pointer ${
-                          answers.targetUniversity === uni
-                            ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                            : isDark
-                            ? 'bg-slate-950 border-slate-800 text-slate-300 hover:border-blue-500 hover:text-white'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
-                        }`}
-                      >
-                        {uni}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Q4: ACADEMIC LEVEL & PRIOR ATTEMPTS */}
-            {question.id === 4 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                    Current Academic Status
-                  </span>
-                  <div className="flex-1 flex flex-col gap-2.5">
-                    {CLASS_OPTIONS.map(opt => {
-                      const active = answers.currentClass === opt;
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => setAnswer('currentClass', opt)}
-                          className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition cursor-pointer ${
-                            active
-                              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                              : isDark
-                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
-                              : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
-                          }`}
-                        >
-                          <span>{opt}</span>
-                          {active && (
-                            <span className="w-6 h-6 rounded-full bg-white text-blue-700 flex items-center justify-center">
-                              <Check size={14} strokeWidth={3} />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                    Previous UTME Sittings
-                  </span>
-                  <div className="flex-1 flex flex-col gap-2.5">
-                    {ATTEMPT_OPTIONS.map(opt => {
-                      const active = answers.attempts === opt;
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => setAnswer('attempts', opt)}
-                          className={`flex-1 p-4 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between transition cursor-pointer ${
-                            active
-                              ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                              : isDark
-                              ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
-                              : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
-                          }`}
-                        >
-                          <span>{opt}</span>
-                          {active && (
-                            <span className="w-6 h-6 rounded-full bg-white text-blue-700 flex items-center justify-center">
-                              <Check size={14} strokeWidth={3} />
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-
-            {/* Q11: OPTIONAL PERSONAL MOTIVATION */}
-            {question.id === 11 && (
-              <div className="flex-1 flex flex-col gap-3">
-                <label
-                  htmlFor="student-motivation"
-                  className={`text-sm font-bold ${isDark ? 'text-slate-200' : 'text-slate-700'}`}
-                >
-                  Share what is driving you. You can skip this question.
-                </label>
-                <textarea
-                  id="student-motivation"
-                  value={String(answers.motivation ?? '')}
-                  onChange={event => setAnswer('motivation', event.target.value)}
-                  maxLength={2000}
-                  rows={7}
-                  placeholder="For example: the course I want to study, the people I hope to support, or the future I am working towards..."
-                  className={`w-full min-h-[180px] rounded-2xl border-2 p-4 text-sm font-medium outline-none resize-y focus:border-blue-500 ${isDark ? 'bg-slate-950 border-slate-800 text-white placeholder:text-slate-500' : 'bg-white border-slate-200 text-slate-900 placeholder:text-slate-400'}`}
-                />
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Only share what you are comfortable sharing. This answer is stored with your onboarding record.
-                </p>
-              </div>
-            )}
-
-            {/* Q6: SUBJECT CONFIDENCE MATRIX */}
-            {question.id === 6 && (
-              <div className="flex-1 flex flex-col justify-between gap-3">
-                {selectedSubjects.map(subj => {
-                  const val = confidence[subj] ?? 0;
-                  return (
-                    <div
-                      key={subj}
-                      className={`flex-1 p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                        isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-50/80 border-slate-200'
-                      }`}
-                    >
-                      <div>
-                        <span className={`font-black text-base sm:text-lg block ${isDark ? 'text-white' : 'text-slate-950'}`}>
-                          {subj}
-                        </span>
-                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          {val === 0 ? 'Select readiness level (1 to 5)' : `Readiness Rating: ${val} / 5`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {[1, 2, 3, 4, 5].map(num => (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => setAnswer('subjectConfidence', { ...confidence, [subj]: num })}
-                            className={`flex-1 sm:flex-initial w-11 h-11 rounded-xl font-black text-sm flex items-center justify-center border-2 transition cursor-pointer ${
-                              val >= num
-                                ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                                : isDark
-                                ? 'bg-slate-950 border-slate-800 text-slate-400 hover:border-blue-500 hover:text-white'
-                                : 'bg-white border-slate-300 text-slate-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300'
-                            }`}
-                          >
-                            {num}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Q7: PRIORITY SUBJECT */}
-            {question.id === 7 && (
-              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                {selectedSubjects.map(subj => {
-                  const active = answers.prioritySubject === subj;
-                  return (
-                    <button
-                      key={subj}
-                      type="button"
-                      onClick={() => setAnswer('prioritySubject', subj)}
-                      className={`p-5 rounded-2xl border-2 text-left font-black text-base sm:text-lg flex items-center justify-between transition cursor-pointer ${
-                        active
-                          ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                          : isDark
-                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
-                          : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
-                      }`}
-                    >
-                      <span>{subj}</span>
-                      {active && (
-                        <span className="w-7 h-7 rounded-full bg-white text-blue-700 flex items-center justify-center shrink-0">
-                          <Check size={16} strokeWidth={3} />
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Q3, Q5, Q8, Q9, Q10: STANDARD RADIO OPTIONS */}
-            {(question.id === 3 || question.id === 5 || question.id === 8 || question.id === 9 || question.id === 10) && (
-              <div className="flex-1 flex flex-col justify-between gap-3">
-                {(question.options || []).map(opt => {
-                  const active = answers[question.fieldName] === opt;
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      onClick={() => setAnswer(question.fieldName, opt)}
-                      className={`flex-1 p-4 sm:p-5 rounded-2xl border-2 text-left font-black text-sm sm:text-base flex items-center justify-between gap-4 transition cursor-pointer ${
-                        active
-                          ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                          : isDark
-                          ? 'bg-slate-900 border-slate-800 text-slate-100 hover:border-blue-500 hover:bg-slate-800'
-                          : 'bg-white border-slate-200 text-slate-900 hover:border-blue-400 hover:bg-blue-50/40'
-                      }`}
-                    >
-                      <span className="leading-snug">{opt}</span>
-                      <span
-                        className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border-2 ${
-                          active
-                            ? 'bg-white border-white text-blue-700'
-                            : isDark
-                            ? 'border-slate-700'
-                            : 'border-slate-300'
-                        }`}
-                      >
-                        {active && <Check size={14} strokeWidth={3} />}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Save error (only appears if the onboarding sync request fails) */}
-        {submitError && (
-          <p
-            role="alert"
-            className={`shrink-0 px-4 py-3 rounded-2xl text-xs font-bold border ${
-              isDark
-                ? 'bg-rose-950/50 border-rose-800 text-rose-300'
-                : 'bg-rose-50 border-rose-200 text-rose-700'
-            }`}
-          >
-            {submitError}
-          </p>
-        )}
-
-        {/* ===================================================================== */}
-        {/* SIMPLE BOTTOM NAVIGATION BAR (Blue Primary Button + White Back)       */}
-        {/* ===================================================================== */}
-        <footer className="shrink-0 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={handleBack}
-            className={`px-5 py-4 rounded-2xl border font-black text-sm flex items-center gap-2 transition cursor-pointer ${
-              isDark
-                ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-500 hover:text-white'
-                : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 shadow-xs'
-            }`}
-          >
-            <ArrowLeft size={18} />
-            <span>Back</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={!canContinue || isSubmitting}
-            onClick={handleNext}
-            className={`flex-1 py-4 px-6 rounded-2xl font-black text-base flex items-center justify-center gap-2.5 border transition cursor-pointer ${
-              canContinue
-                ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-lg shadow-blue-600/20'
-                : isDark
-                ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
-                : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
-            }`}
-          >
-            <span>
-              {question.id === totalSteps
-                ? isSubmitting
-                  ? 'Saving your setup…'
-                  : 'Complete Setup & Enter Dashboard'
-                : 'Continue'}
-            </span>
-            <ArrowRight size={18} />
-          </button>
-        </footer>
-      </div>
-    </main>
-  );
+      </section>
+      {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-700">{error}</p>}
+      <footer className="flex gap-3"><button type="button" onClick={back} className={`rounded-xl border px-5 py-4 font-bold ${panel}`}><ArrowLeft size={18}/></button><button type="button" disabled={!canContinue||submitting} onClick={next} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-4 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{question.id===15?(submitting?'Saving…':'Complete setup'): 'Continue'} <ArrowRight size={18}/></button></footer>
+    </div>
+  </main>;
 }
 export default OnboardingPage;

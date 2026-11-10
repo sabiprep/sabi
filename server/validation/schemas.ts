@@ -59,6 +59,7 @@ const onboardingBaseSchema = z.strictObject({
   registeredSubjects: registeredSubjectsSchema.optional(),
   targetScore: z.number().min(0).max(400).optional(),
   submissionKey: z.string().uuid().optional(),
+  questionSetVersion: z.enum(['v2', 'v3']).optional(),
 });
 
 // Older clients submitted the selected subjects only inside onboardingAnswers.
@@ -74,6 +75,37 @@ export const onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
       message: 'Submit exactly four valid JAMB subjects, including English Language.',
     });
     return z.NEVER;
+  }
+  if (input.questionSetVersion === 'v3') {
+    const a = input.onboardingAnswers;
+    let invalidV3 = false;
+    const requiredText = ['fullName','currentClass','attempts','targetCourse','targetUniversity','monthsUntilExam','prioritySubject','struggleType','troubleTopic','studyStyle','dailyStudyHours','studyEnvironment','explanationPreference','languagePreference'];
+    for (const key of requiredText) {
+      if (typeof a[key] !== 'string' || !String(a[key]).trim()) {
+        invalidV3 = true;
+        ctx.addIssue({ code: 'custom', path: ['onboardingAnswers', key], message: `A valid ${key} answer is required.` });
+      }
+    }
+    if (String(a.fullName ?? '').trim().length < 2) {
+      invalidV3 = true;
+      ctx.addIssue({ code: 'custom', path: ['onboardingAnswers','fullName'], message: 'Enter your full name.' });
+    }
+    if (a.currentClass === 'Currently out of school' && (typeof a.yearsOutOfSchool !== 'string' || !a.yearsOutOfSchool.trim())) {
+      invalidV3 = true;
+      ctx.addIssue({ code: 'custom', path: ['onboardingAnswers','yearsOutOfSchool'], message: 'Tell us how long you have been out of school.' });
+    }
+    const confidence = a.subjectConfidence;
+    if (!confidence || typeof confidence !== 'object' || Array.isArray(confidence) ||
+      !parsedSubjects.data.every((subject) => Number.isInteger((confidence as Record<string, unknown>)[subject]) &&
+        Number((confidence as Record<string, unknown>)[subject]) >= 1 && Number((confidence as Record<string, unknown>)[subject]) <= 5)) {
+      invalidV3 = true;
+      ctx.addIssue({ code: 'custom', path: ['onboardingAnswers','subjectConfidence'], message: 'Provide a confidence rating from 1 to 5 for every selected subject.' });
+    }
+    if (a.motivation !== undefined && typeof a.motivation !== 'string') {
+      invalidV3 = true;
+      ctx.addIssue({ code: 'custom', path: ['onboardingAnswers','motivation'], message: 'Motivation must be text.' });
+    }
+    if (invalidV3) return z.NEVER;
   }
   return { ...input, registeredSubjects: parsedSubjects.data };
 });

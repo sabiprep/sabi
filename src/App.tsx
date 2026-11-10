@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './app/ThemeProvider';
 import { AuthPage, SplashPage, WelcomePage } from './pages/PublicPages';
 import './app/app.css';
+import './styles/sabi-brand.css';
 
 const MascotsGalleryPage = lazy(() => import('./pages/MascotsGalleryPage').then(module => ({ default: module.MascotsGalleryPage })));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then(module => ({ default: module.OnboardingPage })));

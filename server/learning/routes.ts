@@ -1433,6 +1433,68 @@ router.get('/progress', requireAuth, async (req, res) => {
  * Learner-owned analytics are derived only from server-recorded answer outcomes.
  * The endpoint reports when the recent-history query reaches its safety cap.
  */
+router.get('/mistakes', requireAuth, async (req, res) => {
+  const userId = authenticatedUser(req);
+  if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+  const requestedLimit = req.query.limit === undefined ? 100 : Number(req.query.limit);
+  if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 200) {
+    return res.status(400).json({ error: 'Mistake limit must be an integer between 1 and 200.' });
+  }
+
+  try {
+    const { data: attempts, error: attemptsError } = await supabaseAdmin
+      .from('learning_session_items')
+      .select('id, session_id, question_id, selected_option, is_correct, answered_at')
+      .eq('user_id', userId)
+      .eq('is_correct', false)
+      .not('answered_at', 'is', null)
+      .order('answered_at', { ascending: false })
+      .limit(requestedLimit);
+    if (attemptsError) {
+      console.error('[SABI] Mistake notebook lookup failed:', attemptsError.message);
+      return res.status(503).json({ error: 'Your mistake notebook is temporarily unavailable.' });
+    }
+
+    const questionIds = [...new Set((attempts || []).map((item) => item.question_id))];
+    const { data: questions, error: questionsError } = questionIds.length
+      ? await supabaseAdmin.from('question_bank')
+          .select('id, subject, topic, subtopic, question, option_a, option_b, option_c, option_d, answer, explanation_short, explanation')
+          .in('id', questionIds)
+          .eq('status', 'published')
+      : { data: [], error: null };
+    if (questionsError) {
+      console.error('[SABI] Mistake notebook question lookup failed:', questionsError.message);
+      return res.status(503).json({ error: 'Mistake explanations are temporarily unavailable.' });
+    }
+
+    const byId = new Map((questions || []).map((question) => [question.id, question]));
+    const mistakes = (attempts || []).flatMap((attempt) => {
+      const question = byId.get(attempt.question_id);
+      if (!question) return [];
+      return [{
+        id: attempt.id,
+        sessionId: attempt.session_id,
+        questionId: question.id,
+        subject: question.subject,
+        topic: question.topic,
+        subtopic: question.subtopic,
+        question: question.question,
+        options: { A: question.option_a, B: question.option_b, C: question.option_c, D: question.option_d },
+        selectedOption: attempt.selected_option,
+        correctOption: String(question.answer || '').trim().toUpperCase(),
+        explanation: question.explanation_short || question.explanation || '',
+        answeredAt: attempt.answered_at,
+      }];
+    });
+    res.set('Cache-Control', 'no-store');
+    return res.json({ mistakes, total: mistakes.length, limit: requestedLimit });
+  } catch (error) {
+    console.error('[SABI] Unexpected mistake notebook error:', error);
+    return res.status(500).json({ error: 'An unexpected error occurred while loading your mistake notebook.' });
+  }
+});
+
+
 router.get('/analytics', requireAuth, async (req, res) => {
   const userId = authenticatedUser(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
