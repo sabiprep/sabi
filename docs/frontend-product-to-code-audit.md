@@ -26,14 +26,16 @@
 
 The following checks were performed against the merged `main` baseline while preparing the frontend-completion branch:
 
-- **Billing route mismatch found and corrected in the frontend branch:** student subscription UI called `/api/billing/*`, while Express mounts the billing router at `/api/payments`. The student UI now uses the mounted `/api/payments/*` contract.
-- **Notification route mismatch found and corrected in the frontend branch:** student notifications UI called `/api/notifications/*`, while Express mounts the notification router at `/api/internal/notifications`. The student UI now uses the mounted `/api/internal/notifications/*` contract.
-- **Smart Practice / Blitz remain integration-blocked:** the current API creates a bounded batch through `POST /api/learning/sessions`; there is no authenticated server-authoritative next-question endpoint. The frontend must not simulate a continuous adaptive feed by silently starting arbitrary new batches.
-- **CBT remains acceptance-blocked:** the learning API exposes session creation, session retrieval and answer submission, but no persisted question-flag/review endpoint is present in the current route inventory. The current active CBT UI also lacks a question palette, backward navigation, review flags and a two-step final submission experience.
-- **Custom Practice:** the setup UI delegates to the shared learning page; the API requires at least one explicit filter. This path needs browser acceptance for all supported filter combinations and empty eligible-question pools.
+- **Billing route mismatch corrected in the frontend branch:** the student subscription UI now calls the mounted `/api/payments/*` router instead of the nonexistent `/api/billing/*` path.
+- **Notification route mismatch corrected in the frontend branch:** the student notification UI now calls the mounted `/api/internal/notifications/*` router instead of the nonexistent `/api/notifications/*` path.
+- **Smart Practice / Blitz continuation implemented in code:** the learning API now exposes an authenticated `POST /api/learning/sessions/:sessionId/next` endpoint. It uses the existing mastery selector, excludes questions already used in the current session, persists the adaptive decision, and calls a row-locking service-role RPC to append one eligible question and increment the session count atomically. The answer RPC now keeps adaptive sessions open between batches.
+- **CBT controls implemented in code:** session items now have a persisted review flag; the API exposes authenticated flag and explicit-submit endpoints; the learner screen now includes a question palette, backward/forward navigation, review-flag controls and explicit exam submission.
+- **Database migration is pending:** `20261110210000_learning_session_adaptive_continuation_and_review.sql` is version-controlled on the feature branch and is included in disposable-PostgreSQL CI. It has **not** been applied to the hosted Supabase project.
+- **Custom Practice:** the setup UI delegates to the shared learning page; the API requires at least one explicit filter. Browser acceptance is still required for all supported filter combinations and empty eligible-question pools.
 - **Onboarding:** the current question source contains the approved 15-question sequence and the v3 page uses a versioned draft key. Browser acceptance is still required for interrupted/resumed onboarding, subject validation, submission retries and the authenticated profile projection.
 
-**Release rule:** a successful TypeScript check or CI build does not prove these user journeys are complete. Each item above requires API-contract verification and browser acceptance before the frontend can be declared complete.
+**Release gate:** TypeScript, Vitest and the production build have passed in the current GitHub Actions run. The migration replay and SQL assertions are still running. Real authenticated browser acceptance remains required before this branch can be called production-ready.
+
 
 ## 2. Locked product model
 
