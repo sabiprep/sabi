@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../lib/supabaseAdmin';
 import { requireAuth } from '../middleware/requireAuth';
 import { requireRole } from '../middleware/requireRole';
 import { requireAdminPermission } from '../middleware/requireAdminPermission';
+import { getAIReadiness } from '../ai/gateway';
 
 const router = Router();
 
