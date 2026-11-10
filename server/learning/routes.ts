@@ -14,6 +14,7 @@ import { isCBTExpired } from './cbtTimer';
 import { isCbtFeedbackLocked } from './answerVisibility';
 import { buildStoredAnswerReplay } from './answerReplay';
 import { buildLearningAnalytics, buildStudyPlan, buildSyllabusCoverage } from './engineExecution';
+import { buildAdaptiveDecisionRows, selectPersonalizedQuestions, type PersonalizedSelection } from './selectors';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP, recordStudyActivity } from '../gamification/service';
 
@@ -22,8 +23,12 @@ const router = Router();
 const createSessionSchema = z.strictObject({
   mode: z.enum(['diagnostic', 'smart_practice', 'blitz', 'cbt', 'custom']),
   subject: z.string().trim().min(1).max(80).optional(),
+  subjects: z.array(z.string().trim().min(1).max(80)).max(4).optional(),
   topic: z.string().trim().min(1).max(160).optional(),
   topics: z.array(z.string().trim().min(1).max(160)).max(20).optional(),
+  subtopic: z.string().trim().min(1).max(160).optional(),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  year: z.number().int().min(1990).max(2100).optional(),
   limit: z.number().int().min(1).max(180).default(20),
   configurationKey: z.enum(['quick-mock', 'full-mock']).optional(),
   metadata: z.record(z.string(), z.unknown()).default({}),
@@ -486,12 +491,31 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
   const userId = authenticatedUser(req);
   if (!userId) return res.status(401).json({ error: 'Authentication required.' });
 
-  const { mode, subject, topic, topics, limit, configurationKey, metadata } = req.body as z.infer<typeof createSessionSchema>;
+  const { mode, subject, subjects, topic, topics, subtopic, difficulty, year, limit, configurationKey, metadata } = req.body as z.infer<typeof createSessionSchema>;
 
   try {
     let selected: any[] = [];
-    let sessionSubject = subject || null;
-    let sessionMetadata: Record<string, unknown> = { ...metadata };
+    let adaptiveSelectionTrace: Array<{ question: any; reason: PersonalizedSelection<any>['reason'] }> = [];
+    const requestedSubjects = [...new Set([...(subjects || []), ...(subject ? [subject] : [])]
+      .map((value) => /^english language$/i.test(value.trim()) ? 'Use of English' : value.trim()))];
+    if (mode === 'custom' && !requestedSubjects.length && !topic && !topics?.length && !subtopic && !difficulty && year === undefined) {
+      return res.status(400).json({
+        error: 'Choose at least one subject, topic, subtopic, difficulty or year filter for Custom Practice.',
+        code: 'CUSTOM_FILTER_REQUIRED',
+      });
+    }
+    let sessionSubject = requestedSubjects.length ? requestedSubjects.join(', ') : null;
+    let sessionMetadata: Record<string, unknown> = {
+      ...metadata,
+      requestedFilters: {
+        subjects: requestedSubjects,
+        topic: topic || null,
+        topics: topics || [],
+        subtopic: subtopic || null,
+        difficulty: difficulty || null,
+        year: year ?? null,
+      },
+    };
 
     if (mode === 'cbt') {
       const configKey = configurationKey || 'quick-mock';
@@ -549,10 +573,13 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
           : section.subject.display_name;
         const { data: subjectQuestions, error: subjectError } = await supabaseAdmin
           .from('question_bank')
-          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
+          .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, question_sources!inner(verification_status, permitted_use)')
           .eq('exam_type', 'UTME')
           .eq('status', 'published')
-          .ilike('subject', questionBankSubject)
+          .eq('review_status', 'approved')
+          .eq('question_sources.verification_status', 'verified')
+          .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed'])
+          .eq('subject', questionBankSubject)
           .limit(1000);
 
         if (subjectError) {
@@ -592,16 +619,20 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
     } else {
       let query = supabaseAdmin
         .from('question_bank')
-        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty')
+        .select('id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, difficulty, question_sources!inner(verification_status, permitted_use)')
         .eq('exam_type', 'UTME')
-        .eq('status', 'published');
+        .eq('status', 'published')
+        .eq('review_status', 'approved')
+        .eq('question_sources.verification_status', 'verified')
+        .in('question_sources.permitted_use', ['practice_display', 'redistribution_allowed']);
 
-      if (subject) {
-        const normalizedSubject = /^english language$/i.test(subject) ? 'Use of English' : subject;
-        query = query.ilike('subject', normalizedSubject);
-      }
-      if (topic) query = query.ilike('topic', topic);
+      if (requestedSubjects.length === 1) query = query.eq('subject', requestedSubjects[0]);
+      else if (requestedSubjects.length > 1) query = query.in('subject', requestedSubjects);
+      if (topic) query = query.eq('topic', topic);
       if (topics?.length) query = query.in('topic', topics);
+      if (subtopic) query = query.eq('subtopic', subtopic);
+      if (difficulty) query = query.ilike('difficulty', difficulty);
+      if (year !== undefined) query = query.eq('year', year);
 
       const { data: candidates, error: questionError } = await query.limit(1000);
       if (questionError) {
@@ -609,11 +640,9 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
         return res.status(503).json({ error: 'Questions are temporarily unavailable.' });
       }
 
-      let orderedCandidates = shuffle(candidates || []);
+      const orderedCandidates = shuffle(candidates || []);
 
-      // Smart Practice prioritizes due reviews first, then the student's weakest
-      // known topics. Students with no history receive a randomized starter set.
-      if (mode === 'smart_practice') {
+      if (mode === 'smart_practice' || mode === 'blitz') {
         const [masteryResult, recentResult] = await Promise.all([
           supabaseAdmin.from('student_topic_mastery')
             .select('subject, topic, mastery_score, next_review_at, attempted_count, correct_streak, interval_days, last_result')
@@ -627,38 +656,32 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
         ]);
         if (masteryResult.error || recentResult.error) {
           console.error('[SABI] Adaptive practice lookup failed:', masteryResult.error?.message || recentResult.error?.message);
-          return res.status(503).json({ error: 'Adaptive practice is temporarily unavailable.' });
+          return res.status(503).json({ error: 'Personalized practice is temporarily unavailable.' });
         }
-        const masteryByKey = new Map((masteryResult.data || []).map((row) => [
-          `${String(row.subject).toLowerCase()}::${String(row.topic).toLowerCase()}`, row,
-        ]));
-        const recentIds = new Set((recentResult.data || []).map((row) => row.question_id));
-        const unseen = orderedCandidates.filter((question) => !recentIds.has(question.id));
-        const adaptivePool = unseen.length >= Math.min(limit, 5) ? unseen : orderedCandidates;
-        const now = Date.now();
-        const difficultyFit = (difficulty: unknown, score: number) => {
-          const value = String(difficulty || '').toLowerCase();
-          if (score < 45) return value.includes('easy') || value.includes('beginner') ? 24 : value.includes('hard') ? -12 : 8;
-          if (score < 72) return value.includes('medium') || value.includes('moderate') ? 22 : 5;
-          return value.includes('hard') || value.includes('advanced') ? 24 : value.includes('easy') ? -8 : 8;
-        };
-        adaptivePool.sort((a, b) => {
-          const aMastery = masteryByKey.get(`${String(a.subject).toLowerCase()}::${String(a.topic).toLowerCase()}`);
-          const bMastery = masteryByKey.get(`${String(b.subject).toLowerCase()}::${String(b.topic).toLowerCase()}`);
-          const aScore = Number(aMastery?.mastery_score ?? 50);
-          const bScore = Number(bMastery?.mastery_score ?? 50);
-          const aDue = Boolean(aMastery?.next_review_at && new Date(aMastery.next_review_at).getTime() <= now);
-          const bDue = Boolean(bMastery?.next_review_at && new Date(bMastery.next_review_at).getTime() <= now);
-          const aPriority = (aDue ? 1000 : 0) + (100 - aScore) + difficultyFit(a.difficulty, aScore) +
-            (aMastery?.last_result === 'incorrect' ? 12 : 0) + Math.min(Number(aMastery?.attempted_count || 0), 10);
-          const bPriority = (bDue ? 1000 : 0) + (100 - bScore) + difficultyFit(b.difficulty, bScore) +
-            (bMastery?.last_result === 'incorrect' ? 12 : 0) + Math.min(Number(bMastery?.attempted_count || 0), 10);
-          return bPriority - aPriority;
+        const ranked = selectPersonalizedQuestions({
+          candidates: orderedCandidates,
+          mastery: masteryResult.data || [],
+          recentQuestionIds: (recentResult.data || []).map((row) => row.question_id),
+          limit,
+          mode,
         });
-        orderedCandidates = adaptivePool;
+        adaptiveSelectionTrace = ranked;
+        selected = ranked.map((item) => item.question);
+        sessionMetadata = {
+          ...sessionMetadata,
+          selectionPolicy: mode === 'blitz' ? 'hybrid_personalized_discovery_v1' : 'mastery_adaptive_v1',
+          selectionReasons: ranked.reduce<Record<string, number>>((counts, item) => {
+            counts[item.reason] = (counts[item.reason] || 0) + 1;
+            return counts;
+          }, {}),
+        };
+      } else {
+        selected = orderedCandidates.slice(0, limit);
+        sessionMetadata = {
+          ...sessionMetadata,
+          selectionPolicy: mode === 'custom' ? 'explicit_filters_v1' : 'balanced_diagnostic_v1',
+        };
       }
-
-      selected = orderedCandidates.slice(0, limit);
     }
 
     if (!selected.length) {
@@ -697,6 +720,21 @@ router.post('/sessions', requireAuth, validateBody(createSessionSchema), async (
       await supabaseAdmin.from('learning_sessions').delete().eq('id', session.id).eq('user_id', userId);
       console.error('[SABI] Learning session item creation failed:', itemsError.message);
       return res.status(503).json({ error: 'Could not prepare the questions. Please try again.' });
+    }
+
+    if (adaptiveSelectionTrace.length) {
+      const decisionRows = buildAdaptiveDecisionRows({
+        userId,
+        sessionId: session.id,
+        mode: mode as 'smart_practice' | 'blitz',
+        selections: adaptiveSelectionTrace,
+      });
+      const { error: decisionError } = await supabaseAdmin.from('adaptive_decisions').insert(decisionRows);
+      if (decisionError) {
+        await supabaseAdmin.from('learning_sessions').delete().eq('id', session.id).eq('user_id', userId);
+        console.error('[SABI] Adaptive decision audit could not be persisted:', decisionError.message);
+        return res.status(503).json({ error: 'The adaptive session could not be safely prepared. Please try again.' });
+      }
     }
 
     res.set('Cache-Control', 'no-store');

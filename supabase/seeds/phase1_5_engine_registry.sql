@@ -8,8 +8,8 @@ values
   ('recommendation-engine','Recommendation Engine','Prioritise next learning actions and topic reviews','active','phase-2'),
   ('score-prediction-engine','Score Prediction Engine','Estimate a practice score range from observed performance','active','phase-2'),
   ('question-quality-engine','Question Quality Engine','Track provenance, review state and academic quality checks','planned','phase-1.5'),
-  ('ai-tutor-engine','AI Tutor Engine','Tutor context orchestration through the provider-independent AI gateway','active','phase3-v1'),
-  ('study-plan-engine','Study Plan Engine','Deterministic study plan generation from learner mastery and review state','active','phase3-v1'),
+  ('ai-tutor-engine','AI Tutor Engine','Tutor context orchestration through the provider-independent AI gateway','planned',null),
+  ('study-plan-engine','Study Plan Engine','Deterministic study plan generation from learner mastery and review state','planned',null),
   ('learning-analytics-engine','Learning Analytics Engine','Aggregate learning behaviour and engagement signals','planned',null)
 on conflict (engine_key) do update set
   display_name = excluded.display_name,

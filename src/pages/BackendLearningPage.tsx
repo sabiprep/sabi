@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, Clock3, LoaderCircle, RefreshCw, Target } from 'lucide-react';
 import MathText from '../components/MathText';
@@ -23,8 +23,17 @@ export function BackendLearningPage() {
   const [params] = useSearchParams();
   const initialMode = (params.get('mode') || 'diagnostic') as Mode;
   const [mode,setMode] = useState<Mode>(MODE_LABELS[initialMode] ? initialMode : 'diagnostic');
-  const [subject,setSubject] = useState('Use of English');
-  const [limit,setLimit] = useState(20);
+  const [subject,setSubject] = useState(params.get('subject') || 'Use of English');
+  const [subjects] = useState<string[]>(() => (params.get('subjects') || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4));
+  const [topic,setTopic] = useState(params.get('topic') || '');
+  const [subtopic,setSubtopic] = useState(params.get('subtopic') || '');
+  const [difficulty,setDifficulty] = useState(params.get('difficulty') || '');
+  const [year,setYear] = useState(params.get('year') || '');
+  const [limit,setLimit] = useState(() => {
+    const requested = Number(params.get('limit') || 20);
+    return Number.isInteger(requested) ? Math.max(1, Math.min(180, requested)) : 20;
+  });
+  const questionStartedAt = useRef(Date.now());
   const [configurationKey,setConfigurationKey] = useState<'quick-mock'|'full-mock'>('quick-mock');
   const [session,setSession] = useState<LearningSession|null>(null);
   const [questions,setQuestions] = useState<LearningQuestion[]>([]);
@@ -79,9 +88,15 @@ export function BackendLearningPage() {
 
   const start = async () => {
     setLoading(true);setError('');setSession(null);setQuestions([]);setIndex(0);setChoice(null);setAnswerResult(null);
-    const payload:any={mode,limit,metadata:{source:'phase1-learning-ui'}};
+    questionStartedAt.current=Date.now();
+    const payload:any={mode,limit,metadata:{source:'unified-learning-ui'}};
     if(mode==='cbt'){payload.configurationKey=configurationKey;}
+    else if(subjects.length){payload.subjects=subjects;}
     else if(subject.trim()){payload.subject=subject.trim();}
+    if(topic.trim())payload.topic=topic.trim();
+    if(subtopic.trim())payload.subtopic=subtopic.trim();
+    if(difficulty)payload.difficulty=difficulty;
+    if(year.trim()&&Number.isInteger(Number(year)))payload.year=Number(year);
     const result=await apiPostJson('/api/learning/sessions',payload);
     setLoading(false);
     if(!result.ok){setError(describeApiFailure(result,'Could not start this learning session.'));return;}
@@ -94,7 +109,7 @@ export function BackendLearningPage() {
     if(!session||!current||!choice||loading)return;
     setLoading(true);setError('');
     const result=await apiPostJson(`/api/learning/sessions/${session.id}/answers`,{
-      questionId:current.id,selectedOption:choice,elapsedMs:0
+      questionId:current.id,selectedOption:choice,elapsedMs:Math.max(0,Math.min(3600000,Date.now()-questionStartedAt.current))
     });
     if(!result.ok){setLoading(false);setError(describeApiFailure(result,'Your answer was not saved.'));return;}
     const fresh=await apiFetch(`/api/learning/sessions/${session.id}`);
@@ -139,12 +154,12 @@ export function BackendLearningPage() {
     await requestPostExamExplanation(questionId);
   };
 
-  const next = () => {setIndex(v=>Math.min(v+1,questions.length-1));setChoice(null);setAnswerResult(null);setAiExplanation(null);};
+  const next = () => {questionStartedAt.current=Date.now();setIndex(v=>Math.min(v+1,questions.length-1));setChoice(null);setAnswerResult(null);setAiExplanation(null);};
   const resume = async (id:string) => {
     setLoading(true);setError('');
     const response=await apiFetch(`/api/learning/sessions/${id}`);
     if(!response.ok){setLoading(false);setError('Could not resume this session.');return;}
-    const data=await response.json();setSession(data.session);setQuestions(data.questions||[]);
+    const data=await response.json();questionStartedAt.current=Date.now();setSession(data.session);setQuestions(data.questions||[]);
     const firstUnanswered=(data.questions||[]).findIndex((q:LearningQuestion)=>!q.answerState);
     setIndex(firstUnanswered<0?Math.max(0,(data.questions||[]).length-1):firstUnanswered);
     setChoice(null);setAnswerResult(null);setLoading(false);
@@ -168,11 +183,17 @@ export function BackendLearningPage() {
         <div className="flex items-center gap-2"><Target className="text-blue-600"/><h2 className="text-lg font-black">Start a learning session</h2></div>
         <div className="grid sm:grid-cols-2 gap-3">
           <label className="text-xs font-bold space-y-2">Learning mode<select value={mode} onChange={e=>setMode(e.target.value as Mode)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="diagnostic">Diagnostic</option><option value="smart_practice">Smart Practice</option><option value="blitz">Blitz 60s</option><option value="cbt">CBT Simulator</option><option value="custom">Custom Practice</option></select></label>
-          {mode==='cbt'?<label className="text-xs font-bold space-y-2">CBT format<select value={configurationKey} onChange={e=>setConfigurationKey(e.target.value as any)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="quick-mock">Quick Mock</option><option value="full-mock">Full UTME Mock</option></select></label>:<label className="text-xs font-bold space-y-2">Subject<select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full rounded-xl border p-3 bg-transparent text-sm">{subjectOptions.map(s=><option key={s}>{s}</option>)}</select></label>}
-          {mode!=='cbt'&&<label className="text-xs font-bold space-y-2">Question count<select value={limit} onChange={e=>setLimit(Number(e.target.value))} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value={10}>10 questions</option><option value={20}>20 questions</option><option value={40}>40 questions</option><option value={60}>60 questions</option></select></label>}
+          {mode==='cbt'?<label className="text-xs font-bold space-y-2">CBT format<select value={configurationKey} onChange={e=>setConfigurationKey(e.target.value as any)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="quick-mock">Quick Mock</option><option value="full-mock">Full UTME Mock</option></select></label>:subjects.length?<label className="text-xs font-bold space-y-2">Subjects<input readOnly value={subjects.join(', ')} className="w-full rounded-xl border p-3 bg-slate-50 dark:bg-slate-800 text-sm"/></label>:<label className="text-xs font-bold space-y-2">Subject<select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full rounded-xl border p-3 bg-transparent text-sm">{subjectOptions.map(s=><option key={s}>{s}</option>)}</select></label>}
+          {mode!=='cbt'&&<label className="text-xs font-bold space-y-2">Question count<select value={limit} onChange={e=>setLimit(Number(e.target.value))} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value={10}>10 questions</option><option value={15}>15 questions</option><option value={20}>20 questions</option><option value={40}>40 questions</option><option value={60}>60 questions</option></select></label>}
+          {mode==='custom'&&<>
+            <label className="text-xs font-bold space-y-2">Topic (optional)<input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Algebra" className="w-full rounded-xl border p-3 bg-transparent text-sm"/></label>
+            <label className="text-xs font-bold space-y-2">Subtopic (optional)<input value={subtopic} onChange={e=>setSubtopic(e.target.value)} placeholder="e.g. Quadratic equations" className="w-full rounded-xl border p-3 bg-transparent text-sm"/></label>
+            <label className="text-xs font-bold space-y-2">Difficulty (optional)<select value={difficulty} onChange={e=>setDifficulty(e.target.value)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="">Any approved difficulty</option><option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option></select></label>
+            <label className="text-xs font-bold space-y-2">Question year (optional)<input type="number" min="1990" max="2100" value={year} onChange={e=>setYear(e.target.value)} placeholder="e.g. 2024" className="w-full rounded-xl border p-3 bg-transparent text-sm"/></label>
+          </>}
         </div>
         <button disabled={loading} onClick={()=>void start()} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm disabled:opacity-60 inline-flex items-center gap-2">{loading?<LoaderCircle className="animate-spin" size={17}/>:<ArrowRight size={17}/>}Start {MODE_LABELS[mode]}</button>
-        <p className="text-xs text-slate-500">Only approved and published UTME questions are served. If a subject does not yet have enough approved questions, the API will block the session rather than use unreviewed drafts.</p>
+        <p className="text-xs text-slate-500">Only reviewer-approved, published UTME questions with verified sources and permitted student-practice rights are served. If the eligible pool is too small, SABI blocks the session rather than serving unreviewed or uncleared content.</p>
       </section>}
       {session&&current&&!completed&&<section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 space-y-5">
         <div className="flex flex-wrap justify-between gap-3"><div><span className="text-xs font-black uppercase tracking-wider text-blue-600">{MODE_LABELS[session.mode]}</span><h2 className="text-lg font-black">{current.subject} · {current.topic}</h2></div><span className="text-xs font-bold text-slate-500">Question {index+1} of {questions.length}{session.mode==='cbt'&&cbtRemainingSeconds!==null&&<span> · {Math.floor(cbtRemainingSeconds/60)}:{String(cbtRemainingSeconds%60).padStart(2,'0')} remaining</span>}</span></div>
