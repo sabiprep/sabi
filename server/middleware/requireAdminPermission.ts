@@ -65,7 +65,7 @@ export function requireAdminPermission(permissionKey: string): RequestHandler {
     } catch (error) {
       // Backward-compatible read-only access while the migration is not yet
       // present in a preview database. Never use this fallback for mutations.
-      if (permissionKey === 'command.overview.read' && (role === 'ADMIN' || role === 'MASTER_ADMIN')) {
+      if (permissionKey === 'command.overview.read' && role === 'ADMIN') {
         next();
         return;
       }
