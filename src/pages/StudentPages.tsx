@@ -20,7 +20,6 @@ import SyllabusFrequencyHeatmapModal from '../components/mobile/SyllabusFrequenc
 const MAIN_NAV = [
   { to: '/home', label: 'Dashboard', Icon: Home },
   { to: '/learning', label: 'Learning', Icon: BookOpenCheck },
-  { to: '/coach', label: 'AI Coach', Icon: BrainCircuit },
   { to: '/blitz', label: 'Blitz', Icon: Zap },
   { to: '/smart', label: 'Smart Practice', Icon: Compass },
   { to: '/practice/custom', label: 'Custom Practice', Icon: Sliders },
