@@ -49,11 +49,14 @@ export function AICoachPage() {
     let active = true;
     (async () => {
       setLoading(true);
-      const [consentResponse, creditsResponse, profileResponse] = await Promise.all([
+      const [consentResponse, creditsResponse, userResult] = await Promise.all([
         apiFetch('/api/ai/consent'),
         apiFetch('/api/ai/credits'),
-        supabase.from('profiles').select('registered_subjects').maybeSingle(),
+        supabase.auth.getUser(),
       ]);
+      const profileResponse = userResult.data.user
+        ? await supabase.from('profiles').select('registered_subjects').eq('id', userResult.data.user.id).maybeSingle()
+        : { data: null, error: null };
       const consentData = await consentResponse.json().catch(() => ({}));
       const creditData = await creditsResponse.json().catch(() => ({}));
       if (!active) return;
