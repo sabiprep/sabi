@@ -829,357 +829,80 @@ export function SubjectRatesPage() {
 // MAIN STUDENT DASHBOARD (HOMEPAGE)
 // ==========================================
 export function HomePage() {
-  const { isDark } = useTheme();
-  const [showSubjectRates, setShowSubjectRates] = useState(false);
-  const progress = useLiveUserProgress();
-  const meta = getCandidateOnboardingMeta();
-  const userName =
-    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [progress, setProgress] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<any>(null);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState('');
 
-  const totalSolved = useMemo(() => {
-    return Object.values(progress.subjectStats).reduce((sum, s) => sum + (s?.solved || 0), 0);
-  }, [progress.subjectStats]);
+  const refresh = async () => {
+    setBusy(true); setError('');
+    try {
+      const [a, p, r] = await Promise.all([
+        apiFetch('/api/learning/analytics'),
+        apiFetch('/api/learning/progress'),
+        apiFetch('/api/learning/recommendations'),
+      ]);
+      if (!a.ok || !p.ok || !r.ok) throw new Error('Your learning overview is temporarily unavailable. Please try again.');
+      const [ad, pd, rd] = await Promise.all([a.json(), p.json(), r.json()]);
+      setAnalytics(ad); setProgress(pd); setRecommendations(rd);
+    } catch (e: any) { setError(e?.message || 'Could not load your learning overview.'); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => { void refresh(); }, []);
 
-  const overallAccuracy = useMemo(() => {
-    const totalCorrect = Object.values(progress.subjectStats).reduce(
-      (sum, s) => sum + (s?.correct || 0),
-      0
-    );
-    return totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
-  }, [progress.subjectStats, totalSolved]);
+  const next = recommendations?.nextAction;
+  const actionUrl = next?.type === 'diagnostic' ? '/diagnostic'
+    : next?.type === 'review' || next?.type === 'practice'
+      ? '/learning?mode=smart_practice' : '/smart';
+  const actionTitle = next?.type === 'diagnostic' ? 'Establish your baseline'
+    : next?.type === 'review' ? 'Review a topic due now'
+      : next?.type === 'practice' ? 'Strengthen a priority topic' : 'Continue learning';
 
   return (
-    <div className="space-y-8 pb-16 lg:pb-0">
-      <LearningSnapshot />
-      {showSubjectRates && (
-        <SubjectRatesFullScreenView onClose={() => setShowSubjectRates(false)} />
-      )}
-
-      {/* Top Gamified HUD Bar (Real Values Only — Zero Fake Diamonds) */}
-      <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <div className="p-3 rounded-2xl bg-yellow-50 dark:bg-yellow-950/40 text-amber-600 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800/50 font-black">
-            <Flame size={22} className={progress.streakDays > 0 ? 'animate-bounce' : ''} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Streak Flame
-            </span>
-            <span className="text-lg font-black text-slate-900 dark:text-white">
-              {progress.streakDays} {progress.streakDays === 1 ? 'Day' : 'Days'} Active
-            </span>
-          </div>
-        </div>
-
-        <Link
-          to="/subscription"
-          className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
-            isDark ? 'bg-slate-900/80 border-slate-800 hover:border-blue-500' : 'bg-white border-slate-200 hover:border-blue-400'
-          }`}
-        >
-          <div className="p-3 rounded-2xl bg-blue-600 text-white font-black shadow-sm shadow-blue-600/20">
-            <Coins size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-              Sabi Diamonds
-            </span>
-            <span className="text-lg font-black text-slate-900 dark:text-white">
-              {progress.diamonds} 💎
-            </span>
-            <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block">
-              Bonus: {progress.streakBonusDiamonds} 💎 (Used 1st)
-            </span>
-          </div>
-        </Link>
-
-        <div className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 font-black">
-            <Zap size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Questions Solved
-            </span>
-            <span className="text-lg font-black text-slate-900 dark:text-white">
-              {totalSolved} Solved
-            </span>
-          </div>
-        </div>
-
-        <div className={`p-4 rounded-3xl border flex items-center gap-3.5 transition shadow-xs ${
-          isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200'
-        }`}>
-          <div className="p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black">
-            <Target size={22} />
-          </div>
-          <div>
-            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-              Target Score
-            </span>
-            <span className="text-lg font-black text-slate-900 dark:text-white truncate">
-              {meta.targetScore}+ ({meta.targetUniversity})
-            </span>
-          </div>
+    <div className="mx-auto max-w-6xl space-y-6 pb-16 lg:pb-0">
+      <section className="rounded-3xl bg-gradient-to-br from-[#0A1F66] to-[#0066FF] p-6 sm:p-8 text-white">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Your learning workspace</p>
+        <h1 className="mt-2 text-2xl sm:text-3xl font-bold">Welcome back to Sabi.</h1>
+        <p className="mt-2 max-w-2xl text-sm text-blue-50">A clear view of what you have practised, what needs attention, and the next useful step.</p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link to="/smart" className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0A1F66]">Smart Practice <ArrowRight size={16} className="ml-2 inline" /></Link>
+          <Link to="/blitz" className="rounded-xl border border-white/50 px-5 py-3 text-sm font-semibold text-white">Blitz</Link>
         </div>
       </section>
 
-      {/* Sabi Scholar Welcome Banner (Royal Blue Primary Container + Crisp White Button) */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-br from-blue-700 via-blue-800 to-blue-950 border border-blue-600 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-        <div className="relative z-10 flex-1 space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-50/95 text-blue-950 font-black text-[11px] tracking-wider uppercase shadow-2xs">
-            <Award size={13} className="text-blue-700" /> Sabi Scholar Citadel
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}<button onClick={() => void refresh()} className="ml-3 font-semibold underline">Retry</button></div>}
+      {busy && <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading your learning evidence…</div>}
+      {!busy && !error && <>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Answered questions</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.total_attempts ?? 0}</p><p className="mt-1 text-xs text-slate-500">Server-recorded attempts</p></div>
+          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Accuracy</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.accuracy == null ? '—' : analytics.accuracy + '%'}</p><p className="mt-1 text-xs text-slate-500">Based on answered attempts</p></div>
+          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Topics with mastery evidence</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{progress?.mastery?.length ?? 0}</p><p className="mt-1 text-xs text-slate-500">Backend mastery records</p></div>
+        </section>
+
+        <section className="sabi-card p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><p className="text-xs font-semibold uppercase tracking-wider text-[#0066FF]">Recommended next action</p><h2 className="mt-2 text-xl font-bold text-slate-900">{actionTitle}</h2>
+              <p className="mt-1 text-sm text-slate-600">{next?.topic ? next.subject + ' · ' + next.topic : next?.message || 'Your next step will update as you build learning evidence.'}</p></div>
+            <Link to={actionUrl} className="rounded-xl bg-[#0066FF] px-4 py-3 text-sm font-semibold text-white">Start now <ArrowRight size={15} className="ml-1 inline" /></Link>
           </div>
-          
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-tight text-white">
-            Welcome to your Dashboard, {userName}!
-          </h1>
-          
-          <p className="text-sm sm:text-base text-blue-100 font-medium max-w-xl leading-relaxed">
-            Your target is <strong className="text-white">{meta.targetScore}+ in JAMB UTME</strong> for <strong className="text-white">{meta.targetCourse} at {meta.targetUniversity}</strong>. High-speed 60-second Blitz and 4-subject Smart Practice will turn your weak topics into solid points today.
-          </p>
+          {recommendations?.dueReviewCount > 0 && <p className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-[#0A1F66]">{recommendations.dueReviewCount} topic reviews are due.</p>}
+        </section>
 
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setShowSubjectRates(true)}
-              className="px-5 py-3 rounded-xl bg-white hover:bg-blue-50 text-blue-800 font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-md cursor-pointer"
-            >
-              <Activity size={15} />
-              <span>See Subject Rates (4 Subjects) →</span>
-            </button>
-            <span className="text-xs font-black text-blue-100">
-              Live Accuracy: {overallAccuracy}% ({totalSolved} Solved)
-            </span>
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Priority topics</h2>
+            {recommendations?.focusTopics?.length ? <ul className="mt-3 space-y-3">{recommendations.focusTopics.slice(0,4).map((item:any)=><li key={item.subject+'-'+item.topic} className="flex justify-between gap-3 border-b border-slate-100 pb-2 text-sm"><span><strong>{item.topic}</strong><span className="block text-xs text-slate-500">{item.subject}</span></span><span className="font-semibold text-[#0066FF]">{Number(item.mastery_score)} mastery</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">No priority topics are available yet. Complete practice to build evidence.</p>}
           </div>
-        </div>
-
-        <div className="relative z-10 w-36 h-36 sm:w-44 sm:h-44 shrink-0 flex items-center justify-center">
-          <img
-            src="/assets/mascots/onboarding/scholar_welcome_salute.svg"
-            alt="Sabi Scholar"
-            className="w-full h-full object-contain filter drop-shadow-xl hover:scale-105 transition-transform"
-          />
-        </div>
-      </section>
-
-      {/* THE 4 CORE DASHBOARD FEATURE CONTAINERS (Clean White Cards + Royal Blue Accents & Buttons) */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="w-3 h-3 rounded-full bg-blue-600 inline-block" />
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-              Core Practice & Subject Rates
-            </h2>
+          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Recent sessions</h2>
+            {progress?.recentSessions?.length ? <ul className="mt-3 space-y-3">{progress.recentSessions.slice(0,5).map((s:any)=><li key={s.id} className="flex justify-between gap-3 border-b border-slate-100 pb-2 text-sm"><span className="font-medium capitalize">{String(s.mode).replace('_',' ')}</span><span className="text-slate-500">{s.answered_count}/{s.total_questions} answered</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">Your completed learning sessions will appear here.</p>}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowSubjectRates(true)}
-            className="text-xs font-black text-blue-600 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
-          >
-            <span>Subject Rates</span>
-            <ArrowRight size={13} />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: SABI BLITZ (White Surface + Royal Blue CTA) */}
-          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
-            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
-          }`}>
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider inline-block">
-                  60s Rapid Simulator
-                </span>
-                <div className="w-16 h-16 shrink-0">
-                  <img
-                    src="/assets/mascots/blitz/eagle_idle.svg"
-                    alt="Sabi Eagle Mascot"
-                    className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                SABI BLITZ
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
-                Endless past & recent questions on a continuous Z-path level map with eagle streak multipliers.
-              </p>
-            </div>
-
-            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
-                Level {progress.blitzUnlockedLevel} Active
-              </div>
-              <Link
-                to="/blitz"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
-              >
-                <span>Enter Blitz</span>
-                <ArrowRight size={15} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 2: SMART PRACTICE (White Surface + Royal Blue CTA) */}
-          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
-            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
-          }`}>
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider inline-block">
-                  4-Subject Adaptive Road
-                </span>
-                <div className="w-16 h-16 shrink-0">
-                  <img
-                    src="/assets/mascots/smart/student_desk_studying.svg"
-                    alt="Student Study Room"
-                    className="w-full h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-300"
-                  />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                SMART PRACTICE
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
-                Branching road past campus faculties. Study room simulator with student mascot, desk calculator, and theory inbox.
-              </p>
-            </div>
-
-            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
-                Campus Level {progress.smartUnlockedLevel}
-              </div>
-              <Link
-                to="/smart"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
-              >
-                <span>Enter Smart</span>
-                <ArrowRight size={15} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 3: CUSTOM JAMB SIMULATOR (White Surface + Royal Blue CTA) */}
-          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
-            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
-          }`}>
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-black text-[11px] uppercase tracking-wider inline-block">
-                  Custom Simulator
-                </span>
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center justify-center shrink-0">
-                  <Sliders size={22} />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                CUSTOM SIMULATOR
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
-                Dedicated workspace directory for custom exam configs, question counts, custom timing, and personalized practice drills.
-              </p>
-            </div>
-
-            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
-                Workspace Ready
-              </div>
-              <Link
-                to="/custom-simulator"
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
-              >
-                <span>Open Simulator</span>
-                <ArrowRight size={15} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 4: SUBJECT RATES (White Surface + Royal Blue CTA) */}
-          <div className={`rounded-3xl p-6 border shadow-sm hover:shadow-lg flex flex-col justify-between relative overflow-hidden group transition-all duration-300 ${
-            isDark ? 'bg-slate-900 border-slate-800 hover:border-blue-500/60' : 'bg-white border-slate-200 hover:border-blue-300'
-          }`}>
-            <div>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 text-amber-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800/50 font-black text-[11px] uppercase tracking-wider inline-block">
-                  4 Registered Subjects
-                </span>
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center justify-center shrink-0">
-                  <Activity size={22} />
-                </div>
-              </div>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                SUBJECT RATES
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium mt-2 leading-relaxed">
-                Inspect your live mastery rates across {meta.chosenSubjects.join(', ')} in a full-screen analytical dashboard.
-              </p>
-            </div>
-
-            <div className="pt-5 mt-5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-xs font-mono font-black text-blue-700 dark:text-blue-300">
-                4 Subjects · {overallAccuracy}% Avg Rate
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowSubjectRates(true)}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl font-black text-xs uppercase tracking-wider bg-blue-600 hover:bg-blue-700 text-white transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 cursor-pointer transform hover:scale-[1.02] active:scale-95"
-              >
-                <span>See Subject Rates</span>
-                <ArrowRight size={15} />
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* NIGERIAN ₦10,000 ONE-TIME PASS & 5,000 DIAMONDS + STREAK BONUS BANNER WITH CUSTOM SVG */}
-      <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-900 via-blue-950 to-slate-950 border border-blue-700/60 text-white shadow-xl flex flex-col lg:flex-row items-center justify-between gap-6">
-        <div className="space-y-3 flex-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-50 text-blue-950 font-black text-[11px] uppercase tracking-wider">
-            <Coins size={13} className="text-blue-700" />
-            <span>₦10,000 One-Time UTME Pass = 5,000 💎 Vault</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-            5,000 Diamonds Split Across All Study Sections + Free Streak Bonus Shield
-          </h2>
-          <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed max-w-2xl">
-            Just like Duolingo, serious candidates with a strong daily streak earn free <strong>Streak Bonus Diamonds ({progress.streakBonusDiamonds} 💎 earned)</strong> that are <strong>always used up first before your main 5,000 💎 vault is ever touched</strong>!
-          </p>
-          <div className="pt-2 flex flex-wrap items-center gap-3">
-            <Link
-              to="/subscription"
-              className="px-6 py-3.5 rounded-xl bg-white hover:bg-blue-50 text-blue-900 font-black text-xs uppercase tracking-wider transition flex items-center gap-2 shadow-lg"
-            >
-              <span>Open ₦10,000 Subscription & 5,000 💎 Vault</span>
-              <ArrowRight size={15} />
-            </Link>
-            <span className="text-xs font-semibold text-blue-200">
-              Also accessible anytime inside the top-left 3-dash menu
-            </span>
-          </div>
-        </div>
-
-        <div className="w-full max-w-[320px] shrink-0">
-          <img
-            src="/assets/environment/subscription_banner.svg"
-            alt="SABI ₦10,000 = 5,000 Diamonds Subscription Vault"
-            className="w-full h-auto object-contain drop-shadow-2xl"
-          />
-        </div>
-      </section>
+        </section>
+        <div className="flex flex-wrap gap-3"><Link to="/progress" className="text-sm font-semibold text-[#0066FF]">View detailed progress →</Link><Link to="/cbt" className="text-sm font-semibold text-[#0066FF]">Open CBT Simulator →</Link></div>
+      </>}
     </div>
   );
 }
 
-// ==========================================
-// DAILY UTME MISSIONS PAGE (/missions) — REAL PROGRESS, NO FAKE DIAMONDS
-// ==========================================
 export function DailyMissionsPage() {
   const { isDark } = useTheme();
   const progress = useLiveUserProgress();
@@ -1441,188 +1164,61 @@ export function CbtPage() {
 }
 
 export function ProgressPage() {
-  const { isDark } = useTheme();
-  const progress = useLiveUserProgress();
-  const meta = getCandidateOnboardingMeta();
+  const [analytics, setAnalytics] = useState<any>(null);
+  const [progress, setProgress] = useState<any>(null);
+  const [recommendations, setRecommendations] = useState<any>(null);
+  const [coverage, setCoverage] = useState<any>(null);
+  const [busy, setBusy] = useState(true);
+  const [error, setError] = useState('');
 
-  const totalSolved = Object.values(progress.subjectStats).reduce((acc, s) => acc + (s?.solved || 0), 0);
-  const totalCorrect = Object.values(progress.subjectStats).reduce((acc, s) => acc + (s?.correct || 0), 0);
-  const accuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
-
-  const avgStrictRating = useMemo(() => {
-    const subs = meta.chosenSubjects;
-    if (subs.length === 0) return 0;
-    const sum = subs.reduce((acc: number, name: string) => acc + (progress.subjectStats[name]?.rating || 0), 0);
-    return Math.round(sum / subs.length);
-  }, [meta.chosenSubjects, progress.subjectStats]);
-
-  const dailyEntries = useMemo(() => {
-    return Object.values(progress.dailyActivityLog || {}).sort((a, b) =>
-      b.date.localeCompare(a.date)
-    );
-  }, [progress.dailyActivityLog]);
+  const refresh = async () => {
+    setBusy(true); setError('');
+    try {
+      const [a,p,r,c] = await Promise.all([
+        apiFetch('/api/learning/analytics'), apiFetch('/api/learning/progress'),
+        apiFetch('/api/learning/recommendations'), apiFetch('/api/learning/syllabus-coverage'),
+      ]);
+      if (!a.ok || !p.ok || !r.ok) throw new Error('Progress information is temporarily unavailable.');
+      const [ad,pd,rd] = await Promise.all([a.json(),p.json(),r.json()]);
+      setAnalytics(ad); setProgress(pd); setRecommendations(rd);
+      setCoverage(c.ok ? await c.json() : null);
+    } catch (e:any) { setError(e?.message || 'Could not load progress.'); }
+    finally { setBusy(false); }
+  };
+  useEffect(() => { void refresh(); }, []);
 
   return (
-    <div className="space-y-8 pb-16 lg:pb-0">
-      <LearningSnapshot />
-      <ScorePredictionCard />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
-            Daily Activity & Strict Subject Ratings
-          </span>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-            Your UTME Daily Activity & Flawless Subject Ratings
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Every practice attempt is logged below. Official <strong>Subject Ratings (%)</strong> only increase when you clear a level <strong>100% right without failing a single question</strong>.
-          </p>
-        </div>
+    <div className="mx-auto max-w-6xl space-y-6 pb-16 lg:pb-0">
+      <header><p className="text-xs font-semibold uppercase tracking-wider text-[#0066FF]">Learning evidence</p><h1 className="mt-1 text-2xl sm:text-3xl font-bold text-slate-900">Your progress</h1><p className="mt-2 text-sm text-slate-600">Progress is shown from recorded answers and backend mastery data. Self-reported confidence is not a mastery score.</p></header>
+      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}<button onClick={() => void refresh()} className="ml-3 font-semibold underline">Retry</button></div>}
+      {busy && <div className="sabi-card p-6 text-sm text-slate-500">Loading your progress…</div>}
+      {!busy && !error && <>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Answered attempts</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.total_attempts ?? 0}</p></div>
+          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Correct attempts</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.correct_attempts ?? 0}</p></div>
+          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Observed accuracy</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.accuracy == null ? '—' : analytics.accuracy + '%'}</p></div>
+        </section>
 
-        <Link
-          to="/subject-rates"
-          className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start shadow-sm"
-        >
-          Full-Screen Subject Rates →
-        </Link>
-      </div>
+        <section className="sabi-card p-5 sm:p-6"><h2 className="font-bold text-slate-900">Subject performance</h2>
+          {analytics?.subjects?.length ? <div className="mt-4 space-y-4">{analytics.subjects.map((s:any)=><div key={s.subject}><div className="flex justify-between gap-3 text-sm"><strong>{s.subject}</strong><span className="text-slate-600">{s.accuracy}% · {s.attempted} attempts</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#0066FF]" style={{width:s.accuracy+'%'}} /></div></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No answered attempts yet. Your subject performance will appear after practice.</p>}
+        </section>
 
-      {/* 4 Registered Subjects Strict Rating Cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {meta.chosenSubjects.map((subName: string) => {
-          const stat = progress.subjectStats[subName] || {
-            solved: 0,
-            correct: 0,
-            levelsAttempted: 0,
-            flawlessLevels: 0,
-            rating: 0,
-          };
-          const rating = stat.rating || 0;
-          const rawAcc = stat.solved > 0 ? Math.round((stat.correct / stat.solved) * 100) : 0;
+        <section className="sabi-card p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold text-slate-900">Topic mastery</h2><span className="text-xs text-slate-500">Backend mastery records</span></div>
+          {progress?.mastery?.length ? <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead><tr className="border-b text-xs text-slate-500"><th className="py-2 pr-3">Subject</th><th className="py-2 pr-3">Topic</th><th className="py-2 pr-3">Mastery</th><th className="py-2 pr-3">Attempts</th><th className="py-2">Next review</th></tr></thead><tbody>{progress.mastery.map((m:any)=><tr key={m.subject+'-'+m.topic} className="border-b border-slate-100"><td className="py-3 pr-3">{m.subject}</td><td className="py-3 pr-3">{m.topic}</td><td className="py-3 pr-3 font-semibold">{m.mastery_score}</td><td className="py-3 pr-3">{m.attempted_count}</td><td className="py-3">{m.next_review_at ? new Date(m.next_review_at).toLocaleDateString() : 'Not scheduled'}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-sm text-slate-500">Mastery evidence will appear as you answer mapped practice questions.</p>}
+        </section>
 
-          return (
-            <div
-              key={subName}
-              className={`p-5 rounded-3xl border space-y-3 ${
-                isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black text-blue-700 dark:text-blue-300 uppercase truncate">
-                  {subName}
-                </span>
-                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-black">
-                  {stat.flawlessLevels || 0} Flawless
-                </span>
-              </div>
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Topics to strengthen</h2>{analytics?.weakest_topics?.length ? <ul className="mt-3 space-y-2">{analytics.weakest_topics.slice(0,6).map((t:any)=><li key={t.subject+'-'+t.topic} className="flex justify-between gap-3 text-sm"><span>{t.topic}<span className="block text-xs text-slate-500">{t.subject}</span></span><strong>{t.accuracy}%</strong></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">Not enough answered topic data yet.</p>}</div>
+          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Reviews due</h2>{recommendations?.dueReviewCount ? <ul className="mt-3 space-y-2">{recommendations.reviewPlan.slice(0,6).map((t:any,i:number)=><li key={t.subject+'-'+t.topic+i} className="text-sm"><strong>{t.topic}</strong><span className="block text-xs text-slate-500">{t.subject} · {t.reason}</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">No due reviews are currently reported.</p>}</div>
+        </section>
 
-              <div>
-                <span className="text-3xl font-black text-blue-600 dark:text-blue-400">
-                  {rating}%
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 block">
-                  Official Subject Rating (100% Level Rule)
-                </span>
-              </div>
-
-              <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-700 to-blue-500 rounded-full transition-all"
-                  style={{ width: `${Math.max(3, rating)}%` }}
-                />
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] font-bold text-slate-400">
-                <span>{stat.solved} Practiced</span>
-                <span>Raw Acc: {rawAcc}%</span>
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      {/* Daily Activity Log Section */}
-      <section
-        className={`p-6 sm:p-8 rounded-3xl border space-y-5 ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
-        }`}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-              Tracked Daily Study Activities
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Total Practiced: {totalSolved} questions ({accuracy}% raw accuracy) · Average Strict Rating: {avgStrictRating}%
-            </p>
-          </div>
-          <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-800/50 text-amber-800 dark:text-yellow-300 text-xs font-black">
-            {progress.streakDays} Day Active Streak 🔥
-          </span>
-        </div>
-
-        {dailyEntries.length === 0 ? (
-          <div className={`p-6 rounded-2xl border border-dashed text-center space-y-2 ${
-            isDark ? 'border-slate-800 text-slate-300' : 'border-slate-200 text-slate-600'
-          }`}>
-            <p className="text-sm font-bold">
-              No daily study sessions logged yet today.
-            </p>
-            <p className="text-xs text-slate-400">
-              Complete your first level in Blitz or Smart Practice to start tracking your daily activity and flawless subject ratings!
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {dailyEntries.map(entry => {
-              const dayAcc =
-                entry.questionsPracticed > 0
-                  ? Math.round((entry.correctCount / entry.questionsPracticed) * 100)
-                  : 0;
-              return (
-                <div
-                  key={entry.date}
-                  className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                    isDark ? 'bg-slate-950/80 border-slate-800' : 'bg-slate-50 border-slate-200'
-                  }`}
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-black text-sm text-blue-600 dark:text-blue-400">
-                        {entry.date}
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-[10px] font-black">
-                        {entry.questionsPracticed} Questions Practiced ({dayAcc}% Correct)
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
-                      Subjects Drilled: {(entry.subjectsPracticed || []).join(', ') || 'General UTME'}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-bold ${
-                      isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700'
-                    }`}>
-                      Levels Attempted: <strong>{entry.levelsAttempted || 0}</strong>
-                    </div>
-                    <div className="px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-black text-emerald-600 dark:text-emerald-400">
-                      100% Flawless Clears: {entry.flawlessLevelsCleared || 0}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+        <section className="sabi-card p-5 sm:p-6"><h2 className="font-bold text-slate-900">Verified syllabus coverage</h2>{coverage?.status === 'ready' ? <><p className="mt-2 text-2xl font-bold text-[#0A1F66]">{coverage.coverage_percent}%</p><p className="text-xs text-slate-500">{coverage.covered_objectives} of {coverage.total_objectives} verified objectives covered</p><div className="mt-4 space-y-3">{coverage.subjects?.map((s:any)=><div key={s.subject}><div className="flex justify-between text-sm"><span>{s.subject}</span><span>{s.coverage_percent}%</span></div><div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-[#0066FF]" style={{width:s.coverage_percent+'%'}} /></div></div>)}</div></> : <p className="mt-2 text-sm text-slate-500">Verified syllabus coverage is not available yet. Sabi will show it when the syllabus objectives and answered questions are mapped.</p>}</section>
+        <p className="text-xs text-slate-500">Analytics are based on server-recorded answered attempts (up to the API's 5,000-attempt reporting cap). They are not a guaranteed JAMB score prediction.</p>
+      </>}
     </div>
   );
 }
 
-// ==========================================
-// SUBSCRIPTION & 5,000 DIAMONDS VAULT PAGE (/subscription)
-// ==========================================
 export function SubscriptionPage() {
   const { isDark } = useTheme();
   const progress = useLiveUserProgress();
