@@ -16,7 +16,7 @@ type LearningSession = {
   started_at: string; completed_at?: string | null; metadata?: { examConfiguration?: { expiresAt?: string } };
 };
 const MODE_LABELS: Record<Mode,string> = {
-  diagnostic: 'Diagnostic', smart_practice: 'Smart Practice', blitz: 'Blitz 60s', cbt: 'CBT Simulator', custom: 'Custom Practice'
+  diagnostic: 'Diagnostic', smart_practice: 'Smart Practice', blitz: 'Blitz', cbt: 'CBT Simulator', custom: 'Custom Practice'
 };
 
 export function BackendLearningPage() {
@@ -34,7 +34,7 @@ export function BackendLearningPage() {
     return Number.isInteger(requested) ? Math.max(1, Math.min(180, requested)) : 20;
   });
   const questionStartedAt = useRef(Date.now());
-  const [configurationKey,setConfigurationKey] = useState<'quick-mock'|'full-mock'>('quick-mock');
+  const [configurationKey,setConfigurationKey] = useState<'quick-mock'|'full-mock'>(() => params.get('configuration') === 'full-mock' ? 'full-mock' : 'quick-mock');
   const [session,setSession] = useState<LearningSession|null>(null);
   const [questions,setQuestions] = useState<LearningQuestion[]>([]);
   const [index,setIndex] = useState(0);
@@ -91,8 +91,8 @@ export function BackendLearningPage() {
     questionStartedAt.current=Date.now();
     const payload:any={mode,limit,metadata:{source:'unified-learning-ui'}};
     if(mode==='cbt'){payload.configurationKey=configurationKey;}
-    else if(subjects.length){payload.subjects=subjects;}
-    else if(subject.trim()){payload.subject=subject.trim();}
+    else if(mode==='diagnostic' && subjects.length){payload.subjects=subjects;}
+    else if((mode==='diagnostic'||mode==='custom') && subject.trim()){payload.subject=subject.trim();}
     if(topic.trim())payload.topic=topic.trim();
     if(subtopic.trim())payload.subtopic=subtopic.trim();
     if(difficulty)payload.difficulty=difficulty;
@@ -182,9 +182,9 @@ export function BackendLearningPage() {
       {!session&&<section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 space-y-5">
         <div className="flex items-center gap-2"><Target className="text-blue-600"/><h2 className="text-lg font-black">Start a learning session</h2></div>
         <div className="grid sm:grid-cols-2 gap-3">
-          <label className="text-xs font-bold space-y-2">Learning mode<select value={mode} onChange={e=>setMode(e.target.value as Mode)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="diagnostic">Diagnostic</option><option value="smart_practice">Smart Practice</option><option value="blitz">Blitz 60s</option><option value="cbt">CBT Simulator</option><option value="custom">Custom Practice</option></select></label>
-          {mode==='cbt'?<label className="text-xs font-bold space-y-2">CBT format<select value={configurationKey} onChange={e=>setConfigurationKey(e.target.value as any)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="quick-mock">Quick Mock</option><option value="full-mock">Full UTME Mock</option></select></label>:subjects.length?<label className="text-xs font-bold space-y-2">Subjects<input readOnly value={subjects.join(', ')} className="w-full rounded-xl border p-3 bg-slate-50 dark:bg-slate-800 text-sm"/></label>:<label className="text-xs font-bold space-y-2">Subject<select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full rounded-xl border p-3 bg-transparent text-sm">{subjectOptions.map(s=><option key={s}>{s}</option>)}</select></label>}
-          {mode!=='cbt'&&<label className="text-xs font-bold space-y-2">Question count<select value={limit} onChange={e=>setLimit(Number(e.target.value))} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value={10}>10 questions</option><option value={15}>15 questions</option><option value={20}>20 questions</option><option value={40}>40 questions</option><option value={60}>60 questions</option></select></label>}
+          <label className="text-xs font-bold space-y-2">Learning mode<select value={mode} onChange={e=>setMode(e.target.value as Mode)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="diagnostic">Diagnostic</option><option value="smart_practice">Smart Practice</option><option value="blitz">Blitz</option><option value="cbt">CBT Simulator</option><option value="custom">Custom Practice</option></select></label>
+          {mode==='cbt'?<label className="text-xs font-bold space-y-2">CBT format<select value={configurationKey} onChange={e=>setConfigurationKey(e.target.value as any)} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value="quick-mock">Quick Mock</option><option value="full-mock">Full UTME Mock</option></select></label>:subjects.length?<label className="text-xs font-bold space-y-2">Subjects<input readOnly value={subjects.join(', ')} className="w-full rounded-xl border p-3 bg-slate-50 dark:bg-slate-800 text-sm"/></label>:(mode==='diagnostic'||mode==='custom')&&<label className="text-xs font-bold space-y-2">Subject<select value={subject} onChange={e=>setSubject(e.target.value)} className="w-full rounded-xl border p-3 bg-transparent text-sm">{subjectOptions.map(s=><option key={s}>{s}</option>)}</select></label>}
+          {(mode==='diagnostic'||mode==='custom')&&<label className="text-xs font-bold space-y-2">Question count<select value={limit} onChange={e=>setLimit(Number(e.target.value))} className="w-full rounded-xl border p-3 bg-transparent text-sm"><option value={10}>10 questions</option><option value={15}>15 questions</option><option value={20}>20 questions</option><option value={40}>40 questions</option><option value={60}>60 questions</option></select></label>}
           {mode==='custom'&&<>
             <label className="text-xs font-bold space-y-2">Topic (optional)<input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Algebra" className="w-full rounded-xl border p-3 bg-transparent text-sm"/></label>
             <label className="text-xs font-bold space-y-2">Subtopic (optional)<input value={subtopic} onChange={e=>setSubtopic(e.target.value)} placeholder="e.g. Quadratic equations" className="w-full rounded-xl border p-3 bg-transparent text-sm"/></label>
