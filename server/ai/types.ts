@@ -11,6 +11,7 @@ export type AIProviderResult = {
   provider: AIProviderName;
   model: string;
   usage: AIUsage;
+  simulated?: boolean;
 };
 
 export type AIGenerationInput = {

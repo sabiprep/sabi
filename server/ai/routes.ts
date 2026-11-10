@@ -432,6 +432,7 @@ router.post('/chat', aiLimiter, requireAuth, validateBody(chatRequestSchema), as
       reply: generated.text,
       provider: generated.provider,
       model: generated.model,
+      simulated: generated.simulated === true,
     });
   } catch (error) {
     if (aiRequestId && reservedCreditCost > 0 && !aiUsageRecorded) {
@@ -618,6 +619,7 @@ router.post('/explanations', aiLimiter, requireAuth, validateBody(explanationReq
         storedExplanation,
         provider: generated.provider,
         model: generated.model,
+        simulated: generated.simulated === true,
         selectedOption,
         correctOption,
       });

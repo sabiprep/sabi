@@ -110,6 +110,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/seeds/simulation_personas.sql
       - name: Verify Phase 1.5 intelligence data layer
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/phase1_5_intelligence_assertions.sql
+      - name: Verify isolated synthetic learner archetypes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/simulation_persona_assertions.sql
       - name: Apply Phase 1.6 universal signal layer
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108111356_phase1_6_universal_signal_layer.sql
@@ -147,3 +149,19 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/learning_engine_activation_assertions.sql
       - name: Publish candidate onboarding v3 question set
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110170000_candidate_onboarding_v3.sql
+      - name: Apply official JAMB syllabus ingestion
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108173139_official_jamb_syllabus_ingestion_v1.sql
+      - name: Verify official JAMB syllabus ingestion
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/official_jamb_syllabus_ingestion_assertions.sql
+      - name: Apply AI engine budget and control plane
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261109233858_ai_engine_controls.sql
+      - name: Verify AI engine budget and control plane
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/ai_engine_controls_assertions.sql
+      - name: Apply delegated admin RBAC
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110070908_sabi_command_admin_rbac.sql
+      - name: Verify delegated admin RBAC
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/sabi_command_admin_rbac_assertions.sql
+      - name: Add foreign-key supporting indexes
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261110210000_foreign_key_supporting_indexes.sql
+      - name: Verify every foreign key has a supporting index
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/foreign_key_index_assertions.sql

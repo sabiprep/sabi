@@ -6,6 +6,7 @@ type ProviderRequest = {
   temperature: number;
   maxOutputTokens: number;
   timeoutMs: number;
+  task?: string;
 };
 
 export type ProviderResponse = {
@@ -64,6 +65,33 @@ export async function invokeProvider(
   config: AIProviderConfig,
   input: ProviderRequest,
 ): Promise<ProviderResponse> {
+  if (provider === 'mock') {
+    if (process.env.SABI_AI_MOCK_ENABLED?.trim().toLowerCase() !== 'true') {
+      throw new Error('mock_provider_disabled');
+    }
+    const marker = '[SIMULATED OUTPUT — MOCK PROVIDER; NOT A REAL AI RESPONSE]';
+    const task = input.task || 'tutor_chat';
+    let text: string;
+    if (task === 'explanation') {
+      const answer = input.prompt.match(/Verified correct option:\s*([A-D])\s*[—-]\s*([^\n]+)/i);
+      text = [
+        marker,
+        answer
+          ? `The verified answer is option ${answer[1]} — ${answer[2].trim()}. This is the answer supplied by the test fixture; the mock does not independently verify its correctness.`
+          : 'This is a simulated explanation response. The mock provider cannot verify an answer key.',
+        'A real provider would explain the underlying concept, show the reasoning step by step, and address the selected option.',
+        'This output is for backend integration testing only and must not be presented as genuine tutoring.',
+      ].join('\n\n');
+    } else if (task === 'study_plan') {
+      text = [marker, 'Day 1 — Review the selected topic and record a baseline.', 'Day 2 — Practise a short question set and review mistakes.', 'Day 3 — Complete a retrieval session and revise weak areas.', 'This synthetic plan validates response handling only; it is not personalized educational advice.'].join('\n');
+    } else if (task === 'content_draft') {
+      text = [marker, 'SYNTHETIC CONTENT DRAFT — HUMAN REVIEW REQUIRED', 'Question: Which statement best describes the concept being tested?', 'A. First illustrative option', 'B. Second illustrative option', 'C. Third illustrative option', 'D. Fourth illustrative option', 'Answer: A', 'Explanation: This placeholder demonstrates the expected draft workflow. Replace it with a real provider response and verify the answer before publication.'].join('\n');
+    } else {
+      text = [marker, 'This is a simulated Sabi tutor response used to test the AI request pipeline.', 'The mock provider has received your request and returned a deterministic placeholder. It does not reason over the syllabus or independently check facts.', 'When a real provider is configured, this response path can be replaced without changing the learner-facing API.'].join('\n');
+    }
+    const inputTokens = Math.ceil((input.systemInstruction.length + input.prompt.length) / 4);
+    return { text, usage: { inputTokens, outputTokens: Math.ceil(text.length / 4) } };
+  }
   if (!config.apiKey || !config.model) throw new Error('provider_not_configured');
 
   if (provider === 'gemini') {
@@ -134,4 +162,4 @@ export async function invokeProvider(
   return normalizeChatCompletion(data);
 }
 
-export const AI_PROVIDER_NAMES: AIProviderName[] = ['gemini', 'openai', 'anthropic'];
+export const AI_PROVIDER_NAMES: AIProviderName[] = ['gemini', 'openai', 'anthropic', 'mock'];
