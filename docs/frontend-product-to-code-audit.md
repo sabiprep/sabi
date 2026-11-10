@@ -22,6 +22,19 @@
 9. The latest open PRs #34 and #35 are draft work and must be preserved. PR #34 adds parent/school portals and consent/invitation workflows; PR #35 documents the SABI COMMAND admin control plane. Neither should be merged or overwritten as part of the frontend audit.
 10. The next phase should be a product-led screen rebuild in a dedicated branch, followed by systematic API wiring. Existing safe API contracts should be reused; frontend must not invent backend operations or authoritative learning calculations.
 
+## 1.1 Post-PR #41 integration verification — 10 November 2026
+
+The following checks were performed against the merged `main` baseline while preparing the frontend-completion branch:
+
+- **Billing route mismatch found and corrected in the frontend branch:** student subscription UI called `/api/billing/*`, while Express mounts the billing router at `/api/payments`. The student UI now uses the mounted `/api/payments/*` contract.
+- **Notification route mismatch found and corrected in the frontend branch:** student notifications UI called `/api/notifications/*`, while Express mounts the notification router at `/api/internal/notifications`. The student UI now uses the mounted `/api/internal/notifications/*` contract.
+- **Smart Practice / Blitz remain integration-blocked:** the current API creates a bounded batch through `POST /api/learning/sessions`; there is no authenticated server-authoritative next-question endpoint. The frontend must not simulate a continuous adaptive feed by silently starting arbitrary new batches.
+- **CBT remains acceptance-blocked:** the learning API exposes session creation, session retrieval and answer submission, but no persisted question-flag/review endpoint is present in the current route inventory. The current active CBT UI also lacks a question palette, backward navigation, review flags and a two-step final submission experience.
+- **Custom Practice:** the setup UI delegates to the shared learning page; the API requires at least one explicit filter. This path needs browser acceptance for all supported filter combinations and empty eligible-question pools.
+- **Onboarding:** the current question source contains the approved 15-question sequence and the v3 page uses a versioned draft key. Browser acceptance is still required for interrupted/resumed onboarding, subject validation, submission retries and the authenticated profile projection.
+
+**Release rule:** a successful TypeScript check or CI build does not prove these user journeys are complete. Each item above requires API-contract verification and browser acceptance before the frontend can be declared complete.
+
 ## 2. Locked product model
 
 SABI is a JAMB-only preparation platform described as **a data engine wrapped in a CBT platform**. The four learning experiences are distinct:
