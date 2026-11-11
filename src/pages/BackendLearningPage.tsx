@@ -102,7 +102,7 @@ export function BackendLearningPage() {
     if(!result.ok){setError(describeApiFailure(result,'Could not start this learning session.'));return;}
     setSession(result.data?.session||null);setQuestions(result.data?.questions||[]);
     if(!result.data?.session||!Array.isArray(result.data?.questions)){setError('The learning API returned an unexpected session response.');return;}
-    await loadOverview();
+    void loadOverview();
   };
 
   const submit = async () => {
@@ -112,17 +112,37 @@ export function BackendLearningPage() {
       questionId:current.id,selectedOption:choice,elapsedMs:Math.max(0,Math.min(3600000,Date.now()-questionStartedAt.current))
     });
     if(!result.ok){setLoading(false);setError(describeApiFailure(result,'Your answer was not saved.'));return;}
-    const fresh=await apiFetch(`/api/learning/sessions/${session.id}`);
-    if(fresh.ok){
-      const data=await fresh.json();
-      const updated=(data.questions||[]).find((q:LearningQuestion)=>q.id===current.id);
-      setAnswerResult(updated?.answerState||result.data?.result||{});
-      setSession(data.session||session);
-      setQuestions(data.questions||questions);
+    const answer=result.data?.result||{};
+    if(session.mode==='cbt'){
+      // CBT keeps answer feedback hidden until the exam ends.
+      const fresh=await apiFetch(`/api/learning/sessions/${session.id}`);
+      if(fresh.ok){
+        const data=await fresh.json();
+        setSession(data.session||session);
+        setQuestions(data.questions||questions);
+      }
+      setAnswerResult({recorded:true});
     } else {
-      setAnswerResult(result.data?.result||{});
+      // The atomic answer RPC already returns authoritative correctness and mastery updates.
+      // Render its result immediately; refresh dashboard aggregates in the background.
+      const answerState={
+        selectedOption:choice,
+        isCorrect:Boolean(answer.correct),
+        correctOption:answer.correct_option||'',
+        explanation:answer.explanation||'',
+        elapsedMs:Math.max(0,Math.min(3600000,Date.now()-questionStartedAt.current)),
+      };
+      setAnswerResult(answerState);
+      setQuestions(previous=>previous.map(question=>question.id===current.id?{...question,answerState}:question));
+      setSession(previous=>previous?{
+        ...previous,
+        answered_count:Number(answer.answered_count??(previous.answered_count+1)),
+        correct_count:previous.correct_count+(answer.correct?1:0),
+        status:answer.session_completed?'completed':previous.status,
+      }:previous);
     }
-    setLoading(false);await loadOverview();
+    setLoading(false);
+    void loadOverview();
   };
 
   const requestAIExplanation = async () => {
@@ -192,7 +212,8 @@ export function BackendLearningPage() {
             <label className="text-xs font-bold space-y-2">Question year (optional)<input type="number" min="1990" max="2100" value={year} onChange={e=>setYear(e.target.value)} placeholder="e.g. 2024" className="w-full rounded-xl border p-3 bg-transparent text-sm"/></label>
           </>}
         </div>
-        <button disabled={loading} onClick={()=>void start()} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm disabled:opacity-60 inline-flex items-center gap-2">{loading?<LoaderCircle className="animate-spin" size={17}/>:<ArrowRight size={17}/>}Start {MODE_LABELS[mode]}</button>
+        <button disabled={loading} onClick={()=>void start()} className="px-6 py-3 rounded-xl bg-blue-600 text-white font-black text-sm disabled:opacity-60 inline-flex items-center gap-2">{loading?<LoaderCircle className="animate-spin" size={17}/>:<ArrowRight size={17}/>} {loading?'Preparing your questions…':`Start ${MODE_LABELS[mode]}`}</button>
+        {loading&&<p role="status" aria-live="polite" className="text-sm font-semibold text-blue-600">SABI is selecting your questions and preparing your practice session…</p>}
         <p className="text-xs text-slate-500">Only reviewer-approved, published UTME questions with verified sources and permitted student-practice rights are served. If the eligible pool is too small, SABI blocks the session rather than serving unreviewed or uncleared content.</p>
       </section>}
       {session&&current&&!completed&&<section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 space-y-5">
