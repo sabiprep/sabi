@@ -167,3 +167,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/foreign_key_index_assertions.sql
       - name: Verify complete learner workflow end to end
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/learner_workflow_e2e_assertions.sql
+      - name: Seed full synthetic platform dataset (disposable CI only)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/full_platform_test_seed.sql
+      - name: Verify full synthetic platform dataset coverage
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/full_platform_test_seed_assertions.sql
