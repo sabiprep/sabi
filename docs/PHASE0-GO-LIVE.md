@@ -7,13 +7,28 @@ and tested. Nothing here is optional, and the order matters.
 > Reference for *why* each step exists and for troubleshooting:
 > `docs/runbooks/phase0-rollout.md`. You do not need to read it to go live.
 
+> ⚠️ **The host matters.** This project deploys to
+> **`https://sabi-tan.vercel.app`**. `https://sabi.vercel.app` is a *different*
+> Vercel project: it answers `/api/*` with the SPA's HTML instead of JSON, so
+> sign-up there fails in a way that looks like a network fault. Every URL in this
+> document therefore uses `sabi-tan.vercel.app`. Evidence and history:
+> `docs/runbooks/deployment-provenance-2026-11-14.md`.
+
 ## Status right now
 
 | Part | State |
 | --- | --- |
-| Code (API, auth endpoints, boot guard, tests) | **done** — `tsc` 0 errors, 92 tests green, build OK |
+| Code (API, auth endpoints, boot guard, tests) | **done** — `tsc` 0 errors, 26 test files / 177 tests green, build OK |
 | Supabase (schema + Phase 0 rules) | **unknown** until you run **A1** |
-| Vercel (env vars, Node version) | **not done** — this is exactly why sign-up fails on the URL |
+| Vercel (env vars, Node version) | **verified 14 Nov 2026** — see below; finish **A1/A3/A4** and the sign-off list |
+
+Verified against `https://sabi-tan.vercel.app` on 14 Nov 2026: `/api/health`
+reports `runtime:"vercel-function"`, `admin_configured:true`,
+`service_role_configured:true`, `configuration_error:null`; `POST
+/api/auth/register` returned `{"status":"created",…}`, `POST /api/auth/login`
+returned `{"status":"authenticated",…}`, and the browser leg
+(`POST /auth/v1/token?grant_type=password`) returned a real access token. So the
+deployment side of Phase 0 is no longer the blocker it was.
 
 **Have the Supabase rules changed?** No. The SQL in `supabase/migrations/` has not
 changed, and none of the recent API work needs a database change. **A1** proves it
@@ -73,8 +88,8 @@ Optional spot-check afterwards, one query at a time:
 
 | Field | Value |
 | --- | --- |
-| Site URL | `https://sabi.vercel.app` (your real production domain) |
-| Redirect URLs | `https://sabi.vercel.app/**`, `http://localhost:5173/**`, `capacitor://localhost` |
+| Site URL | `https://sabi-tan.vercel.app` (this project's production deployment) |
+| Redirect URLs | `https://sabi-tan.vercel.app/**`, `http://localhost:5173/**`, `capacitor://localhost` |
 
 A `redirectTo` that is not on this list is silently replaced by the Site URL, so
 recovery emails would open the wrong page.
@@ -127,8 +142,8 @@ Preview if you smoke-test previews) for every row:
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → **service_role** secret. Server-only: never prefix `VITE_` |
 | `VITE_SUPABASE_URL` | same URL as `SUPABASE_URL` |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → **anon public** key |
-| `SABI_APP_URL` | `https://sabi.vercel.app` |
-| `ALLOWED_ORIGINS` | `https://sabi.vercel.app` (comma separated, no trailing slash) |
+| `SABI_APP_URL` | `https://sabi-tan.vercel.app` |
+| `ALLOWED_ORIGINS` | `https://sabi-tan.vercel.app` (comma separated, no trailing slash) |
 | `SABI_INSTANT_VERIFY` | `true` — server confirms the account at sign-up |
 | `GEMINI_API_KEY` | optional; without it AI routes return simulated drafts |
 | `VITE_API_BASE_URL` | leave **unset** — same-origin means `/api` on this domain |
@@ -151,7 +166,7 @@ Nothing else needs changing: `vercel.json` holds the build/output settings and
 ## C. Verify on the URL — about 5 minutes
 
 ```bash
-APP=https://sabi.vercel.app
+APP=https://sabi-tan.vercel.app
 # 1. The API is alive AND configured. Expect status ok, admin_configured true,
 #    runtime vercel-function, configuration_error null.
 curl -s "$APP/api/health"
@@ -160,13 +175,14 @@ curl -s "$APP/api/health"
 curl -s -X POST "$APP/api/auth/register" -H 'content-type: application/json' \
   -d '{"fullName":"Phase 0 Test","email":"phase0-test-1@yourdomain.com","password":"Test1234!","phone":"08000000000","stateOfOrigin":"Lagos"}'
 
-# 3. Login through the API. Expect {"status":"authenticated", …}
+# 3. Login through the API. The field is `identifier` (email or SABI ID), not `email`.
+#    Expect {"status":"authenticated", …}
 curl -s -X POST "$APP/api/auth/login" -H 'content-type: application/json' \
-  -d '{"email":"phase0-test-1@yourdomain.com","password":"Test1234!"}'
+  -d '{"identifier":"phase0-test-1@yourdomain.com","password":"Test1234!"}'
 
 # 4. The browser/WebView preflight is answered. Expect 204.
 curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS "$APP/api/auth/register" \
-  -H 'Origin: https://sabi.vercel.app' -H 'Access-Control-Request-Method: POST'
+  -H 'Origin: https://sabi-tan.vercel.app' -H 'Access-Control-Request-Method: POST'
 ```
 
 Then the real test: **sign up from the deployed page with a brand-new email**
