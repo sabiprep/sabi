@@ -148,6 +148,10 @@ verified syllabus version requires a reviewed authoritative source.
 - Deployments must be built from `main`. A deployment that cannot be traced to a
   `main` commit is not a release.
 
+The state of `main` immediately before the phase1-phase5 consolidation is
+preserved in tag `pre-consolidation-2026-11-14`, so the merge can be reverted
+without rewriting history.
+
 ## Deployment
 
 Vercel builds this repository as a Vite static site plus the `api/index.ts`

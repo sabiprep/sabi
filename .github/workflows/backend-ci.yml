@@ -1,14 +1,16 @@
 name: Backend CI
 
+# Policy: main is the only integration branch (see README "Branch policy").
+# The pipeline deliberately does not run on side branches, so backend work
+# cannot sit on a branch that looks green but is not on main. A short-lived
+# branch still gets checked through its pull request into main.
 on:
   push:
     branches:
       - main
-      - 'backend/**'
   pull_request:
     branches:
       - main
-      - 'backend/**'
 
 permissions:
   contents: read

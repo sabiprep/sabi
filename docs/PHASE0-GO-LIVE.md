@@ -73,11 +73,16 @@ Optional spot-check afterwards, one query at a time:
 
 | Field | Value |
 | --- | --- |
-| Site URL | `https://sabi.vercel.app` (your real production domain) |
-| Redirect URLs | `https://sabi.vercel.app/**`, `http://localhost:5173/**`, `capacitor://localhost` |
+| Site URL | `https://sabi-tan.vercel.app` (this project's production domain) |
+| Redirect URLs | `https://sabi-tan.vercel.app/**`, `http://localhost:5173/**`, `capacitor://localhost` |
 
 A `redirectTo` that is not on this list is silently replaced by the Site URL, so
 recovery emails would open the wrong page.
+
+> Use `sabi-tan.vercel.app`, not `sabi.vercel.app`. The latter answers every
+> `/api/*` path with the SPA shell, so sign-up and sign-in get HTML instead of
+> JSON. Verified on 14 November 2026: `sabi.vercel.app/api/health` returns HTML,
+> `sabi-tan.vercel.app/api/health` returns the health JSON.
 
 ### A5. Authentication → Emails → **Reset Password** template
 
@@ -127,8 +132,8 @@ Preview if you smoke-test previews) for every row:
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → **service_role** secret. Server-only: never prefix `VITE_` |
 | `VITE_SUPABASE_URL` | same URL as `SUPABASE_URL` |
 | `VITE_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → **anon public** key |
-| `SABI_APP_URL` | `https://sabi.vercel.app` |
-| `ALLOWED_ORIGINS` | `https://sabi.vercel.app` (comma separated, no trailing slash) |
+| `SABI_APP_URL` | `https://sabi-tan.vercel.app` |
+| `ALLOWED_ORIGINS` | `https://sabi-tan.vercel.app` (comma separated, no trailing slash) |
 | `SABI_INSTANT_VERIFY` | `true` — server confirms the account at sign-up |
 | `GEMINI_API_KEY` | optional; without it AI routes return simulated drafts |
 | `VITE_API_BASE_URL` | leave **unset** — same-origin means `/api` on this domain |
@@ -151,7 +156,7 @@ Nothing else needs changing: `vercel.json` holds the build/output settings and
 ## C. Verify on the URL — about 5 minutes
 
 ```bash
-APP=https://sabi.vercel.app
+APP=https://sabi-tan.vercel.app
 # 1. The API is alive AND configured. Expect status ok, admin_configured true,
 #    runtime vercel-function, configuration_error null.
 curl -s "$APP/api/health"
@@ -166,7 +171,7 @@ curl -s -X POST "$APP/api/auth/login" -H 'content-type: application/json' \
 
 # 4. The browser/WebView preflight is answered. Expect 204.
 curl -s -o /dev/null -w '%{http_code}\n' -X OPTIONS "$APP/api/auth/register" \
-  -H 'Origin: https://sabi.vercel.app' -H 'Access-Control-Request-Method: POST'
+  -H 'Origin: https://sabi-tan.vercel.app' -H 'Access-Control-Request-Method: POST'
 ```
 
 Then the real test: **sign up from the deployed page with a brand-new email**

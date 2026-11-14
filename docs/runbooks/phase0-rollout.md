@@ -135,8 +135,8 @@ Either way the anon key is **never** used as a fallback.
 | --- | --- | --- |
 | `SUPABASE_URL` (or `VITE_SUPABASE_URL`) | `https://abcd1234.supabase.co` | trailing `/rest/v1` is stripped automatically |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOi…` | **server only.** Project Settings → API → `service_role`. Never prefix with `VITE_` |
-| `SABI_APP_URL` | `https://sabi.vercel.app` | `redirectTo` for `resetPasswordForEmail` |
-| `ALLOWED_ORIGINS` | `https://sabi.vercel.app,https://admin.sabi.ng` | comma separated, no trailing slash |
+| `SABI_APP_URL` | `https://sabi-tan.vercel.app` | `redirectTo` for `resetPasswordForEmail` |
+| `ALLOWED_ORIGINS` | `https://sabi-tan.vercel.app,https://admin.sabi.ng` | comma separated, no trailing slash |
 | `SABI_INSTANT_VERIFY` | `true` | `false` disables server-side auto-confirm at sign-up |
 | `GEMINI_API_KEY` | `AIza…` | optional; AI routes fall back to simulated drafts |
 
@@ -247,7 +247,7 @@ same variables to the Preview scope.
 gcloud run services update sabi-api \
   --region europe-west1 \
   --update-env-vars \
-SUPABASE_URL="https://abcd1234.supabase.co",SUPABASE_SERVICE_ROLE_KEY="eyJ…",SABI_APP_URL="https://sabi.vercel.app",ALLOWED_ORIGINS="https://sabi.vercel.app",SABI_INSTANT_VERIFY="true",NODE_ENV="production"
+SUPABASE_URL="https://abcd1234.supabase.co",SUPABASE_SERVICE_ROLE_KEY="eyJ…",SABI_APP_URL="https://sabi-tan.vercel.app",ALLOWED_ORIGINS="https://sabi-tan.vercel.app",SABI_INSTANT_VERIFY="true",NODE_ENV="production"
 ```
 
 Use `--update-env-vars` (merge) rather than `--set-env-vars` (replace) — the
