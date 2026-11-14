@@ -53,41 +53,28 @@ project you intend to throw away.
 two refs, table counts, migration-ledger counts and `auth.users` counts in the
 decision table in §6.
 
-**Step 1 — make the full project production, now.** This is the "use the new one
-now" half of the request, and it is one env-var change set plus a redeploy:
+**Step 1 — chosen direction (14 Nov 2026): copy the full project into the main
+project.** Production keeps `dnrzixaasphxiswjyglj`; no Vercel variable changes.
+The operator chose this to avoid two live databases. The copy is **additive**,
+because the main project is not empty: `docs/runbooks/phase1-rollout.md` records
+3,740 `question_bank` rows, 23 JAMB subjects and the verified Phase 0 hardening
+already applied there. Procedure, commands, verification and rollback:
+[`supabase-copy-full-into-main-2026-11-14.md`](supabase-copy-full-into-main-2026-11-14.md).
 
-1. Vercel → Project → Settings → Environment Variables → **Production**, update
-   all four of `SUPABASE_URL`, `VITE_SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_ANON_KEY` to the full project.
-2. Redeploy (Deployments → ⋯ → Redeploy). Env changes do not affect an existing
-   deployment.
-3. Verify: `GET /api/health` must report `service_role_configured: true` and
-   `configuration_error: null`; then `POST /api/auth/register` and
-   `POST /api/auth/login` (field `identifier`); then check content renders.
+The alternative — repointing Production at the full project through the four env
+vars and redeploying — is recorded here because it is the fallback if the copy
+cannot be verified. It touches no data, but every account created before the
+switch would stop existing, and the main project's verified Phase 0 state would
+leave production.
 
-**Step 2 — keep the empty project as staging, not as production.** Point the
-**Preview** environment at it and never set Production back to it by accident.
-Preview and Production env vars are separate in Vercel, which is exactly what
-makes this safe.
+**Step 2 — decommission the duplicate only after the copy is verified.** Pause
+(do not delete) the source project until the live checks in §6 of the copy runbook
+pass; then delete it, and record the surviving ref in §6 of this file.
 
-**Step 3 — later, flip the "main" project to active.** When the main project must
-become the one true database, copy **into** it while it is still empty, then flip
-the env vars. Direction matters: **always copy from the project that holds the
-data into the project that holds nothing.** Never the reverse, never `--clean`
-over a project that already has live `auth.users`.
-
-- Schema + data: `supabase db dump` (or `pg_dump --schema=public`) from the full
-  project, restore into the main project, then `supabase db push` to reconcile
-  the ledger.
-- Auth users: a `public` dump does not carry them. Either migrate
-  `auth.users` + `auth.identities` together in a maintenance window and accept
-  that sessions are invalidated, or (with only test accounts today) let users
-  re-register. Decide this **before** real students exist.
-
-**Step 4 — decommission the duplicate.** After the flip is verified, pause or
-delete the project that is no longer bound to any environment, and update
-`docs/BACKEND-COMPLETION-PLAN.md`, `docs/runbooks/phase1-rollout.md` and
-`docs/database/adaptive-question-bank-foundation-v1.md` to the surviving ref.
+**Step 3 — update the documents that name a project ref.** Only if the surviving
+ref ever changes: `docs/BACKEND-COMPLETION-PLAN.md`,
+`docs/runbooks/phase1-rollout.md` and
+`docs/database/adaptive-question-bank-foundation-v1.md` in the same commit.
 
 ## 4. Rules that prevent a split brain
 
@@ -119,5 +106,6 @@ one project: audit, copy, flip, delete.
 | Real user accounts in A / B | _to fill_ (audit: `auth.users`) |
 | Public tables in A / B | _to fill_ |
 | Migration-ledger rows in A / B | _to fill_ |
-| Chosen production project | _to fill_ |
-| Flip date | _to fill_ |
+| Chosen production project | **`dnrzixaasphxiswjyglj` (main)** — decided 14 Nov 2026: keep production here and copy the full project's data in, rather than repointing Vercel |
+| Flip date | **not applicable** — no flip; data copy instead (`supabase-copy-full-into-main-2026-11-14.md`) |
+| Copy verified on | _to fill_ — date the §6 live checks of the copy runbook passed |
