@@ -92,9 +92,9 @@ ref ever changes: `docs/BACKEND-COMPLETION-PLAN.md`,
 
 ## 5. Cost note
 
-Two active projects mean two sets of limits and, on a paid plan, two bills. If
-the empty project has no data and no real users, the cheapest correct outcome is
-one project: audit, copy, flip, delete.
+Two active projects mean two sets of limits and, on a paid plan, two bills. Once
+the audit shows what each one holds, the cheapest correct outcome is one project:
+audit, copy into the main project, verify, delete the duplicate.
 
 ## 6. Decision record (fill in when known)
 
