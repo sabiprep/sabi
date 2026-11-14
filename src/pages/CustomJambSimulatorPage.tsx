@@ -99,8 +99,14 @@ export function CustomJambSimulatorPage() {
         {/* Quick Navigation Action Buttons */}
         <div className="relative z-10 flex flex-wrap items-center justify-center gap-3 pt-2">
           <Link
-            to="/home"
+            to="/jamb-exam"
             className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider transition-all shadow-md shadow-blue-600/20"
+          >
+            Start JAMB Mock Exam
+          </Link>
+          <Link
+            to="/home"
+            className="px-6 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-blue-400 text-slate-700 dark:text-slate-200 font-bold text-xs uppercase tracking-wider transition"
           >
             Return to Dashboard
           </Link>

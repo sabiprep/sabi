@@ -26,15 +26,19 @@ const MAIN_NAV = [
   { to: '/home', label: 'Dashboard', Icon: Home },
   { to: '/blitz', label: 'Blitz 60s', Icon: Zap },
   { to: '/smart', label: 'Smart Practice', Icon: Compass },
+  { to: '/recommendations', label: 'For You', Icon: Target },
   { to: '/custom-simulator', label: 'Custom Simulator', Icon: Sliders },
   { to: '/practice', label: 'Practice Hub', Icon: BookOpen },
   { to: '/cbt', label: 'CBT Simulator', Icon: FileQuestion },
   { to: '/progress', label: 'Progress', Icon: Activity },
+  { to: '/learning-progress', label: 'Topic Mastery', Icon: Target },
 ];
 
 const MENU_ITEMS = [
   { to: '/subscription', label: 'Subscription & 5,000 💎 Vault', Icon: Coins, description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus' },
   { to: '/subject-rates', label: 'Subject Rates (100% Rule)', Icon: Activity, description: 'Full-screen mastery ratings earned from 100% flawless levels' },
+  { to: '/learning-progress', label: 'Topic Mastery', Icon: Target, description: 'Accuracy, mastery estimates and learning evidence by topic' },
+  { to: '/recommendations', label: 'Adaptive Practice', Icon: Compass, description: 'Questions selected from your weak areas and revision schedule' },
   { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests & Streak Bonus Diamonds' },
   { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review missed questions with step-by-step solutions' },
   { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet, brochure & syllabus heatmap' },
@@ -1409,6 +1413,17 @@ export function PracticePage() {
           </Link>
         </div>
       </div>
+
+      <Link
+        to="/verified-practice"
+        className={`rounded-3xl border p-6 sm:p-7 transition flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${isDark ? 'bg-blue-950/30 border-blue-900 hover:border-blue-600' : 'bg-blue-50 border-blue-200 hover:border-blue-400'}`}
+      >
+        <div className="flex items-start gap-4">
+          <div className="rounded-2xl bg-blue-700 p-3 text-white"><BookOpenCheck size={24}/></div>
+          <div><span className="text-[11px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">Reviewed question pool</span><h2 className="mt-1 text-lg font-black">Verified Question Practice</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Practice questions with checked answers, source evidence and verified JAMB syllabus mapping.</p></div>
+        </div>
+        <span className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white">Start practice <ArrowRight size={16}/></span>
+      </Link>
 
       {/* Additional Modes Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -74,6 +74,70 @@ describe('authentication gate', () => {
 
     expect(response.status).toBe(401);
   });
+
+  it('protects Phase 3 session and attempt endpoints', async () => {
+    const start = await request(app).post('/api/learning/sessions').send({ mode: 'smart' });
+    const attempt = await request(app)
+      .post('/api/learning/sessions/11111111-1111-4111-8111-111111111111/attempts')
+      .send({
+        eventId: '22222222-2222-4222-8222-222222222222',
+        questionId: 'MTH-001',
+        answer: 'A',
+        isCorrect: true,
+      });
+
+    expect(start.status).toBe(401);
+    expect(attempt.status).toBe(401);
+  });
+
+  it('rejects unauthenticated mastery reads', async () => {
+    const response = await request(app).get('/api/learning/mastery');
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects unauthenticated adaptive recommendation reads', async () => {
+    const response = await request(app).get('/api/learning/recommendations');
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects client-supplied identity and correctness in learning evidence writes', async () => {
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: {
+        user: {
+          id: '22222222-2222-4222-8222-222222222222',
+          email: 'student@example.com',
+          user_metadata: {},
+          app_metadata: { providers: ['email'] },
+        },
+      } as any,
+      error: null,
+    } as any);
+    const rpcSpy = vi.spyOn(supabaseAdminClient, 'rpc');
+
+    try {
+      const session = await request(app)
+        .post('/api/learning/sessions')
+        .set('Authorization', 'Bearer valid-test-token')
+        .send({ mode: 'smart', studentId: '33333333-3333-4333-8333-333333333333' });
+      const attempt = await request(app)
+        .post('/api/learning/sessions/11111111-1111-4111-8111-111111111111/attempts')
+        .set('Authorization', 'Bearer valid-test-token')
+        .send({
+          eventId: '22222222-2222-4222-8222-222222222222',
+          questionId: 'MTH-001',
+          answer: 'A',
+          isCorrect: true,
+          masteryScore: 1,
+        });
+
+      expect(session.status).toBe(400);
+      expect(attempt.status).toBe(400);
+      expect(rpcSpy).not.toHaveBeenCalled();
+    } finally {
+      getUserSpy.mockRestore();
+      rpcSpy.mockRestore();
+    }
+  });
 });
 
 
@@ -448,5 +512,102 @@ describe('CORS allow-list and security headers', () => {
     expect(response.headers['x-powered-by']).toBeUndefined();
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['x-frame-options']).toBeDefined();
+  });
+});
+
+
+describe('student profile ownership', () => {
+  const studentId = '22222222-2222-4222-8222-222222222222';
+  const otherStudentId = '33333333-3333-4333-8333-333333333333';
+  const tokenUser = {
+    id: studentId,
+    email: 'student@example.com',
+    user_metadata: {},
+    app_metadata: { providers: ['email'] },
+  };
+
+  it('writes onboarding only to the authenticated student profile', async () => {
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    const updateQuery = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from').mockReturnValueOnce(updateQuery as any);
+
+    try {
+      const response = await request(app)
+        .post('/api/profile/onboarding')
+        .set('Authorization', 'Bearer valid-student-token')
+        .send({
+          onboardingAnswers: {},
+          registeredSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+          targetScore: 320,
+        });
+
+      expect(response.status).toBe(200);
+      expect(updateQuery.eq).toHaveBeenCalledWith('id', studentId);
+      expect(updateQuery.eq).not.toHaveBeenCalledWith('id', otherStudentId);
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+    }
+  });
+
+  it('reads and writes progress only for the authenticated student profile', async () => {
+    const getUserSpy = vi.spyOn(supabaseAdminClient.auth, 'getUser').mockResolvedValue({
+      data: { user: tokenUser } as any,
+      error: null,
+    } as any);
+    const readQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { onboarding_answers: {} }, error: null }),
+    };
+    const writeQuery = {
+      update: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    };
+    const fromSpy = vi.spyOn(supabaseAdminClient, 'from')
+      .mockReturnValueOnce(readQuery as any)
+      .mockReturnValueOnce(writeQuery as any);
+
+    try {
+      const response = await request(app)
+        .post('/api/profile/progress')
+        .set('Authorization', 'Bearer valid-student-token')
+        .send({ progress: { streak: 3 } });
+
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe('synced');
+      expect(readQuery.eq).toHaveBeenCalledWith('id', studentId);
+      expect(writeQuery.eq).toHaveBeenCalledWith('id', studentId);
+      expect(readQuery.eq).not.toHaveBeenCalledWith('id', otherStudentId);
+      expect(writeQuery.eq).not.toHaveBeenCalledWith('id', otherStudentId);
+    } finally {
+      getUserSpy.mockRestore();
+      fromSpy.mockRestore();
+    }
+  });
+});
+
+
+describe('Phase 2 question-bank API security', () => {
+  it('requires authentication for student delivery and content moderation routes', async () => {
+    await expect(request(app).get('/api/question-bank/eligible')).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/eligible/BIO-001/answer').send({ answer: 'A' })).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).get('/api/question-bank/review-queue')).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).get('/api/question-bank/flag-queue')).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/import/validate').send({ rows: [] })).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/import/00000000-0000-4000-8000-000000000001/commit').send({})).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/BIO-001/versions').send({})).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/BIO-001/provenance/verify').send({})).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/BIO-001/flag').send({ reason: 'wrong_answer' })).resolves.toMatchObject({ status: 401 });
+    await expect(request(app).post('/api/question-bank/flags/00000000-0000-4000-8000-000000000001/resolve').send({ status: 'resolved' })).resolves.toMatchObject({ status: 401 });
+    await expect(
+      request(app).post('/api/question-bank/BIO-001/review').send({ decision: 'approved' })
+    ).resolves.toMatchObject({ status: 401 });
   });
 });

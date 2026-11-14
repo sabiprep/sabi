@@ -21,6 +21,10 @@ const DailyMissionsPage = lazy(() => import('./pages/StudentPages').then(module 
 const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubjectRatesPage })));
 const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubscriptionPage })));
 const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
+const QuestionBankAdminPage = lazy(() => import('./pages/QuestionBankAdminPage').then(module => ({ default: module.QuestionBankAdminPage })));
+const VerifiedQuestionPracticePage = lazy(() => import('./pages/VerifiedQuestionPracticePage').then(module => ({ default: module.VerifiedQuestionPracticePage })));
+const LearningEvidencePage = lazy(() => import('./pages/LearningEvidencePage').then(module => ({ default: module.LearningEvidencePage })));
+const JambExamPage = lazy(() => import('./pages/JambExamPage').then(module => ({ default: module.JambExamPage })));
 
 function PageLoading() {
   return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
@@ -45,23 +49,27 @@ export default function App() {
             <Route path="/diagnostic" element={<DiagnosticPage />} />
             <Route path="/blitz" element={<BlitzPage />} />
             <Route path="/smart" element={<SmartPracticePage />} />
+            <Route path="/admin/question-bank" element={<QuestionBankAdminPage />} />
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/subjects" element={<SubjectRatesPage />} />
               <Route path="/subject-rates" element={<SubjectRatesPage />} />
               <Route path="/practice" element={<PracticePage />} />
+              <Route path="/verified-practice" element={<VerifiedQuestionPracticePage />} />
               <Route path="/practice/smart" element={<SmartPracticePage />} />
               <Route path="/practice/blitz" element={<BlitzPage />} />
               <Route path="/practice/custom" element={<CustomJambSimulatorPage />} />
               <Route path="/custom-simulator" element={<CustomJambSimulatorPage />} />
               <Route path="/simulator" element={<CustomJambSimulatorPage />} />
               <Route path="/cbt" element={<CbtPage />} />
+              <Route path="/jamb-exam" element={<JambExamPage />} />
               <Route path="/cbt/:examId" element={<MainPage page="CBT Simulator" />} />
               <Route path="/cbt/:examId/results" element={<MainPage page="CBT Results" />} />
               <Route path="/progress" element={<ProgressPage />} />
+              <Route path="/learning-progress" element={<LearningEvidencePage />} />
               <Route path="/missions" element={<DailyMissionsPage />} />
-              <Route path="/recommendations" element={<MainPage page="Recommendations" />} />
+              <Route path="/recommendations" element={<VerifiedQuestionPracticePage />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/menu/:section" element={<MainPage page="SABI" />} />
