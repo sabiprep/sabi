@@ -22,8 +22,11 @@ npm run build      # dist/ (SPA) + dist/server.cjs (API bundle)
 Local dev needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in `.env`
 (see `.env.example`). Without them the API refuses to start locally and says
 which one is missing. The SPA additionally needs `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY`, because every sign-up and sign-in call goes to
-Supabase Auth from the browser.
+`VITE_SUPABASE_ANON_KEY`: account creation and the credential check happen on the
+API (`POST /api/auth/register`, `POST /api/auth/login`), and the browser then
+exchanges the same credentials with Supabase Auth
+(`supabase.auth.signInWithPassword`) to hold the session token that every
+authenticated API call sends as `Authorization: Bearer <token>`.
 
 ### Requirements
 
@@ -43,6 +46,7 @@ Supabase Auth from the browser.
 | Reading the security model | [`docs/security-phase0.md`](docs/security-phase0.md) - reference, not a procedure |
 | Looking up what was already applied to production | [`docs/runbooks/phase1-rollout.md`](docs/runbooks/phase1-rollout.md) - an applied-change record |
 | Reviewing what each backend phase delivers | [`docs/architecture/`](docs/architecture) - `phase-1-foundation.md` through `phase-5-jamb-readiness.md` |
+| Working out **which build is actually live** | [`docs/runbooks/deployment-integrity-2026-11-14.md`](docs/runbooks/deployment-integrity-2026-11-14.md) - host-by-host evidence |
 
 If you only open one file, make it **`docs/PHASE0-GO-LIVE.md`**. Phase 1 work
 does not begin until its sign-off list is fully ticked.
