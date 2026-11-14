@@ -1,15 +1,21 @@
 name: Sabi Signal and Engine Worker
 
+# Operational worker, not release CI. It must never gate a commit: `Backend CI`
+# is the required check on `main`. While the worker secrets are absent this job
+# skips with a warning annotation instead of failing, so an unconfigured worker
+# cannot paint every commit on `main` red (previously it ran on push and could
+# not pass at all, which made the branch-protection check meaningless).
 on:
-  push:
-    branches:
-      - main
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: sabi-signal-worker
+  cancel-in-progress: false
 
 jobs:
   dispatch:
@@ -31,8 +37,7 @@ jobs:
             -H "Authorization: Bearer $SIGNAL_WORKER_SECRET" \
             "$SABI_SIGNAL_WORKER_URL/api/internal/dispatch-signals"
 
-      - name: Fail when worker secrets are missing
+      - name: Skip when worker secrets are missing
         if: ${{ env.SABI_SIGNAL_WORKER_URL == '' || env.SIGNAL_WORKER_SECRET == '' }}
         run: |
-          echo "::error::Signal worker dispatch is disabled. Configure SABI_SIGNAL_WORKER_URL and SIGNAL_WORKER_SECRET in GitHub repository Actions secrets."
-          exit 1
+          echo "::warning::Signal worker dispatch is disabled. Configure SABI_SIGNAL_WORKER_URL and SIGNAL_WORKER_SECRET in GitHub repository Actions secrets."

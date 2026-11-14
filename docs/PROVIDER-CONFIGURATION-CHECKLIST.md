@@ -40,6 +40,9 @@ Only NGN checkout is currently supported by the provider adapters. Plans are not
 - `NOTIFICATION_WORKER_SECRET` — must match the Vercel `NOTIFICATION_WORKER_SECRET`.
 
 The scheduled workflows safely skip dispatch while required secrets are absent.
+They are operational jobs, not release gates: they do not run on `push`, and a
+missing secret produces a warning annotation rather than a failed check. The only
+required check on `main` is `Backend CI → verify`.
 
 ## 3. Admin data to configure after migrations are approved and applied
 

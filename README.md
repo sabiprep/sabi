@@ -34,6 +34,7 @@ token that every authenticated API call sends as `Authorization: Bearer <token>`
 | Reading the security model | [`docs/security-phase0.md`](docs/security-phase0.md) - reference, not a procedure |
 | Looking up what was already applied to production | [`docs/runbooks/phase1-rollout.md`](docs/runbooks/phase1-rollout.md) - an applied-change record |
 | Working out **which build is live**, and why a second Vercel host and a parallel branch stack exist | [`docs/runbooks/deployment-provenance-2026-11-14.md`](docs/runbooks/deployment-provenance-2026-11-14.md) - production lineage, archive tags, port plan |
+| Deciding **which of the two Supabase projects** is production, and using the other as staging | [`docs/runbooks/supabase-project-consolidation-2026-11-14.md`](docs/runbooks/supabase-project-consolidation-2026-11-14.md) - audit, then one env-var flip per environment |
 
 If you only open one file, make it **`docs/PHASE0-GO-LIVE.md`**. Phase 1 work
 does not begin until its sign-off list is fully ticked.

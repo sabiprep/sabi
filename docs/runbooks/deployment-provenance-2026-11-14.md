@@ -38,7 +38,33 @@ POST <supabase>/auth/v1/token    -> 200 access_token (needs the deployed anon ke
 GET  /api/questions              -> 200, 75 questions
 ```
 
-## The host trap
+## Checks on `main` (and why the red ✗ was misleading)
+
+Verified through the GitHub API on 14 Nov 2026 for `6cf942d`:
+
+| Context | Result | Meaning |
+| --- | --- | --- |
+| `Backend CI → verify` | **success** (74 s) | `lint`, `npm test`, `npm run build`, then the full migration/seed chain against disposable Postgres |
+| `Vercel` | **success** — "Deployment has completed" | the commit is live |
+| `Sabi Signal and Engine Worker → dispatch` | **failure** | not the code: the job ran on `push` and failed on purpose whenever `SABI_SIGNAL_WORKER_URL` / `SIGNAL_WORKER_SECRET` were absent |
+
+The red ✗ next to the commit therefore said nothing about the commit. Earlier
+commits show `3/4` and `1/3` for the same reason. Two problems made this
+permanent noise:
+
+1. A worker that cannot pass until operator secrets exist was wired to `push`, so
+   every commit on `main` was red and a required-check rule would have been
+   meaningless.
+2. `signal-worker.yml` **failed** when its secrets were missing, while
+   `notification-worker.yml` **skipped safely** — and both
+   `docs/PROVIDER-CONFIGURATION-CHECKLIST.md` and
+   `supabase/migrations/README.md` documented the skipping behaviour. The code
+   contradicted the documentation.
+
+Fixed in this commit: `signal-worker.yml` no longer runs on `push`, and its
+secrets-absent path emits a `::warning::` annotation and exits 0, matching the
+notification worker. `Backend CI → verify` remains the one required check.
+
 
 | Host | What it is | `/api/health` |
 | --- | --- | --- |

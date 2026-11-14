@@ -21,6 +21,7 @@ and tested. Nothing here is optional, and the order matters.
 | Code (API, auth endpoints, boot guard, tests) | **done** — `tsc` 0 errors, 26 test files / 177 tests green, build OK |
 | Supabase (schema + Phase 0 rules) | **unknown** until you run **A1** |
 | Vercel (env vars, Node version) | **verified 14 Nov 2026** — see below; finish **A1/A3/A4** and the sign-off list |
+| Checks on `main` | **verified 14 Nov 2026** — `Backend CI → verify` success (74 s) and `Vercel` success on `6cf942d`. The red ✗ on earlier commits was the signal-worker dispatch job, which failed on purpose whenever its secrets were absent; it no longer runs on push and now skips with a warning |
 
 Verified against `https://sabi-tan.vercel.app` on 14 Nov 2026: `/api/health`
 reports `runtime:"vercel-function"`, `admin_configured:true`,
