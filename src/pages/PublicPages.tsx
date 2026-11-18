@@ -779,7 +779,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             return;
           }
           signInErrorMessage =
-            'Incorrect email or password. Forgot your password? Click "Forgot Password" to reset using your 5-character Unique SABI ID.';
+            'Incorrect email or password. Forgot your password? Click "Forgot Password" to receive a 6-digit recovery code by email.';
         }
       } catch (err: any) {
         if (!authenticatedUserId) {
@@ -1019,9 +1019,9 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                 <p className={`text-xs sm:text-sm mt-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
                   {currentMode === 'choice' && 'Create your candidate profile or sign in to your SABI dashboard.'}
                   {currentMode === 'sign-up' && 'Complete your details below to generate your permanent 5-character SABI Unique ID before onboarding.'}
-                  {currentMode === 'verify' && 'Copy or download your 4-digit + 1-letter Unique ID. You will need it if you ever reset your password.'}
+                  {currentMode === 'verify' && 'Copy or download your 4-digit + 1-letter Unique ID for support and account reference. Password resets use a 6-digit code emailed to you.'}
                   {currentMode === 'sign-in' && 'Sign in with Email, Phone, or Google—your account is automatically synced by email.'}
-                  {currentMode === 'forgot-password' && 'Provide your registered email/phone and your 5-character Unique SABI ID as verification grant.'}
+                  {currentMode === 'forgot-password' && 'Enter your registered email or phone number and SABI will email you a 6-digit recovery code. Your Unique SABI ID is no longer used to reset passwords.'}
                 </p>
               </div>
 
@@ -1316,7 +1316,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                   <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${
                     isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-yellow-50/70 border-yellow-200/80 text-slate-700'
                   }`}>
-                    <strong className="font-black text-blue-700 dark:text-blue-400">Important:</strong> This ID is also saved in your Account Dashboard where you can download the recovery document at any time. You will need this 5-character ID to reset your password if you ever lose access.
+                    <strong className="font-black text-blue-700 dark:text-blue-400">Important:</strong> This ID is also saved in your Account Dashboard where you can download the recovery document at any time. It identifies your account for support — to reset a password, use "Forgot Password" and the 6-digit code we email you.
                   </div>
 
                   <button

@@ -1511,7 +1511,7 @@ export function MainPage({ page }: { page: string }) {
           1. Your 5-Character Unique SABI ID (4 Numbers + 1 Letter)
         </h3>
         <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Every registered candidate is issued a permanent 5-character Unique SABI ID (for example, <code className="font-mono font-bold text-amber-400">4829K</code>). Whether you sign in with Email/Password or Google Auth using the same email address, your account remains unified. Keep your downloaded Recovery ID Doc safe—it is required to reset your password.
+          Every registered candidate is issued a permanent 5-character Unique SABI ID (for example, <code className="font-mono font-bold text-amber-400">4829K</code>). Whether you sign in with Email/Password or Google Auth using the same email address, your account remains unified. Keep it as your account reference for support: password resets now use the 6-digit code SABI emails you from "Forgot Password", not this ID.
         </p>
 
         <h3 className="text-lg font-black text-amber-500 pt-2">

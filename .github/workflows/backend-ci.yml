@@ -168,3 +168,8 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/full_platform_test_seed.sql
       - name: Verify full synthetic platform dataset coverage
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/full_platform_test_seed_assertions.sql
+      - name: Verify the auth health check script against seeded auth state
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/auth_health_check_fixture.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/auth-health-check.sql
+
