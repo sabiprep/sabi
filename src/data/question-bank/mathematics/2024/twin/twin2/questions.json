@@ -1,0 +1,51 @@
+{
+  "id": "medium",
+  "variant": "twin2",
+  "subject": "Mathematics",
+  "subject_slug": "mathematics",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "MTH-2024-TWIN2-Q01",
+      "canonical_id": "MTH-2024-Q01",
+      "difficulty_id": "medium",
+      "subject": "Mathematics",
+      "year": 2024,
+      "topic": "Algebra",
+      "subtopic": "Indices and Logarithms",
+      "question": "Solve for x in the equation 4^(2x - 1) = 64.",
+      "options": {
+        "A": "2",
+        "B": "3",
+        "C": "1.5",
+        "D": "2.5"
+      },
+      "answer": "A",
+      "explanation": "Write 64 as 4^3. Then 4^(2x - 1) = 4^3 => 2x - 1 = 3 => 2x = 4 => x = 2.",
+      "explanation_short": "4^(2x-1) = 4^3 => 2x - 1 = 3 => x = 2.",
+      "explanation_pidgin": "64 na 4^3. Equate the power dem: 2x - 1 = 3 => 2x = 4 => x = 2."
+    },
+    {
+      "question_number": 2,
+      "question_id": "MTH-2024-TWIN2-Q02",
+      "canonical_id": "MTH-2024-Q02",
+      "difficulty_id": "medium",
+      "subject": "Mathematics",
+      "year": 2024,
+      "topic": "Calculus",
+      "subtopic": "Differentiation",
+      "question": "Find the gradient of the curve y = 2x^3 - 4x + 1 at the point where x = 2.",
+      "options": {
+        "A": "20",
+        "B": "16",
+        "C": "24",
+        "D": "12"
+      },
+      "answer": "A",
+      "explanation": "First find dy/dx = 6x^2 - 4. At x = 2, dy/dx = 6(2)^2 - 4 = 24 - 4 = 20.",
+      "explanation_short": "dy/dx = 6x^2 - 4; at x = 2, gradient = 6(4) - 4 = 20.",
+      "explanation_pidgin": "Differentiate am first: dy/dx = 6x^2 - 4. Put x = 2 inside: 6(4) - 4 = 20."
+    }
+  ]
+}

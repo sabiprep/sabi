@@ -1,0 +1,51 @@
+{
+  "id": "simple",
+  "variant": "twin1",
+  "subject": "English Language",
+  "subject_slug": "english-language",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "ENG-2024-TWIN1-Q01",
+      "canonical_id": "ENG-2024-Q01",
+      "difficulty_id": "simple",
+      "subject": "English Language",
+      "year": 2024,
+      "topic": "Lexis and Structure",
+      "subtopic": "Concord",
+      "question": "Either the driver or the passengers _______ expected to report the incident at the station.",
+      "options": {
+        "A": "are",
+        "B": "is",
+        "C": "was",
+        "D": "has been"
+      },
+      "answer": "A",
+      "explanation": "With 'either... or', the verb agrees with the closer subject ('passengers', plural), requiring the plural verb 'are'.",
+      "explanation_short": "Plural verb 'are' agrees with closer plural noun 'passengers'.",
+      "explanation_pidgin": "Look the word wey near the gap pass: 'passengers' na plenty people, so na 'are' we go use."
+    },
+    {
+      "question_number": 2,
+      "question_id": "ENG-2024-TWIN1-Q02",
+      "canonical_id": "ENG-2024-Q02",
+      "difficulty_id": "simple",
+      "subject": "English Language",
+      "year": 2024,
+      "topic": "Lexis and Structure",
+      "subtopic": "Synonyms",
+      "question": "Choose the option nearest in meaning to the word in italics: The referee ignored the player's *blatant* foul.",
+      "options": {
+        "A": "obvious",
+        "B": "hidden",
+        "C": "gentle",
+        "D": "clever"
+      },
+      "answer": "A",
+      "explanation": "'Blatant' means very obvious and done openly without shame.",
+      "explanation_short": "'Blatant' means obvious.",
+      "explanation_pidgin": "'Blatant' mean say everybody see am clear-clear, so 'obvious' na the answer."
+    }
+  ]
+}

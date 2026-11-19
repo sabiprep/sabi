@@ -4,19 +4,14 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
-  Brain,
   CheckCircle2,
   Clock,
   Coins,
-  Crown,
   Flame,
-  Lightbulb,
   Lock,
   Play,
-  ShieldCheck,
   Sparkles,
   Star,
-  Target,
   Trophy,
   Volume2,
   VolumeX,
@@ -43,7 +38,7 @@ export interface BlitzLevelConfig {
   questionCount: number;
   secondsPerQuestion: number;
   nodeType: 'lesson' | 'sprint' | 'twin' | 'chest' | 'general_test';
-  zigZagOffset: string; // Tailwind horizontal offset for Duolingo Z-trail
+  zigZagOffset: string;
   mascotCompanion?: {
     src: string;
     name: string;
@@ -84,7 +79,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 10,
     secondsPerQuestion: 60,
     nodeType: 'lesson',
-    zigZagOffset: '-translate-x-12 sm:-translate-x-20',
+    zigZagOffset: '-translate-x-10 sm:-translate-x-20',
   },
   {
     id: 3,
@@ -97,7 +92,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 10,
     secondsPerQuestion: 60,
     nodeType: 'twin',
-    zigZagOffset: '-translate-x-20 sm:-translate-x-32',
+    zigZagOffset: '-translate-x-16 sm:-translate-x-32',
     mascotCompanion: {
       src: '/assets/mascots/blitz/eagle_flying_speed.svg',
       name: 'Eagle Speed Dive',
@@ -116,7 +111,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 10,
     secondsPerQuestion: 60,
     nodeType: 'chest',
-    zigZagOffset: '-translate-x-8 sm:-translate-x-14',
+    zigZagOffset: '-translate-x-6 sm:-translate-x-12',
   },
   {
     id: 5,
@@ -148,7 +143,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 12,
     secondsPerQuestion: 60,
     nodeType: 'lesson',
-    zigZagOffset: 'translate-x-20 sm:translate-x-32',
+    zigZagOffset: 'translate-x-16 sm:translate-x-28',
   },
   {
     id: 7,
@@ -174,7 +169,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 60,
     nodeType: 'chest',
-    zigZagOffset: '-translate-x-10 sm:-translate-x-16',
+    zigZagOffset: '-translate-x-8 sm:-translate-x-16',
     mascotCompanion: {
       src: '/assets/mascots/blitz/eagle_sleeping_locked.svg',
       name: 'Gatekeeper Eagle',
@@ -193,7 +188,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 60,
     nodeType: 'twin',
-    zigZagOffset: '-translate-x-20 sm:-translate-x-28',
+    zigZagOffset: '-translate-x-16 sm:-translate-x-28',
   },
   {
     id: 10,
@@ -206,7 +201,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 50,
     nodeType: 'sprint',
-    zigZagOffset: '-translate-x-8 sm:-translate-x-12',
+    zigZagOffset: '-translate-x-6 sm:-translate-x-12',
   },
   {
     id: 11,
@@ -259,7 +254,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 55,
     nodeType: 'twin',
-    zigZagOffset: 'translate-x-12 sm:translate-x-20',
+    zigZagOffset: 'translate-x-10 sm:translate-x-20',
   },
   {
     id: 14,
@@ -272,7 +267,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 45,
     nodeType: 'sprint',
-    zigZagOffset: 'translate-x-20 sm:translate-x-32',
+    zigZagOffset: 'translate-x-16 sm:translate-x-30',
   },
   {
     id: 15,
@@ -285,7 +280,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 60,
     nodeType: 'chest',
-    zigZagOffset: 'translate-x-8 sm:translate-x-12',
+    zigZagOffset: 'translate-x-6 sm:translate-x-12',
   },
   {
     id: 16,
@@ -317,7 +312,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 50,
     nodeType: 'lesson',
-    zigZagOffset: '-translate-x-20 sm:-translate-x-30',
+    zigZagOffset: '-translate-x-16 sm:-translate-x-28',
   },
   {
     id: 18,
@@ -330,7 +325,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 60,
     nodeType: 'twin',
-    zigZagOffset: '-translate-x-8 sm:-translate-x-12',
+    zigZagOffset: '-translate-x-6 sm:-translate-x-12',
   },
   {
     id: 19,
@@ -356,7 +351,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 40,
     nodeType: 'sprint',
-    zigZagOffset: 'translate-x-18 sm:translate-x-26',
+    zigZagOffset: 'translate-x-16 sm:translate-x-26',
   },
   {
     id: 21,
@@ -369,7 +364,7 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
     questionCount: 15,
     secondsPerQuestion: 60,
     nodeType: 'lesson',
-    zigZagOffset: 'translate-x-8 sm:translate-x-10',
+    zigZagOffset: 'translate-x-6 sm:translate-x-10',
   },
   {
     id: 22,
@@ -389,24 +384,6 @@ export const BLITZ_LEVELS: BlitzLevelConfig[] = [
       caption: 'Conquer Level 22 for Ultimate Mastery!',
       side: 'left',
     },
-  },
-];
-
-const principles = [
-  {
-    icon: Brain,
-    title: 'Original + Twin Question Architecture',
-    body: 'Every level blends canonical JAMB past questions with Simple, Medium, and Hard concept twins so you build true mastery.',
-  },
-  {
-    icon: Lightbulb,
-    title: 'Learn from Every Answer + AI Verify',
-    body: 'Submit each question to inspect step-by-step KaTeX solutions, Pidgin breakdowns, and live SABI AI Tutor verification.',
-  },
-  {
-    icon: Target,
-    title: '100% Flawless Subject Rating Boost',
-    body: 'Clear any level 100% right without failing a single question to boost your official Subject Rating by +10% and earn Streak Bonus Diamonds.',
   },
 ];
 
@@ -432,7 +409,6 @@ function buildQuestionsForBlitzLevel(
   selectedSubject: string,
   registeredSubjects: SubjectName[]
 ): Question[] {
-  // 1. Filter by chosen subject or candidate's 4 registered UTME subjects
   const subjectPool =
     selectedSubject === 'ALL_4'
       ? SEED_QUESTIONS.filter(q => registeredSubjects.includes(q.subject))
@@ -440,7 +416,6 @@ function buildQuestionsForBlitzLevel(
 
   const basePool = subjectPool.length > 0 ? subjectPool : SEED_QUESTIONS;
 
-  // 2. Prioritize matching difficulty mode ('simple' -> 'easy', 'medium' -> 'medium', 'hard' -> 'hard')
   const targetDifficulty =
     level.difficultyMode === 'simple'
       ? 'easy'
@@ -457,7 +432,6 @@ function buildQuestionsForBlitzLevel(
     ? basePool.filter(q => q.difficulty !== targetDifficulty)
     : [];
 
-  // Deterministic-yet-varied shuffle seeded by level.id
   const combined = [...primaryMatches, ...secondaryMatches];
   const rotated = combined.map((item, idx) => ({
     item,
@@ -467,7 +441,6 @@ function buildQuestionsForBlitzLevel(
 
   const picked = rotated.slice(0, level.questionCount).map(entry => entry.item);
 
-  // If pool has fewer than questionCount (e.g. single subject with 15 questions), cycle cleanly
   while (picked.length < level.questionCount && basePool.length > 0) {
     const source = basePool[picked.length % basePool.length];
     picked.push({
@@ -484,9 +457,9 @@ export function BlitzPage() {
   const [progress, setProgress] = useState<UserRealProgress>(() => getRealUserProgress());
   const registeredSubjects = useMemo(() => getCandidateSubjects(), []);
 
-  // Stage 1 = First Blitz Overview Dashboard; Stage 2 = Second Anime / Duolingo Z-Trail Dashboard
-  const [dashboardView, setDashboardView] = useState<'overview' | 'anime_trail'>('overview');
+  // Opens directly on the Original Anime / Duolingo Z-Trail Dashboard!
   const [selectedSubject, setSelectedSubject] = useState<string>('ALL_4');
+  const [customSecondsOverride, setCustomSecondsOverride] = useState<number | null>(null);
   const [activeSet, setActiveSet] = useState<1 | 2>(1);
   const [selectedLevelModal, setSelectedLevelModal] = useState<BlitzLevelConfig | null>(null);
   const [activePlayingLevel, setActivePlayingLevel] = useState<{
@@ -519,12 +492,6 @@ export function BlitzPage() {
     Boolean(progress.blitzSet1GeneralTestPassed) ||
     progress.blitzUnlockedLevel >= 12 ||
     progress.subscriptionPlan !== 'free';
-
-  const handleOpenAnimeTrail = () => {
-    if (soundOn) sound.playTap();
-    setDashboardView('anime_trail');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
 
   const handleSelectLevelNode = (level: BlitzLevelConfig) => {
     if (soundOn) sound.playTap();
@@ -584,7 +551,9 @@ export function BlitzPage() {
         levelTitle={`Level ${activePlayingLevel.level.id}: ${activePlayingLevel.level.title}`}
         subjectLabel={subjectLabel}
         questions={activePlayingLevel.questions}
-        secondsPerQuestion={activePlayingLevel.level.secondsPerQuestion}
+        secondsPerQuestion={
+          customSecondsOverride || activePlayingLevel.level.secondsPerQuestion
+        }
         isGeneralTest={activePlayingLevel.level.nodeType === 'general_test'}
         onClose={() => setActivePlayingLevel(null)}
         onProgressUpdated={next => setProgress(next)}
@@ -592,223 +561,77 @@ export function BlitzPage() {
     );
   }
 
-  // ============================================================================
-  // STAGE 1: FIRST BLITZ OVERVIEW DASHBOARD
-  // ============================================================================
-  if (dashboardView === 'overview') {
-    return (
-      <main className="min-h-[100dvh] bg-[var(--sabi-page)] px-4 py-6 sm:px-8 sm:py-10">
-        <div className="mx-auto max-w-5xl space-y-8">
-          {/* Top Navigation Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link
-              to="/practice"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--sabi-muted)] hover:text-[var(--sabi-blue)]"
-            >
-              ← Back to practice
-            </Link>
-
-            <div className="flex items-center gap-2.5">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/40 text-xs font-black text-amber-800 dark:text-yellow-200">
-                <Flame size={14} className="text-amber-500" />
-                <span>{progress.streakDays}d Streak</span>
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 text-xs font-black text-blue-700 dark:text-blue-300">
-                <Coins size={14} />
-                <span>{progress.diamonds} 💎</span>
-              </div>
-              <button
-                type="button"
-                onClick={handleOpenAnimeTrail}
-                className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider cursor-pointer shadow-sm"
-              >
-                Open Anime Z-Trail Map →
-              </button>
-            </div>
-          </div>
-
-          {/* Stage 1 Hero Banner */}
-          <section className="overflow-hidden rounded-[2rem] bg-[var(--sabi-navy)] p-6 text-white sm:p-10 shadow-xl border border-blue-800/40">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-blue-200">
-                <Zap size={15} className="text-yellow-300" /> Sabi Blitz · 2-Stage Anime Mastery Trail
-              </div>
-              <span className="px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-bold text-yellow-200">
-                Level {progress.blitzUnlockedLevel} / 22 Unlocked · ★ {totalStarsEarned} Stars
-              </span>
-            </div>
-
-            <div className="mt-8 grid gap-8 md:grid-cols-[1.25fr_.75fr] md:items-center">
-              <div>
-                <p className="text-sm font-semibold text-yellow-200">
-                  Small steps. Original + Twin questions. Stronger understanding.
-                </p>
-                <h1 className="mt-3 max-w-xl text-3xl font-bold leading-tight sm:text-5xl">
-                  Blitz practice that helps you remember.
-                </h1>
-                <p className="mt-4 max-w-xl text-sm leading-7 text-blue-100 sm:text-base">
-                  Enter the Duolingo-inspired SABI Eagle Z-Trail across 22 levels (Set 1 & Set 2). Each level has a dedicated function—from Simple Foundation drills and Twin variations to Treasure Chests and Boss General Tests.
-                </p>
-
-                {/* Subject Filter Pills before launching Stage 2 */}
-                <div className="mt-6 space-y-2">
-                  <span className="text-[11px] font-black uppercase tracking-widest text-blue-200 block">
-                    Select Subject Focus for Your Blitz Trail:
-                  </span>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedSubject('ALL_4')}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
-                        selectedSubject === 'ALL_4'
-                          ? 'bg-white text-[var(--sabi-navy)] shadow-md'
-                          : 'bg-white/10 text-blue-100 hover:bg-white/20 border border-white/15'
-                      }`}
-                    >
-                      ⚡ All 4 Registered Subjects
-                    </button>
-                    {registeredSubjects.map(subj => (
-                      <button
-                        key={subj}
-                        type="button"
-                        onClick={() => setSelectedSubject(subj)}
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                          selectedSubject === subj
-                            ? 'bg-white text-[var(--sabi-navy)] shadow-md'
-                            : 'bg-white/10 text-blue-100 hover:bg-white/20 border border-white/15'
-                        }`}
-                      >
-                        {subj}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Primary CTA: Opens Stage 2 Anime Duolingo Dashboard */}
-                <div className="mt-7 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleOpenAnimeTrail}
-                    className="sabi-primary-button sabi-focus !border-yellow-300 !bg-yellow-300 !text-[var(--sabi-navy)] hover:!bg-yellow-200 font-black px-7 py-4 text-sm sm:text-base cursor-pointer shadow-lg"
-                  >
-                    <span>Start Blitz</span>
-                    <ArrowRight size={18} />
-                  </button>
-                  <span className="text-xs font-semibold text-blue-200">
-                    Opens the 22-Level Sabi Eagle Z-Trail Map
-                  </span>
-                </div>
-              </div>
-
-              {/* Right Preview Card with Sabi Eagle Mascot & Learning Loop */}
-              <div className="rounded-3xl border border-white/15 bg-white/10 p-6 backdrop-blur-xs space-y-5">
-                <div className="flex items-center gap-4">
-                  <img
-                    src="/assets/mascots/blitz/eagle_idle.svg"
-                    alt="Sabi Eagle Guardian"
-                    className="w-20 h-20 object-contain drop-shadow-lg shrink-0"
-                  />
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-yellow-200">
-                      Sabi Eagle Z-Trail Companion
-                    </div>
-                    <h2 className="text-lg font-black text-white mt-0.5">
-                      2 Sets · 22 Functional Levels
-                    </h2>
-                    <p className="text-xs text-blue-100 mt-1">
-                      10–15 questions per level with instant KaTeX solutions & AI verification.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5 pt-3 border-t border-white/15">
-                  <div className="text-xs font-bold uppercase tracking-wider text-blue-200">
-                    The Blitz Level Loop
-                  </div>
-                  {[
-                    'Pick your active Z-Trail Level (1–22)',
-                    'Solve 10–15 Original & Twin Questions',
-                    'Submit Question → View Solution or AI Verify',
-                    'Final Submit → Full Worked Solution Dashboard',
-                    '100% Flawless Clear = +10% Subject Rating Boost!',
-                  ].map((step, i) => (
-                    <div key={step} className="flex items-center gap-3">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs font-bold">
-                        {i + 1}
-                      </span>
-                      <span className="text-xs sm:text-sm font-semibold">{step}</span>
-                      <CheckCircle2 className="ml-auto text-yellow-200 shrink-0" size={15} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 3 Principles Cards */}
-          <section className="grid gap-4 md:grid-cols-3">
-            {principles.map(({ icon: Icon, title, body }) => (
-              <article key={title} className="sabi-card p-5 sm:p-6">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50 text-[var(--sabi-blue)]">
-                  <Icon size={21} />
-                </span>
-                <h2 className="mt-4 text-base font-bold text-[var(--sabi-ink)]">{title}</h2>
-                <p className="mt-2 text-sm leading-6 text-[var(--sabi-muted)]">{body}</p>
-              </article>
-            ))}
-          </section>
-        </div>
-      </main>
-    );
-  }
-
-  // ============================================================================
-  // STAGE 2: SECOND ANIME / DUOLINGO Z-TRAIL LEVEL MAP DASHBOARD
-  // ============================================================================
   const currentActiveLevelConfig =
     BLITZ_LEVELS.find(l => l.id === progress.blitzUnlockedLevel) || BLITZ_LEVELS[0];
 
   return (
     <div
-      className={`min-h-[100dvh] flex flex-col transition-colors ${
+      className={`min-h-[100dvh] flex flex-col transition-colors pb-16 lg:pb-6 ${
         isDark ? 'bg-[#070D19] text-slate-100' : 'bg-[#F4F8FF] text-slate-900'
       }`}
     >
-      {/* Top Sticky Duolingo-Style HUD Bar */}
+      {/* Top Sticky Duolingo-Style Blitz HUD Bar */}
       <header
-        className={`sticky top-0 z-30 border-b backdrop-blur-md px-4 sm:px-8 py-3 ${
+        className={`sticky top-0 z-30 border-b backdrop-blur-md px-4 sm:px-6 py-3 rounded-2xl mb-4 ${
           isDark ? 'bg-[#0A1224]/95 border-slate-800' : 'bg-white/95 border-blue-100 shadow-xs'
         }`}
       >
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => setDashboardView('overview')}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition cursor-pointer ${
+            <Link
+              to="/home"
+              className={`px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition ${
                 isDark
                   ? 'border-slate-800 bg-slate-900 text-slate-200 hover:border-blue-500'
                   : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-blue-400 hover:bg-blue-50'
               }`}
             >
               <ArrowLeft size={14} />
-              <span>Blitz Overview</span>
-            </button>
+              <span>Dashboard</span>
+            </Link>
 
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-black">
-              <Zap size={14} className="text-yellow-200" />
-              <span>SABI BLITZ TRAIL</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-black shadow-xs">
+              <Zap size={14} className="text-yellow-200 fill-current" />
+              <span>SABI BLITZ Z-TRAIL</span>
             </div>
           </div>
 
-          {/* Right HUD Counters: Streak, Diamonds, Stars, Sound */}
+          {/* Right HUD Counters: Timer Pacing, Streak, Diamonds, Stars, Sound */}
           <div className="flex items-center gap-2">
+            {/* Timer Speed Selector (45s / 60s / 90s) */}
+            <div
+              className={`hidden md:flex items-center gap-1 p-1 rounded-xl border text-[11px] font-black ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-slate-100 border-slate-200'
+              }`}
+              title="Per-Question Blitz Speed Timer"
+            >
+              <Clock size={12} className="ml-1.5 text-blue-600 dark:text-blue-400" />
+              {[
+                { label: 'Level Default', val: null },
+                { label: '45s/Q', val: 45 },
+                { label: '60s/Q', val: 60 },
+              ].map(opt => (
+                <button
+                  key={opt.label}
+                  type="button"
+                  onClick={() => setCustomSecondsOverride(opt.val)}
+                  className={`px-2 py-1 rounded-lg transition cursor-pointer ${
+                    customSecondsOverride === opt.val
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             <div
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-700/40 text-amber-800 dark:text-yellow-200 text-xs font-black"
               title="Daily Study Streak"
             >
               <Flame size={14} className="text-amber-500" />
-              <span>{progress.streakDays}</span>
+              <span>{progress.streakDays}d</span>
             </div>
 
             <Link
@@ -842,39 +665,46 @@ export function BlitzPage() {
       </header>
 
       {/* Main Duolingo Z-Trail Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
-        {/* Duolingo-Style Unit Header Banner (Blue Primary + Crisp White + Soft Light Yellow Accent) */}
-        <section className="rounded-3xl bg-gradient-to-r from-[#0A1F66] via-[#0052CC] to-[#0066FF] text-white p-5 sm:p-7 shadow-xl border-b-4 border-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 text-blue-950 text-[10px] font-black uppercase tracking-widest">
-                SECTION {activeSet}, UNIT {activeSet === 1 ? '1 · FOUNDATION & SPEED' : '2 · 300+ CITADEL'}
-              </span>
-              <span className="text-xs font-bold text-blue-100">
-                • {selectedSubject === 'ALL_4' ? 'All 4 UTME Subjects' : selectedSubject}
-              </span>
+      <div className="flex-1 max-w-4xl w-full mx-auto space-y-6">
+        {/* Hero Unit Header Banner with Sabi Eagle Companion */}
+        <section className="rounded-3xl bg-gradient-to-r from-[#0A1F66] via-[#0052CC] to-[#0066FF] text-white p-5 sm:p-7 shadow-xl border-b-4 border-blue-950 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+          <div className="flex items-center gap-4">
+            <img
+              src="/assets/mascots/blitz/eagle_idle.svg"
+              alt="Sabi Eagle Guardian"
+              className="w-20 h-20 sm:w-24 sm:h-24 object-contain drop-shadow-xl shrink-0"
+            />
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 text-blue-950 text-[10px] font-black uppercase tracking-widest">
+                  SET {activeSet} · {activeSet === 1 ? 'LEVELS 1–11 FOUNDATION & SPEED' : 'LEVELS 12–22 CITADEL 300+'}
+                </span>
+                <span className="text-xs font-bold text-blue-100">
+                  • {selectedSubject === 'ALL_4' ? 'Merged (All 4 UTME Subjects)' : selectedSubject}
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight">
+                {activeSet === 1
+                  ? 'Sabi Eagle Z-Trail: Original & Twin Concept Mastery'
+                  : 'Set 2 Citadel Trail: 320+ Distinction Gauntlet'}
+              </h1>
+              <p className="text-xs text-blue-100 max-w-xl">
+                Tap any level node on the winding Z-Trail below to inspect its function and launch its 10–15 question session. Clear 100% Flawless for a +10% Subject Rating boost!
+              </p>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">
-              {activeSet === 1
-                ? 'Levels 1–11: Original & Twin Concept Mastery'
-                : 'Levels 12–22: Advanced 300+ Distinction Trail'}
-            </h1>
-            <p className="text-xs text-blue-100 max-w-xl">
-              Tap any unlocked node below to view its function and start its 10–15 question drill. Clear a level 100% right to boost your Subject Rating by +10%!
-            </p>
           </div>
 
           <button
             type="button"
             onClick={() => handleSelectLevelNode(currentActiveLevelConfig)}
-            className="px-4 py-3 rounded-2xl bg-white hover:bg-blue-50 text-[#0A1F66] font-black text-xs uppercase tracking-wider flex items-center gap-2 shrink-0 shadow-md cursor-pointer"
+            className="px-5 py-3.5 rounded-2xl bg-yellow-300 hover:bg-yellow-200 text-[#0A1F66] font-black text-xs uppercase tracking-wider flex items-center gap-2 shrink-0 shadow-lg cursor-pointer"
           >
-            <Play size={15} className="fill-current text-blue-600" />
-            <span>Play Level {currentActiveLevelConfig.id}</span>
+            <Play size={15} className="fill-current" />
+            <span>Play Level {currentActiveLevelConfig.id} ⚡</span>
           </button>
         </section>
 
-        {/* Subject & Set Selector Bar */}
+        {/* Subject Mode (Merged 4-Subject vs Single Subject) & Set 1 / Set 2 Switcher Bar */}
         <section
           className={`p-4 rounded-2xl border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 ${
             isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-blue-100 shadow-xs'
@@ -885,7 +715,7 @@ export function BlitzPage() {
             <button
               type="button"
               onClick={() => setSelectedSubject('ALL_4')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-black whitespace-nowrap transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap transition cursor-pointer ${
                 selectedSubject === 'ALL_4'
                   ? 'bg-blue-600 text-white shadow-xs'
                   : isDark
@@ -893,14 +723,14 @@ export function BlitzPage() {
                   : 'bg-slate-100 text-slate-700 hover:bg-blue-50'
               }`}
             >
-              All 4 Subjects
+              ⚡ Merged (All 4 Subjects)
             </button>
             {registeredSubjects.map(subj => (
               <button
                 key={subj}
                 type="button"
                 onClick={() => setSelectedSubject(subj)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition cursor-pointer ${
                   selectedSubject === subj
                     ? 'bg-blue-600 text-white shadow-xs'
                     : isDark
@@ -918,9 +748,9 @@ export function BlitzPage() {
             <button
               type="button"
               onClick={() => setActiveSet(1)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
                 activeSet === 1
-                  ? 'bg-[#0A1F66] text-white'
+                  ? 'bg-[#0A1F66] text-white shadow-xs'
                   : isDark
                   ? 'bg-slate-800 text-slate-400'
                   : 'bg-slate-100 text-slate-600'
@@ -931,9 +761,9 @@ export function BlitzPage() {
             <button
               type="button"
               onClick={() => setActiveSet(2)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition cursor-pointer ${
                 activeSet === 2
-                  ? 'bg-[#0A1F66] text-white'
+                  ? 'bg-[#0A1F66] text-white shadow-xs'
                   : isDark
                   ? 'bg-slate-800 text-slate-400'
                   : 'bg-slate-100 text-slate-600'
@@ -1030,29 +860,14 @@ export function BlitzPage() {
 
                   {/* Row Container with Z-Trail Horizontal Offset + Mascot Companion */}
                   <div className="relative flex items-center justify-center w-full">
-                    {/* Left-side Anime Mascot Companion (if configured on left) */}
+                    {/* Left-side Anime Mascot Companion */}
                     {lvl.mascotCompanion && lvl.mascotCompanion.side === 'left' && (
                       <div className="hidden sm:flex flex-col items-center mr-6 w-36 text-center animate-fade-in">
-                        <div className="relative group">
-                          <img
-                            src={lvl.mascotCompanion.src}
-                            alt={lvl.mascotCompanion.name}
-                            className="w-24 h-24 object-contain drop-shadow-xl transition-transform group-hover:scale-105"
-                          />
-                        </div>
-                        <div className="mt-1 flex items-center gap-0.5 text-yellow-400">
-                          {[1, 2, 3].map(s => (
-                            <Star
-                              key={s}
-                              size={12}
-                              className={
-                                stars >= s
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-slate-400 dark:text-slate-600'
-                              }
-                            />
-                          ))}
-                        </div>
+                        <img
+                          src={lvl.mascotCompanion.src}
+                          alt={lvl.mascotCompanion.name}
+                          className="w-24 h-24 object-contain drop-shadow-xl transition-transform hover:scale-105"
+                        />
                         <span
                           className={`mt-1 px-2.5 py-1 rounded-xl text-[10px] font-bold border leading-tight ${
                             isDark
@@ -1065,11 +880,10 @@ export function BlitzPage() {
                       </div>
                     )}
 
-                    {/* The Tactile 3D Level Node Button */}
+                    {/* Tactile 3D Level Node Button */}
                     <div
                       className={`flex flex-col items-center transition-transform ${lvl.zigZagOffset}`}
                     >
-                      {/* Floating "START" Pill above Current Active Level (Duolingo style) */}
                       {isCurrent && (
                         <div className="mb-2 px-3.5 py-1 rounded-full bg-yellow-100 border-2 border-yellow-300 text-blue-950 font-black text-[11px] uppercase tracking-wider shadow-md animate-bounce">
                           ★ START LV {lvl.id}
@@ -1133,7 +947,7 @@ export function BlitzPage() {
                       </button>
 
                       {/* 3-Star Rating Row & Level Label Underneath Node */}
-                      <div className="mt-2.5 flex flex-col items-center text-center max-w-[200px]">
+                      <div className="mt-2.5 flex flex-col items-center text-center max-w-[210px]">
                         <div className="flex items-center gap-1">
                           {[1, 2, 3].map(starIdx => (
                             <Star
@@ -1153,12 +967,13 @@ export function BlitzPage() {
                           {lvl.id}. {lvl.title}
                         </span>
                         <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          {lvl.questionCount}Q · {lvl.difficultyMode.toUpperCase()} · {lvl.secondsPerQuestion}s
+                          {lvl.questionCount}Q · {lvl.difficultyMode.toUpperCase()} ·{' '}
+                          {customSecondsOverride || lvl.secondsPerQuestion}s
                         </span>
                       </div>
                     </div>
 
-                    {/* Right-side Anime Mascot Companion (if configured on right) */}
+                    {/* Right-side Anime Mascot Companion */}
                     {lvl.mascotCompanion && lvl.mascotCompanion.side === 'right' && (
                       <div className="hidden sm:flex flex-col items-center ml-6 w-36 text-center animate-fade-in">
                         <img
@@ -1166,19 +981,6 @@ export function BlitzPage() {
                           alt={lvl.mascotCompanion.name}
                           className="w-24 h-24 object-contain drop-shadow-xl transition-transform hover:scale-105"
                         />
-                        <div className="mt-1 flex items-center gap-0.5 text-yellow-400">
-                          {[1, 2, 3].map(s => (
-                            <Star
-                              key={s}
-                              size={12}
-                              className={
-                                stars >= s
-                                  ? 'fill-yellow-400 text-yellow-400'
-                                  : 'text-slate-400 dark:text-slate-600'
-                              }
-                            />
-                          ))}
-                        </div>
                         <span
                           className={`mt-1 px-2.5 py-1 rounded-xl text-[10px] font-bold border leading-tight ${
                             isDark
@@ -1196,7 +998,7 @@ export function BlitzPage() {
             })}
           </div>
         </section>
-      </main>
+      </div>
 
       {/* ==================================================================== */}
       {/* LEVEL FUNCTION & LAUNCH POPOVER MODAL (WHEN USER CLICKS ANY NODE)    */}
@@ -1210,7 +1012,6 @@ export function BlitzPage() {
                 : 'bg-white border-blue-600 text-slate-900'
             }`}
           >
-            {/* Modal Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-[#0A1F66] via-[#0052CC] to-[#0066FF] text-white flex items-center justify-between gap-3">
               <div>
                 <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 text-blue-950 text-[10px] font-black uppercase tracking-widest">
@@ -1228,7 +1029,6 @@ export function BlitzPage() {
               </button>
             </div>
 
-            {/* Modal Body: Level Function, Specs & Launch Button */}
             <div className="p-6 space-y-5">
               <div
                 className={`p-4 rounded-2xl border space-y-1.5 ${
@@ -1243,7 +1043,6 @@ export function BlitzPage() {
                 </p>
               </div>
 
-              {/* 3 Specs Pills */}
               <div className="grid grid-cols-3 gap-2.5 text-center">
                 <div
                   className={`p-3 rounded-2xl border ${
@@ -1278,12 +1077,11 @@ export function BlitzPage() {
                     Pacing Clock
                   </span>
                   <span className="text-base font-black">
-                    {selectedLevelModal.secondsPerQuestion}s / Q
+                    {customSecondsOverride || selectedLevelModal.secondsPerQuestion}s / Q
                   </span>
                 </div>
               </div>
 
-              {/* Strict 100% Flawless Subject Rating Rule Notice */}
               <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800/40 text-xs font-bold text-amber-900 dark:text-yellow-200">
                 <Trophy size={18} className="text-amber-500 shrink-0" />
                 <span>
@@ -1299,7 +1097,6 @@ export function BlitzPage() {
                 </div>
               )}
 
-              {/* Action Buttons */}
               {selectedLevelModal.id <= progress.blitzUnlockedLevel ||
               (selectedLevelModal.setNumber === 2 &&
                 isSet2Unlocked &&

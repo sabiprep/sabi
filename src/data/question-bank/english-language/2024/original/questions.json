@@ -1,0 +1,51 @@
+{
+  "id": "original",
+  "variant": "original",
+  "subject": "English Language",
+  "subject_slug": "english-language",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "ENG-2024-ORIG-Q01",
+      "canonical_id": "ENG-2024-Q01",
+      "difficulty_id": "original",
+      "subject": "English Language",
+      "year": 2024,
+      "topic": "Lexis and Structure",
+      "subtopic": "Concord",
+      "question": "Neither the principal nor the vice-principals _______ aware of the sudden change in the examination timetable.",
+      "options": {
+        "A": "were",
+        "B": "was",
+        "C": "is",
+        "D": "has been"
+      },
+      "answer": "A",
+      "explanation": "By the rule of proximity concord, when two subjects are joined by 'neither... nor', the verb agrees in number and person with the noun closer to it ('vice-principals', which is plural). Hence, 'were' is correct.",
+      "explanation_short": "Proximity concord: plural verb 'were' agrees with 'vice-principals'.",
+      "explanation_pidgin": "For 'neither... nor', the verb dey follow the subject wey near am pass. Since 'vice-principals' na plural, we use 'were'."
+    },
+    {
+      "question_number": 2,
+      "question_id": "ENG-2024-ORIG-Q02",
+      "canonical_id": "ENG-2024-Q02",
+      "difficulty_id": "original",
+      "subject": "English Language",
+      "year": 2024,
+      "topic": "Lexis and Structure",
+      "subtopic": "Synonyms",
+      "question": "Choose the option nearest in meaning to the word in italics: The auditor discovered a *flagrant* breach of financial regulations.",
+      "options": {
+        "A": "glaring",
+        "B": "minor",
+        "C": "secret",
+        "D": "accidental"
+      },
+      "answer": "A",
+      "explanation": "'Flagrant' describes an offense or error that is conspicuously bad, obvious, or glaring.",
+      "explanation_short": "'Flagrant' means glaring or blatantly obvious.",
+      "explanation_pidgin": "'Flagrant' mean say the mistake or offense open-eye well-well, e no hide at all — so 'glaring' correct."
+    }
+  ]
+}

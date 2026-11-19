@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BookOpenCheck, CheckCircle2, Clock3, Compass, LoaderCircle, RefreshCw, Target, Zap } from 'lucide-react';
 import MathText from '../components/MathText';
 import { SEED_QUESTIONS } from '../data/questions';
@@ -25,7 +25,15 @@ const MODE_LABELS: Record<Mode,string> = {
 
 export function BackendLearningPage() {
   const [params] = useSearchParams();
-  const initialMode = (params.get('mode') || 'diagnostic') as Mode;
+  const navigate = useNavigate();
+  const requestedMode = params.get('mode');
+  useEffect(() => {
+    if (requestedMode === 'blitz') navigate('/blitz', { replace: true });
+    else if (requestedMode === 'smart_practice') navigate('/smart', { replace: true });
+    else if (requestedMode === 'custom') navigate('/practice/custom', { replace: true });
+    else if (requestedMode === 'cbt') navigate('/cbt', { replace: true });
+  }, [requestedMode, navigate]);
+  const initialMode = (requestedMode || 'diagnostic') as Mode;
   const [mode,setMode] = useState<Mode>(MODE_LABELS[initialMode] ? initialMode : 'diagnostic');
   const [subject,setSubject] = useState(params.get('subject') || 'Use of English');
   const [subjects] = useState<string[]>(() => (params.get('subjects') || '').split(',').map((value) => value.trim()).filter(Boolean).slice(0, 4));

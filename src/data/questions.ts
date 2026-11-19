@@ -1,8 +1,12 @@
 import { Question, SubjectName } from '../types';
+import {
+  getAllStructuredQuestionsAsRuntime,
+  getStructuredQuestionBank,
+} from './question-bank';
 
 // Let's create helper pools of questions per subject
 // 15 questions per subject (5 easy, 5 medium, 5 hard)
-export const SEED_QUESTIONS: Question[] = [
+const BASE_SEED_QUESTIONS: Question[] = [
   // ================= ENGLISH LANGUAGE =================
   {
     id: 'ENG-E-1',
@@ -1512,6 +1516,12 @@ export const SEED_QUESTIONS: Question[] = [
     confidence_score: 1.0,
     created_at: '2026-06-19T14:14:00Z'
   }
+];
+
+export const STRUCTURED_QUESTION_BANK = getStructuredQuestionBank();
+export const SEED_QUESTIONS: Question[] = [
+  ...getAllStructuredQuestionsAsRuntime(),
+  ...BASE_SEED_QUESTIONS,
 ];
 
 export const KNOWLEDGE_BASE = {};

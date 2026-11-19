@@ -1,0 +1,30 @@
+{
+  "id": "medium",
+  "variant": "twin2",
+  "subject": "Chemistry",
+  "subject_slug": "chemistry",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "CHM-2024-TWIN2-Q01",
+      "canonical_id": "CHM-2024-Q01",
+      "difficulty_id": "medium",
+      "subject": "Chemistry",
+      "year": 2024,
+      "topic": "Gas Laws",
+      "subtopic": "Boyle's Law",
+      "question": "At constant temperature, a gas of volume 600 cm³ at 750 mmHg is compressed to a volume of 450 cm³. Find its new pressure.",
+      "options": {
+        "A": "1000 mmHg",
+        "B": "900 mmHg",
+        "C": "850 mmHg",
+        "D": "1200 mmHg"
+      },
+      "answer": "A",
+      "explanation": "P2 = (P1 * V1) / V2 = (750 * 600) / 450 = 450000 / 450 = 1000 mmHg.",
+      "explanation_short": "P2 = (750 * 600) / 450 = 1000 mmHg.",
+      "explanation_pidgin": "Multiply 750 by 600 then divide by 450, you go get 1000 mmHg."
+    }
+  ]
+}

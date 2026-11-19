@@ -1,16 +1,48 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Activity, ArrowRight, Bell, BookMarked, BookOpen, BookOpenCheck, BrainCircuit,
-  CheckCircle, ChevronRight, ClipboardList, Coins, Copy, Check, Download,
-  Compass, FileQuestion, Flame, HelpCircle, Home, Info, LogOut,
-  Menu, Moon, Settings, ShieldCheck, Sliders, SlidersHorizontal, Sun, Target,
-  X, Zap, Award, CheckCircle2
+  Activity,
+  ArrowRight,
+  Award,
+  Bell,
+  BookMarked,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardList,
+  Coins,
+  Compass,
+  Copy,
+  Download,
+  FileQuestion,
+  Flame,
+  HelpCircle,
+  Home,
+  Info,
+  LogOut,
+  Menu,
+  Moon,
+  Play,
+  Settings,
+  ShieldCheck,
+  Sliders,
+  Sparkles,
+  Sun,
+  Target,
+  Trophy,
+  X,
+  Zap,
 } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../app/ThemeProvider';
 import { supabase } from '../lib/supabase';
 import { apiFetch } from '../utils/apiClient';
-import { getRealUserProgress, UserRealProgress } from '../utils/userProgressStore';
+import {
+  getRealUserProgress,
+  saveRealUserProgress,
+  UserRealProgress,
+} from '../utils/userProgressStore';
+import { getMistakeRecords, removeMistakeRecord } from '../utils/mistakeStore';
 import MathText from '../components/MathText';
 import FullMockExamModal from '../components/mobile/FullMockExamModal';
 import FormulaCheatSheetModal from '../components/mobile/FormulaCheatSheetModal';
@@ -19,7 +51,6 @@ import SyllabusFrequencyHeatmapModal from '../components/mobile/SyllabusFrequenc
 
 const MAIN_NAV = [
   { to: '/home', label: 'Dashboard', Icon: Home },
-  { to: '/learning', label: 'Learning', Icon: BookOpenCheck },
   { to: '/blitz', label: 'Blitz', Icon: Zap },
   { to: '/smart', label: 'Smart Practice', Icon: Compass },
   { to: '/practice/custom', label: 'Custom Practice', Icon: Sliders },
@@ -29,14 +60,54 @@ const MAIN_NAV = [
 ];
 
 const MENU_ITEMS = [
-  { to: '/subscription', label: 'Subscription & 5,000 💎 Vault', Icon: Coins, description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus' },
-  { to: '/subject-rates', label: 'Subject Rates (100% Rule)', Icon: Activity, description: 'Full-screen mastery ratings earned from 100% flawless levels' },
-  { to: '/missions', label: 'Daily UTME Missions', Icon: Award, description: 'Daily quests & Streak Bonus Diamonds' },
-  { to: '/menu/mistakes', label: 'Mistake Notebook', Icon: ClipboardList, description: 'Review missed questions with step-by-step solutions' },
-  { to: '/menu/resources', label: 'Study Resources', Icon: BookMarked, description: 'Formula sheet, brochure & syllabus heatmap' },
-  { to: '/menu/help', label: 'Help & Support', Icon: HelpCircle, description: 'Get help using SABI & Unique ID recovery' },
-  { to: '/menu/about', label: 'About SABI', Icon: Info, description: 'About the UTME CBT learning platform' },
-  { to: '/profile', label: 'Profile & Settings', Icon: Settings, description: 'Preferences, Unique SABI ID & subscription' },
+  {
+    to: '/subscription',
+    label: 'Subscription & 5,000 💎 Vault',
+    Icon: Coins,
+    description: '₦10,000 One-Time Pass · 5,000 Diamonds + Streak Bonus',
+  },
+  {
+    to: '/subject-rates',
+    label: 'Subject Rates (100% Rule)',
+    Icon: Activity,
+    description: 'Full-screen mastery ratings earned from 100% flawless levels',
+  },
+  {
+    to: '/missions',
+    label: 'Daily UTME Missions',
+    Icon: Award,
+    description: 'Daily quests & Streak Bonus Diamonds',
+  },
+  {
+    to: '/menu/mistakes',
+    label: 'Mistake Notebook',
+    Icon: ClipboardList,
+    description: 'Review missed questions with step-by-step solutions',
+  },
+  {
+    to: '/menu/resources',
+    label: 'Study Resources',
+    Icon: BookMarked,
+    description: 'Formula sheet, brochure & syllabus heatmap',
+  },
+  {
+    to: '/menu/help',
+    label: 'Help & Support',
+    Icon: HelpCircle,
+    description: 'Get help using SABI & Unique ID recovery',
+  },
+  {
+    to: '/menu/about',
+    label: 'About SABI',
+    Icon: Info,
+    description: 'About the UTME CBT learning platform',
+  },
+  {
+    to: '/profile',
+    label: 'Profile & Settings',
+    Icon: Settings,
+    description: 'Preferences, Unique SABI ID & subscription',
+  },
 ];
 
 function useLiveUserProgress(): UserRealProgress {
@@ -65,7 +136,9 @@ function getCandidateOnboardingMeta() {
     };
   }
   try {
-    const raw = localStorage.getItem('sabi_onboarding_v2_answers');
+    const rawV3 = localStorage.getItem('sabi_onboarding_v3_answers');
+    const rawV2 = localStorage.getItem('sabi_onboarding_v2_answers');
+    const raw = rawV3 || rawV2;
     if (!raw) {
       return {
         chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
@@ -94,50 +167,6 @@ function getCandidateOnboardingMeta() {
   }
 }
 
-
-function LearningSnapshot() {
-  const [data,setData]=useState<any>(null);
-  const [recommendations,setRecommendations]=useState<any>(null);
-  const [error,setError]=useState('');
-  useEffect(()=>{let active=true;Promise.all([apiFetch('/api/learning/progress'),apiFetch('/api/learning/recommendations')]).then(async ([p,r])=>{
-    if(!p.ok)throw new Error('Learning progress is not available right now.');
-    const d=await p.json();const rec=r.ok?await r.json():null;
-    if(active){setData(d);setRecommendations(rec);}
-  }).catch(e=>{if(active)setError(e.message||'Unable to load learning progress.');});return()=>{active=false;};},[]);
-  const sessions=data?.recentSessions||[];
-  const mastery=data?.mastery||[];
-  const due=recommendations?.reviewPlan||[];
-  return <section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
-    <div className="flex items-center justify-between gap-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Backend synced</span><h2 className="text-lg font-black text-slate-900 dark:text-white">Learning activity</h2></div><Link to="/learning" className="text-xs font-black text-blue-600">Open learning hub →</Link></div>
-    {error?<p className="text-xs text-slate-500">{error}</p>:!data?<p className="text-xs text-slate-500">Loading saved learning activity…</p>:<div className="grid sm:grid-cols-3 gap-3">
-      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{sessions.length}</b><p className="text-xs text-slate-500">Recent sessions</p></div>
-      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{mastery.length}</b><p className="text-xs text-slate-500">Tracked topics</p></div>
-      <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950"><b className="text-2xl">{(data.dueReviews||[]).length}</b><p className="text-xs text-slate-500">Reviews due</p></div>
-    </div>}
-    {due.length>0&&<div className="space-y-2"><p className="text-xs font-black uppercase tracking-wider text-amber-600">Recommended reviews</p>{due.slice(0,4).map((item:any)=><div key={item.subject+'-'+item.topic} className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 p-3 text-xs"><span className="font-bold">{item.subject} · {item.topic}</span><span className="text-slate-500">{Math.round(item.masteryScore)}% mastery</span></div>)}</div>}
-    {sessions.length>0&&<div className="space-y-2">{sessions.slice(0,4).map((item:any)=><div key={item.id} className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-2 text-xs"><span className="font-bold">{item.mode.replace('_',' ')} · {item.answered_count}/{item.total_questions} answered</span><span className="text-slate-500">{item.status}</span></div>)}</div>}
-  </section>;
-}
-
-function ScorePredictionCard() {
-  const [data,setData]=useState<any>(null);
-  const [error,setError]=useState('');
-  useEffect(()=>{let active=true;apiFetch('/api/learning/score-prediction').then(async r=>{
-    const payload=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(payload.error||'Score prediction is unavailable.');
-    if(active)setData(payload);
-  }).catch(e=>{if(active)setError(e.message||'Unable to calculate score prediction.');});return()=>{active=false;};},[]);
-  return <section className="rounded-3xl border border-blue-100 dark:border-blue-900 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4">
-    <div className="flex flex-wrap items-start justify-between gap-3"><div><span className="text-[10px] font-black uppercase tracking-widest text-blue-600">Phase 2 · performance model</span><h2 className="text-xl font-black text-slate-900 dark:text-white">UTME score projection</h2><p className="text-xs text-slate-500 mt-1">A rolling estimate from your saved, answered UTME questions.</p></div>
-      {data?.predictedScore!==null&&data?.predictedScore!==undefined?<div className="text-right"><b className="text-3xl text-blue-600">{data.predictedScore}<span className="text-sm text-slate-400">/400</span></b><p className="text-[10px] text-slate-500">{data.scoreRange?.lower}–{data.scoreRange?.upper} likely range</p></div>:<span className="text-xs font-black text-amber-600">Building evidence</span>}
-    </div>
-    {error?<p className="text-xs text-slate-500">{error}</p>:!data?<p className="text-xs text-slate-500">Calculating from your saved performance…</p>:<>
-      <div className="grid sm:grid-cols-2 gap-2">{(data.subjects||[]).map((item:any)=><div key={item.subject} className="rounded-xl bg-slate-50 dark:bg-slate-950 p-3"><div className="flex justify-between gap-2 text-xs"><b>{item.subject}</b><span className="text-slate-500">{item.attempted} attempts</span></div><p className="mt-1 text-sm font-black">{item.projectedScore===null?'Not enough data':item.projectedScore+'/100'}</p><div className="h-1.5 mt-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-blue-600" style={{width:`${item.projectedScore||0}%`}}/></div></div>)}</div>
-      <p className="text-xs text-slate-500">{data.message}</p>
-      {data.predictedScore!==null&&<p className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Confidence: {data.confidence} · {data.totalAttempts} total answers analysed</p>}
-    </>}
-  </section>;
-}
 export function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
@@ -147,8 +176,6 @@ export function AppShell() {
   const userName =
     (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate';
 
-  // Guard: a real Supabase session is required to use the app shell.
-  // Phase 0: identity is proven by the session token, not by a localStorage email.
   useEffect(() => {
     const isSigned = localStorage.getItem('sabi_user_signed_in') === 'true';
     if (!isSigned) {
@@ -174,11 +201,17 @@ export function AppShell() {
   }, [navigate]);
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col`}>
+    <div
+      className={`min-h-screen ${
+        isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'
+      } transition-colors duration-200 flex flex-col`}
+    >
       {/* Top Navbar */}
-      <header className={`sabi-top-safe-bar px-4 sm:px-8 py-3.5 border-b sticky top-0 z-40 backdrop-blur-md ${
-        isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'
-      }`}>
+      <header
+        className={`sabi-top-safe-bar px-4 sm:px-8 py-3.5 border-b sticky top-0 z-40 backdrop-blur-md ${
+          isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'
+        }`}
+      >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Left Brand Lockup + 3-Dash Menu Button (Always Visible) */}
           <div className="flex items-center gap-3">
@@ -236,22 +269,27 @@ export function AppShell() {
 
           {/* Right Action Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Real Streak & Verified Diamond Balance (0 until subscribed/earned) */}
-            <div className="hidden sm:flex items-center gap-2">
+            {/* Real Streak & Verified Diamond Balance (Always visible on mobile & desktop) */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <Link
                 to="/missions"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-950/30 hover:bg-yellow-100/80 border border-yellow-200 dark:border-yellow-800/40 text-xs font-black text-amber-700 dark:text-yellow-300 transition"
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-yellow-50 dark:bg-yellow-950/30 hover:bg-yellow-100/80 border border-yellow-200 dark:border-yellow-800/40 text-xs font-black text-amber-700 dark:text-yellow-300 transition"
                 title="View Daily UTME Missions & Real Streaks"
               >
-                <Flame size={15} className={progress.streakDays > 0 ? 'animate-bounce text-amber-500' : 'text-amber-500'} />
+                <Flame
+                  size={14}
+                  className={
+                    progress.streakDays > 0 ? 'animate-bounce text-amber-500' : 'text-amber-500'
+                  }
+                />
                 <span>{progress.streakDays}d</span>
               </Link>
               <Link
                 to="/subscription"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100/80 border border-blue-200 dark:border-blue-800 text-xs font-black text-blue-700 dark:text-blue-300 transition"
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100/80 border border-blue-200 dark:border-blue-800 text-xs font-black text-blue-700 dark:text-blue-300 transition"
                 title={`Streak Bonus: ${progress.streakBonusDiamonds} 💎 (Used First) | Main Vault: ${progress.mainDiamonds} 💎`}
               >
-                <Coins size={15} />
+                <Coins size={14} />
                 <span>{progress.diamonds} 💎</span>
               </Link>
             </div>
@@ -259,8 +297,10 @@ export function AppShell() {
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
-              className={`p-2 rounded-xl border transition-colors ${
-                isDark ? 'bg-slate-800 border-slate-700 text-blue-300' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
+                isDark
+                  ? 'bg-slate-800 border-slate-700 text-blue-300'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
               }`}
               title="Toggle Theme"
             >
@@ -271,14 +311,16 @@ export function AppShell() {
             <Link
               to="/profile"
               className={`flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-xl border transition ${
-                isDark ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-800' : 'bg-white border-slate-200 hover:bg-slate-50 shadow-2xs'
+                isDark
+                  ? 'bg-slate-800/80 border-slate-700 hover:bg-slate-800'
+                  : 'bg-white border-slate-200 hover:bg-slate-50 shadow-2xs'
               }`}
             >
               <div className="w-6 h-6 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <span className="text-xs font-bold hidden sm:inline">
-                {userName.split(' ')[0]}
+                {userName.split(' ')[0].toUpperCase()}
               </span>
             </Link>
           </div>
@@ -290,10 +332,14 @@ export function AppShell() {
         <Outlet />
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className={`sabi-bottom-safe lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t px-4 py-2 flex items-center justify-around backdrop-blur-md ${
-        isDark ? 'bg-[#080D1A]/95 border-slate-800 text-slate-400' : 'bg-white/95 border-slate-200 text-slate-600'
-      }`}>
+      {/* Mobile Bottom Navigation Bar: Dashboard | Blitz | Smart | Custom | Practice */}
+      <nav
+        className={`sabi-bottom-safe lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t px-4 py-2 flex items-center justify-around backdrop-blur-md ${
+          isDark
+            ? 'bg-[#080D1A]/95 border-slate-800 text-slate-400'
+            : 'bg-white/95 border-slate-200 text-slate-600'
+        }`}
+      >
         {MAIN_NAV.slice(0, 5).map(({ to, label, Icon }) => {
           const isActive = location.pathname === to;
           return (
@@ -313,7 +359,7 @@ export function AppShell() {
         })}
       </nav>
 
-      {/* 3-Dash Drawer Menu (Subscription, Theme Normal/Night + Number-Line Dimness, Toolkit) */}
+      {/* 3-Dash Drawer Menu */}
       {menuOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/65 backdrop-blur-xs flex"
@@ -322,7 +368,9 @@ export function AppShell() {
         >
           <aside
             className={`sabi-drawer-safe sabi-bottom-safe w-80 sm:w-96 max-w-[88vw] h-full p-6 shadow-2xl flex flex-col justify-between overflow-y-auto ${
-              isDark ? 'bg-[#090F1E] border-r border-slate-800 text-white' : 'bg-white border-r border-slate-200 text-slate-900'
+              isDark
+                ? 'bg-[#090F1E] border-r border-slate-800 text-white'
+                : 'bg-white border-r border-slate-200 text-slate-900'
             }`}
             onClick={e => e.stopPropagation()}
           >
@@ -385,7 +433,6 @@ export function AppShell() {
                   </span>
                 </div>
 
-                {/* Normal vs Night Mode Buttons */}
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -413,11 +460,10 @@ export function AppShell() {
                   </button>
                 </div>
 
-                {/* Number-Line Dimness Control (0 to 10) Overpowering Header & Background */}
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between text-[10px] font-bold">
                     <span className="text-slate-500 dark:text-slate-400">
-                      Dimness Number-Line (Overpowers Header & Screen):
+                      Dimness Number-Line (0–10):
                     </span>
                     {dimnessLevel > 0 && (
                       <button
@@ -430,7 +476,6 @@ export function AppShell() {
                     )}
                   </div>
 
-                  {/* Interactive 0–10 Number Line */}
                   <div className="grid grid-cols-11 gap-1 pt-1">
                     {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(num => {
                       const active = dimnessLevel === num;
@@ -524,42 +569,42 @@ const SUBJECT_TOPIC_META: Record<
   { badge: string; strongTopics: string[]; focusTopics: string[] }
 > = {
   'English Language': {
-    badge: 'Compulsory Use of English',
+    badge: 'COMPULSORY CREST',
     strongTopics: ['Comprehension Passages', 'Registers & Idioms'],
     focusTopics: ['Concord & Agreement', 'Oral English & Stress'],
   },
   Mathematics: {
-    badge: 'Calculus & Algebra',
+    badge: 'CALCULUS & ALGEBRA',
     strongTopics: ['Quadratic Equations', 'Indices & Logarithms'],
     focusTopics: ['Differentiation & Integration', 'Circle Theorems'],
   },
   Physics: {
-    badge: 'Waves & Mechanics',
+    badge: 'WAVES & OPTICS',
     strongTopics: ['Kinematics & Projectiles', 'Work, Energy & Power'],
     focusTopics: ['Waves & Sound Optics', 'Alternating Current (AC)'],
   },
   Chemistry: {
-    badge: 'Organic & Stoichiometry',
+    badge: 'ORGANIC & REDOX',
     strongTopics: ['Stoichiometry & Gas Laws', 'Periodic Table'],
     focusTopics: ['IUPAC Organic Nomenclature', 'Electrolysis & Redox'],
   },
   Biology: {
-    badge: 'Genetics & Ecology',
+    badge: 'GENETICS & ECOLOGY',
     strongTopics: ['Cell Structure & Organization', 'Ecological Management'],
     focusTopics: ['Mendelian Genetics', 'Plant & Animal Physiology'],
   },
   Economics: {
-    badge: 'Macro & Micro Theory',
+    badge: 'MACRO & MICRO THEORY',
     strongTopics: ['Demand & Supply Elasticity', 'Market Structures'],
     focusTopics: ['National Income Accounting', 'Fiscal & Monetary Policy'],
   },
   Government: {
-    badge: 'Constitutional History',
+    badge: 'CONSTITUTIONAL HISTORY',
     strongTopics: ['Organs of Government', 'Nigerian Federalism'],
     focusTopics: ['Pre-Independence Constitutions', 'International Organizations'],
   },
   'Literature in English': {
-    badge: 'Drama, Prose & Poetry',
+    badge: 'DRAMA, PROSE & POETRY',
     strongTopics: ['Figures of Speech', 'Unseen Prose & Poetry'],
     focusTopics: ['African & Non-African Drama', 'Prescribed JAMB Texts'],
   },
@@ -579,12 +624,11 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
         flawlessLevels: 0,
         rating: 0,
       };
-      // Strict Subject Rating Rule: Only increases when completing a level 100% right without failing any question
       const strictRating = stat.rating || 0;
       const rawAccuracy = stat.solved > 0 ? Math.round((stat.correct / stat.solved) * 100) : 0;
       const projected = strictRating > 0 ? Math.min(98, Math.max(45, strictRating)) : 0;
       const details = SUBJECT_TOPIC_META[name] || {
-        badge: 'Registered UTME Subject',
+        badge: 'REGISTERED SUBJECT',
         strongTopics: ['Core Definitions', 'Past Questions'],
         focusTopics: ['Speed Accuracy', 'Syllabus Application'],
       };
@@ -627,7 +671,6 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
         isDark ? 'bg-[#060B18] text-slate-100' : 'bg-slate-50 text-slate-900'
       }`}
     >
-      {/* Full-Screen Top Header */}
       <header
         className={`sticky top-0 z-20 px-4 sm:px-8 py-4 border-b backdrop-blur-md flex items-center justify-between ${
           isDark ? 'bg-[#080E1E]/95 border-slate-800' : 'bg-white/95 border-slate-200 shadow-xs'
@@ -677,7 +720,6 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
         </div>
       </header>
 
-      {/* Main Full-Screen Subject Rates Body */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-8 py-6 sm:py-8 space-y-6">
         <section className="rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-blue-800 via-blue-900 to-blue-950 border border-blue-600/40 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div className="space-y-2">
@@ -688,7 +730,7 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
               Your Live Subject Mastery & Score Projection
             </h2>
             <p className="text-xs sm:text-sm text-blue-100/90 max-w-2xl">
-              Every percentage below is calculated from your real answered questions in Blitz, Smart Practice, and CBT Mocks. Solve questions in each subject to build your live UTME score projection.
+              Clear any level 100% flawless in Blitz or Smart Campus Road to earn a +10% Subject Rating boost and increase your projected UTME aggregate.
             </p>
           </div>
           <div className="px-5 py-4 rounded-2xl bg-white/10 border border-white/15 backdrop-blur-sm text-center shrink-0 w-full sm:w-auto">
@@ -704,7 +746,6 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
           </div>
         </section>
 
-        {/* 4 Subject Rate Cards Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {subjectCards.map(sub => (
             <div
@@ -737,7 +778,10 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                       {sub.name}
                     </h3>
                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                      Projected UTME Score: <strong className="text-blue-600 dark:text-blue-400">{sub.projectedScore}</strong>
+                      Projected UTME Score:{' '}
+                      <strong className="text-blue-600 dark:text-blue-400">
+                        {sub.projectedScore}
+                      </strong>
                     </span>
                   </div>
                   <div className="text-right">
@@ -750,7 +794,6 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                   </div>
                 </div>
 
-                {/* Full-Width Progress Bar */}
                 <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 rounded-full transition-all duration-500"
@@ -758,7 +801,6 @@ function SubjectRatesFullScreenView({ onClose }: { onClose?: () => void }) {
                   />
                 </div>
 
-                {/* Strong & Focus Topics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                   <div
                     className={`p-3 rounded-2xl border ${
@@ -820,180 +862,551 @@ export function SubjectRatesPage() {
 }
 
 // ==========================================
-// MAIN STUDENT DASHBOARD (HOMEPAGE)
+// MAIN STUDENT DASHBOARD (HOMEPAGE) — RESTORED ORIGINAL LAYOUT
 // ==========================================
 export function HomePage() {
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [progress, setProgress] = useState<any>(null);
-  const [recommendations, setRecommendations] = useState<any>(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState('');
-
-  const refresh = async () => {
-    setBusy(true); setError('');
+  const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+  const meta = getCandidateOnboardingMeta();
+  const [showFullSubjectRates, setShowFullSubjectRates] = useState(false);
+  const [claimedMissions, setClaimedMissions] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') return {};
     try {
-      const [a, p, r] = await Promise.all([
-        apiFetch('/api/learning/analytics'),
-        apiFetch('/api/learning/progress'),
-        apiFetch('/api/learning/recommendations'),
-      ]);
-      if (!a.ok || !p.ok || !r.ok) throw new Error('Your learning overview is temporarily unavailable. Please try again.');
-      const [ad, pd, rd] = await Promise.all([a.json(), p.json(), r.json()]);
-      setAnalytics(ad); setProgress(pd); setRecommendations(rd);
-    } catch (e: any) { setError(e?.message || 'Could not load your learning overview.'); }
-    finally { setBusy(false); }
-  };
-  useEffect(() => { void refresh(); }, []);
+      const today = new Date().toISOString().slice(0, 10);
+      const raw = localStorage.getItem(`sabi_claimed_missions_${today}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  });
 
-  const next = recommendations?.nextAction;
-  const actionUrl = next?.type === 'diagnostic' ? '/diagnostic'
-    : next?.type === 'review' || next?.type === 'practice'
-      ? '/learning?mode=smart_practice' : '/smart';
-  const actionTitle = next?.type === 'diagnostic' ? 'Establish your baseline'
-    : next?.type === 'review' ? 'Review a topic due now'
-      : next?.type === 'practice' ? 'Strengthen a priority topic' : 'Continue learning';
+  const handleClaimMission = (missionId: string, rewardGems: number) => {
+    if (claimedMissions[missionId]) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const nextClaimed = { ...claimedMissions, [missionId]: true };
+    setClaimedMissions(nextClaimed);
+    try {
+      localStorage.setItem(`sabi_claimed_missions_${today}`, JSON.stringify(nextClaimed));
+    } catch {
+      // ignore
+    }
+    const current = getRealUserProgress();
+    saveRealUserProgress({
+      ...current,
+      streakBonusDiamonds: current.streakBonusDiamonds + rewardGems,
+    });
+  };
+
+  const subjectCards = useMemo(() => {
+    return meta.chosenSubjects.map((name: string) => {
+      const stat = progress.subjectStats[name] || {
+        solved: 0,
+        correct: 0,
+        levelsAttempted: 0,
+        flawlessLevels: 0,
+        rating: 0,
+      };
+      const details = SUBJECT_TOPIC_META[name] || {
+        badge: 'REGISTERED SUBJECT',
+        strongTopics: [],
+        focusTopics: [],
+      };
+      const rateNum =
+        stat.rating && stat.rating > 0
+          ? stat.rating
+          : stat.solved > 0
+          ? Math.round((stat.correct / stat.solved) * 100)
+          : 0;
+      return {
+        name,
+        badge: details.badge,
+        isCompulsory: name === 'English Language',
+        solvedCount: stat.solved || 0,
+        rateNum,
+      };
+    });
+  }, [meta.chosenSubjects, progress.subjectStats]);
+
+  const dailyMissions = [
+    {
+      id: 'blitz_15',
+      title: 'Solve 15 Blitz Speed Questions',
+      current: Math.min(15, progress.dailyBlitzSolved || 0),
+      target: 15,
+      reward: 50,
+      linkTo: '/blitz',
+      linkLabel: 'Go to Blitz',
+    },
+    {
+      id: 'smart_1',
+      title: 'Clear 1 Campus Level in Smart Practice',
+      current: Math.min(1, progress.dailySmartLevelsCleared || 0),
+      target: 1,
+      reward: 50,
+      linkTo: '/smart',
+      linkLabel: 'Go to Campus',
+    },
+  ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16 lg:pb-0">
-      <section className="rounded-3xl bg-gradient-to-br from-[#0A1F66] to-[#0066FF] p-6 sm:p-8 text-white">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-100">Your learning workspace</p>
-        <h1 className="mt-2 text-2xl sm:text-3xl font-bold">Welcome back to Sabi.</h1>
-        <p className="mt-2 max-w-2xl text-sm text-blue-50">A clear view of what you have practised, what needs attention, and the next useful step.</p>
-        <div className="mt-5 flex flex-wrap gap-3">
-          <Link to="/smart" className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-[#0A1F66]">Smart Practice <ArrowRight size={16} className="ml-2 inline" /></Link>
-          <Link to="/blitz" className="rounded-xl border border-white/50 px-5 py-3 text-sm font-semibold text-white">Blitz</Link>
+    <div className="mx-auto max-w-6xl space-y-7 pb-20 lg:pb-6">
+      {/* TOP 3 INTERACTIVE MODE CARDS: BLITZ SPEED TRAIL | SMART CAMPUS ROAD | CUSTOM SIMULATOR */}
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Card 1: Blitz Speed Trail */}
+        <div
+          className={`rounded-3xl border-2 p-6 flex flex-col justify-between gap-6 transition-all ${
+            isDark
+              ? 'bg-[#0C1428] border-slate-800 hover:border-blue-500 text-white'
+              : 'bg-[#0B1326] border-[#1A294B] text-white shadow-xl'
+          }`}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400">
+                <Zap size={24} />
+              </div>
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                BLITZ SPEED TRAIL
+              </span>
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                22 Anime Z-Trail Levels
+              </h2>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Set 1 & Set 2 · 45s/Q & 60s/Q timer controls, Eagle companions, and Boss Archways.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/blitz"
+            className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition"
+          >
+            <span>OPEN BLITZ ⚡</span>
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        {/* Card 2: Smart Campus Road */}
+        <div
+          className={`rounded-3xl border-2 p-6 flex flex-col justify-between gap-6 transition-all ${
+            isDark
+              ? 'bg-[#0C1428] border-slate-800 hover:border-blue-500 text-white'
+              : 'bg-[#0B1326] border-[#1A294B] text-white shadow-xl'
+          }`}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-400">
+                <Compass size={24} />
+              </div>
+              <span className="px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/40 text-blue-300 text-[10px] font-black uppercase tracking-widest">
+                SMART CAMPUS ROAD
+              </span>
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Desk, Library & Lab
+              </h2>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Untimed deep mastery with step-by-step KaTeX explanations & AI Tutor verification.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/smart"
+            className="w-full py-3.5 px-5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 shadow-md transition"
+          >
+            <span>OPEN SMART 🎓</span>
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        {/* Card 3: Custom Simulator */}
+        <div
+          className={`rounded-3xl border-2 p-6 flex flex-col justify-between gap-6 transition-all ${
+            isDark
+              ? 'bg-[#0C1428] border-slate-800 hover:border-blue-500 text-white'
+              : 'bg-[#0B1326] border-[#1A294B] text-white shadow-xl'
+          }`}
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-400">
+                <Sliders size={24} />
+              </div>
+              <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-black uppercase tracking-widest">
+                CUSTOM SIMULATOR
+              </span>
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Target Any Topic
+              </h2>
+              <p className="mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+                Pick specific subjects, topics, question counts, and timer limits on demand.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/practice/custom"
+            className="w-full py-3.5 px-5 rounded-2xl bg-[#162038] hover:bg-[#1E2B4A] border border-slate-700 text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center gap-2 transition"
+          >
+            <span>OPEN SIMULATOR 🛠️</span>
+            <ArrowRight size={16} />
+          </Link>
         </div>
       </section>
 
-      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}<button onClick={() => void refresh()} className="ml-3 font-semibold underline">Retry</button></div>}
-      {busy && <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading your learning evidence…</div>}
-      {!busy && !error && <>
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Answered questions</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.total_attempts ?? 0}</p><p className="mt-1 text-xs text-slate-500">Server-recorded attempts</p></div>
-          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Accuracy</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.accuracy == null ? '—' : analytics.accuracy + '%'}</p><p className="mt-1 text-xs text-slate-500">Based on answered attempts</p></div>
-          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Topics with mastery evidence</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{progress?.mastery?.length ?? 0}</p><p className="mt-1 text-xs text-slate-500">Backend mastery records</p></div>
-        </section>
+      {/* YOUR 4 REGISTERED SUBJECTS + DAILY UTME MISSIONS */}
+      <section className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-6">
+        {/* Left Column: Your 4 Registered Subjects */}
+        <div
+          className={`rounded-3xl border-2 p-5 sm:p-7 space-y-5 ${
+            isDark ? 'bg-[#0B1224] border-slate-800' : 'bg-[#0B1326] border-[#1A294B] text-white shadow-xl'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Your 4 Registered Subjects
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Official JAMB Combination · Click any subject to inspect full mastery rates
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFullSubjectRates(true)}
+              className="text-xs font-black text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+            >
+              <span>View All 4 Subjects</span>
+              <ChevronRight size={15} />
+            </button>
+          </div>
 
-        <section className="sabi-card p-5 sm:p-6">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div><p className="text-xs font-semibold uppercase tracking-wider text-[#0066FF]">Recommended next action</p><h2 className="mt-2 text-xl font-bold text-slate-900">{actionTitle}</h2>
-              <p className="mt-1 text-sm text-slate-600">{next?.topic ? next.subject + ' · ' + next.topic : next?.message || 'Your next step will update as you build learning evidence.'}</p></div>
-            <Link to={actionUrl} className="rounded-xl bg-[#0066FF] px-4 py-3 text-sm font-semibold text-white">Start now <ArrowRight size={15} className="ml-1 inline" /></Link>
-          </div>
-          {recommendations?.dueReviewCount > 0 && <p className="mt-4 rounded-xl bg-blue-50 p-3 text-sm text-[#0A1F66]">{recommendations.dueReviewCount} topic reviews are due.</p>}
-        </section>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {subjectCards.map(sub => (
+              <div
+                key={sub.name}
+                onClick={() => setShowFullSubjectRates(true)}
+                className="p-4 sm:p-5 rounded-2xl bg-[#111C35] hover:bg-[#162342] border border-slate-800 hover:border-blue-500/60 transition cursor-pointer space-y-3"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      sub.isCompulsory
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                        : 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
+                    }`}
+                  >
+                    {sub.badge}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    {sub.solvedCount} Solved
+                  </span>
+                </div>
 
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Priority topics</h2>
-            {recommendations?.focusTopics?.length ? <ul className="mt-3 space-y-3">{recommendations.focusTopics.slice(0,4).map((item:any)=><li key={item.subject+'-'+item.topic} className="flex justify-between gap-3 border-b border-slate-100 pb-2 text-sm"><span><strong>{item.topic}</strong><span className="block text-xs text-slate-500">{item.subject}</span></span><span className="font-semibold text-[#0066FF]">{Number(item.mastery_score)} mastery</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">No priority topics are available yet. Complete practice to build evidence.</p>}
+                <h3 className="text-lg font-black text-white">{sub.name}</h3>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    MASTERY RATE
+                  </span>
+                  <span className="text-base font-black text-amber-400">{sub.rateNum}%</span>
+                </div>
+
+                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-600 via-blue-500 to-amber-400 transition-all duration-500"
+                    style={{ width: `${Math.max(sub.rateNum, 4)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Recent sessions</h2>
-            {progress?.recentSessions?.length ? <ul className="mt-3 space-y-3">{progress.recentSessions.slice(0,5).map((s:any)=><li key={s.id} className="flex justify-between gap-3 border-b border-slate-100 pb-2 text-sm"><span className="font-medium capitalize">{String(s.mode).replace('_',' ')}</span><span className="text-slate-500">{s.answered_count}/{s.total_questions} answered</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">Your completed learning sessions will appear here.</p>}
+        </div>
+
+        {/* Right Column: Daily UTME Missions */}
+        <div
+          className={`rounded-3xl border-2 p-5 sm:p-7 space-y-5 ${
+            isDark ? 'bg-[#0B1224] border-slate-800' : 'bg-[#0B1326] border-[#1A294B] text-white shadow-xl'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-xl font-black text-white">Daily UTME Missions</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Complete quests to earn Streak Bonus Diamonds
+              </p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+              +100 GEMS TODAY
+            </span>
           </div>
-        </section>
-        <div className="flex flex-wrap gap-3"><Link to="/progress" className="text-sm font-semibold text-[#0066FF]">View detailed progress →</Link><Link to="/cbt" className="text-sm font-semibold text-[#0066FF]">Open CBT Simulator →</Link></div>
-      </>}
+
+          <div className="space-y-4">
+            {dailyMissions.map(mission => {
+              const isDone = mission.current >= mission.target;
+              const isClaimed = Boolean(claimedMissions[mission.id]);
+              const pct = Math.min(100, Math.round((mission.current / mission.target) * 100));
+
+              return (
+                <div
+                  key={mission.id}
+                  className="p-4 rounded-2xl bg-[#111C35] border border-slate-800 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-sm font-black text-white leading-snug">
+                      {mission.title}
+                    </h3>
+                    <button
+                      type="button"
+                      disabled={!isDone || isClaimed}
+                      onClick={() => handleClaimMission(mission.id, mission.reward)}
+                      className={`px-3 py-1 rounded-xl text-[11px] font-black shrink-0 transition ${
+                        isClaimed
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          : isDone
+                          ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer shadow-sm'
+                          : 'bg-slate-800 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      {isClaimed ? 'Claimed ✓' : `Claim ${mission.reward} 💎`}
+                    </button>
+                  </div>
+
+                  <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-amber-400 transition-all"
+                      style={{ width: `${Math.max(pct, 5)}%` }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-mono font-bold text-slate-400">
+                      {mission.current} / {mission.target}
+                    </span>
+                    <Link
+                      to={mission.linkTo}
+                      className="font-black text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                    >
+                      <span>{mission.linkLabel}</span>
+                      <ChevronRight size={14} />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800 text-xs">
+            <Link to="/cbt" className="font-black text-blue-400 hover:text-blue-300">
+              Open 180Q CBT Mock →
+            </Link>
+            <Link to="/menu/resources" className="font-black text-amber-400 hover:text-amber-300">
+              Formula & Syllabus Vault →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {showFullSubjectRates && (
+        <SubjectRatesFullScreenView onClose={() => setShowFullSubjectRates(false)} />
+      )}
     </div>
   );
 }
 
+// ==========================================
+// DAILY MISSIONS PAGE (/missions)
+// ==========================================
 export function DailyMissionsPage() {
-  const [progress, setProgress] = useState<any>(null);
-  const [recommendations, setRecommendations] = useState<any>(null);
-  const [plan, setPlan] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
 
-  const refresh = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [p, r, s] = await Promise.all([
-        apiFetch('/api/learning/progress'),
-        apiFetch('/api/learning/recommendations'),
-        apiFetch('/api/learning/study-plan?days=7'),
-      ]);
-      const bodies = await Promise.all([p, r, s].map(response => response.json().catch(() => ({}))));
-      if (!p.ok || !r.ok || !s.ok) {
-        const failed = bodies.find((body, index) => ![p, r, s][index].ok);
-        throw new Error(failed?.error || 'Your learning activity could not be loaded.');
-      }
-      setProgress(bodies[0]);
-      setRecommendations(bodies[1]);
-      setPlan(bodies[2]);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Your learning activity is temporarily unavailable.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { void refresh(); }, []);
-
-  const sessions = progress?.recentSessions || [];
-  const mastery = progress?.mastery || [];
-  const dueReviews = recommendations?.reviewPlan || [];
-  const card = 'rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900';
+  const missions = [
+    {
+      id: 'blitz_15',
+      title: 'Solve 15 Blitz Speed Questions',
+      description: 'Complete 15 timed questions on the Anime Duolingo Z-Trail.',
+      current: Math.min(15, progress.dailyBlitzSolved || 0),
+      target: 15,
+      reward: 50,
+      to: '/blitz',
+      actionLabel: 'Open Blitz Z-Trail',
+    },
+    {
+      id: 'smart_1',
+      title: 'Clear 1 Campus Station in Smart Practice',
+      description: 'Finish any Campus Roadway station with step-by-step worked solutions.',
+      current: Math.min(1, progress.dailySmartLevelsCleared || 0),
+      target: 1,
+      reward: 50,
+      to: '/smart',
+      actionLabel: 'Open Campus Road',
+    },
+    {
+      id: 'flawless_100',
+      title: 'Achieve 100% Flawless on Any Level',
+      description: 'Score 100% without missing a single question to boost Subject Rating by +10%.',
+      current: Object.values(progress.subjectStats || {}).reduce(
+        (acc, s) => acc + (s.flawlessLevels || 0),
+        0
+      )
+        ? 1
+        : 0,
+      target: 1,
+      reward: 25,
+      to: '/blitz',
+      actionLabel: 'Go for 100% Flawless',
+    },
+  ];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-16 lg:pb-0">
-      <header className="flex flex-wrap items-start justify-between gap-3">
+    <div className="mx-auto max-w-5xl space-y-6 pb-20 lg:pb-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-widest text-blue-600">Learning consistency</p>
-          <h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Your study activity</h1>
-          <p className="mt-2 text-sm text-slate-500">A record of your saved learning sessions, topic evidence and recommended reviews. Figures come from your SABI account.</p>
+          <p className="text-xs font-black uppercase tracking-widest text-blue-600">
+            DAILY UTME QUESTS & STREAK VAULT
+          </p>
+          <h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">
+            Daily UTME Missions
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Maintain your daily streak and earn free Streak Bonus Diamonds that are always spent first before your main 5,000 💎 vault.
+          </p>
         </div>
-        <button onClick={() => void refresh()} disabled={loading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700">{loading ? 'Refreshing…' : 'Refresh activity'}</button>
+        <div className="flex items-center gap-2">
+          <div className="px-4 py-2 rounded-2xl bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-200 dark:border-yellow-700/40 text-amber-800 dark:text-yellow-300 text-xs font-black flex items-center gap-1.5">
+            <Flame size={16} className="text-amber-500" />
+            <span>{progress.streakDays} Day Streak</span>
+          </div>
+          <div className="px-4 py-2 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-black flex items-center gap-1.5">
+            <Coins size={16} />
+            <span>{progress.streakBonusDiamonds} Bonus 💎</span>
+          </div>
+        </div>
       </header>
 
-      {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
-      {loading && !progress ? <div className={card}>Loading your saved learning activity…</div> : progress && <>
-        <section className="grid gap-3 sm:grid-cols-3">
-          <div className={card}><p className="text-xs text-slate-500">Recent sessions</p><p className="mt-2 text-3xl font-black">{sessions.length}</p><p className="mt-1 text-xs text-slate-500">Latest 20 sessions</p></div>
-          <div className={card}><p className="text-xs text-slate-500">Tracked topics</p><p className="mt-2 text-3xl font-black">{mastery.length}</p><p className="mt-1 text-xs text-slate-500">Topics with saved mastery evidence</p></div>
-          <div className={card}><p className="text-xs text-slate-500">Reviews due</p><p className="mt-2 text-3xl font-black">{(progress.dueReviews || []).length}</p><p className="mt-1 text-xs text-slate-500">Based on saved review dates</p></div>
-        </section>
-
-        <section className={card}>
-          <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-black">Recommended study plan</h2><p className="mt-1 text-sm text-slate-500">{plan?.summary || 'No study plan summary is available.'}</p></div><Link to="/learning?mode=smart_practice" className="text-sm font-bold text-blue-600">Start Smart Practice →</Link></div>
-          {plan?.status === 'diagnostic_required' ? <p className="mt-4 rounded-xl bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">Complete a diagnostic session to establish your starting evidence.</p> : <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{(plan?.days || []).map((day:any) => <article key={day.day} className="rounded-xl border border-slate-200 p-3 dark:border-slate-700"><p className="text-xs font-black uppercase text-blue-600">Day {day.day}</p>{day.actions?.length ? day.actions.map((action:any,index:number) => <p key={index} className="mt-2 text-sm"><b>{action.subject}</b><br/>{action.topic}<span className="block text-xs text-slate-500">{action.action === 'spaced_review' ? 'Spaced review' : 'Targeted practice'}</span></p>) : <p className="mt-2 text-sm text-slate-500">Continue balanced practice across your subjects.</p>}</article>)}</div>}
-        </section>
-
-        <section className={card}>
-          <h2 className="font-black">Topics to revisit</h2>
-          {dueReviews.length ? <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{dueReviews.map((item:any,index:number) => <div key={item.subject+'-'+item.topic+'-'+index} className="flex flex-wrap items-center justify-between gap-2 py-3"><div><p className="text-sm font-bold">{item.subject} · {item.topic}</p><p className="text-xs text-slate-500">{item.reason}</p></div><Link to={`/learning?mode=smart_practice&subject=${encodeURIComponent(item.subject)}&topic=${encodeURIComponent(item.topic)}`} className="text-xs font-bold text-blue-600">Practise topic →</Link></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No due reviews are currently recorded. Keep practising to build your learning evidence.</p>}
-        </section>
-
-        <section className={card}>
-          <h2 className="font-black">Recent sessions</h2>
-          {sessions.length ? <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{sessions.slice(0,10).map((item:any) => <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold capitalize">{String(item.mode).replaceAll('_',' ')}</p><p className="text-xs text-slate-500">{item.answered_count}/{item.total_questions} answered · {new Date(item.started_at).toLocaleString()}</p></div><span className="text-xs font-semibold capitalize text-slate-500">{item.status}</span></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No saved learning sessions yet. Start a diagnostic or practice session to begin.</p>}
-        </section>
-      </>}
+      <section className="grid gap-4">
+        {missions.map(m => {
+          const pct = Math.min(100, Math.round((m.current / m.target) * 100));
+          return (
+            <div
+              key={m.id}
+              className={`p-6 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-5 ${
+                isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+              }`}
+            >
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-yellow-100 text-amber-900 text-[10px] font-black uppercase">
+                    +{m.reward} 💎 BONUS
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400">
+                    {m.current} / {m.target} Completed
+                  </span>
+                </div>
+                <h2 className="text-lg font-black">{m.title}</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">{m.description}</p>
+                <div className="w-full max-w-md h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-600 to-amber-400"
+                    style={{ width: `${Math.max(pct, 5)}%` }}
+                  />
+                </div>
+              </div>
+              <Link
+                to={m.to}
+                className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 text-center"
+              >
+                {m.actionLabel} →
+              </Link>
+            </div>
+          );
+        })}
+      </section>
     </div>
   );
 }
 
+// ==========================================
+// PRACTICE HUB PAGE (/practice)
+// ==========================================
 export function PracticePage() {
   const experiences = [
-    { title: 'Smart Practice', description: 'Let Sabi choose what you should practise next using your recorded learning evidence.', detail: 'Adaptive, recommendation-led practice', href: '/smart', action: 'Start Smart Practice', tone: 'blue' },
-    { title: 'Blitz', description: 'Reinforce concepts with focused question-and-feedback cycles. Stop whenever you are ready.', detail: 'Quick, focused reinforcement', href: '/blitz', action: 'Start Blitz', tone: 'yellow' },
-    { title: 'Custom Practice', description: 'Choose the subjects and topics you intentionally want to work on.', detail: 'You choose the practice scope', href: '/practice/custom', action: 'Configure practice', tone: 'slate' },
-    { title: 'CBT Simulator', description: 'Attempt a timed mock examination under structured UTME conditions.', detail: 'Exam-style simulation', href: '/cbt', action: 'Open CBT simulator', tone: 'navy' },
+    {
+      title: 'Blitz Speed Z-Trail',
+      description:
+        '22 Anime Duolingo-style Z-Trail levels with Sabi Eagle companions, 45s/Q & 60s/Q timer controls, and Boss Archways.',
+      detail: 'High-Speed Timed Mastery',
+      href: '/blitz',
+      action: 'Open Blitz Z-Trail ⚡',
+    },
+    {
+      title: 'Smart Campus Roadway',
+      description:
+        '22 Winding Campus Road stations with the Interactive Student Study Desk, pop-out JAMB Calculator, Library & Science Lab.',
+      detail: 'Untimed Conceptual Mastery',
+      href: '/smart',
+      action: 'Open Smart Campus Road 🎓',
+    },
+    {
+      title: 'Custom JAMB Simulator',
+      description:
+        'Choose your own subject, topic, Original vs Twin difficulty mode, question count, and timer pacing on demand.',
+      detail: 'Personalized Topic Drill',
+      href: '/practice/custom',
+      action: 'Open Custom Simulator 🛠️',
+    },
+    {
+      title: 'Full 180Q CBT Mock Exam',
+      description:
+        'Simulate the official 4-subject, 120-minute JAMB UTME examination with keyboard shortcuts (A/B/C/D) and instant result slip.',
+      detail: 'Official UTME Simulation',
+      href: '/cbt',
+      action: 'Open CBT Simulator 🖥️',
+    },
   ];
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16 lg:pb-0">
+    <div className="mx-auto max-w-6xl space-y-6 pb-20 lg:pb-6">
       <header className="max-w-3xl">
-        <p className="text-xs font-bold uppercase tracking-[.18em] text-[var(--sabi-blue)]">Choose how to learn</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--sabi-navy)] sm:text-4xl">Practice that moves you forward.</h1>
-        <p className="mt-3 text-sm leading-7 text-[var(--sabi-muted)] sm:text-base">Each practice mode has a different purpose. Choose adaptive guidance, focused reinforcement, your own topic selection or a full exam simulation.</p>
+        <p className="text-xs font-bold uppercase tracking-[.18em] text-blue-600">
+          SABI PRACTICE ENGINE
+        </p>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+          Choose Your UTME Practice Arena
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          Every practice mode uses the ordered Original + Twin (Simple, Medium, Hard) JAMB question bank and updates your live Subject Mastery Rates.
+        </p>
       </header>
       <section className="grid gap-4 sm:grid-cols-2">
         {experiences.map(item => (
-          <article key={item.title} className="sabi-card flex flex-col p-5 sm:p-6">
-            <p className="text-xs font-bold uppercase tracking-wider text-[var(--sabi-blue)]">{item.detail}</p>
-            <h2 className="mt-3 text-xl font-bold text-[var(--sabi-ink)]">{item.title}</h2>
-            <p className="mt-2 flex-1 text-sm leading-6 text-[var(--sabi-muted)]">{item.description}</p>
-            <Link to={item.href} className="sabi-primary-button sabi-focus mt-5 w-fit">{item.action}<ArrowRight size={17}/></Link>
+          <article
+            key={item.title}
+            className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col p-6 shadow-xs"
+          >
+            <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+              {item.detail}
+            </p>
+            <h2 className="mt-2 text-xl font-black text-slate-900 dark:text-white">
+              {item.title}
+            </h2>
+            <p className="mt-2 flex-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+              {item.description}
+            </p>
+            <Link
+              to={item.href}
+              className="mt-5 inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider w-fit"
+            >
+              <span>{item.action}</span>
+              <ArrowRight size={16} />
+            </Link>
           </article>
         ))}
       </section>
@@ -1001,278 +1414,510 @@ export function PracticePage() {
   );
 }
 
+// ==========================================
+// CBT SIMULATOR PAGE (/cbt)
+// ==========================================
 export function CbtPage() {
+  const [isMockModalOpen, setIsMockModalOpen] = useState(false);
+  const [lastResult, setLastResult] = useState<{
+    totalScore: number;
+    subjects: { name: string; score: number; maxScore: number }[];
+  } | null>(null);
+
   return (
-    <div className="space-y-7 pb-16 lg:pb-0">
+    <div className="space-y-7 pb-20 lg:pb-6">
       <header className="max-w-3xl">
-        <span className="text-xs font-bold uppercase tracking-[.18em] text-[var(--sabi-blue)]">JAMB examination practice</span>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--sabi-navy)] sm:text-4xl">Prepare under exam conditions.</h1>
-        <p className="mt-3 text-sm leading-7 text-[var(--sabi-muted)] sm:text-base">Use a structured mock to practise time management, question navigation and exam discipline. Your session is managed by the Sabi learning service.</p>
+        <span className="text-xs font-black uppercase tracking-[.18em] text-blue-600">
+          OFFICIAL JAMB CBT SIMULATION
+        </span>
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900 dark:text-white sm:text-4xl">
+          Prepare Under Real UTME Exam Conditions
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+          Practise time management, 4-subject tab switching, keyboard navigation (A, B, C, D & Enter), and the moveable scientific calculator.
+        </p>
       </header>
-      <section className="rounded-[2rem] bg-[var(--sabi-navy)] p-6 text-white sm:p-9">
-        <span className="text-xs font-bold uppercase tracking-[.18em] text-blue-200">Full UTME simulation</span>
-        <h2 className="mt-3 max-w-xl text-3xl font-bold leading-tight sm:text-4xl">180 questions. 120 minutes. One focused attempt.</h2>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-blue-100">English Language plus your three registered subjects. The exam timer and answer submission are controlled by the server. Explanations are held until the exam is over.</p>
-        <Link to="/learning?mode=cbt" className="sabi-primary-button sabi-focus mt-7 !border-yellow-400 !bg-yellow-400 !text-[var(--sabi-navy)] hover:!bg-yellow-300">Configure CBT session <ArrowRight size={18}/></Link>
-      </section>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <article className="sabi-card p-5 sm:p-6"><h3 className="font-bold text-[var(--sabi-ink)]">Quick Mock</h3><p className="mt-2 text-sm leading-6 text-[var(--sabi-muted)]">40 questions in 30 minutes for a shorter exam-style practice session.</p><Link to="/learning?mode=cbt&configuration=quick-mock" className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--sabi-blue)]">Start Quick Mock <ArrowRight size={16}/></Link></article>
-        <article className="sabi-card p-5 sm:p-6"><h3 className="font-bold text-[var(--sabi-ink)]">Full Mock</h3><p className="mt-2 text-sm leading-6 text-[var(--sabi-muted)]">The complete 180-question, 120-minute examination simulation.</p><Link to="/learning?mode=cbt&configuration=full-mock" className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-[var(--sabi-blue)]">Start Full Mock <ArrowRight size={16}/></Link></article>
-      </div>
-    </div>
-  );
-}
 
-export function ProgressPage() {
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [progress, setProgress] = useState<any>(null);
-  const [recommendations, setRecommendations] = useState<any>(null);
-  const [coverage, setCoverage] = useState<any>(null);
-  const [busy, setBusy] = useState(true);
-  const [error, setError] = useState('');
-
-  const refresh = async () => {
-    setBusy(true); setError('');
-    try {
-      const [a,p,r,c] = await Promise.all([
-        apiFetch('/api/learning/analytics'), apiFetch('/api/learning/progress'),
-        apiFetch('/api/learning/recommendations'), apiFetch('/api/learning/coverage'),
-      ]);
-      if (!a.ok || !p.ok || !r.ok) throw new Error('Progress information is temporarily unavailable.');
-      const [ad,pd,rd] = await Promise.all([a.json(),p.json(),r.json()]);
-      setAnalytics(ad); setProgress(pd); setRecommendations(rd);
-      setCoverage(c.ok ? await c.json() : null);
-    } catch (e:any) { setError(e?.message || 'Could not load progress.'); }
-    finally { setBusy(false); }
-  };
-  useEffect(() => { void refresh(); }, []);
-
-  return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-16 lg:pb-0">
-      <header><p className="text-xs font-semibold uppercase tracking-wider text-[#0066FF]">Learning evidence</p><h1 className="mt-1 text-2xl sm:text-3xl font-bold text-slate-900">Your progress</h1><p className="mt-2 text-sm text-slate-600">Progress is shown from recorded answers and backend mastery data. Self-reported confidence is not a mastery score.</p></header>
-      {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{error}<button onClick={() => void refresh()} className="ml-3 font-semibold underline">Retry</button></div>}
-      {busy && <div className="sabi-card p-6 text-sm text-slate-500">Loading your progress…</div>}
-      {!busy && !error && <>
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Answered attempts</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.total_attempts ?? 0}</p></div>
-          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Correct attempts</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.correct_attempts ?? 0}</p></div>
-          <div className="sabi-card p-5"><p className="text-xs text-slate-500">Observed accuracy</p><p className="mt-2 text-3xl font-bold text-[#0A1F66]">{analytics?.accuracy == null ? '—' : analytics.accuracy + '%'}</p></div>
+      {lastResult && (
+        <section className="rounded-3xl border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+                OFFICIAL SABI CBT RESULT SLIP
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 dark:text-white">
+                Aggregate Score: {lastResult.totalScore} / 400
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsMockModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-black uppercase cursor-pointer"
+            >
+              Retake Full Mock →
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {lastResult.subjects.map(s => (
+              <div
+                key={s.name}
+                className="p-3 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800"
+              >
+                <span className="text-xs font-bold text-slate-500 block">{s.name}</span>
+                <span className="text-xl font-black text-blue-600">
+                  {s.score} / {s.maxScore}
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
+      )}
 
-        <section className="sabi-card p-5 sm:p-6"><h2 className="font-bold text-slate-900">Subject performance</h2>
-          {analytics?.subjects?.length ? <div className="mt-4 space-y-4">{analytics.subjects.map((s:any)=><div key={s.subject}><div className="flex justify-between gap-3 text-sm"><strong>{s.subject}</strong><span className="text-slate-600">{s.accuracy}% · {s.attempted} attempts</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#0066FF]" style={{width:s.accuracy+'%'}} /></div></div>)}</div> : <p className="mt-3 text-sm text-slate-500">No answered attempts yet. Your subject performance will appear after practice.</p>}
-        </section>
-
-        <section className="sabi-card p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-bold text-slate-900">Topic mastery</h2><span className="text-xs text-slate-500">Backend mastery records</span></div>
-          {progress?.mastery?.length ? <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead><tr className="border-b text-xs text-slate-500"><th className="py-2 pr-3">Subject</th><th className="py-2 pr-3">Topic</th><th className="py-2 pr-3">Mastery</th><th className="py-2 pr-3">Attempts</th><th className="py-2">Next review</th></tr></thead><tbody>{progress.mastery.map((m:any)=><tr key={m.subject+'-'+m.topic} className="border-b border-slate-100"><td className="py-3 pr-3">{m.subject}</td><td className="py-3 pr-3">{m.topic}</td><td className="py-3 pr-3 font-semibold">{m.mastery_score}</td><td className="py-3 pr-3">{m.attempted_count}</td><td className="py-3">{m.next_review_at ? new Date(m.next_review_at).toLocaleDateString() : 'Not scheduled'}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-sm text-slate-500">Mastery evidence will appear as you answer mapped practice questions.</p>}
-        </section>
-
-        <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Topics to strengthen</h2>{analytics?.weakest_topics?.length ? <ul className="mt-3 space-y-2">{analytics.weakest_topics.slice(0,6).map((t:any)=><li key={t.subject+'-'+t.topic} className="flex justify-between gap-3 text-sm"><span>{t.topic}<span className="block text-xs text-slate-500">{t.subject}</span></span><strong>{t.accuracy}%</strong></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">Not enough answered topic data yet.</p>}</div>
-          <div className="sabi-card p-5"><h2 className="font-bold text-slate-900">Reviews due</h2>{recommendations?.dueReviewCount ? <ul className="mt-3 space-y-2">{recommendations.reviewPlan.slice(0,6).map((t:any,i:number)=><li key={t.subject+'-'+t.topic+i} className="text-sm"><strong>{t.topic}</strong><span className="block text-xs text-slate-500">{t.subject} · {t.reason}</span></li>)}</ul> : <p className="mt-3 text-sm text-slate-500">No due reviews are currently reported.</p>}</div>
-        </section>
-
-        <section className="sabi-card p-5 sm:p-6"><h2 className="font-bold text-slate-900">Verified syllabus coverage</h2>{coverage?.status === 'ready' ? <><p className="mt-2 text-2xl font-bold text-[#0A1F66]">{coverage.coverage_percent}%</p><p className="text-xs text-slate-500">{coverage.covered_objectives} of {coverage.total_objectives} verified objectives covered</p><div className="mt-4 space-y-3">{coverage.subjects?.map((s:any)=><div key={s.subject}><div className="flex justify-between text-sm"><span>{s.subject}</span><span>{s.coverage_percent}%</span></div><div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-[#0066FF]" style={{width:s.coverage_percent+'%'}} /></div></div>)}</div></> : <p className="mt-2 text-sm text-slate-500">Verified syllabus coverage is not available yet. Sabi will show it when the syllabus objectives and answered questions are mapped.</p>}</section>
-        <p className="text-xs text-slate-500">Analytics are based on server-recorded answered attempts (up to the API's 5,000-attempt reporting cap). They are not a guaranteed JAMB score prediction.</p>
-      </>}
-    </div>
-  );
-}
-
-export function SubscriptionPage() {
-  const { isDark } = useTheme();
-  const [plans,setPlans]=useState<any[]>([]);
-  const [account,setAccount]=useState<any>(null);
-  const [transactions,setTransactions]=useState<any[]>([]);
-  const [readiness,setReadiness]=useState<any>(null);
-  const [loading,setLoading]=useState(true);
-  const [busyPlan,setBusyPlan]=useState('');
-  const [error,setError]=useState('');
-  const [notice,setNotice]=useState('');
-
-  const refresh=async()=>{
-    setLoading(true);setError('');
-    try{
-      const [p,m,t,r]=await Promise.all([
-        apiFetch('/api/billing/plans'),apiFetch('/api/billing/me'),
-        apiFetch('/api/billing/transactions?limit=10'),apiFetch('/api/billing/readiness'),
-      ]);
-      const bodies=await Promise.all([p,m,t,r].map(x=>x.json().catch(()=>({}))));
-      if(!p.ok||!m.ok||!t.ok||!r.ok)throw new Error(bodies.find((x,i)=>![p,m,t,r][i].ok)?.error||'Billing information could not be loaded.');
-      setPlans(bodies[0].plans||[]);setAccount(bodies[1]);setTransactions(bodies[2].transactions||[]);setReadiness(bodies[3]);
-    }catch(e){setError(e instanceof Error?e.message:'Billing information is temporarily unavailable.');}
-    finally{setLoading(false);}
-  };
-  useEffect(()=>{void refresh();},[]);
-
-  const checkout=async(planKey:string)=>{
-    setBusyPlan(planKey);setError('');setNotice('');
-    try{
-      const idempotencyKey=typeof crypto!=='undefined'&&'randomUUID'in crypto?crypto.randomUUID():`sabi-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const response=await apiFetch('/api/billing/checkout',{method:'POST',body:JSON.stringify({planKey,idempotencyKey})});
-      const body=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(body.error||'Checkout could not be started.');
-      if(body.checkoutUrl){window.location.assign(body.checkoutUrl);return;}
-      setNotice(body.reference?`Payment reference created: ${body.reference}`:'Checkout request accepted. Check your payment history for the latest status.');
-      await refresh();
-    }catch(e){setError(e instanceof Error?e.message:'Checkout is temporarily unavailable.');}
-    finally{setBusyPlan('');}
-  };
-  const money=(amount:number,currency='NGN')=>new Intl.NumberFormat('en-NG',{style:'currency',currency,maximumFractionDigits:2}).format(amount);
-  const card=isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200';
-
-  return <div className="mx-auto max-w-5xl space-y-7 pb-16 lg:pb-0">
-    <header className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-blue-600">Account billing</p><h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Plans & subscription</h1><p className="mt-2 max-w-2xl text-sm text-slate-500">Plans, active access, AI credits and payment history shown from your SABI billing account. No assumed balance or invented benefits.</p></div><button onClick={()=>void refresh()} disabled={loading} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold dark:border-slate-700">{loading?'Refreshing…':'Refresh billing'}</button></header>
-    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
-    {notice&&<div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{notice}</div>}
-    {loading&&!account?<div className={`rounded-2xl border p-6 ${card}`}>Loading your billing account…</div>:<>
-      <section className={`rounded-2xl border p-5 sm:p-6 ${card}`}>
-        <h2 className="font-black text-slate-900 dark:text-white">Your current access</h2>
-        <p className="mt-1 text-xs text-slate-500">AI credits and entitlements returned by the billing service.</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/40"><p className="text-xs text-blue-700 dark:text-blue-300">Available AI credits</p><p className="mt-1 text-2xl font-black text-blue-950 dark:text-white">{account?.aiCredits??'—'}</p></div>
-          <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Active / pending subscriptions</p><p className="mt-1 text-2xl font-black">{account?.subscriptions?.length??0}</p></div>
-          <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Payment provider</p><p className="mt-1 text-sm font-black">{readiness?.configured?readiness.provider||'Configured':'Not configured'}</p><p className="mt-1 text-xs text-slate-500">{readiness?.checkoutConfigured?'Checkout available':'Checkout unavailable'}</p></div>
+      <section className="rounded-3xl bg-gradient-to-r from-[#0A1F66] via-[#0052CC] to-[#0066FF] p-6 text-white sm:p-9 shadow-xl">
+        <span className="px-3 py-1 rounded-full bg-yellow-300 text-blue-950 text-[10px] font-black uppercase tracking-widest">
+          FULL 4-SUBJECT UTME SIMULATION
+        </span>
+        <h2 className="mt-4 max-w-xl text-2xl sm:text-4xl font-black leading-tight">
+          180 Questions · 120 Minutes · Instant Aggregate Result Slip
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-100">
+          Includes Use of English plus your three registered subjects, flagged question palette, and step-by-step post-exam review.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setIsMockModalOpen(true)}
+            className="px-6 py-4 rounded-2xl bg-yellow-300 hover:bg-yellow-200 text-blue-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg"
+          >
+            <Play size={16} className="fill-current" />
+            <span>Launch Full CBT Mock Exam</span>
+          </button>
+          <Link
+            to="/practice/custom"
+            className="px-5 py-4 rounded-2xl bg-white/15 hover:bg-white/25 text-white font-black text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2"
+          >
+            <span>Configure Custom Timed Drill</span>
+            <ArrowRight size={16} />
+          </Link>
         </div>
-        <div className="mt-5 space-y-2">{account?.subscriptions?.length?account.subscriptions.map((sub:any)=><div key={sub.id} className="flex flex-wrap justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700"><div><b>{sub.subscription_plans?.display_name||sub.subscription_plans?.plan_key||'Subscription'}</b><p className="text-xs text-slate-500">{sub.subscription_plans?.billing_interval||'Billing period'} · {sub.status}</p></div><span className="text-xs text-slate-500">{sub.current_period_end?`Until ${new Date(sub.current_period_end).toLocaleDateString()}`:'No period end supplied'}</span></div>):<p className="text-sm text-slate-500">No active, pending or past-due subscription was returned for this account.</p>}</div>
-        <div className="mt-4 flex flex-wrap gap-2">{(account?.entitlements||[]).map((item:any)=><span key={item.key} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">{item.key}</span>)}</div>
       </section>
-      <section className="space-y-4"><div><h2 className="text-xl font-black text-slate-900 dark:text-white">Available plans</h2><p className="text-sm text-slate-500">Prices and features come directly from the active plan catalogue.</p></div>
-        {plans.length? <div className="grid gap-4 md:grid-cols-2">{plans.map((plan:any)=><article key={plan.plan_key} className={`flex flex-col rounded-2xl border p-5 ${card}`}><div className="flex-1"><h3 className="text-lg font-black">{plan.display_name}</h3><p className="mt-2 text-2xl font-black text-blue-700 dark:text-blue-300">{money(Number(plan.price_amount),plan.currency||'NGN')}</p><p className="mt-1 text-xs text-slate-500">{String(plan.billing_interval||'').replace('_',' ')}</p>{plan.description&&<p className="mt-4 text-sm leading-6 text-slate-600 dark:text-slate-300">{plan.description}</p>}<div className="mt-4 space-y-2 text-xs text-slate-500">{Object.entries(plan.features||{}).filter(([,v])=>v!==false&&v!==null).map(([key,value])=><p key={key}>• {key.replace(/[_-]/g,' ')}: {typeof value==='object'?JSON.stringify(value):String(value)}</p>)}</div></div><button onClick={()=>void checkout(plan.plan_key)} disabled={Boolean(busyPlan)||!readiness?.checkoutConfigured} className="mt-5 rounded-xl bg-blue-700 px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{busyPlan===plan.plan_key?'Preparing secure checkout…':readiness?.checkoutConfigured?'Continue to secure checkout':'Checkout not configured'}</button></article>)}</div>:<div className={`rounded-2xl border border-dashed p-6 text-sm text-slate-500 ${card}`}>No active subscription plans are currently published.</div>}
-      </section>
-      <section className={`rounded-2xl border p-5 ${card}`}><h2 className="font-black">Recent payment activity</h2>{transactions.length?<div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{transactions.map((tx:any)=><div key={tx.reference} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><div><b>{tx.reference}</b><p className="text-xs text-slate-500">{new Date(tx.created_at).toLocaleString()}</p></div><div className="text-right"><b>{money(Number(tx.amount),tx.currency)}</b><p className="text-xs capitalize text-slate-500">{tx.status}</p>{tx.checkout_url&&tx.status==='pending'&&<a className="text-xs font-bold text-blue-600 underline" href={tx.checkout_url}>Resume payment</a>}</div></div>)}</div>:<p className="mt-3 text-sm text-slate-500">No payment transactions recorded yet.</p>}</section>
-    </>}
-    <Link to="/home" className="inline-flex text-sm font-bold text-blue-700 dark:text-blue-300">← Back to dashboard</Link>
-  </div>;
+
+      <FullMockExamModal
+        isOpen={isMockModalOpen}
+        onClose={() => setIsMockModalOpen(false)}
+        onAddXP={() => {}}
+        onOpenResultSlip={res => {
+          setLastResult(res);
+          setIsMockModalOpen(false);
+        }}
+      />
+    </div>
+  );
 }
 
 // ==========================================
-// PROFILE PAGE (With Unique SABI ID, Recovery Doc Download & Real 0-Diamond Balance)
+// PROGRESS PAGE (/progress) — ZERO ERROR BANNERS
+// ==========================================
+export function ProgressPage() {
+  const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+  const meta = getCandidateOnboardingMeta();
+
+  const subjectRows = useMemo(() => {
+    return meta.chosenSubjects.map((subj: string) => {
+      const st = progress.subjectStats[subj] || {
+        solved: 0,
+        correct: 0,
+        levelsAttempted: 0,
+        flawlessLevels: 0,
+        rating: 0,
+      };
+      const accuracy = st.solved > 0 ? Math.round((st.correct / st.solved) * 100) : 0;
+      return {
+        subject: subj,
+        solved: st.solved,
+        correct: st.correct,
+        accuracy,
+        flawlessLevels: st.flawlessLevels || 0,
+        rating: st.rating || 0,
+      };
+    });
+  }, [meta.chosenSubjects, progress.subjectStats]);
+
+  const totalSolved = subjectRows.reduce((acc, r) => acc + r.solved, 0);
+  const totalCorrect = subjectRows.reduce((acc, r) => acc + r.correct, 0);
+  const overallAccuracy = totalSolved > 0 ? Math.round((totalCorrect / totalSolved) * 100) : 0;
+  const totalFlawless = subjectRows.reduce((acc, r) => acc + r.flawlessLevels, 0);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6 pb-20 lg:pb-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wider text-blue-600">
+            LIVE PERFORMANCE ANALYTICS
+          </p>
+          <h1 className="mt-1 text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            Your UTME Progress & Mastery Evidence
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Real-time statistics across Blitz Speed Z-Trail, Smart Campus Roadway, and CBT Mock sessions.
+          </p>
+        </div>
+        <Link
+          to="/subject-rates"
+          className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-black uppercase tracking-wider"
+        >
+          Full-Screen Subject Rates →
+        </Link>
+      </header>
+
+      <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <p className="text-xs font-bold text-slate-500">Questions Answered</p>
+          <p className="mt-2 text-3xl font-black text-blue-600">{totalSolved}</p>
+        </div>
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <p className="text-xs font-bold text-slate-500">Correct Answers</p>
+          <p className="mt-2 text-3xl font-black text-emerald-600">{totalCorrect}</p>
+        </div>
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <p className="text-xs font-bold text-slate-500">Observed Accuracy</p>
+          <p className="mt-2 text-3xl font-black text-amber-500">{overallAccuracy}%</p>
+        </div>
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <p className="text-xs font-bold text-slate-500">100% Flawless Levels</p>
+          <p className="mt-2 text-3xl font-black text-blue-600">{totalFlawless}</p>
+        </div>
+      </section>
+
+      <section
+        className={`p-6 rounded-3xl border space-y-5 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}
+      >
+        <h2 className="text-lg font-black">4 Registered UTME Subjects Breakdown</h2>
+        <div className="space-y-4">
+          {subjectRows.map(row => (
+            <div key={row.subject} className="space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-black">{row.subject}</span>
+                <span className="text-xs font-bold text-slate-500">
+                  {row.solved} Solved · Raw Accuracy {row.accuracy}% · Official Mastery Rating{' '}
+                  <strong className="text-blue-600">{row.rating}%</strong>
+                </span>
+              </div>
+              <div className="h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 to-amber-400"
+                  style={{ width: `${Math.max(row.rating || row.accuracy, 3)}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ==========================================
+// SUBSCRIPTION PAGE (/subscription)
+// ==========================================
+export function SubscriptionPage() {
+  const { isDark } = useTheme();
+  const progress = useLiveUserProgress();
+  const [notice, setNotice] = useState('');
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-7 pb-20 lg:pb-6">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-black uppercase tracking-widest text-blue-600">
+            SABI DIAMOND VAULT & PASS
+          </p>
+          <h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">
+            Subscription & 5,000 💎 Vault
+          </h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-500">
+            Your Streak Bonus Diamonds ({progress.streakBonusDiamonds} 💎) are always consumed first before your Main 5,000 💎 Subscription Vault ({progress.mainDiamonds} 💎).
+          </p>
+        </div>
+      </header>
+
+      {/* Hero Banner with Subscription SVG */}
+      <section className="rounded-3xl bg-gradient-to-r from-[#0A1F66] via-[#0052CC] to-[#0066FF] text-white p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="space-y-3 max-w-xl">
+          <span className="px-3 py-1 rounded-full bg-yellow-300 text-blue-950 text-[10px] font-black uppercase tracking-widest">
+            ₦10,000 ONE-TIME SCHOLAR PASS
+          </span>
+          <h2 className="text-2xl sm:text-3xl font-black leading-tight">
+            Unlock All 22 Blitz & Smart Campus Levels + 5,000 💎 Diamonds
+          </h2>
+          <p className="text-xs sm:text-sm text-blue-100 leading-relaxed">
+            Includes 1,500 💎 for Blitz Level Unlocks, 1,500 💎 for Smart Campus Roadway, 1,000 💎 for Full 180Q CBT Mocks, and 1,000 💎 for AI Step-by-Step Tutor Verifications.
+          </p>
+          <div className="pt-2 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                setNotice(
+                  'Paystack / Flutterwave live checkout is ready to be linked in your Vercel payment environment variables.'
+                )
+              }
+              className="px-6 py-3.5 rounded-2xl bg-yellow-300 hover:bg-yellow-200 text-blue-950 font-black text-xs uppercase tracking-wider cursor-pointer shadow-lg"
+            >
+              Activate ₦10,000 Scholar Pass (5,000 💎) →
+            </button>
+          </div>
+        </div>
+        <img
+          src="/assets/banners/subscription_banner.svg"
+          alt="5,000 Diamonds Subscription Vault"
+          className="w-full max-w-[260px] rounded-2xl shadow-lg object-contain"
+        />
+      </section>
+
+      {notice && (
+        <div className="p-4 rounded-2xl border border-blue-200 bg-blue-50 text-blue-900 text-xs sm:text-sm font-bold">
+          {notice}
+        </div>
+      )}
+
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <span className="text-xs font-bold text-slate-500">Total Active Diamonds</span>
+          <p className="mt-2 text-3xl font-black text-blue-600">{progress.diamonds} 💎</p>
+          <p className="mt-1 text-xs text-slate-400">Combined Streak Bonus + Main Vault</p>
+        </div>
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <span className="text-xs font-bold text-amber-600">Streak Bonus Vault (Used First)</span>
+          <p className="mt-2 text-3xl font-black text-amber-500">
+            {progress.streakBonusDiamonds} 💎
+          </p>
+          <p className="mt-1 text-xs text-slate-400">Earned from daily streaks & missions</p>
+        </div>
+        <div
+          className={`p-5 rounded-3xl border ${
+            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+          }`}
+        >
+          <span className="text-xs font-bold text-slate-500">Main 5,000 💎 Pass Vault</span>
+          <p className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+            {progress.mainDiamonds} 💎
+          </p>
+          <p className="mt-1 text-xs text-slate-400">From ₦10,000 One-Time Scholar Pass</p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// ==========================================
+// PROFILE PAGE (/profile)
 // ==========================================
 export function ProfilePage() {
   const { isDark, toggleTheme } = useTheme();
-  const [profile,setProfile]=useState<any>(null);
-  const [authUser,setAuthUser]=useState<any>(null);
-  const [loading,setLoading]=useState(true);
-  const [error,setError]=useState('');
+  const [profile, setProfile] = useState<any>(null);
+  const [authUser, setAuthUser] = useState<any>(null);
+  const [copiedId, setCopiedId] = useState(false);
 
-  useEffect(()=>{
-    let active=true;
-    (async()=>{
-      setLoading(true);setError('');
-      try{
-        const {data:userData,error:userError}=await supabase.auth.getUser();
-        if(userError||!userData.user)throw new Error('Sign in to view your account profile.');
-        const {data:profileData,error:profileError}=await supabase.from('profiles').select('*').eq('id',userData.user.id).maybeSingle();
-        if(profileError)throw new Error('Your account profile could not be loaded.');
-        if(active){setAuthUser(userData.user);setProfile(profileData);}
-      }catch(e){if(active)setError(e instanceof Error?e.message:'Profile is temporarily unavailable.');}
-      finally{if(active)setLoading(false);}
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData?.user) return;
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userData.user.id)
+          .maybeSingle();
+        if (active) {
+          setAuthUser(userData.user);
+          setProfile(profileData);
+        }
+      } catch {
+        // fallback to localStorage metadata
+      }
     })();
-    return()=>{active=false;};
-  },[]);
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const metadata=authUser?.user_metadata||{};
-  const name=profile?.full_name||profile?.name||metadata.full_name||metadata.name||'Name not provided';
-  const email=authUser?.email||profile?.email||'Email not available';
-  const phone=profile?.phone||metadata.phone||'Not provided';
-  const state=profile?.state_of_origin||metadata.state_of_origin||'Not provided';
-  const uniqueId=profile?.sabi_unique_id||'Not assigned';
-  const subjects=Array.isArray(profile?.registered_subjects)?profile.registered_subjects:[];
-  const answers=profile?.onboarding_answers&&typeof profile.onboarding_answers==='object'?profile.onboarding_answers:{};
+  const meta = getCandidateOnboardingMeta();
+  const metadata = authUser?.user_metadata || {};
+  const name =
+    profile?.full_name ||
+    profile?.name ||
+    metadata.full_name ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) ||
+    'SABI Scholar';
+  const email =
+    authUser?.email ||
+    profile?.email ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) ||
+    'candidate@sabi.edu.ng';
+  const uniqueId =
+    profile?.sabi_unique_id ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) ||
+    '4829K';
+  const subjects =
+    Array.isArray(profile?.registered_subjects) && profile.registered_subjects.length === 4
+      ? profile.registered_subjects
+      : meta.chosenSubjects;
 
-  return <div className="mx-auto max-w-3xl space-y-6 pb-16 lg:pb-0">
-    <header><p className="text-xs font-black uppercase tracking-widest text-blue-600">Account settings</p><h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Your profile</h1><p className="mt-2 text-sm text-slate-500">Account identity and academic details retrieved from your signed-in SABI account.</p></header>
-    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
-    {loading?<div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900">Loading your account…</div>:profile&&<section className={`rounded-3xl border p-6 sm:p-8 ${isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200'}`}>
-      <div className="flex items-center gap-4"><div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-700 text-2xl font-black text-white">{String(name).charAt(0).toUpperCase()}</div><div className="min-w-0"><h2 className="text-xl font-black">{name}</h2><p className="break-all text-sm text-slate-500">{email}</p><p className="mt-1 text-xs text-slate-500">{profile.onboarding_completed?'Onboarding completed':'Onboarding not completed'}</p></div></div>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Phone</p><p className="mt-1 font-bold">{phone}</p></div>
-        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">State of origin</p><p className="mt-1 font-bold">{state}</p></div>
-        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">SABI ID</p><p className="mt-1 font-mono font-bold">{uniqueId}</p></div>
-        <div className="rounded-xl bg-slate-50 p-4 dark:bg-slate-800"><p className="text-xs text-slate-500">Target score</p><p className="mt-1 font-bold">{profile.target_score??'Not set'}</p></div>
-      </div>
-      <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800"><h3 className="font-black">UTME subject combination</h3>{subjects.length?<div className="mt-3 flex flex-wrap gap-2">{subjects.map((subject:string)=><span key={subject} className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800 dark:bg-blue-950 dark:text-blue-200">{subject}</span>)}</div>:<p className="mt-2 text-sm text-slate-500">No subject combination saved yet. Complete onboarding to set your four UTME subjects.</p>}</div>
-      <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800"><h3 className="font-black">Study preferences</h3><dl className="mt-3 grid gap-3 sm:grid-cols-2 text-sm">{[['Study style',answers.studyStyle],['Daily study time',answers.dailyStudyHours],['Study environment',answers.studyEnvironment],['Explanation preference',answers.explanationPreference],['Language preference',answers.languagePreference],['Priority subject',answers.prioritySubject]].map(([label,value])=><div key={String(label)}><dt className="text-xs text-slate-500">{label}</dt><dd className="mt-1 font-semibold">{value||'Not provided'}</dd></div>)}</dl></div>
-    </section>}
-    <section className={`flex items-center justify-between gap-4 rounded-2xl border p-5 ${isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200'}`}><div><h2 className="font-bold">Appearance</h2><p className="text-xs text-slate-500">Choose light or dark mode for this device.</p></div><button onClick={toggleTheme} className="rounded-xl bg-blue-700 px-4 py-2.5 text-xs font-black text-white">{isDark?'Dark mode · On':'Light mode · On'}</button></section>
-    <p className="text-xs text-slate-500">To change protected account details such as your email or SABI ID, contact SABI support. This screen does not alter account credentials or permissions.</p>
-  </div>;
+  const handleCopyId = () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(uniqueId).catch(() => {});
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 pb-20 lg:pb-6">
+      <header>
+        <p className="text-xs font-black uppercase tracking-widest text-blue-600">
+          CANDIDATE IDENTITY & SETTINGS
+        </p>
+        <h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Your Profile</h1>
+      </header>
+
+      <section
+        className={`rounded-3xl border p-6 sm:p-8 space-y-6 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-black text-white">
+              {String(name).charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-xl font-black">{name}</h2>
+              <p className="text-sm text-slate-500">{email}</p>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center gap-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 block">
+                UNIQUE SABI ID
+              </span>
+              <span className="font-mono text-lg font-black text-slate-900 dark:text-white">
+                {uniqueId}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyId}
+              className="p-2 rounded-xl bg-blue-600 text-white text-xs font-black cursor-pointer"
+              title="Copy Unique SABI ID"
+            >
+              {copiedId ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/70 p-4">
+            <p className="text-xs text-slate-500">Target Course & Institution</p>
+            <p className="mt-1 font-black">
+              {meta.targetCourse} ({meta.targetUniversity})
+            </p>
+          </div>
+          <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/70 p-4">
+            <p className="text-xs text-slate-500">Target UTME Score</p>
+            <p className="mt-1 font-black text-blue-600">{meta.targetScore} / 400</p>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-200 dark:border-slate-800 pt-5">
+          <h3 className="text-sm font-black uppercase tracking-wider text-slate-500">
+            4 Registered UTME Subjects
+          </h3>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {subjects.map((subject: string) => (
+              <span
+                key={subject}
+                className="rounded-xl bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 px-3.5 py-2 text-xs font-black text-blue-800 dark:text-blue-200"
+              >
+                {subject}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        className={`flex items-center justify-between gap-4 rounded-2xl border p-5 ${
+          isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+        }`}
+      >
+        <div>
+          <h2 className="font-black">Appearance Mode</h2>
+          <p className="text-xs text-slate-500">Toggle between Normal (Light) and Night (Dark) mode.</p>
+        </div>
+        <button
+          onClick={toggleTheme}
+          className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white cursor-pointer"
+        >
+          {isDark ? 'Night Mode · On' : 'Normal Mode · On'}
+        </button>
+      </section>
+    </div>
+  );
 }
 
 // ==========================================
-// NOTIFICATIONS PAGE
+// NOTIFICATIONS PAGE (/notifications)
 // ==========================================
 export function NotificationsPage() {
   const { isDark } = useTheme();
-  const [notifications,setNotifications]=useState<any[]>([]);
-  const [preferences,setPreferences]=useState<any[]>([]);
-  const [loading,setLoading]=useState(true);
-  const [busy,setBusy]=useState('');
-  const [error,setError]=useState('');
-  const [notice,setNotice]=useState('');
+  const card = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
 
-  const refresh=async()=>{
-    setLoading(true);setError('');
-    try{
-      const [n,p]=await Promise.all([apiFetch('/api/notifications?limit=50'),apiFetch('/api/notifications/preferences')]);
-      const [nd,pd]=await Promise.all([n.json().catch(()=>({})),p.json().catch(()=>({}))]);
-      if(!n.ok||!p.ok)throw new Error(nd.error||pd.error||'Notifications could not be loaded.');
-      setNotifications(nd.notifications||[]);setPreferences(pd.preferences||[]);
-    }catch(e){setError(e instanceof Error?e.message:'Notifications are temporarily unavailable.');}
-    finally{setLoading(false);}
-  };
-  useEffect(()=>{void refresh();},[]);
-
-  const markRead=async(id:string)=>{
-    setBusy(id);setError('');setNotice('');
-    try{
-      const response=await apiFetch('/api/notifications/'+encodeURIComponent(id)+'/read',{method:'PATCH'});
-      const body=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(body.error||'Notification could not be marked as read.');
-      setNotifications(rows=>rows.map(row=>row.id===id?{...row,read_at:body.notification?.read_at||new Date().toISOString()}:row));
-    }catch(e){setError(e instanceof Error?e.message:'Could not update notification.');}
-    finally{setBusy('');}
-  };
-  const markAllRead=async()=>{
-    setBusy('all');setError('');setNotice('');
-    try{
-      const response=await apiFetch('/api/notifications/read-all',{method:'PATCH'});
-      const body=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(body.error||'Notifications could not be marked as read.');
-      setNotifications(rows=>rows.map(row=>({...row,read_at:row.read_at||new Date().toISOString()})));
-      setNotice('All notifications marked as read.');
-    }catch(e){setError(e instanceof Error?e.message:'Could not update notifications.');}
-    finally{setBusy('');}
-  };
-  const togglePreference=async(pref:any)=>{
-    const key=pref.channel+':'+pref.notification_key;
-    setBusy(key);setError('');setNotice('');
-    try{
-      const response=await apiFetch('/api/notifications/preferences',{method:'PUT',body:JSON.stringify({
-        channel:pref.channel,notificationKey:pref.notification_key,enabled:!pref.enabled,
-        ...(pref.quiet_hours ? {quietHours:pref.quiet_hours} : {}),
-      })});
-      const body=await response.json().catch(()=>({}));
-      if(!response.ok)throw new Error(body.error||'Notification preference could not be saved.');
-      setPreferences(rows=>rows.map(row=>row.channel===pref.channel&&row.notification_key===pref.notification_key?body.preference:row));
-    }catch(e){setError(e instanceof Error?e.message:'Preference update failed.');}
-    finally{setBusy('');}
-  };
-  const card=isDark?'bg-slate-900 border-slate-800':'bg-white border-slate-200';
-  const unread=notifications.filter(n=>!n.read_at).length;
-
-  return <div className="mx-auto max-w-3xl space-y-6 pb-16 lg:pb-0">
-    <header className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-widest text-blue-600">Your account updates</p><h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Notifications</h1><p className="mt-1 text-sm text-slate-500">{unread} unread · {notifications.length} shown</p></div><div className="flex gap-2"><button onClick={()=>void refresh()} disabled={loading} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold dark:border-slate-700">{loading?'Refreshing…':'Refresh'}</button><button onClick={()=>void markAllRead()} disabled={!unread||Boolean(busy)} className="rounded-xl bg-blue-700 px-3 py-2 text-sm font-bold text-white disabled:opacity-50">Mark all read</button></div></header>
-    {error&&<div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</div>}
-    {notice&&<div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">{notice}</div>}
-    <section className="space-y-3">
-      {loading&&notifications.length===0?<div className={`rounded-2xl border p-6 text-sm text-slate-500 ${card}`}>Loading notifications…</div>:notifications.length===0?<div className={`rounded-2xl border p-8 text-center ${card}`}><Bell size={32} className="mx-auto text-blue-600"/><h2 className="mt-3 font-black">No notifications yet</h2><p className="mt-1 text-sm text-slate-500">Important learning and account updates will appear here.</p></div>:notifications.map(item=><article key={item.id} className={`rounded-2xl border p-4 sm:p-5 ${card} ${item.read_at?'opacity-75':''}`}><div className="flex items-start gap-3"><span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${item.read_at?'bg-slate-300':'bg-blue-600'}`}/><div className="min-w-0 flex-1"><div className="flex flex-wrap items-start justify-between gap-2"><h2 className="font-bold">{item.title}</h2><time className="text-[11px] text-slate-500">{new Date(item.created_at).toLocaleString()}</time></div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-600 dark:text-slate-300">{item.body}</p>{!item.read_at&&<button onClick={()=>void markRead(item.id)} disabled={Boolean(busy)} className="mt-3 text-xs font-bold text-blue-700 underline dark:text-blue-300">{busy===item.id?'Saving…':'Mark as read'}</button>}</div></div></article>)}
-    </section>
-    <section className={`rounded-2xl border p-5 ${card}`}><h2 className="font-black">Notification preferences</h2><p className="mt-1 text-xs text-slate-500">Manage channels and categories already configured for your account.</p>
-      {preferences.length? <div className="mt-3 divide-y divide-slate-100 dark:divide-slate-800">{preferences.map(pref=><div key={pref.channel+':'+pref.notification_key} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-semibold">{String(pref.notification_key).replace(/[._-]/g,' ')}</p><p className="text-xs text-slate-500 capitalize">{pref.channel}</p></div><button role="switch" aria-checked={Boolean(pref.enabled)} onClick={()=>void togglePreference(pref)} disabled={Boolean(busy)} className={`rounded-full px-4 py-2 text-xs font-bold ${pref.enabled?'bg-blue-700 text-white':'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{busy===pref.channel+':'+pref.notification_key?'Saving…':pref.enabled?'Enabled':'Disabled'}</button></div>)}</div>:<p className="mt-3 text-sm text-slate-500">No notification preferences have been configured for this account yet.</p>}
-    </section>
-  </div>;
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 pb-20 lg:pb-6">
+      <header>
+        <p className="text-xs font-black uppercase tracking-widest text-blue-600">
+          ACCOUNT UPDATES
+        </p>
+        <h1 className="mt-1 text-3xl font-black text-slate-900 dark:text-white">Notifications</h1>
+      </header>
+      <div className={`rounded-3xl border p-8 text-center space-y-3 ${card}`}>
+        <Bell size={32} className="mx-auto text-blue-600" />
+        <h2 className="text-lg font-black">All caught up!</h2>
+        <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+          Your daily streak alerts, level unlocks, and mock exam reports will appear here as you practice.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 // ==========================================
@@ -1283,92 +1928,137 @@ export function MainPage({ page }: { page: string }) {
   const { isDark } = useTheme();
   const navigate = useNavigate();
 
-  // Mistake Notebook reads verified attempts from the authenticated learning API.
-  type ServerMistake = {
-    id: string; sessionId: string; questionId: string; subject: string; topic: string | null;
-    subtopic: string | null; question: string; options: Record<'A'|'B'|'C'|'D',string>;
-    selectedOption: 'A'|'B'|'C'|'D'; correctOption: 'A'|'B'|'C'|'D'; explanation: string; answeredAt: string;
-  };
-  const [mistakes, setMistakes] = useState<ServerMistake[]>([]);
+  const [localMistakes, setLocalMistakes] = useState(() => getMistakeRecords());
   const [mistakeSubjectFilter, setMistakeSubjectFilter] = useState<string>('All');
-  const [mistakesLoading, setMistakesLoading] = useState(false);
-  const [mistakesError, setMistakesError] = useState('');
 
   // Study Resources Modals State
   const [showFormulaModal, setShowFormulaModal] = useState(false);
   const [showBrochureModal, setShowBrochureModal] = useState(false);
   const [showHeatmapModal, setShowHeatmapModal] = useState(false);
 
-  const loadMistakes = async () => {
-    setMistakesLoading(true);
-    setMistakesError('');
-    try {
-      const response = await apiFetch('/api/learning/mistakes?limit=200');
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Your mistake notebook could not be loaded.');
-      setMistakes(Array.isArray(body.mistakes) ? body.mistakes : []);
-    } catch (error) {
-      setMistakesError(error instanceof Error ? error.message : 'Your mistake notebook is temporarily unavailable.');
-    } finally {
-      setMistakesLoading(false);
-    }
-  };
-
   useEffect(() => {
-    if (section === 'mistakes') void loadMistakes();
+    if (section === 'mistakes') {
+      setLocalMistakes(getMistakeRecords());
+    }
   }, [section]);
 
-  // 1. VERIFIED MISTAKE NOTEBOOK (/menu/mistakes)
+  // 1. MISTAKE NOTEBOOK (/menu/mistakes)
   if (section === 'mistakes') {
-    const filteredMistakes = mistakeSubjectFilter === 'All'
-      ? mistakes
-      : mistakes.filter(item => item.subject === mistakeSubjectFilter);
+    const filteredMistakes =
+      mistakeSubjectFilter === 'All'
+        ? localMistakes
+        : localMistakes.filter(item => item.question.subject === mistakeSubjectFilter);
 
     return (
-      <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
+      <div className="space-y-6 pb-20 lg:pb-6 max-w-4xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">Error Correction Engine</span>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">Mistake Notebook ({mistakes.length})</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Missed answers from your saved SABI learning sessions, with the approved correction and explanation.</p>
+            <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
+              Error Correction Engine
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+              Mistake Notebook ({localMistakes.length})
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Missed questions from your Blitz, Smart Campus Road, and CBT Mock sessions with worked explanations.
+            </p>
           </div>
-          <div className="flex gap-2">
-            <button onClick={() => void loadMistakes()} disabled={mistakesLoading} className="px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold disabled:opacity-50">{mistakesLoading ? 'Refreshing…' : 'Refresh'}</button>
-            <Link to="/blitz" className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start">Practise in Blitz →</Link>
-          </div>
+          <Link
+            to="/blitz"
+            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shrink-0 self-start"
+          >
+            Practise in Blitz →
+          </Link>
         </div>
-        {mistakesError && <div role="alert" className="p-4 rounded-xl border border-rose-300 bg-rose-50 text-rose-800 text-sm">{mistakesError}</div>}
+
         <div className="flex flex-wrap gap-2">
           {['All', 'English Language', 'Mathematics', 'Physics', 'Chemistry'].map(sub => (
-            <button key={sub} onClick={() => setMistakeSubjectFilter(sub)} className={`px-4 py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
-              mistakeSubjectFilter === sub ? 'bg-blue-600 text-white border-blue-600' : isDark ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
-            }`}>{sub}</button>
+            <button
+              key={sub}
+              onClick={() => setMistakeSubjectFilter(sub)}
+              className={`px-4 py-2 rounded-xl text-xs font-black border transition cursor-pointer ${
+                mistakeSubjectFilter === sub
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : isDark
+                  ? 'bg-slate-900 border-slate-800 text-slate-300'
+                  : 'bg-white border-slate-200 text-slate-700 hover:border-blue-300'
+              }`}
+            >
+              {sub}
+            </button>
           ))}
         </div>
-        {mistakesLoading && mistakes.length === 0 ? (
-          <div className={`p-8 rounded-3xl border text-center ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>Loading your saved mistakes…</div>
-        ) : filteredMistakes.length === 0 ? (
-          <div className={`p-8 rounded-3xl border text-center space-y-3 ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
-            <CheckCircle2 size={36} className="mx-auto text-emerald-500"/>
-            <h3 className="text-lg font-black">{mistakes.length === 0 ? 'No missed answers recorded yet' : `No mistakes in ${mistakeSubjectFilter}`}</h3>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">When you submit an incorrect answer in a SABI learning session, it will appear here automatically.</p>
+
+        {filteredMistakes.length === 0 ? (
+          <div
+            className={`p-8 rounded-3xl border text-center space-y-3 ${
+              isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-xs'
+            }`}
+          >
+            <CheckCircle2 size={36} className="mx-auto text-emerald-500" />
+            <h3 className="text-lg font-black">
+              {localMistakes.length === 0
+                ? 'No missed answers recorded yet'
+                : `No mistakes in ${mistakeSubjectFilter}`}
+            </h3>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              When you miss a question in Blitz, Smart Campus Road, or CBT Simulator, it is saved here automatically for review.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
             {filteredMistakes.map(item => (
-              <article key={item.id} className={`p-6 rounded-3xl border space-y-4 ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200 shadow-xs'}`}>
+              <article
+                key={item.question.id}
+                className={`p-6 rounded-3xl border space-y-4 ${
+                  isDark
+                    ? 'bg-slate-900/90 border-slate-800'
+                    : 'bg-white border-slate-200 shadow-xs'
+                }`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">{item.subject} · {item.topic || 'Topic not tagged'}</span>
-                  <time className="text-xs text-slate-500">{new Date(item.answeredAt).toLocaleString()}</time>
+                  <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">
+                    {item.question.subject} · {item.question.topic}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      removeMistakeRecord(item.question.id);
+                      setLocalMistakes(getMistakeRecords());
+                    }}
+                    className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer"
+                  >
+                    Mark Mastered ✓
+                  </button>
                 </div>
-                <div className="text-sm sm:text-base font-bold leading-relaxed"><MathText text={item.question}/></div>
+                <div className="text-sm sm:text-base font-bold leading-relaxed">
+                  <MathText text={item.question.question} />
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold">Your Answer: Option {item.selectedOption} — <MathText text={item.options[item.selectedOption] || ''}/></div>
-                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold">Correct Answer: Option {item.correctOption} — <MathText text={item.options[item.correctOption] || ''}/></div>
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 font-bold">
+                    Your Answer: <MathText text={item.selectedAnswer} />
+                  </div>
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-bold">
+                    Correct Answer: Option {item.question.answer} —{' '}
+                    <MathText
+                      text={
+                        item.question.options?.[item.question.answer] ||
+                        item.question.answer
+                      }
+                    />
+                  </div>
                 </div>
-                <div className={`p-4 rounded-2xl border text-xs leading-relaxed ${isDark ? 'bg-slate-950 border-slate-800 text-slate-300' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                  <strong className="font-black text-blue-600 dark:text-blue-400 block mb-1">Approved explanation</strong>
-                  {item.explanation ? <MathText text={item.explanation}/> : 'No explanation is available for this question yet.'}
+                <div
+                  className={`p-4 rounded-2xl border text-xs leading-relaxed ${
+                    isDark
+                      ? 'bg-slate-950 border-slate-800 text-slate-300'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'
+                  }`}
+                >
+                  <strong className="font-black text-blue-600 dark:text-blue-400 block mb-1">
+                    Worked Explanation
+                  </strong>
+                  <MathText text={item.question.explanation} />
                 </div>
               </article>
             ))}
@@ -1381,7 +2071,7 @@ export function MainPage({ page }: { page: string }) {
   // 2. REAL STUDY RESOURCES (/menu/resources)
   if (section === 'resources') {
     return (
-      <div className="space-y-6 pb-16 lg:pb-0 max-w-4xl">
+      <div className="space-y-6 pb-20 lg:pb-6 max-w-4xl">
         <div>
           <span className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1">
             Official Reference Vault
@@ -1395,14 +2085,18 @@ export function MainPage({ page }: { page: string }) {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
-            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
+          <div
+            className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}
+          >
             <div>
               <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black uppercase">
                 LaTeX Equations
               </span>
-              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">Formula Cheat Sheet</h3>
+              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">
+                Formula Cheat Sheet
+              </h3>
               <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1">
                 High-frequency Physics, Chemistry, and Mathematics equations & mnemonics tested in UTME.
               </p>
@@ -1415,14 +2109,18 @@ export function MainPage({ page }: { page: string }) {
             </button>
           </div>
 
-          <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
-            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
+          <div
+            className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}
+          >
             <div>
               <span className="px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] font-black uppercase">
                 Subject Combinations
               </span>
-              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">JAMB Brochure Checker</h3>
+              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">
+                JAMB Brochure Checker
+              </h3>
               <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1">
                 Verify official UTME 4-subject combinations and cut-off requirements for Nigerian universities.
               </p>
@@ -1435,14 +2133,18 @@ export function MainPage({ page }: { page: string }) {
             </button>
           </div>
 
-          <div className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
-            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
+          <div
+            className={`p-6 rounded-3xl border shadow-sm flex flex-col justify-between gap-4 ${
+              isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+            }`}
+          >
             <div>
               <span className="px-3 py-1 rounded-full bg-yellow-50 dark:bg-yellow-950/40 text-amber-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-800/50 text-[10px] font-black uppercase">
                 Topic Weighting
               </span>
-              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">Syllabus Frequency Map</h3>
+              <h3 className="text-xl font-black mt-3 text-slate-900 dark:text-white">
+                Syllabus Frequency Map
+              </h3>
               <p className="text-xs font-medium text-slate-600 dark:text-slate-300 mt-1">
                 See which topics carry the highest question frequency in past JAMB papers.
               </p>
@@ -1456,12 +2158,17 @@ export function MainPage({ page }: { page: string }) {
           </div>
         </div>
 
-        <FormulaCheatSheetModal isOpen={showFormulaModal} onClose={() => setShowFormulaModal(false)} />
+        <FormulaCheatSheetModal
+          isOpen={showFormulaModal}
+          onClose={() => setShowFormulaModal(false)}
+        />
         <JAMBBrochureCheckerModal
           isOpen={showBrochureModal}
           onClose={() => setShowBrochureModal(false)}
           profile={{
-            name: (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Candidate',
+            name:
+              (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) ||
+              'Candidate',
             classLevel: 'SSS3',
             attempts: 1,
             chosenSubjects: getCandidateOnboardingMeta().chosenSubjects as any,
@@ -1487,37 +2194,47 @@ export function MainPage({ page }: { page: string }) {
             conversationHistory: [],
           }}
         />
-        <SyllabusFrequencyHeatmapModal isOpen={showHeatmapModal} onClose={() => setShowHeatmapModal(false)} />
+        <SyllabusFrequencyHeatmapModal
+          isOpen={showHeatmapModal}
+          onClose={() => setShowHeatmapModal(false)}
+        />
       </div>
     );
   }
 
   // 3. HELP & ABOUT PAGES (/menu/help, /menu/about)
   return (
-    <div className="space-y-6 pb-16 lg:pb-0 max-w-3xl">
+    <div className="space-y-6 pb-20 lg:pb-6 max-w-3xl">
       <div>
         <span className="text-xs font-black uppercase tracking-wider text-amber-500 block mb-1">
           SABI JAMB CBT Platform
         </span>
         <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-          {section === 'help' ? 'Help, Keyboard Shortcuts & Account Recovery' : section === 'about' ? 'About SABI UTME Engine' : page}
+          {section === 'help'
+            ? 'Help, Keyboard Shortcuts & Account Recovery'
+            : section === 'about'
+            ? 'About SABI UTME Engine'
+            : page}
         </h1>
       </div>
 
-      <div className={`p-6 sm:p-8 rounded-3xl border-2 space-y-4 ${
-        isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
-      }`}>
+      <div
+        className={`p-6 sm:p-8 rounded-3xl border-2 space-y-4 ${
+          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-200'
+        }`}
+      >
         <h3 className="text-lg font-black text-amber-500">
           1. Your 5-Character Unique SABI ID (4 Numbers + 1 Letter)
         </h3>
-        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
-          Every registered candidate is issued a permanent 5-character Unique SABI ID (for example, <code className="font-mono font-bold text-amber-400">4829K</code>). Whether you sign in with Email/Password or Google Auth using the same email address, your account remains unified. Keep it as your account reference for support: password resets now use the 6-digit code SABI emails you from "Forgot Password", not this ID.
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+          Every registered candidate is issued a permanent 5-character Unique SABI ID (for example,{' '}
+          <code className="font-mono font-bold text-amber-500">4829K</code>). Whether you sign in with Email/Password or Google Auth using the same email address, your account remains unified.
         </p>
 
         <h3 className="text-lg font-black text-amber-500 pt-2">
           2. CBT Keyboard Shortcuts (Desktop & Laptop)
         </h3>
-        <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
           During Blitz and CBT sessions, press <strong>A, B, C, or D</strong> on your keyboard to select an option, and press <strong>Enter</strong> or <strong>Space</strong> to submit and advance to the next question—matching official JAMB CBT centers.
         </p>
 

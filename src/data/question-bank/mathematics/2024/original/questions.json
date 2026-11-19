@@ -1,0 +1,51 @@
+{
+  "id": "original",
+  "variant": "original",
+  "subject": "Mathematics",
+  "subject_slug": "mathematics",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "MTH-2024-ORIG-Q01",
+      "canonical_id": "MTH-2024-Q01",
+      "difficulty_id": "original",
+      "subject": "Mathematics",
+      "year": 2024,
+      "topic": "Algebra",
+      "subtopic": "Indices and Logarithms",
+      "question": "Solve for x if 2^(2x + 1) = 32.",
+      "options": {
+        "A": "2",
+        "B": "3",
+        "C": "4",
+        "D": "5"
+      },
+      "answer": "A",
+      "explanation": "Express 32 in base 2: 32 = 2^5. Equating exponents gives 2x + 1 = 5 => 2x = 4 => x = 2.",
+      "explanation_short": "2^(2x+1) = 2^5 => 2x + 1 = 5 => x = 2.",
+      "explanation_pidgin": "Change 32 to base 2 wey be 2^5. Then 2x + 1 = 5, so 2x = 4 and x = 2."
+    },
+    {
+      "question_number": 2,
+      "question_id": "MTH-2024-ORIG-Q02",
+      "canonical_id": "MTH-2024-Q02",
+      "difficulty_id": "original",
+      "subject": "Mathematics",
+      "year": 2024,
+      "topic": "Calculus",
+      "subtopic": "Differentiation",
+      "question": "Find the derivative of y = 3x^2 - 5x + 7 with respect to x.",
+      "options": {
+        "A": "6x - 5",
+        "B": "6x + 5",
+        "C": "3x - 5",
+        "D": "6x^2 - 5"
+      },
+      "answer": "A",
+      "explanation": "Using the power rule d/dx(ax^n) = anx^(n-1): d/dx(3x^2) = 6x, d/dx(-5x) = -5, and d/dx(7) = 0. Thus dy/dx = 6x - 5.",
+      "explanation_short": "dy/dx = 6x - 5 by the power rule.",
+      "explanation_pidgin": "Bring power 2 down multiply 3x e go give 6x, -5x go remain -5, constant 7 go turn 0. Answer na 6x - 5."
+    }
+  ]
+}

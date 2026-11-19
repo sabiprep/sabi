@@ -1,0 +1,30 @@
+{
+  "id": "hard",
+  "variant": "twin3",
+  "subject": "Chemistry",
+  "subject_slug": "chemistry",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "CHM-2024-TWIN3-Q01",
+      "canonical_id": "CHM-2024-Q01",
+      "difficulty_id": "hard",
+      "subject": "Chemistry",
+      "year": 2024,
+      "topic": "Gas Laws",
+      "subtopic": "General Gas Equation",
+      "question": "A fixed mass of gas occupies 300 cm³ at 27°C and 760 mmHg. What volume will it occupy at 127°C and 1520 mmHg?",
+      "options": {
+        "A": "200 cm³",
+        "B": "400 cm³",
+        "C": "150 cm³",
+        "D": "250 cm³"
+      },
+      "answer": "A",
+      "explanation": "Convert temperatures to Kelvin: T1 = 27 + 273 = 300 K; T2 = 127 + 273 = 400 K. Using (P1V1)/T1 = (P2V2)/T2: (760 * 300)/300 = (1520 * V2)/400 => 760 = 3.8 * V2 => V2 = 200 cm³.",
+      "explanation_short": "(P1V1)/T1 = (P2V2)/T2 with T1=300K, T2=400K gives V2 = 200 cm³.",
+      "explanation_pidgin": "Change °C to Kelvin first (300 K and 400 K). Put inside P1V1/T1 = P2V2/T2: V2 = (760 × 300 × 400) / (300 × 1520) = 200 cm³."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "hard",
+  "variant": "twin3",
+  "subject": "Physics",
+  "subject_slug": "physics",
+  "year": 2024,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_id": "PHY-2024-TWIN3-Q01",
+      "canonical_id": "PHY-2024-Q01",
+      "difficulty_id": "hard",
+      "subject": "Physics",
+      "year": 2024,
+      "topic": "Mechanics",
+      "subtopic": "Linear Motion",
+      "question": "A train travelling at 30 m/s applies its brakes and decelerates uniformly at 5 m/s². How far does it travel before coming to a complete stop?",
+      "options": {
+        "A": "90 m",
+        "B": "60 m",
+        "C": "120 m",
+        "D": "45 m"
+      },
+      "answer": "A",
+      "explanation": "Using v² = u² + 2as with v = 0, u = 30 m/s, a = -5 m/s²: 0 = 30² - 2(5)s => 10s = 900 => s = 90 m.",
+      "explanation_short": "v² = u² + 2as => 0 = 900 - 10s => s = 90 m.",
+      "explanation_pidgin": "From v² = u² + 2as: 0 = 900 - 10s, so s = 900 / 10 = 90 m."
+    }
+  ]
+}
