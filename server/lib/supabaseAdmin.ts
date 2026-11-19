@@ -59,11 +59,11 @@ if (SUPABASE_ADMIN_ERROR) {
   if (config.isTest) {
     // Tests inject their own mocked client, so a placeholder keeps the module importable.
     console.warn(`${message} (test environment placeholder in use).`);
-  } else if (isServerless) {
-    // Never crash a function at import time: the browser would only see Vercel's
-    // opaque FUNCTION_INVOCATION_FAILED page. configurationGuard answers instead.
+  } else if (isServerless || !config.isProduction) {
+    // Never crash a function or local dev server at import time: the browser would only see Vercel's
+    // opaque FUNCTION_INVOCATION_FAILED page or a dead dev port. configurationGuard answers instead.
     console.error(
-      `${message} Serverless host detected, so the API stays up and answers 503 JSON instead of ` +
+      `${message} Serverless/dev host detected, so the API stays up and answers 503 JSON instead of ` +
         'crashing: call GET /api/health to confirm which variables the deployment can see.'
     );
   } else {

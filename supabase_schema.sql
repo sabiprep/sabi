@@ -48,20 +48,24 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Enable Row Level Security (RLS)
+-- 3. Enable Row Level Security (RLS) — Idempotent (safe to re-run)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Candidates can view their own profile" ON public.profiles;
 CREATE POLICY "Candidates can view their own profile"
   ON public.profiles FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Candidates can insert their own profile" ON public.profiles;
 CREATE POLICY "Candidates can insert their own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
+DROP POLICY IF EXISTS "Candidates can update their own profile" ON public.profiles;
 CREATE POLICY "Candidates can update their own profile"
   ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 
 -- 4. Trigger to automatically confirm email and create/sync a SABI profile when a user signs up
 CREATE OR REPLACE FUNCTION public.handle_new_or_linked_user()

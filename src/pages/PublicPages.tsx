@@ -527,27 +527,83 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       }
 
       if (!result.ok) {
-        // Phase 0: never collapse a failure into "check your connection". The
-        // message now carries the HTTP status, the server's own error text, or
-        // the fact that the host returned HTML instead of the SABI API.
-        console.error(
-          '[SABI] Registration failed:',
-          result.status,
-          result.url,
-          result.data || result.snippet
-        );
-        setAuthLoading(false);
-        setAuthFeedback({
-          type: 'error',
-          message: describeApiFailure(result, 'Could not create your account.'),
-        });
-        return;
-      }
+        const isUnconfiguredOrOffline =
+          result.status === 0 ||
+          result.status === 503 ||
+          result.data?.code === 'API_NOT_CONFIGURED' ||
+          result.data?.code === 'API_BOOT_FAILED';
 
-      const data = result.data || {};
-      uniqueId = data.sabi_unique_id || uniqueId;
-      syncedProfile = data.profile || null;
-      requiresEmailVerification = Boolean(data.requires_email_verification);
+        if (isUnconfiguredOrOffline) {
+          const redirectTo = getSabiAuthRedirectUrl('/auth/verify');
+          const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+            email: normalizedEmail,
+            password: passwordInput,
+            options: {
+              ...(redirectTo ? { emailRedirectTo: redirectTo } : {}),
+              data: {
+                full_name: cleanedName,
+                phone: cleanedPhone,
+                state_of_origin: stateOfOriginInput,
+                sabi_unique_id: uniqueId,
+                issuer: 'SABI',
+              },
+            },
+          });
+
+          if (signUpErr) {
+            setAuthLoading(false);
+            setAuthFeedback({
+              type: 'error',
+              message: signUpErr.message || describeApiFailure(result, 'Could not create your account.'),
+            });
+            return;
+          }
+
+          if (signUpData?.user?.identities && signUpData.user.identities.length === 0) {
+            setAuthLoading(false);
+            setAuthFeedback({
+              type: 'error',
+              message: `An account with ${normalizedEmail} is already registered. Please switch to "Sign In" or use "Forgot Password".`,
+            });
+            return;
+          }
+
+          const createdId = signUpData?.user?.id || '';
+          uniqueId =
+            signUpData?.user?.user_metadata?.sabi_unique_id || uniqueId;
+          requiresEmailVerification = Boolean(
+            signUpData?.user && !signUpData?.session && !signUpData?.user?.email_confirmed_at
+          );
+          syncedProfile = {
+            id: createdId,
+            email: normalizedEmail,
+            sabi_unique_id: uniqueId,
+            full_name: cleanedName,
+            phone: cleanedPhone,
+            state_of_origin: stateOfOriginInput,
+            auth_providers: authProvider === 'google' ? ['google', 'email'] : ['email'],
+            onboarding_completed: false,
+          };
+        } else {
+          console.error(
+            '[SABI] Registration failed:',
+            result.status,
+            result.url,
+            result.data || result.snippet
+          );
+          setAuthLoading(false);
+          setAuthFeedback({
+            type: 'error',
+            message: describeApiFailure(result, 'Could not create your account.'),
+          });
+          return;
+        }
+      } else {
+        const data = result.data || {};
+        uniqueId = data.sabi_unique_id || uniqueId;
+        syncedProfile = data.profile || null;
+        requiresEmailVerification = Boolean(data.requires_email_verification);
+      }
     } catch (err: any) {
       setAuthLoading(false);
       setAuthFeedback({
@@ -834,9 +890,30 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     const requestResult = await apiPostJson('/api/auth/reset-password/request', {
       identifier: cleanIdent,
     });
-    setAuthLoading(false);
 
     if (!requestResult.ok) {
+      const isUnconfiguredOrOffline =
+        requestResult.status === 0 ||
+        requestResult.status === 503 ||
+        requestResult.data?.code === 'API_NOT_CONFIGURED' ||
+        requestResult.data?.code === 'API_BOOT_FAILED';
+
+      if (isUnconfiguredOrOffline && cleanIdent.includes('@')) {
+        const redirectTo = getSabiAuthRedirectUrl('/auth/forgot-password');
+        await supabase.auth.resetPasswordForEmail(cleanIdent, {
+          ...(redirectTo ? { redirectTo } : {}),
+        });
+        setAuthLoading(false);
+        setRecoveryStep('confirm');
+        setRecoveryFeedback({
+          type: 'success',
+          message:
+            'If that account exists, a 6-digit recovery code has been emailed to it. Enter the code below to choose a new password.',
+        });
+        return;
+      }
+
+      setAuthLoading(false);
       setRecoveryFeedback({
         type: 'error',
         message: describeApiFailure(
@@ -847,6 +924,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       return;
     }
 
+    setAuthLoading(false);
     setRecoveryStep('confirm');
     setRecoveryFeedback({
       type: 'success',
@@ -893,21 +971,58 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       otp: cleanOtp,
       newPassword: newResetPassword,
     });
-    setAuthLoading(false);
 
     if (!confirmResult.ok || confirmResult.data?.verified === false) {
-      setRecoveryFeedback({
-        type: 'error',
-        message: confirmResult.data?.error
-          ? describeApiFailure(
-              confirmResult,
-              'That recovery code is invalid or has expired.'
-            )
-          : 'That recovery code is invalid or has expired. Please request a new code.',
-      });
-      return;
+      const isUnconfiguredOrOffline =
+        confirmResult.status === 0 ||
+        confirmResult.status === 503 ||
+        confirmResult.data?.code === 'API_NOT_CONFIGURED' ||
+        confirmResult.data?.code === 'API_BOOT_FAILED';
+
+      if (isUnconfiguredOrOffline) {
+        const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+          email: cleanIdent,
+          token: cleanOtp,
+          type: 'recovery',
+        });
+
+        if (verifyErr || !verifyData?.user) {
+          setAuthLoading(false);
+          setRecoveryFeedback({
+            type: 'error',
+            message: 'That recovery code is invalid or has expired. Please request a new code.',
+          });
+          return;
+        }
+
+        const { error: updateErr } = await supabase.auth.updateUser({
+          password: newResetPassword,
+        });
+
+        if (updateErr) {
+          setAuthLoading(false);
+          setRecoveryFeedback({
+            type: 'error',
+            message: updateErr.message || 'Could not update password. Please try again.',
+          });
+          return;
+        }
+      } else {
+        setAuthLoading(false);
+        setRecoveryFeedback({
+          type: 'error',
+          message: confirmResult.data?.error
+            ? describeApiFailure(
+                confirmResult,
+                'That recovery code is invalid or has expired.'
+              )
+            : 'That recovery code is invalid or has expired. Please request a new code.',
+        });
+        return;
+      }
     }
 
+    setAuthLoading(false);
     setRecoveryOtp('');
     setNewResetPassword('');
     setRecoveryStep('request');
