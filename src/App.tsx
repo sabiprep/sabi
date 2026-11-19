@@ -51,11 +51,11 @@ export default function App() {
             <Route path="/admin/access" element={<AdminAccessPage />} />
             <Route path="/onboarding/:step" element={<OnboardingPage />} />
             <Route path="/diagnostic" element={<DiagnosticPage />} />
-            <Route path="/blitz" element={<BlitzPage />} />
-            <Route path="/smart" element={<SmartPracticePage />} />
             <Route element={<AppShell />}>
               <Route path="/home" element={<HomePage />} />
               <Route path="/learning" element={<BackendLearningPage />} />
+              <Route path="/blitz" element={<BlitzPage />} />
+              <Route path="/smart" element={<SmartPracticePage />} />
               <Route path="/subscription" element={<SubscriptionPage />} />
               <Route path="/subjects" element={<SubjectRatesPage />} />
               <Route path="/subject-rates" element={<SubjectRatesPage />} />
