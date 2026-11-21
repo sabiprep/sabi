@@ -1,88 +1,42 @@
-import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from './app/ThemeProvider';
 import { AuthPage, SplashPage, WelcomePage } from './pages/PublicPages';
 import './app/app.css';
 import './styles/sabi-brand.css';
 
-const MascotsGalleryPage = lazy(() => import('./pages/MascotsGalleryPage').then(module => ({ default: module.MascotsGalleryPage })));
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then(module => ({ default: module.OnboardingPage })));
-const DiagnosticPage = lazy(() => import('./pages/DiagnosticPage').then(module => ({ default: module.DiagnosticPage })));
-const BlitzPage = lazy(() => import('./pages/BlitzPage').then(module => ({ default: module.BlitzPage })));
-const SmartPracticePage = lazy(() => import('./pages/SmartPracticePage').then(module => ({ default: module.SmartPracticePage })));
-const AppShell = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.AppShell })));
-const HomePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.HomePage })));
-const MainPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.MainPage })));
-const PracticePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.PracticePage })));
-const CbtPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.CbtPage })));
-const ProgressPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProgressPage })));
-const ProfilePage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.ProfilePage })));
-const NotificationsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.NotificationsPage })));
-const DailyMissionsPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.DailyMissionsPage })));
-const SubjectRatesPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubjectRatesPage })));
-const SubscriptionPage = lazy(() => import('./pages/StudentPages').then(module => ({ default: module.SubscriptionPage })));
-const CustomJambSimulatorPage = lazy(() => import('./pages/CustomJambSimulatorPage').then(module => ({ default: module.CustomJambSimulatorPage })));
-const BackendLearningPage = lazy(() => import('./pages/BackendLearningPage').then(module => ({ default: module.BackendLearningPage })));
-const AdminDashboardPage = lazy(() => import('./pages/AdminDashboardPage'));
-const AdminContentReviewPage = lazy(() => import('./pages/AdminContentReviewPage'));
-const AdminAccessPage = lazy(() => import('./pages/AdminAccessPage'));
-
-function PageLoading() {
-  return <main className="page-loading" aria-live="polite"><span className="splash-loader" /><span>Loading SABI preview…</span></main>;
-}
-
+/**
+ * UI Renovation Phase 1:
+ * Only the first three screens are active:
+ *   1. Screen 1 (`/`): SABI Assembly (`SplashPage`) -> transitions to Screen 2 (`/welcome`)
+ *   2. Screen 2 (`/welcome`): SABI Yellow & 3D Purple Wonderland Welcome Screen (`WelcomePage`)
+ *   3. Screen 3 (`/auth/*`): SABI Yellow & 3D Purple Wonderland Auth Screen (`AuthPage`)
+ *
+ * All previous build pages (Onboarding, Student Dashboard, Blitz, Smart Practice, Custom Simulator,
+ * Diagnostic, Admin, etc.) have been archived in `/src/archive/old-build-pages/` and deactivated
+ * until each screen is rebuilt to match the new SABI Wonderland design identity.
+ */
 export default function App() {
   return (
     <ThemeProvider>
       <BrowserRouter>
-        <Suspense fallback={<PageLoading />}>
-          <Routes>
-            <Route path="/" element={<SplashPage />} />
-            <Route path="/welcome" element={<WelcomePage />} />
-            <Route path="/auth" element={<AuthPage mode="choice" />} />
-            <Route path="/auth/choice" element={<AuthPage mode="choice" />} />
-            <Route path="/auth/sign-up" element={<AuthPage mode="sign-up" />} />
-            <Route path="/auth/sign-in" element={<AuthPage mode="sign-in" />} />
-            <Route path="/auth/verify" element={<AuthPage mode="verify" />} />
-            <Route path="/auth/forgot-password" element={<AuthPage mode="forgot-password" />} />
-            <Route path="/mascots" element={<MascotsGalleryPage />} />
-            <Route path="/admin" element={<AdminDashboardPage />} />
-            <Route path="/admin/content" element={<AdminContentReviewPage />} />
-            <Route path="/admin/access" element={<AdminAccessPage />} />
-            <Route path="/onboarding/:step" element={<OnboardingPage />} />
-            <Route path="/diagnostic" element={<DiagnosticPage />} />
-            <Route element={<AppShell />}>
-              <Route path="/home" element={<HomePage />} />
-              <Route path="/learning" element={<BackendLearningPage />} />
-              <Route path="/blitz" element={<BlitzPage />} />
-              <Route path="/smart" element={<SmartPracticePage />} />
-              <Route path="/subscription" element={<SubscriptionPage />} />
-              <Route path="/subjects" element={<SubjectRatesPage />} />
-              <Route path="/subject-rates" element={<SubjectRatesPage />} />
-              <Route path="/practice" element={<PracticePage />} />
-              <Route path="/practice/smart" element={<SmartPracticePage />} />
-              <Route path="/practice/blitz" element={<BlitzPage />} />
-              <Route path="/practice/custom" element={<CustomJambSimulatorPage />} />
-              <Route path="/custom-simulator" element={<CustomJambSimulatorPage />} />
-              <Route path="/simulator" element={<CustomJambSimulatorPage />} />
-              <Route path="/cbt" element={<CbtPage />} />
-              <Route path="/cbt/:examId" element={<MainPage page="CBT Simulator" />} />
-              <Route path="/cbt/:examId/results" element={<MainPage page="CBT Results" />} />
-              <Route path="/progress" element={<ProgressPage />} />
-              <Route path="/missions" element={<DailyMissionsPage />} />
-              <Route path="/recommendations" element={<MainPage page="Recommendations" />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/menu/:section" element={<MainPage page="SABI" />} />
-              <Route path="/session/:sessionId/question/:number" element={<MainPage page="Practice Session" />} />
-              <Route path="/session/:sessionId/explanation" element={<MainPage page="Explanation" />} />
-              <Route path="/session/:sessionId/results" element={<MainPage page="Session Results" />} />
-            </Route>
-            <Route path="/interactive" element={<Navigate to="/home" replace />} />
-            <Route path="/app" element={<Navigate to="/home" replace />} />
-            <Route path="*" element={<Navigate to="/welcome" replace />} />
-          </Routes>
-        </Suspense>
+        <Routes>
+          {/* Screen 1: SABI Assembly Splash */}
+          <Route path="/" element={<SplashPage />} />
+
+          {/* Screen 2: Welcome to SABI (Uploaded Design 1) */}
+          <Route path="/welcome" element={<WelcomePage />} />
+
+          {/* Screen 3: Auth Screen — Create Account / Sign In (Uploaded Design 2) */}
+          <Route path="/auth" element={<AuthPage mode="sign-up" />} />
+          <Route path="/auth/choice" element={<AuthPage mode="sign-up" />} />
+          <Route path="/auth/sign-up" element={<AuthPage mode="sign-up" />} />
+          <Route path="/auth/sign-in" element={<AuthPage mode="sign-in" />} />
+          <Route path="/auth/verify" element={<AuthPage mode="verify" />} />
+          <Route path="/auth/forgot-password" element={<AuthPage mode="forgot-password" />} />
+
+          {/* Any old/deactivated route redirects cleanly to Screen 2 (/welcome) during UI renovation */}
+          <Route path="*" element={<Navigate to="/welcome" replace />} />
+        </Routes>
       </BrowserRouter>
     </ThemeProvider>
   );

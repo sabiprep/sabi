@@ -25,5 +25,11 @@
       "vite/client"
     ],
     "noEmit": true
-  }
+  },
+  "exclude": [
+    "src/archive",
+    "node_modules",
+    "dist",
+    "android"
+  ]
 }

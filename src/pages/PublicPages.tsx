@@ -67,23 +67,7 @@ export function getOrGenerateSabiUniqueId(email: string): string {
 export function SplashPage() {
   const navigate = useNavigate();
 
-  const handleComplete = async () => {
-    const isSigned =
-      typeof window !== 'undefined' && localStorage.getItem('sabi_user_signed_in') === 'true';
-
-    if (isSigned) {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user) {
-          navigate('/home');
-          return;
-        }
-        localStorage.removeItem('sabi_user_signed_in');
-      } catch {
-        navigate('/welcome');
-        return;
-      }
-    }
+  const handleComplete = () => {
     navigate('/welcome');
   };
 
@@ -584,7 +568,8 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
     setGeneratedUniqueId(uniqueId);
     setAuthLoading(false);
-    navigate('/onboarding/1');
+    setCurrentMode('verify');
+    navigate('/auth/verify', { replace: true });
   };
 
   // Copy Unique ID
@@ -753,17 +738,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
     applySyncedProfileToLocal(matchedProfile, matchedProfile.email || resolvedEmail);
     localStorage.setItem('sabi_user_signed_in', 'true');
+    setGeneratedUniqueId(
+      matchedProfile.sabi_unique_id || getOrGenerateSabiUniqueId(matchedProfile.email || resolvedEmail)
+    );
     setAuthLoading(false);
-
-    const params = new URLSearchParams(window.location.search);
-    const redirectUrl = params.get('redirect');
-    if (redirectUrl && redirectUrl.startsWith('/')) {
-      navigate(redirectUrl);
-    } else if (matchedProfile.onboarding_completed === false) {
-      navigate('/onboarding/1');
-    } else {
-      navigate('/home');
-    }
+    setCurrentMode('verify');
+    navigate('/auth/verify', { replace: true });
   };
 
   // Handle Password Reset Request
@@ -1272,9 +1252,13 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                     </div>
                   </div>
 
+                  <div className="p-3 rounded-2xl bg-purple-700/10 border border-purple-700/25 text-xs font-bold text-[#22064B]">
+                    Account authenticated! Next up in our renovation: the new SABI Wonderland Onboarding screens.
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => navigate('/onboarding/1')}
+                    onClick={() => navigate('/welcome')}
                     className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] tracking-[0.04em] uppercase flex items-center justify-center gap-2 cursor-pointer"
                     style={{
                       fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
@@ -1284,7 +1268,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                         '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
                     }}
                   >
-                    <span>CONTINUE</span>
+                    <span>BACK TO WELCOME</span>
                     <ArrowRight size={20} />
                   </button>
                 </div>
