@@ -1,38 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ArrowRight, 
-  LockKeyhole, 
-  Mail, 
-  Phone, 
-  ShieldCheck, 
-  BookOpenCheck, 
-  UserPlus, 
-  LogIn, 
-  Sun, 
-  Moon,
-  ChevronRight,
-  User,
-  MapPin,
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
   KeyRound,
   Copy,
   CheckCircle2,
   Download,
-  Chrome
 } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useTheme } from '../app/ThemeProvider';
+import { useNavigate } from 'react-router-dom';
 import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
+import {
+  SabiWonderlandShell,
+  SabiPurpleBookLogo,
+  SabiGraduationBooksIllustration,
+  FloatingPurpleCube3D,
+  FloatingPurpleTorus3D,
+} from '../components/common/SabiWonderlandShell';
 import { supabase, getSabiAuthRedirectUrl } from '../lib/supabase';
 import { apiPostJson, describeApiFailure } from '../utils/apiClient';
 import { saveRealUserProgress } from '../utils/userProgressStore';
-
-const NIGERIAN_STATES = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
-  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT - Abuja', 'Gombe',
-  'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara',
-  'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau',
-  'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
-];
 
 /**
  * Generates or retrieves a deterministic 5-character SABI Unique ID (4 digits + 1 letter, e.g. "4829K")
@@ -41,7 +28,8 @@ const NIGERIAN_STATES = [
  */
 export function getOrGenerateSabiUniqueId(email: string): string {
   const normalized = (email || 'scholar@sabi.ng').trim().toLowerCase();
-  const registryRaw = typeof window !== 'undefined' ? localStorage.getItem('sabi_email_id_registry') : null;
+  const registryRaw =
+    typeof window !== 'undefined' ? localStorage.getItem('sabi_email_id_registry') : null;
   let registry: Record<string, string> = {};
   if (registryRaw) {
     try {
@@ -55,15 +43,14 @@ export function getOrGenerateSabiUniqueId(email: string): string {
     return registry[normalized];
   }
 
-  // Deterministic hash from normalized email so same email always gets same 4 digits + 1 letter
   let hash = 2166136261;
   for (let i = 0; i < normalized.length; i++) {
     hash ^= normalized.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
   const absHash = Math.abs(hash);
-  const fourDigits = String((absHash % 9000) + 1000); // 1000 - 9999
-  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // Excludes I and O to avoid confusion with 1 and 0
+  const fourDigits = String((absHash % 9000) + 1000);
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const oneLetter = letters[absHash % letters.length];
   const uniqueId = `${fourDigits}${oneLetter}`;
 
@@ -74,18 +61,6 @@ export function getOrGenerateSabiUniqueId(email: string): string {
   return uniqueId;
 }
 
-function BrandLockup({ compact = false }: { compact?: boolean }) {
-  return (
-    <Link 
-      to="/welcome" 
-      className={`inline-flex items-center gap-3 transition-transform hover:scale-[1.02] ${compact ? 'h-8' : 'h-11'}`} 
-      aria-label="SABI Home"
-    >
-      <img src="/sabi-logo.svg" alt="SABI" className="h-full w-auto object-contain" />
-    </Link>
-  );
-}
-
 // ==========================================
 // SCREEN 1: FULL SCREEN SABI IRON MAN ASSEMBLE
 // ==========================================
@@ -93,10 +68,10 @@ export function SplashPage() {
   const navigate = useNavigate();
 
   const handleComplete = async () => {
-    const isSigned = typeof window !== 'undefined' && localStorage.getItem('sabi_user_signed_in') === 'true';
+    const isSigned =
+      typeof window !== 'undefined' && localStorage.getItem('sabi_user_signed_in') === 'true';
 
     if (isSigned) {
-      // Phase 0: the app shell trusts a real Supabase session, not a localStorage flag.
       try {
         const { data } = await supabase.auth.getSession();
         if (data.session?.user) {
@@ -113,7 +88,7 @@ export function SplashPage() {
   };
 
   return (
-    <main 
+    <main
       onClick={handleComplete}
       className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#060B18] text-white px-4 overflow-hidden select-none cursor-pointer"
       title="Click or tap anywhere to continue"
@@ -126,7 +101,7 @@ export function SplashPage() {
       </div>
 
       <button
-        onClick={(e) => {
+        onClick={e => {
           e.stopPropagation();
           handleComplete();
         }}
@@ -139,162 +114,196 @@ export function SplashPage() {
 }
 
 // ==========================================
-// SCREEN 2: WELCOME PAGE WITH MAN & WOMAN STUDYING
+// SCREEN 2: WELCOME TO SABI (IMAGE 1 DESIGN)
 // ==========================================
 export function WelcomePage() {
   const navigate = useNavigate();
-  const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className={`min-h-[100dvh] w-full max-w-full overflow-x-hidden ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
-      <header className={`sabi-top-safe-bar px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <BrandLockup />
+    <SabiWonderlandShell>
+      <main className="w-full flex-1 flex flex-col items-center justify-center px-5 sm:px-8 py-8 sm:py-12">
+        <div className="w-full max-w-[410px] sm:max-w-[440px] mx-auto flex flex-col items-center text-center">
+          {/* Top SABI Open-Book Logo + Wordmark */}
+          <div className="mb-4 sm:mb-5">
+            <SabiPurpleBookLogo size="md" to="/welcome" />
+          </div>
 
-          <div className="flex items-center gap-3">
+          {/* Headline: WELCOME TO SABI. */}
+          <h1
+            className="text-[28px] sm:text-[34px] font-bold tracking-[0.02em] text-[#31006E] leading-tight uppercase"
+            style={{
+              fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700,
+            }}
+          >
+            WELCOME TO SABI.
+          </h1>
+
+          {/* Subheadline: LEARN. CONNECT. GROW. */}
+          <p
+            className="mt-1.5 text-[15px] sm:text-[17px] font-bold tracking-[0.06em] text-[#31006E] uppercase"
+            style={{
+              fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700,
+            }}
+          >
+            LEARN. CONNECT. GROW.
+          </p>
+
+          {/* Center 3D Graduation Cap & Stacked Books Illustration */}
+          <div className="w-full my-4 sm:my-6">
+            <SabiGraduationBooksIllustration />
+          </div>
+
+          {/* Adventure Copy */}
+          <p className="text-[15px] sm:text-[16.5px] font-semibold text-[#1E1035] leading-[1.45] max-w-[335px] sm:max-w-[360px] mx-auto mb-7 sm:mb-8">
+            Want an adventure into the wonderland of excellent academic performance? You are in the
+            right place.
+          </p>
+
+          {/* Primary 3D Glossy Purple Pill Button: SIGNUP -> */}
+          <button
+            type="button"
+            onClick={() => navigate('/auth/sign-up')}
+            className="w-full py-3.5 sm:py-4 px-8 rounded-full text-white font-bold text-[19px] sm:text-[21px] tracking-[0.04em] uppercase flex items-center justify-center gap-3 cursor-pointer transition-transform duration-150 active:scale-[0.98] hover:brightness-105"
+            style={{
+              fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+              background: 'linear-gradient(180deg, #8F38F8 0%, #711AE3 65%, #5C11C2 100%)',
+              boxShadow:
+                '0 5px 0 #4A0B9E, 0 12px 24px rgba(92, 17, 194, 0.32), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
+            }}
+          >
+            <span>SIGNUP</span>
+            <ArrowRight size={23} strokeWidth={2.6} />
+          </button>
+
+          {/* Bottom Link: Already have an account? Sign in */}
+          <div className="mt-5 sm:mt-6 text-[15px] sm:text-[16px] font-semibold text-[#1E1035]">
+            <span>Already have an account? </span>
             <button
-              onClick={toggleTheme}
-              className={`p-2.5 rounded-xl border transition-all ${
-                isDark ? 'bg-slate-800/80 border-slate-700 text-amber-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
-              }`}
-              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+              type="button"
+              onClick={() => navigate('/auth/sign-in')}
+              className="text-[#5E14C4] font-bold underline decoration-2 underline-offset-4 hover:text-[#3B077E] cursor-pointer transition-colors"
             >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
+              Sign in
             </button>
           </div>
         </div>
-      </header>
-
-      <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 flex flex-col items-center justify-center">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
-          <div className="lg:col-span-7 flex flex-col items-center justify-center">
-            <div className={`relative w-full max-w-2xl rounded-3xl p-6 sm:p-8 border shadow-xl overflow-hidden transition-all duration-300 ${
-              isDark ? 'bg-gradient-to-b from-slate-900 via-slate-900/90 to-blue-950/40 border-slate-800' : 'bg-gradient-to-b from-white via-blue-50/40 to-white border-blue-100'
-            }`}>
-              <div className="absolute top-0 right-0 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-60 h-60 bg-blue-400/5 rounded-full blur-3xl pointer-events-none" />
-
-              <div className="relative z-10 w-full flex items-center justify-center">
-                <img 
-                  src="/assets/mascots/welcome_students_study.svg" 
-                  alt="Nigerian Students Preparing on SABI with Laptops"
-                  className="w-full h-auto max-h-[380px] object-contain filter drop-shadow-lg"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-5 flex flex-col items-start justify-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs font-extrabold tracking-wider uppercase text-blue-700 dark:text-blue-300">
-              <span>Official JAMB UTME Prep Platform</span>
-            </div>
-
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
-              Study Smarter.<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 dark:from-blue-400 dark:via-blue-300 dark:to-sky-300">
-                Score 320+ in JAMB.
-              </span>
-            </h1>
-
-            <p className={`text-sm sm:text-base leading-relaxed ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-              Endless past and recent questions tailored to your 4 subjects. Experience high-speed 60-second Blitz, smart topic mastery, and real-time step-by-step corrections.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'} flex items-center gap-2.5`}>
-                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800/60 font-black"><BookOpenCheck size={16} /></div>
-                <div>
-                  <h4 className="text-xs font-extrabold">Endless Blitz</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Past & recent questions</p>
-                </div>
-              </div>
-              <div className={`p-3.5 rounded-2xl border ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs'} flex items-center gap-2.5`}>
-                <div className="p-2 rounded-xl bg-blue-600 text-white font-black"><ShieldCheck size={16} /></div>
-                <div>
-                  <h4 className="text-xs font-extrabold">Smart Practice</h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">4-Subject rotation</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="w-full space-y-3 pt-2">
-              <button
-                onClick={() => navigate('/auth/choice')}
-                className="w-full py-4 px-6 rounded-2xl font-black text-lg bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20 hover:shadow-blue-700/30 transition-all transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-3 group cursor-pointer"
-              >
-                <span>Get Started</span>
-                <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-
-              <button
-                onClick={() => navigate('/auth/sign-in')}
-                className={`w-full py-3.5 px-6 rounded-2xl font-bold text-sm border transition-all cursor-pointer ${
-                  isDark 
-                    ? 'border-slate-800 bg-slate-900/80 text-slate-200 hover:border-blue-500 hover:bg-blue-950/30 hover:text-blue-300' 
-                    : 'border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-700 shadow-xs'
-                } flex items-center justify-center gap-2`}
-              >
-                <span>Already have an account? Sign in</span>
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
-        </div>
       </main>
-
-      <footer className={`px-6 py-4 border-t text-center text-xs ${isDark ? 'border-slate-800/80 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
-        <div className="max-w-7xl mx-auto flex items-center justify-center">
-          <span>SABI © 2026 · Nigeria's Joint Admissions and Matriculation Board UTME CBT Platform</span>
-        </div>
-      </footer>
-    </div>
+    </SabiWonderlandShell>
   );
 }
 
 // ==========================================
-// SCREEN 3: AUTH & CANDIDATE REGISTRATION PAGE
-// (WITH SYNCED EMAIL/GOOGLE + 4-DIGIT & 1-LETTER UNIQUE ID)
+// CUSTOM SOLID PURPLE FORM ICONS (MATCHING IMAGE 2)
+// ==========================================
+function PurpleUserIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-4 h-4 shrink-0 text-[#5E14C4]"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 3.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9Zm0 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4ZM4.5 19.2c0-2.9 3.6-4.7 7.5-4.7s7.5 1.8 7.5 4.7v1.3H4.5v-1.3Z" />
+    </svg>
+  );
+}
+
+function PurpleEnvelopeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-4 h-4 shrink-0 text-[#5E14C4]"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M3 5.5A2.5 2.5 0 0 1 5.5 3h13A2.5 2.5 0 0 1 21 5.5v13a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-13Zm2.4.5 6.6 5.1L18.6 6H5.4Zm13.6 2.1-6.4 5a1 1 0 0 1-1.2 0L5 8.1V18h14V8.1Z" />
+    </svg>
+  );
+}
+
+function PurplePadlockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-4 h-4 shrink-0 text-[#5E14C4]"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 2a5 5 0 0 0-5 5v3H5.5A1.5 1.5 0 0 0 4 11.5v9A1.5 1.5 0 0 0 5.5 22h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 18.5 10H17V7a5 5 0 0 0-5-5Zm-2.5 5a2.5 2.5 0 0 1 5 0v3h-5V7Zm2.5 7.2a1.6 1.6 0 0 1 .8 3v1.8h-1.6v-1.8a1.6 1.6 0 0 1 .8-3Z" />
+    </svg>
+  );
+}
+
+// ==========================================
+// SCREEN 3: AUTH PAGE (CREATE ACCOUNT / SIGN IN — IMAGE 2 DESIGN)
 // ==========================================
 type AuthMode = 'choice' | 'sign-up' | 'sign-in' | 'verify' | 'forgot-password';
 
 export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) {
   const navigate = useNavigate();
-  const { isDark, toggleTheme } = useTheme();
-  const [currentMode, setCurrentMode] = useState<AuthMode>(initialMode);
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  // Map 'choice' directly to 'sign-up' so /auth and /auth/sign-up render the exact Screen 3 design
+  const normalizedInitial: AuthMode = initialMode === 'choice' ? 'sign-up' : initialMode;
+  const [currentMode, setCurrentMode] = useState<AuthMode>(normalizedInitial);
+
+  useEffect(() => {
+    setCurrentMode(initialMode === 'choice' ? 'sign-up' : initialMode);
+  }, [initialMode]);
 
   // Registration & Sign-In fields
   const [fullNameInput, setFullNameInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [phoneInput, setPhoneInput] = useState('');
-  const [stateOfOriginInput, setStateOfOriginInput] = useState('Lagos');
-  const [authProvider, setAuthProvider] = useState<'email' | 'google'>('email');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [phoneInput] = useState('+2348000000000');
+  const [stateOfOriginInput] = useState('Lagos');
 
   // Generated 5-character Unique SABI ID (4 numbers + 1 letter)
   const [generatedUniqueId, setGeneratedUniqueId] = useState<string>('');
   const [copiedId, setCopiedId] = useState(false);
 
-  // Recovery / Reset Password fields (Phase 0: emailed 6-digit recovery code)
+  // Recovery / Reset Password fields
   const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
   const [recoveryOtp, setRecoveryOtp] = useState('');
   const [recoveryStep, setRecoveryStep] = useState<'request' | 'confirm'>('request');
   const [newResetPassword, setNewResetPassword] = useState('');
-  const [recoveryFeedback, setRecoveryFeedback] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+  const [recoveryFeedback, setRecoveryFeedback] = useState<{
+    type: 'error' | 'success';
+    message: string;
+  } | null>(null);
 
-  // Auth loading & status banner for both Android APK and Webapp
+  // Auth loading & status banner
   const [authLoading, setAuthLoading] = useState(false);
-  const [authFeedback, setAuthFeedback] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null);
-
+  const [authFeedback, setAuthFeedback] = useState<{
+    type: 'error' | 'success' | 'info';
+    message: string;
+  } | null>(null);
   const [unconfirmedEmailForResend, setUnconfirmedEmailForResend] = useState<string>('');
 
   // Syncs a verified Supabase profile into local storage & restores progress
-  const applySyncedProfileToLocal = (profile: any, fallbackEmail: string, fallbackName?: string) => {
+  const applySyncedProfileToLocal = (
+    profile: any,
+    fallbackEmail: string,
+    fallbackName?: string
+  ) => {
     const email = (profile?.email || fallbackEmail || '').trim().toLowerCase();
     const uniqueId = profile?.sabi_unique_id || getOrGenerateSabiUniqueId(email);
-    const fullName = profile?.full_name || fallbackName || localStorage.getItem('sabi_user_name') || 'Candidate';
-    const phone = profile?.phone || phoneInput.trim() || localStorage.getItem('sabi_user_phone') || '';
-    const state = profile?.state_of_origin || stateOfOriginInput || localStorage.getItem('sabi_user_state') || 'Lagos';
+    const fullName =
+      profile?.full_name ||
+      fallbackName ||
+      localStorage.getItem('sabi_user_name') ||
+      'Candidate';
+    const phone =
+      profile?.phone || phoneInput.trim() || localStorage.getItem('sabi_user_phone') || '';
+    const state =
+      profile?.state_of_origin ||
+      stateOfOriginInput ||
+      localStorage.getItem('sabi_user_state') ||
+      'Lagos';
 
     localStorage.setItem('sabi_user_email', email);
     localStorage.setItem('sabi_user_name', fullName);
@@ -303,7 +312,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     localStorage.setItem('sabi_unique_id', uniqueId);
     localStorage.setItem('sabi_user_signed_in', 'true');
 
-    // Restore onboarding answers & live progress if saved in Supabase profile
     if (profile?.onboarding_answers && typeof profile.onboarding_answers === 'object') {
       const { live_progress, ...onboardingOnly } = profile.onboarding_answers;
       if (Object.keys(onboardingOnly).length > 0) {
@@ -317,7 +325,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     return { email, uniqueId, fullName };
   };
 
-  // Handle incoming verification links / URL callback parameters or initialize saved Unique ID
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -340,28 +347,20 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       combined.includes('error_code=') ||
       combined.includes('type=signup')
     ) {
-      // Clean URL bar so no broken token or error hash remains visible
       window.history.replaceState({}, document.title, window.location.pathname);
-
-      // Phase 0: confirmation is performed by the server against the caller's own
-      // session token (POST /api/auth/verify). A signed-out browser can no longer
-      // confirm arbitrary accounts from a URL fragment.
       setAuthFeedback({
         type: 'success',
-        message: '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in or proceed.',
+        message:
+          '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in.',
       });
     }
   }, []);
 
-  // Resend the Supabase confirmation email (verification is never bypassed client-side)
   const handleResendVerificationEmail = async () => {
     const targetEmail = (unconfirmedEmailForResend || emailInput).trim().toLowerCase();
     if (!targetEmail) return;
     setAuthLoading(true);
     try {
-      // Only override the redirect when this deployment knows its public URL;
-      // otherwise Supabase falls back to the Auth Site URL (runbook §4a) instead
-      // of a preview proxy that 302s to /__cookie_check.html.
       const redirectTo = getSabiAuthRedirectUrl('/auth/verify');
       const { error } = await supabase.auth.resend({
         type: 'signup',
@@ -372,7 +371,9 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       if (error) {
         setAuthFeedback({
           type: 'error',
-          message: error.message || 'Could not verify account right now. Please try signing in again.',
+          message:
+            error.message ||
+            'Could not verify account right now. Please try signing in again.',
         });
       } else {
         setAuthFeedback({
@@ -389,89 +390,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
   };
 
-  // Handle Google Auth Sync (links by email address in Supabase so no duplicate ID is ever created)
-  const handleGoogleSync = async (targetNext: 'register' | 'login') => {
-    setAuthFeedback(null);
-    setUnconfirmedEmailForResend('');
-
-    if (targetNext === 'register') {
-      setAuthProvider('google');
-      setAuthFeedback({
-        type: 'info',
-        message: 'Google Gmail sync enabled! Enter your Gmail address, phone number, state of origin, and password below to create your synced SABI account.',
-      });
-      return;
-    }
-
-    const rawEmail = emailInput.trim().toLowerCase();
-    if (!rawEmail || !passwordInput) {
-      setAuthFeedback({
-        type: 'info',
-        message: 'Enter your registered Gmail address and password below, then tap "Sign In to Dashboard" (or "Continue with Google") to verify with SABI.',
-      });
-      return;
-    }
-
-    setAuthLoading(true);
-    try {
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
-        email: rawEmail,
-        password: passwordInput,
-      });
-
-      if (signInErr || !signInData?.user) {
-        setAuthLoading(false);
-        setAuthFeedback({
-          type: 'error',
-          message: signInErr?.message || 'Google/Email authentication failed. Ensure your Gmail and password are registered.',
-        });
-        return;
-      }
-
-      // Phase 0: profiles are never written from the browser. The server resolves
-      // (and creates, if needed) the row for the token's own user.
-      let syncedProfile: any = null;
-      try {
-        const verifyResult = await apiPostJson('/api/auth/verify', {
-          email: rawEmail,
-          authProviders: ['email', 'google'],
-        });
-        if (verifyResult.ok) {
-          syncedProfile = verifyResult.data?.profile || null;
-        } else {
-          console.warn(
-            '[SABI] Profile sync after sign-in failed:',
-            describeApiFailure(verifyResult, 'Verify failed.')
-          );
-        }
-      } catch {
-        // The next authenticated request will sync the profile.
-      }
-
-      applySyncedProfileToLocal(syncedProfile, rawEmail);
-      localStorage.setItem('sabi_auth_provider', 'google+email');
-      localStorage.setItem('sabi_user_signed_in', 'true');
-      setAuthLoading(false);
-
-      const params = new URLSearchParams(window.location.search);
-      const redirectUrl = params.get('redirect');
-      if (redirectUrl && redirectUrl.startsWith('/')) {
-        navigate(redirectUrl);
-      } else if (syncedProfile && syncedProfile.onboarding_completed === false) {
-        navigate('/onboarding/1');
-      } else {
-        navigate('/home');
-      }
-    } catch (err: any) {
-      setAuthLoading(false);
-      setAuthFeedback({
-        type: 'error',
-        message: err?.message || 'Unable to authenticate with SABI. Please check your connection.',
-      });
-    }
-  };
-
-  // Handle Create Account form submission -> Creates & Immediately Verifies User in Supabase under SABI
+  // Handle Create Account form submission
   const handleCreateAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
@@ -479,12 +398,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
     const normalizedEmail = emailInput.trim().toLowerCase();
     const cleanedName = fullNameInput.trim();
-    const cleanedPhone = phoneInput.trim();
+    const cleanedPhone = phoneInput.trim() || '+2348000000000';
 
-    if (!cleanedName || !normalizedEmail || !cleanedPhone) {
+    if (!cleanedName || !normalizedEmail) {
       setAuthFeedback({
         type: 'error',
-        message: 'Please complete your Full Name, Email Address, and Nigerian Phone Number.',
+        message: 'Please enter your Full Name and Email Address.',
       });
       return;
     }
@@ -497,14 +416,19 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       return;
     }
 
+    if (confirmPasswordInput !== passwordInput) {
+      setAuthFeedback({
+        type: 'error',
+        message: 'Passwords do not match. Please confirm your password.',
+      });
+      return;
+    }
+
     setAuthLoading(true);
     let uniqueId = getOrGenerateSabiUniqueId(normalizedEmail);
     let syncedProfile: any = null;
     let requiresEmailVerification = false;
 
-    // Phase 0: /api/auth/register is the ONLY way an account is created. The
-    // server writes auth.users + public.profiles with the service role, and the
-    // client never supplies an auth user id or upserts a profile directly.
     try {
       const result = await apiPostJson('/api/auth/register', {
         fullName: cleanedName,
@@ -512,7 +436,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         password: passwordInput,
         phone: cleanedPhone,
         stateOfOrigin: stateOfOriginInput,
-        provider: authProvider === 'google' ? 'google' : 'email',
+        provider: 'email',
       });
 
       if (result.status === 409) {
@@ -521,7 +445,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           type: 'error',
           message:
             result.data?.error ||
-            `An account with ${normalizedEmail} is already registered. Please switch to "Sign In" or use "Forgot Password".`,
+            `An account with ${normalizedEmail} is already registered. Please tap "Sign in" below.`,
         });
         return;
       }
@@ -554,7 +478,9 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             setAuthLoading(false);
             setAuthFeedback({
               type: 'error',
-              message: signUpErr.message || describeApiFailure(result, 'Could not create your account.'),
+              message:
+                signUpErr.message ||
+                describeApiFailure(result, 'Could not create your account.'),
             });
             return;
           }
@@ -563,14 +489,13 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             setAuthLoading(false);
             setAuthFeedback({
               type: 'error',
-              message: `An account with ${normalizedEmail} is already registered. Please switch to "Sign In" or use "Forgot Password".`,
+              message: `An account with ${normalizedEmail} is already registered. Please tap "Sign in" below.`,
             });
             return;
           }
 
           const createdId = signUpData?.user?.id || '';
-          uniqueId =
-            signUpData?.user?.user_metadata?.sabi_unique_id || uniqueId;
+          uniqueId = signUpData?.user?.user_metadata?.sabi_unique_id || uniqueId;
           requiresEmailVerification = Boolean(
             signUpData?.user && !signUpData?.session && !signUpData?.user?.email_confirmed_at
           );
@@ -581,16 +506,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             full_name: cleanedName,
             phone: cleanedPhone,
             state_of_origin: stateOfOriginInput,
-            auth_providers: authProvider === 'google' ? ['google', 'email'] : ['email'],
+            auth_providers: ['email'],
             onboarding_completed: false,
           };
         } else {
-          console.error(
-            '[SABI] Registration failed:',
-            result.status,
-            result.url,
-            result.data || result.snippet
-          );
           setAuthLoading(false);
           setAuthFeedback({
             type: 'error',
@@ -615,7 +534,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       return;
     }
 
-    // Establish the client session so every authenticated API call works at once.
     if (requiresEmailVerification) {
       setAuthLoading(false);
       setUnconfirmedEmailForResend(normalizedEmail);
@@ -641,7 +559,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         return;
       }
     } catch {
-      // The session will be established on the next sign in.
+      // Session established on next sign in
     }
 
     if (!syncedProfile) {
@@ -652,7 +570,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         full_name: cleanedName,
         phone: cleanedPhone,
         state_of_origin: stateOfOriginInput,
-        auth_providers: authProvider === 'google' ? ['google', 'email'] : ['email'],
+        auth_providers: ['email'],
         onboarding_completed: false,
       };
     }
@@ -661,12 +579,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     localStorage.setItem('sabi_user_phone', cleanedPhone);
     localStorage.setItem('sabi_user_state', stateOfOriginInput);
     localStorage.setItem('sabi_unique_id', uniqueId);
-    localStorage.setItem('sabi_auth_provider', authProvider === 'google' ? 'google+email' : 'email');
+    localStorage.setItem('sabi_auth_provider', 'email');
     localStorage.setItem('sabi_user_signed_in', 'true');
 
     setGeneratedUniqueId(uniqueId);
     setAuthLoading(false);
-    setCurrentMode('verify');
+    navigate('/onboarding/1');
   };
 
   // Copy Unique ID
@@ -677,7 +595,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     setTimeout(() => setCopiedId(false), 2500);
   };
 
-  // Download or Share Official SABI Recovery ID Document (.txt) — works on both Webapp & Android APK
+  // Download Official SABI Recovery ID Document (.txt)
   const handleDownloadUniqueIdDoc = async () => {
     const idToSave = generatedUniqueId || localStorage.getItem('sabi_unique_id') || '4829K';
     const docContent = [
@@ -687,20 +605,10 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       '',
       `Candidate Full Name : ${fullNameInput || localStorage.getItem('sabi_user_name') || 'Candidate'}`,
       `Registered Email    : ${emailInput || localStorage.getItem('sabi_user_email') || 'scholar@sabi.ng'}`,
-      `Phone Number (+234) : ${phoneInput || localStorage.getItem('sabi_user_phone') || 'N/A'}`,
-      `State of Origin     : ${stateOfOriginInput || localStorage.getItem('sabi_user_state') || 'Lagos'}`,
       '----------------------------------------------------------',
       `UNIQUE SABI ID      : ${idToSave}`,
       '----------------------------------------------------------',
-      '',
-      'IMPORTANT SECURITY NOTICE:',
-      '1. Your 5-character Unique SABI ID (4 numbers + 1 letter) is your',
-      '   permanent verification grant.',
-      '2. Whether you sign in with Email/Password or Google Auth using',
-      '   this email address, your account and Unique ID remain synced.',
-      '3. Keep this document safe. You will be required to provide this',
-      '   Unique ID to reset your password or recover your account.',
-      '=========================================================='
+      '==========================================================',
     ].join('\n');
 
     try {
@@ -716,23 +624,19 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     } catch {
       // Fallback for mobile WebViews
     }
-
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(docContent).catch(() => {});
-    }
   };
 
-  // Handle Sign In (Email or Phone + Password) — Verifies against SABI Backend + Supabase Auth with auto-confirmation
+  // Handle Sign In
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
     setUnconfirmedEmailForResend('');
 
-    const identifier = (authMethod === 'email' ? emailInput : phoneInput).trim().toLowerCase();
+    const identifier = emailInput.trim().toLowerCase();
     if (!identifier) {
       setAuthFeedback({
         type: 'error',
-        message: 'Please enter your registered email address or Nigerian phone number.',
+        message: 'Please enter your registered email address.',
       });
       return;
     }
@@ -746,18 +650,15 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
 
     setAuthLoading(true);
     let matchedProfile: any = null;
-    let resolvedEmail = authMethod === 'email' ? identifier : '';
+    let resolvedEmail = identifier;
     let authenticatedUserId: string | undefined;
     let signInErrorMessage = '';
 
-    // 1. Authenticate via the SABI API first: it confirms any unconfirmed account,
-    //    resolves phone numbers to emails and is the only place that knows the
-    //    canonical profile row. Identity is never taken from a localStorage email.
     try {
       const loginResult = await apiPostJson('/api/auth/login', {
         identifier,
         password: passwordInput,
-        method: authMethod,
+        method: 'email',
       });
       if (loginResult.ok && loginResult.data?.auth_user_id) {
         authenticatedUserId = loginResult.data.auth_user_id;
@@ -772,10 +673,6 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       signInErrorMessage = err?.message || 'Sign in failed.';
     }
 
-    // 1b. Phone numbers are resolved to an email by /api/auth/login above. The
-    //     browser can no longer look profiles up by phone/email (RLS is own-row only).
-
-    // 2. Also establish client-side Supabase Auth session (or authenticate directly if backend wasn't reached)
     if (resolvedEmail) {
       try {
         let { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
@@ -783,12 +680,11 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           password: passwordInput,
         });
 
-        // The server (/api/auth/login) owns account confirmation. If the client
-        // still races it, retry once after a short pause instead of trying to
-        // confirm the account from the browser.
-        if (signInErr && (signInErr.message || '').toLowerCase().includes('email not confirmed')) {
-          await new Promise((r) => setTimeout(r, 400));
-
+        if (
+          signInErr &&
+          (signInErr.message || '').toLowerCase().includes('email not confirmed')
+        ) {
+          await new Promise(r => setTimeout(r, 400));
           const retry = await supabase.auth.signInWithPassword({
             email: resolvedEmail,
             password: passwordInput,
@@ -830,12 +726,12 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
             setUnconfirmedEmailForResend(resolvedEmail);
             setAuthFeedback({
               type: 'error',
-              message: `Your account (${resolvedEmail}) needs instant SABI verification. Tap the button below to verify your account right now.`,
+              message: `Your account (${resolvedEmail}) needs verification. Tap below to resend your link.`,
             });
             return;
           }
           signInErrorMessage =
-            'Incorrect email or password. Forgot your password? Click "Forgot Password" to receive a 6-digit recovery code by email.';
+            'Incorrect email or password. Forgot your password? Tap "Forgot Password?" below.';
         }
       } catch (err: any) {
         if (!authenticatedUserId) {
@@ -850,7 +746,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         type: 'error',
         message:
           signInErrorMessage ||
-          'Account not found or incorrect password. Please check your credentials or Create an Account first.',
+          'Account not found or incorrect password. Please check your credentials or Create an Account.',
       });
       return;
     }
@@ -870,9 +766,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     }
   };
 
-  // Handle Password Reset — Phase 0 (defect B5): step 1 emails a 6-digit recovery
-  // code, step 2 exchanges that code for a new password. The public 5-character
-  // Unique SABI ID is no longer accepted as a recovery credential.
+  // Handle Password Reset Request
   const handleRecoveryRequest = async (e: React.FormEvent) => {
     e.preventDefault();
     setRecoveryFeedback(null);
@@ -881,7 +775,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     if (!cleanIdent) {
       setRecoveryFeedback({
         type: 'error',
-        message: 'Enter the email address or phone number registered on your SABI account.',
+        message: 'Enter the email address registered on your SABI account.',
       });
       return;
     }
@@ -908,7 +802,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
         setRecoveryFeedback({
           type: 'success',
           message:
-            'If that account exists, a 6-digit recovery code has been emailed to it. Enter the code below to choose a new password.',
+            'If that account exists, a 6-digit recovery code has been emailed to it.',
         });
         return;
       }
@@ -930,7 +824,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
       type: 'success',
       message:
         requestResult.data?.message ||
-        'If that account exists, a 6-digit recovery code has been emailed to it. Enter the code below to choose a new password.',
+        'If that account exists, a 6-digit recovery code has been emailed to it.',
     });
   };
 
@@ -990,7 +884,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           setAuthLoading(false);
           setRecoveryFeedback({
             type: 'error',
-            message: 'That recovery code is invalid or has expired. Please request a new code.',
+            message: 'That recovery code is invalid or has expired.',
           });
           return;
         }
@@ -1003,7 +897,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
           setAuthLoading(false);
           setRecoveryFeedback({
             type: 'error',
-            message: updateErr.message || 'Could not update password. Please try again.',
+            message: updateErr.message || 'Could not update password.',
           });
           return;
         }
@@ -1016,7 +910,7 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                 confirmResult,
                 'That recovery code is invalid or has expired.'
               )
-            : 'That recovery code is invalid or has expired. Please request a new code.',
+            : 'That recovery code is invalid or has expired.',
         });
         return;
       }
@@ -1034,120 +928,107 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
     setTimeout(() => {
       setRecoveryFeedback(null);
       setCurrentMode('sign-in');
-    }, 1800);
+      navigate('/auth/sign-in', { replace: true });
+    }, 1500);
   };
 
   return (
-    <div className={`min-h-[100dvh] w-full max-w-full overflow-x-hidden ${isDark ? 'bg-[#080D1A] text-slate-100' : 'bg-slate-50 text-slate-900'} transition-colors duration-200 flex flex-col justify-between`}>
-      {/* Header */}
-      <header className={`sabi-top-safe-bar px-4 sm:px-6 py-3.5 border-b ${isDark ? 'bg-[#080D1A]/95 border-slate-800' : 'bg-white/95 border-slate-200'} backdrop-blur-md sticky top-0 z-30`}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <BrandLockup />
-          <div className="flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              className={`p-2.5 rounded-xl border transition-all ${
-                isDark ? 'bg-slate-800/80 border-slate-700 text-amber-400 hover:bg-slate-700' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
-              }`}
-              aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+    <SabiWonderlandShell>
+      <main className="w-full flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
+        <div className="w-full max-w-[400px] sm:max-w-[435px] mx-auto flex flex-col items-center">
+          {/* 1. Top SABI Open-Book Logo + Wordmark */}
+          <div className="mb-3">
+            <SabiPurpleBookLogo size="md" to="/welcome" />
+          </div>
+
+          {/* 2. Screen Headline + Subtitle with Purple Curved Underline */}
+          <div className="text-center mb-5 sm:mb-6">
+            <h1
+              className="text-[25px] sm:text-[29px] font-bold tracking-[0.02em] text-[#31006E] leading-tight uppercase"
+              style={{
+                fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                fontWeight: 700,
+              }}
             >
-              {isDark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-          </div>
-        </div>
-      </header>
+              {currentMode === 'sign-up' && 'CREATE YOUR ACCOUNT'}
+              {currentMode === 'sign-in' && 'WELCOME BACK'}
+              {currentMode === 'verify' && 'YOUR SABI ID IS READY'}
+              {currentMode === 'forgot-password' && 'RESET YOUR PASSWORD'}
+            </h1>
 
-      {/* Main Full-Screen Auth Content */}
-      <main className="w-full flex-1 flex flex-col justify-center px-3 sm:px-6 lg:px-12 py-3 sm:py-6">
-        <div className="w-full max-w-7xl mx-auto flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-10 items-stretch justify-center">
-          
-          {/* Left Hero Column on Large Screens */}
-          <div className={`hidden lg:flex lg:col-span-5 flex-col justify-between p-8 xl:p-10 rounded-3xl border shadow-2xl relative overflow-hidden ${
-            isDark 
-              ? 'bg-gradient-to-br from-[#0F1E3D] via-[#0A1428] to-[#060B16] border-blue-900/60 text-white' 
-              : 'bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-950 border-blue-800 text-white'
-          }`}>
-            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:20px_20px] pointer-events-none" />
-            
-            <div className="relative z-10">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 text-white border border-white/20 font-black text-xs uppercase tracking-wider shadow-xs mb-6">
-                <span>Unified Candidate Identity · JAMB 2027</span>
-              </div>
-              <h1 className="text-3xl xl:text-4xl font-black tracking-tight leading-tight mb-4">
-                One Account. One Unique SABI ID.
-              </h1>
-              <p className="text-sm xl:text-base text-blue-100 font-medium leading-relaxed">
-                Register with your Email or Google account—both stay automatically synced without duplicate profiles. Receive your 5-character Unique SABI ID (4 numbers + 1 letter) before starting your 10-step diagnostic onboarding.
+            <div className="relative inline-block mt-1">
+              <p className="text-[13.5px] sm:text-[14.5px] font-bold text-[#22064B]">
+                {currentMode === 'sign-up' &&
+                  'Your journey to academic excellence starts here.'}
+                {currentMode === 'sign-in' &&
+                  'Sign in to continue your journey to academic excellence.'}
+                {currentMode === 'verify' &&
+                  'Keep your permanent 5-character SABI Unique ID safe.'}
+                {currentMode === 'forgot-password' &&
+                  'We will email you a 6-digit recovery code.'}
               </p>
-            </div>
 
-            <div className="relative z-10 my-4 flex items-center justify-center">
-              <div className="w-full max-w-xs h-44 xl:h-52 flex items-center justify-center">
-                <img
-                  src="/assets/mascots/onboarding/scholar_welcome_salute.svg"
-                  alt="Sabi Scholar"
-                  className="w-full h-full object-contain filter drop-shadow-2xl"
+              {/* Hand-drawn Purple Curved Brush Underline under "to academic" */}
+              <svg
+                viewBox="0 0 180 14"
+                className="w-32 sm:w-36 h-3 mx-auto -mt-0.5 text-[#7C2AE8]"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M6 10 C48 3, 122 3, 174 8"
+                  stroke="currentColor"
+                  strokeWidth="3.2"
+                  strokeLinecap="round"
                 />
-              </div>
-            </div>
-
-            <div className="relative z-10 grid grid-cols-2 gap-3 pt-4 border-t border-white/10 text-xs">
-              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15">
-                <div className="font-black text-white text-sm mb-0.5">🔐 4-Digit + 1-Letter ID</div>
-                <div className="text-blue-100/85 text-[11px]">Easy to remember & downloadable as a recovery doc</div>
-              </div>
-              <div className="p-3 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/15">
-                <div className="font-black text-white text-sm mb-0.5">🔄 Google + Email Sync</div>
-                <div className="text-blue-100/85 text-[11px]">Zero duplicate accounts when switching sign-in method</div>
-              </div>
+              </svg>
             </div>
           </div>
 
-          {/* Right Auth Interaction Column */}
-          <div className={`lg:col-span-7 w-full flex flex-col justify-center p-5 sm:p-8 xl:p-10 rounded-3xl border shadow-xl transition-all ${
-            isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
-          }`}>
-            <div className="w-full max-w-lg mx-auto">
-              {/* Back Navigation */}
-              {currentMode !== 'choice' && currentMode !== 'verify' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRecoveryFeedback(null);
-                    setCurrentMode('choice');
-                  }}
-                  className="mb-4 text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  ← Back to Account Options
-                </button>
-              )}
+          {/* =============================================================== */}
+          {/* 3. FROSTED GLASS AUTH CARD WITH 3D PURPLE CUBE & TORUS RING      */}
+          {/* =============================================================== */}
+          <div className="relative w-full">
+            {/* Soft Warm Ambient Glow Behind Top-Right Cube */}
+            <div className="pointer-events-none absolute -top-6 right-2 w-28 h-28 rounded-full bg-[#F59E0B]/30 blur-xl z-0" />
 
-              {/* Header Titles */}
-              <div className="text-center sm:text-left mb-5">
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-                  {currentMode === 'choice' && 'Choose Your Journey'}
-                  {currentMode === 'sign-up' && 'Create Candidate Account'}
-                  {currentMode === 'verify' && 'Your Unique SABI ID is Ready'}
-                  {currentMode === 'sign-in' && 'Welcome Back, Scholar'}
-                  {currentMode === 'forgot-password' && 'Account Recovery & Reset'}
-                </h2>
-                <p className={`text-xs sm:text-sm mt-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {currentMode === 'choice' && 'Create your candidate profile or sign in to your SABI dashboard.'}
-                  {currentMode === 'sign-up' && 'Complete your details below to generate your permanent 5-character SABI Unique ID before onboarding.'}
-                  {currentMode === 'verify' && 'Copy or download your 4-digit + 1-letter Unique ID for support and account reference. Password resets use a 6-digit code emailed to you.'}
-                  {currentMode === 'sign-in' && 'Sign in with Email, Phone, or Google—your account is automatically synced by email.'}
-                  {currentMode === 'forgot-password' && 'Enter your registered email or phone number and SABI will email you a 6-digit recovery code. Your Unique SABI ID is no longer used to reset passwords.'}
-                </p>
-              </div>
+            {/* Floating 3D Purple Cube (Top-Right Corner of Card) */}
+            <FloatingPurpleCube3D className="absolute -top-9 -right-3 sm:-right-5 w-[74px] h-[74px] sm:w-[84px] sm:h-[84px] z-20" />
 
+            {/* Floating 3D Glossy Orange Sphere (Middle-Right Edge of Card) */}
+            <div
+              className="pointer-events-none absolute top-[38%] -right-3.5 sm:-right-4 w-7 h-7 rounded-full z-20"
+              style={{
+                background:
+                  'radial-gradient(circle at 35% 30%, #FFD180 0%, #FB8C00 55%, #E65100 100%)',
+                boxShadow: '0 6px 14px rgba(230, 81, 0, 0.32)',
+              }}
+            />
+
+            {/* Floating 3D Purple Torus / Donut Ring (Bottom-Left Corner of Card) */}
+            <FloatingPurpleTorus3D className="absolute -bottom-5 -left-6 sm:-left-8 w-[76px] h-[76px] sm:w-[86px] sm:h-[86px] z-20" />
+
+            {/* Frosted Translucent Yellow-Glass Card Container */}
+            <div
+              className="relative z-10 w-full rounded-[28px] px-5 sm:px-7 py-6 sm:py-7 border-[1.5px] border-white/65"
+              style={{
+                background:
+                  'linear-gradient(155deg, rgba(255, 247, 174, 0.78) 0%, rgba(255, 240, 122, 0.68) 100%)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+                boxShadow:
+                  '0 20px 45px rgba(185, 118, 0, 0.20), inset 0 1.5px 2px rgba(255, 255, 255, 0.75)',
+              }}
+            >
+              {/* Status / Error Feedback Banner */}
               {authFeedback && (
                 <div
-                  className={`mb-4 p-3.5 rounded-xl text-xs font-bold border ${
+                  className={`mb-4 p-3 rounded-2xl text-xs font-bold border ${
                     authFeedback.type === 'error'
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
+                      ? 'bg-rose-600/15 border-rose-600/35 text-rose-950'
                       : authFeedback.type === 'success'
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300'
+                      ? 'bg-emerald-600/15 border-emerald-600/35 text-emerald-950'
+                      : 'bg-purple-600/15 border-purple-600/35 text-[#2B055C]'
                   }`}
                 >
                   <div>{authFeedback.message}</div>
@@ -1156,576 +1037,409 @@ export function AuthPage({ mode: initialMode = 'choice' }: { mode?: AuthMode }) 
                       type="button"
                       onClick={handleResendVerificationEmail}
                       disabled={authLoading}
-                      className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] transition-all cursor-pointer"
+                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#6E18E0] hover:bg-[#5B10B8] text-white font-bold text-[11px] cursor-pointer"
                     >
-                      <CheckCircle2 size={14} />
-                      <span>Verify SABI Account Instantly ({unconfirmedEmailForResend})</span>
+                      <CheckCircle2 size={13} />
+                      <span>Resend Verification ({unconfirmedEmailForResend})</span>
                     </button>
                   )}
                 </div>
               )}
 
               {/* ========================================== */}
-              {/* 1. CHOICE MODE                             */}
-              {/* ========================================== */}
-              {currentMode === 'choice' && (
-                <div className="space-y-4 animate-fade-in">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentMode('sign-up');
-                      navigate('/auth/sign-up', { replace: true });
-                    }}
-                    className="w-full p-5 sm:p-6 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black shadow-lg shadow-blue-600/20 flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer border border-blue-500"
-                  >
-                    <div className="flex items-center gap-4 text-left">
-                      <div className="p-3 rounded-xl bg-white/15 text-white transition-colors">
-                        <UserPlus size={24} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg sm:text-xl font-black leading-tight text-white">Create Account</h3>
-                        <p className="text-xs text-blue-100 font-semibold mt-0.5">
-                          Register your details, get your Unique SABI ID & start 10-step onboarding
-                        </p>
-                      </div>
-                    </div>
-                    <ArrowRight size={22} className="text-white group-hover:translate-x-1.5 transition-transform shrink-0" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentMode('sign-in');
-                      navigate('/auth/sign-in', { replace: true });
-                    }}
-                    className={`w-full p-5 sm:p-6 rounded-2xl font-black shadow-sm flex items-center justify-between group transition-all duration-200 transform hover:-translate-y-0.5 active:scale-95 cursor-pointer border-2 ${
-                      isDark
-                        ? 'bg-slate-950 hover:bg-slate-900 text-white border-slate-800 hover:border-blue-500'
-                        : 'bg-white hover:bg-blue-50/40 text-slate-900 border-slate-200 hover:border-blue-400'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4 text-left">
-                      <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 transition-colors font-bold">
-                        <LogIn size={24} />
-                      </div>
-                      <div>
-                        <h3 className="text-lg sm:text-xl font-black leading-tight">Already Have an Account</h3>
-                        <p className={`text-xs font-semibold mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                          Sign in with Email, Phone, or synced Google account
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight size={22} className="text-blue-600 dark:text-blue-400 group-hover:translate-x-1.5 transition-transform shrink-0" />
-                  </button>
-                </div>
-              )}
-
-              {/* ========================================== */}
-              {/* 2. SIGN-UP MODE (CANDIDATE INBOX FORM)     */}
+              {/* MODE A: CREATE YOUR ACCOUNT (IMAGE 2)      */}
               {/* ========================================== */}
               {currentMode === 'sign-up' && (
-                <form onSubmit={handleCreateAccountSubmit} className="space-y-3.5 animate-fade-in">
-                  {/* Synced Google Auth Quick-Link Banner */}
-                  <div className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
-                    isDark ? 'bg-blue-950/30 border-blue-800/60' : 'bg-blue-50/60 border-blue-200'
-                  }`}>
-                    <div className="text-xs">
-                      <div className="font-black text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-                        <Chrome size={15} />
-                        <span>Google & Email Identity Sync Active</span>
-                      </div>
-                      <p className={`text-[11px] mt-0.5 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        Signing up with Email and signing in later with Google (same Gmail) shares the exact same account & Unique ID.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleGoogleSync('register')}
-                      className={`shrink-0 px-3.5 py-2 rounded-xl text-xs font-black border transition-all cursor-pointer ${
-                        authProvider === 'google'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : isDark
-                          ? 'bg-slate-900 text-white border-slate-700 hover:border-blue-400'
-                          : 'bg-white text-blue-700 border-blue-200 hover:border-blue-600'
-                      }`}
-                    >
-                      {authProvider === 'google' ? '✓ Google Linked' : 'Link Google Gmail'}
-                    </button>
+                <form onSubmit={handleCreateAccountSubmit} className="space-y-3.5">
+                  {/* 1. Full Name */}
+                  <div>
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurpleUserIcon />
+                      <span>Full Name</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={fullNameInput}
+                      onChange={e => setFullNameInput(e.target.value)}
+                      placeholder="Enter your full name"
+                      required
+                      className="w-full px-5 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
+                    />
                   </div>
 
-                  {/* Full Name */}
+                  {/* 2. Email Address */}
                   <div>
-                    <label className={`block text-[11px] font-black uppercase tracking-wider mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      Full Name (Surname First)
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurpleEnvelopeIcon />
+                      <span>Email Address</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={e => setEmailInput(e.target.value)}
+                      placeholder="Enter your email address"
+                      required
+                      className="w-full px-5 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
+                    />
+                  </div>
+
+                  {/* 3. Password */}
+                  <div>
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurplePadlockIcon />
+                      <span>Password</span>
                     </label>
                     <div className="relative">
-                      <User size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input
-                        type="text"
-                        value={fullNameInput}
-                        onChange={(e) => setFullNameInput(e.target.value)}
-                        placeholder="e.g. Adeleke David Oluwaseun"
-                        required
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
-                        } outline-none`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Email Address (Primary Sync Key) */}
-                  <div>
-                    <label className={`block text-[11px] font-black uppercase tracking-wider mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      Email / Gmail Address (Synced Across Google & Email Auth)
-                    </label>
-                    <div className="relative">
-                      <Mail size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
-                      <input
-                        type="email"
-                        value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
-                        placeholder="candidate@gmail.com"
-                        required
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
-                        } outline-none`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Grid: Phone Number (+234 SMS ready) & State of Origin */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className={`block text-[11px] font-black uppercase tracking-wider mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        Phone Number (SMS Ready)
-                      </label>
-                      <div className="relative">
-                        <Phone size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
-                        <input
-                          type="tel"
-                          value={phoneInput}
-                          onChange={(e) => setPhoneInput(e.target.value)}
-                          placeholder="+234 803 123 4567"
-                          required
-                          className={`w-full pl-10 pr-3 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
-                          } outline-none`}
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className={`block text-[11px] font-black uppercase tracking-wider mb-1 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        State of Origin
-                      </label>
-                      <div className="relative">
-                        <MapPin size={17} className="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none" />
-                        <select
-                          value={stateOfOriginInput}
-                          onChange={(e) => setStateOfOriginInput(e.target.value)}
-                          required
-                          className={`w-full pl-10 pr-3 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
-                          } outline-none`}
-                        >
-                          {NIGERIAN_STATES.map((st) => (
-                            <option key={st} value={st}>{st}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Password (Always required for Supabase Auth user creation) */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className={`block text-[11px] font-black uppercase tracking-wider ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                        Password (Minimum 6 Characters)
-                      </label>
-                    </div>
-                    <div className="relative">
-                      <LockKeyhole size={17} className="absolute left-3.5 top-3.5 text-slate-400" />
-                      <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         minLength={6}
                         value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder="Create a strong password (min. 6 chars)"
+                        onChange={e => setPasswordInput(e.target.value)}
+                        placeholder="Create a password"
                         required
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-600'
-                        } outline-none`}
+                        className="w-full pl-5 pr-12 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-[#7C2AE8] hover:text-[#4C0E9F] cursor-pointer"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="w-full py-4 rounded-2xl font-black text-sm sm:text-base bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white shadow-lg shadow-blue-600/20 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
-                  >
-                    <span>{authLoading ? 'Creating Account & Verifying SABI ID...' : 'Create Account & Generate Unique ID'}</span>
-                    <ArrowRight size={18} />
-                  </button>
+                  {/* 4. Confirm Password */}
+                  <div>
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurplePadlockIcon />
+                      <span>Confirm Password</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        minLength={6}
+                        value={confirmPasswordInput}
+                        onChange={e => setConfirmPasswordInput(e.target.value)}
+                        placeholder="Confirm your password"
+                        required
+                        className="w-full pl-5 pr-12 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(prev => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-[#7C2AE8] hover:text-[#4C0E9F] cursor-pointer"
+                        aria-label={
+                          showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                        }
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 5. 3D Glossy Purple Pill Button: CREATE ACCOUNT */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] sm:text-[18px] tracking-[0.04em] uppercase flex items-center justify-center gap-2 cursor-pointer transition-transform duration-150 active:scale-[0.98] hover:brightness-105 disabled:opacity-60"
+                      style={{
+                        fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                        background:
+                          'linear-gradient(180deg, #8F38F8 0%, #711AE3 65%, #5C11C2 100%)',
+                        boxShadow:
+                          '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
+                      }}
+                    >
+                      <span>{authLoading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}</span>
+                    </button>
+                  </div>
                 </form>
               )}
 
               {/* ========================================== */}
-              {/* 3. VERIFY / UNIQUE SABI ID ISSUED MODE     */}
-              {/* ========================================== */}
-              {currentMode === 'verify' && (
-                <div className="space-y-5 animate-fade-in">
-                  {/* Blue & White Official Unique ID Card with subtle light yellow accent */}
-                  <div className={`rounded-3xl p-6 border-2 shadow-xl ${
-                    isDark ? 'bg-slate-950 border-blue-800 text-white' : 'bg-white border-blue-200 text-slate-900'
-                  }`}>
-                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                      <span className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono text-[11px] font-black uppercase tracking-widest">
-                        SABI OFFICIAL VERIFICATION GRANT
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 text-xs font-black">
-                        <CheckCircle2 size={13} />
-                        <span>Verified by SABI</span>
-                      </span>
-                    </div>
-
-                    <p className={`text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-                      Assigned to <span className="font-black text-blue-600 dark:text-blue-400 underline">{emailInput || 'candidate@sabi.ng'}</span> ({stateOfOriginInput} State)
-                    </p>
-
-                    <div className="my-4 p-4 rounded-2xl bg-gradient-to-r from-blue-700 to-blue-900 text-white flex items-center justify-between border border-blue-500 shadow-md">
-                      <div>
-                        <div className="text-[10px] font-mono uppercase tracking-widest text-blue-200">
-                          YOUR PERMANENT SABI UNIQUE ID
-                        </div>
-                        <div className="text-3xl sm:text-4xl font-black font-mono tracking-[0.2em] mt-0.5 text-white">
-                          {generatedUniqueId}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCopyUniqueId}
-                        className="px-4 py-2.5 rounded-xl bg-white hover:bg-blue-50 text-blue-800 font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                      >
-                        {copiedId ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                        <span>{copiedId ? 'Copied!' : 'Copy ID'}</span>
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-2.5 mt-4">
-                      <button
-                        type="button"
-                        onClick={handleDownloadUniqueIdDoc}
-                        className={`flex-1 py-3 px-4 rounded-xl border font-black text-xs flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                          isDark
-                            ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-slate-200'
-                            : 'bg-slate-50 hover:bg-blue-50/50 border-slate-200 text-blue-800'
-                        }`}
-                      >
-                        <Download size={16} />
-                        <span>Download ID Recovery Doc (.txt)</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${
-                    isDark ? 'bg-slate-950/70 border-slate-800 text-slate-300' : 'bg-yellow-50/70 border-yellow-200/80 text-slate-700'
-                  }`}>
-                    <strong className="font-black text-blue-700 dark:text-blue-400">Important:</strong> This ID is also saved in your Account Dashboard where you can download the recovery document at any time. It identifies your account for support — to reset a password, use "Forgot Password" and the 6-digit code we email you.
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate('/onboarding/1')}
-                    className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-base shadow-xl shadow-blue-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-95"
-                  >
-                    <span>Proceed to 10-Step Onboarding</span>
-                    <ArrowRight size={20} />
-                  </button>
-                </div>
-              )}
-
-              {/* ========================================== */}
-              {/* 4. SIGN-IN FORM (EMAIL, PHONE, OR GOOGLE)  */}
+              {/* MODE B: SIGN IN                            */}
               {/* ========================================== */}
               {currentMode === 'sign-in' && (
-                <form onSubmit={handleSignInSubmit} className="space-y-4 animate-fade-in">
-                  {/* Google One-Tap Sync Sign-In */}
-                  <button
-                    type="button"
-                    onClick={() => handleGoogleSync('login')}
-                    className={`w-full py-3.5 px-4 rounded-2xl border font-black text-xs sm:text-sm flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
-                      isDark
-                        ? 'bg-slate-950 border-slate-800 text-white hover:border-blue-500'
-                        : 'bg-white border-slate-300 text-slate-900 hover:border-blue-600 shadow-xs'
-                    }`}
-                  >
-                    <Chrome size={18} className="text-blue-600" />
-                    <span>Continue with Google (Synced with Email Account)</span>
-                  </button>
-
-                  <div className="relative flex py-1 items-center">
-                    <div className={`flex-grow border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`} />
-                    <span className="flex-shrink mx-3 text-[11px] font-bold uppercase text-slate-400">or sign in with credentials</span>
-                    <div className={`flex-grow border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`} />
-                  </div>
-
-                  {/* Method Switch: Email or Phone */}
-                  <div className={`flex rounded-xl p-1 border ${isDark ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
-                    <button
-                      type="button"
-                      onClick={() => setAuthMethod('email')}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
-                        authMethod === 'email' 
-                          ? 'bg-blue-600 text-white shadow-sm' 
-                          : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Email Address
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthMethod('phone')}
-                      className={`flex-1 py-2.5 rounded-lg text-xs font-black transition-all ${
-                        authMethod === 'phone' 
-                          ? 'bg-blue-600 text-white shadow-sm' 
-                          : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Phone (+234)
-                    </button>
-                  </div>
-
-                  {authMethod === 'email' ? (
-                    <div>
-                      <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Email Address
-                      </label>
-                      <div className="relative">
-                        <Mail size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
-                        <input
-                          type="email"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          placeholder="candidate@gmail.com"
-                          required
-                          className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${
-                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
-                          } outline-none`}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Nigerian Phone Number
-                      </label>
-                      <div className="relative">
-                        <Phone size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
-                        <input
-                          type="tel"
-                          value={phoneInput}
-                          onChange={(e) => setPhoneInput(e.target.value)}
-                          placeholder="080 1234 5678"
-                          required
-                          className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${
-                            isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
-                          } outline-none`}
-                        />
-                      </div>
-                    </div>
-                  )}
-
+                <form onSubmit={handleSignInSubmit} className="space-y-4">
+                  {/* 1. Email Address */}
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className={`block text-xs font-bold uppercase tracking-wider ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Password
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurpleEnvelopeIcon />
+                      <span>Email Address</span>
+                    </label>
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={e => setEmailInput(e.target.value)}
+                      placeholder="Enter your email address"
+                      required
+                      className="w-full px-5 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
+                    />
+                  </div>
+
+                  {/* 2. Password */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5 pl-1 pr-2">
+                      <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B]">
+                        <PurplePadlockIcon />
+                        <span>Password</span>
                       </label>
                       <button
                         type="button"
                         onClick={() => {
                           setRecoveryFeedback(null);
                           setCurrentMode('forgot-password');
+                          navigate('/auth/forgot-password', { replace: true });
                         }}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-bold"
+                        className="text-xs font-bold text-[#5E14C4] hover:underline cursor-pointer"
                       >
-                        Forgot Password? (Verify with Unique ID)
+                        Forgot Password?
                       </button>
                     </div>
                     <div className="relative">
-                      <LockKeyhole size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         value={passwordInput}
-                        onChange={(e) => setPasswordInput(e.target.value)}
-                        placeholder="••••••••"
+                        onChange={e => setPasswordInput(e.target.value)}
+                        placeholder="Enter your password"
                         required
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-xl border text-sm font-medium transition-all ${
-                          isDark ? 'bg-slate-950 border-slate-800 text-white focus:border-blue-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-blue-500'
-                        } outline-none`}
+                        className="w-full pl-5 pr-12 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(prev => !prev)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1.5 text-[#7C2AE8] hover:text-[#4C0E9F] cursor-pointer"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
                     </div>
                   </div>
 
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="w-full py-4 rounded-2xl font-black text-base bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white shadow-lg shadow-blue-600/20 transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 cursor-pointer mt-2"
-                  >
-                    <span>{authLoading ? 'Signing In & Syncing...' : 'Sign In to Dashboard'}</span>
-                    <ArrowRight size={18} />
-                  </button>
-
-                  <div className="text-center pt-2">
+                  {/* 3. 3D Glossy Purple Pill Button: SIGN IN */}
+                  <div className="pt-2">
                     <button
-                      type="button"
-                      onClick={() => setCurrentMode('sign-up')}
-                      className={`text-xs font-bold ${isDark ? 'text-slate-400 hover:text-blue-400' : 'text-slate-600 hover:text-blue-600'} transition-colors cursor-pointer`}
+                      type="submit"
+                      disabled={authLoading}
+                      className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] sm:text-[18px] tracking-[0.04em] uppercase flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 active:scale-[0.98] hover:brightness-105 disabled:opacity-60"
+                      style={{
+                        fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                        background:
+                          'linear-gradient(180deg, #8F38F8 0%, #711AE3 65%, #5C11C2 100%)',
+                        boxShadow:
+                          '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
+                      }}
                     >
-                      Don't have an account? Create one & get your Unique ID
+                      <span>{authLoading ? 'SIGNING IN...' : 'SIGN IN'}</span>
+                      <ArrowRight size={20} strokeWidth={2.5} />
                     </button>
                   </div>
                 </form>
               )}
 
               {/* ========================================== */}
-              {/* 5. FORGOT PASSWORD (REQUIRES UNIQUE ID)    */}
+              {/* MODE C: VERIFY / UNIQUE SABI ID ISSUED     */}
               {/* ========================================== */}
-              {currentMode === 'forgot-password' && recoveryStep === 'request' && (
-                <form onSubmit={handleRecoveryRequest} className="space-y-4 animate-fade-in">
-                  <div className={`p-3.5 rounded-2xl border text-xs font-semibold leading-relaxed ${
-                    isDark ? 'bg-blue-950/40 border-blue-800/60 text-slate-200' : 'bg-yellow-50/80 border-yellow-200 text-slate-700'
-                  }`}>
-                    <span className="font-black text-blue-700 dark:text-blue-300 uppercase tracking-wider block mb-0.5">
-                      Emailed Recovery Code
-                    </span>
-                    Enter the email address or phone number on your account and SABI will email you a <strong>6-digit recovery code</strong>. Your Unique SABI ID is no longer used to reset passwords.
+              {currentMode === 'verify' && (
+                <div className="space-y-4 text-center">
+                  <div className="p-4 rounded-2xl bg-[#F4EBD0]/95 border border-white/80 space-y-2">
+                    <div className="text-[11px] font-extrabold uppercase tracking-widest text-[#5E14C4]">
+                      YOUR PERMANENT SABI UNIQUE ID
+                    </div>
+                    <div className="text-3xl font-black font-mono tracking-[0.2em] text-[#22064B]">
+                      {generatedUniqueId || '4829K'}
+                    </div>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleCopyUniqueId}
+                        className="px-4 py-2 rounded-full bg-white text-[#5E14C4] font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        {copiedId ? <CheckCircle2 size={14} /> : <Copy size={14} />}
+                        <span>{copiedId ? 'Copied!' : 'Copy ID'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadUniqueIdDoc}
+                        className="px-4 py-2 rounded-full bg-white text-[#22064B] font-bold text-xs flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <Download size={14} />
+                        <span>Save .txt</span>
+                      </button>
+                    </div>
                   </div>
 
+                  <button
+                    type="button"
+                    onClick={() => navigate('/onboarding/1')}
+                    className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] tracking-[0.04em] uppercase flex items-center justify-center gap-2 cursor-pointer"
+                    style={{
+                      fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                      background:
+                        'linear-gradient(180deg, #8F38F8 0%, #711AE3 65%, #5C11C2 100%)',
+                      boxShadow:
+                        '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
+                    }}
+                  >
+                    <span>CONTINUE</span>
+                    <ArrowRight size={20} />
+                  </button>
+                </div>
+              )}
+
+              {/* ========================================== */}
+              {/* MODE D: FORGOT PASSWORD                    */}
+              {/* ========================================== */}
+              {currentMode === 'forgot-password' && recoveryStep === 'request' && (
+                <form onSubmit={handleRecoveryRequest} className="space-y-4">
                   {recoveryFeedback && (
-                    <div className={`p-3.5 rounded-xl text-xs font-bold border ${
-                      recoveryFeedback.type === 'success'
-                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                        : 'bg-rose-500/15 border-rose-500/40 text-rose-400'
-                    }`}>
+                    <div
+                      className={`p-3 rounded-2xl text-xs font-bold border ${
+                        recoveryFeedback.type === 'success'
+                          ? 'bg-emerald-600/15 border-emerald-600/35 text-emerald-950'
+                          : 'bg-rose-600/15 border-rose-600/35 text-rose-950'
+                      }`}
+                    >
                       {recoveryFeedback.message}
                     </div>
                   )}
 
                   <div>
-                    <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      Registered Email or Phone Number
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurpleEnvelopeIcon />
+                      <span>Registered Email Address</span>
                     </label>
                     <input
-                      type="text"
+                      type="email"
                       value={recoveryIdentifier}
-                      onChange={(e) => setRecoveryIdentifier(e.target.value)}
-                      placeholder="candidate@gmail.com or +234..."
+                      onChange={e => setRecoveryIdentifier(e.target.value)}
+                      placeholder="Enter your email address"
                       required
-                      className={`w-full px-4 py-3.5 rounded-xl border text-sm font-medium ${
-                        isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      } outline-none`}
+                      className="w-full px-5 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 font-black text-white text-sm transition-all cursor-pointer shadow-lg shadow-blue-700/25 active:scale-95"
+                    className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[16px] tracking-[0.04em] uppercase cursor-pointer disabled:opacity-60"
+                    style={{
+                      fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                      background:
+                        'linear-gradient(180deg, #8F38F8 0%, #711AE3 65%, #5C11C2 100%)',
+                      boxShadow:
+                        '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
+                    }}
                   >
-                    {authLoading ? 'Sending recovery code…' : 'Send 6-Digit Recovery Code'}
+                    {authLoading ? 'SENDING CODE...' : 'SEND RECOVERY CODE'}
                   </button>
                 </form>
               )}
 
               {currentMode === 'forgot-password' && recoveryStep === 'confirm' && (
-                <form onSubmit={handleRecoveryConfirm} className="space-y-4 animate-fade-in">
-                  <div className={`p-3.5 rounded-2xl border text-xs font-semibold leading-relaxed ${
-                    isDark ? 'bg-blue-950/40 border-blue-800/60 text-slate-200' : 'bg-yellow-50/80 border-yellow-200 text-slate-700'
-                  }`}>
-                    <span className="font-black text-blue-700 dark:text-blue-300 uppercase tracking-wider block mb-0.5">
-                      Check Your Inbox
-                    </span>
-                    Enter the 6-digit code sent to <strong>{recoveryIdentifier}</strong>, then choose a new password. The code expires shortly, so request a fresh one if it does not arrive.
-                  </div>
-
+                <form onSubmit={handleRecoveryConfirm} className="space-y-3.5">
                   {recoveryFeedback && (
-                    <div className={`p-3.5 rounded-xl text-xs font-bold border ${
-                      recoveryFeedback.type === 'success'
-                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400'
-                        : 'bg-rose-500/15 border-rose-500/40 text-rose-400'
-                    }`}>
+                    <div
+                      className={`p-3 rounded-2xl text-xs font-bold border ${
+                        recoveryFeedback.type === 'success'
+                          ? 'bg-emerald-600/15 border-emerald-600/35 text-emerald-950'
+                          : 'bg-rose-600/15 border-rose-600/35 text-rose-950'
+                      }`}
+                    >
                       {recoveryFeedback.message}
                     </div>
                   )}
 
                   <div>
-                    <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      6-Digit Recovery Code
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <KeyRound size={15} className="text-[#5E14C4]" />
+                      <span>6-Digit Recovery Code</span>
                     </label>
-                    <div className="relative">
-                      <KeyRound size={18} className="absolute left-3.5 top-3.5 text-blue-600" />
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={6}
-                        value={recoveryOtp}
-                        onChange={(e) => setRecoveryOtp(e.target.value.replace(/\D/g, ''))}
-                        placeholder="123456"
-                        required
-                        className={`w-full pl-11 pr-4 py-3.5 rounded-xl border-2 text-base font-mono font-black tracking-widest ${
-                          isDark ? 'bg-slate-950 border-blue-500/50 text-blue-300' : 'bg-blue-50/40 border-blue-300 text-slate-950'
-                        } outline-none`}
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={recoveryOtp}
+                      onChange={e => setRecoveryOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      required
+                      className="w-full px-5 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[15px] font-mono font-black tracking-widest text-[#22064B] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
+                    />
                   </div>
 
                   <div>
-                    <label className={`block text-xs font-bold uppercase tracking-wider mb-1.5 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                      New Password
+                    <label className="flex items-center gap-2 text-[13.5px] font-extrabold text-[#22064B] mb-1.5 pl-1">
+                      <PurplePadlockIcon />
+                      <span>New Password</span>
                     </label>
                     <input
                       type="password"
                       value={newResetPassword}
-                      onChange={(e) => setNewResetPassword(e.target.value)}
+                      onChange={e => setNewResetPassword(e.target.value)}
                       placeholder="Enter new password"
                       required
-                      className={`w-full px-4 py-3.5 rounded-xl border text-sm font-medium ${
-                        isDark ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300 text-slate-900'
-                      } outline-none`}
+                      className="w-full px-5 py-3.5 rounded-full bg-[#F4EBD0]/95 border border-white/70 text-[14px] font-semibold text-[#22064B] placeholder:text-[#78716C] focus:outline-none focus:ring-2 focus:ring-[#7C2AE8]/50 shadow-inner"
                     />
                   </div>
 
                   <button
                     type="submit"
                     disabled={authLoading}
-                    className="w-full py-4 rounded-2xl bg-blue-700 hover:bg-blue-800 disabled:opacity-60 font-black text-white text-sm transition-all cursor-pointer shadow-lg shadow-blue-700/25 active:scale-95"
-                  >
-                    {authLoading ? 'Resetting password…' : 'Verify Code & Reset Password'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRecoveryStep('request');
-                      setRecoveryOtp('');
-                      setRecoveryFeedback(null);
+                    className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[16px] tracking-[0.04em] uppercase cursor-pointer disabled:opacity-60"
+                    style={{
+                      fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                      background:
+                        'linear-gradient(180deg, #8F38F8 0%, #711AE3 65%, #5C11C2 100%)',
+                      boxShadow:
+                        '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
                     }}
-                    className={`w-full py-2 rounded-xl text-xs font-bold ${isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'}`}
                   >
-                    Use a different email or phone number
+                    {authLoading ? 'UPDATING...' : 'RESET PASSWORD'}
                   </button>
                 </form>
               )}
             </div>
           </div>
+
+          {/* 4. Bottom Switch Prompt (Already have an account? Sign in / Don't have an account? Sign up) */}
+          <div className="mt-5 sm:mt-6 text-[15px] sm:text-[16px] font-bold text-[#22064B] text-center">
+            {currentMode === 'sign-up' ? (
+              <>
+                <span>Already have an account? </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthFeedback(null);
+                    setCurrentMode('sign-in');
+                    navigate('/auth/sign-in', { replace: true });
+                  }}
+                  className="text-[#5E14C4] font-extrabold underline decoration-2 underline-offset-4 hover:text-[#3B077E] cursor-pointer transition-colors"
+                >
+                  Sign in
+                </button>
+              </>
+            ) : (
+              <>
+                <span>Don&apos;t have an account? </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthFeedback(null);
+                    setCurrentMode('sign-up');
+                    navigate('/auth/sign-up', { replace: true });
+                  }}
+                  className="text-[#5E14C4] font-extrabold underline decoration-2 underline-offset-4 hover:text-[#3B077E] cursor-pointer transition-colors"
+                >
+                  Sign up
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className={`px-6 py-3 border-t text-center text-xs ${isDark ? 'border-slate-800/80 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
-        <span>SABI © 2026 · Nigeria's Joint Admissions and Matriculation Board UTME CBT Platform</span>
-      </footer>
-    </div>
+    </SabiWonderlandShell>
   );
 }
