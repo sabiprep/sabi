@@ -1158,6 +1158,15 @@ app.use(errorHandler);
 // Vite and Static Assets Orchestration
 // -------------------------------------------------------------
 async function startServer() {
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api')) {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+    }
+    next();
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     // Vite is only needed for local development. Keep it out of the serverless
     // production module graph so the API does not load Rollup's native binaries.
@@ -1165,12 +1174,22 @@ async function startServer() {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
+      optimizeDeps: { force: true },
     });
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        etag: false,
+        lastModified: false,
+        setHeaders: res => {
+          res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        },
+      })
+    );
     app.get('*', (_req, res) => {
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

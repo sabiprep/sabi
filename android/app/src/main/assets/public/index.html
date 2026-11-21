@@ -14,18 +14,27 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <link rel="apple-touch-icon" href="/icon.svg" />
     <script>
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (var registration of registrations) {
-            registration.unregister();
-          }
-        });
-      }
+      (function () {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then(function (registrations) {
+            for (var registration of registrations) {
+              registration.unregister();
+            }
+          });
+        }
+        if ('caches' in window) {
+          caches.keys().then(function (names) {
+            for (var name of names) {
+              caches.delete(name);
+            }
+          });
+        }
+      })();
     </script>
-    <script type="module" crossorigin src="/assets/index-DQu2TCWg.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DrBeGI2a.css">
+    <script type="module" crossorigin src="/assets/index-Ce5iVijI.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-C0w74cBY.css">
   </head>
-  <body>
+  <body style="background-color: #FFE51E; margin: 0;">
     <div id="root"></div>
   </body>
 </html>

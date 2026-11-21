@@ -69028,17 +69028,35 @@ app.use("/api/notifications", routes_default6);
 app.use(apiNotFoundHandler);
 app.use(errorHandler);
 async function startServer() {
+  app.use((req, res, next) => {
+    if (!req.path.startsWith("/api")) {
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.set("Pragma", "no-cache");
+      res.set("Expires", "0");
+    }
+    next();
+  });
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: "spa"
+      appType: "spa",
+      optimizeDeps: { force: true }
     });
     app.use(vite.middlewares);
   } else {
     const distPath = import_path.default.join(process.cwd(), "dist");
-    app.use(import_express8.default.static(distPath));
+    app.use(
+      import_express8.default.static(distPath, {
+        etag: false,
+        lastModified: false,
+        setHeaders: (res) => {
+          res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        }
+      })
+    );
     app.get("*", (_req, res) => {
+      res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.sendFile(import_path.default.join(distPath, "index.html"));
     });
   }

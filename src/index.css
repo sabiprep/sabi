@@ -1,22 +1,27 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700;800&display=swap');
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
 @theme {
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-display: 'Fredoka', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* Custom fade transitions and animations for a premium app feel */
-@layer utilities {
-  .animate-pulse-slow {
-    animation: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
+/* SABI Wonderland Renovation Foundation */
+:root {
+  --sabi-yellow: #FFE51E;
+  --sabi-purple-deep: #31006E;
+  --sabi-purple-primary: #711AE3;
+  --sabi-ink: #1E1035;
+  --sabi-top-safe-offset: env(safe-area-inset-top, 0px);
+  --sabi-bottom-safe-offset: env(safe-area-inset-bottom, 0px);
 }
 
-/* Ensure smooth scrolling, locked mobile viewport width, and full height */
+html.is-android-view {
+  --sabi-top-safe-offset: max(env(safe-area-inset-top, 0px), 34px);
+  --sabi-bottom-safe-offset: max(env(safe-area-inset-bottom, 0px), 10px);
+}
+
 html, body, #root {
   height: 100%;
   width: 100%;
@@ -28,123 +33,19 @@ html, body, #root {
   touch-action: pan-x pan-y;
   -webkit-text-size-adjust: 100%;
   font-family: var(--font-sans);
-  background-color: #fcfcfd;
-  color: #101828;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-
-/* SABI frontend foundation
- * Visual treatment is implementation-level; learning-state authority remains server-side.
- */
-:root {
-  --sabi-ink: #0A1128;
-  --sabi-blue: #2563EB;
-  --sabi-emerald: #10B981;
-  --sabi-gold: #F59E0B;
-  --sabi-surface: #FFFFFF;
-  --sabi-page: #F8FAFC;
-  --sabi-border: #E2E8F0;
-  --sabi-muted: #64748B;
-  --sabi-success: #10B981;
-  --sabi-danger: #EF4444;
-}
-
-.dark {
-  --sabi-ink: #F8FAFC;
-  --sabi-surface: #111827;
-  --sabi-page: #0B0F19;
-  --sabi-border: #1F2937;
-  --sabi-muted: #94A3B8;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-/* Hide scrollbar for IE, Edge and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-
-/* Safe area padding utilities for mobile & Android status bar (battery %, network bar) */
-:root {
-  --sabi-top-safe-offset: env(safe-area-inset-top, 0px);
-  --sabi-bottom-safe-offset: env(safe-area-inset-bottom, 0px);
-}
-
-html.is-android-view {
-  --sabi-top-safe-offset: max(env(safe-area-inset-top, 0px), 34px);
-  --sabi-bottom-safe-offset: max(env(safe-area-inset-bottom, 0px), 10px);
-}
-
-.pt-safe {
-  padding-top: var(--sabi-top-safe-offset);
-}
-.pb-safe {
-  padding-bottom: var(--sabi-bottom-safe-offset);
-}
-
-/* Brings top header content down below the Android battery/network bar while keeping header background color at top:0 */
-.sabi-top-safe-bar {
-  padding-top: calc(0.875rem + var(--sabi-top-safe-offset)) !important;
-}
-
-.sabi-drawer-safe {
-  padding-top: calc(1.5rem + var(--sabi-top-safe-offset)) !important;
-}
-
-.sabi-bottom-safe {
-  padding-bottom: calc(0.5rem + var(--sabi-bottom-safe-offset)) !important;
-}
-
-.flow-header,
-.app-topbar,
-.public-header {
-  padding-top: var(--sabi-top-safe-offset) !important;
-  height: auto !important;
-  min-height: calc(74px + var(--sabi-top-safe-offset)) !important;
-}
-
-body {
-  background: var(--sabi-page);
-  color: var(--sabi-ink);
+  background-color: #FFE51E;
+  color: #2B055C;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
 button,
+a,
 input,
 select,
 textarea {
   font: inherit;
-}
-
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 3px solid rgb(74 144 217 / 0.45);
-  outline-offset: 2px;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled,
@@ -154,31 +55,10 @@ textarea:disabled {
   cursor: not-allowed;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+.pt-safe {
+  padding-top: var(--sabi-top-safe-offset);
 }
 
-@media (max-width: 640px) {
-  html {
-    font-size: 15px;
-  }
-}
-
-.sabi-surface {
-  background: var(--sabi-surface);
-  border: 1px solid var(--sabi-border);
-  border-radius: var(--sabi-radius-lg);
-  box-shadow: var(--sabi-shadow-sm);
-}
-
-.sabi-focus-ring:focus-visible {
-  outline: 3px solid rgb(74 144 217 / 0.45);
-  outline-offset: 3px;
+.pb-safe {
+  padding-bottom: var(--sabi-bottom-safe-offset);
 }
