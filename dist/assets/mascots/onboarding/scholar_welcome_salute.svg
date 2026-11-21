@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="gateIron" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="50%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="gateGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="pillarStone" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="50%" stop-color="#64748B"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8D5524"/>
+      <stop offset="100%" stop-color="#613612"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <filter id="drop" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="300" cy="460" rx="270" ry="24" fill="#000000" opacity="0.25"/>
+
+  <!-- Background Citadel Gateway Arch -->
+  <g id="bg_gateway" opacity="0.8">
+    <rect x="60" y="40" width="48" height="420" rx="8" fill="url(#pillarStone)"/>
+    <rect x="490" y="40" width="48" height="420" rx="8" fill="url(#pillarStone)"/>
+    <path d="M100 80 Q300 -10 495 80" fill="none" stroke="url(#gateIron)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M100 96 Q300 6 495 96" fill="none" stroke="url(#gateGold)" stroke-width="6"/>
+  </g>
+
+  <!-- Sabi Scholar Welcoming with Thumbs-up -->
+  <g id="scholar_welcoming" filter="url(#drop)">
+    <!-- Confident upright stance -->
+    <path d="M265 350 L245 445" stroke="#1E293B" stroke-width="36" stroke-linecap="round"/>
+    <ellipse cx="238" cy="452" rx="32" ry="16" fill="#0F172A"/>
+
+    <path d="M335 350 L355 445" stroke="#1E293B" stroke-width="36" stroke-linecap="round"/>
+    <ellipse cx="362" cy="452" rx="32" ry="16" fill="#0F172A"/>
+
+    <!-- Torso / Royal Blue Blazer -->
+    <path d="M250 200 C250 170, 350 170, 350 200 L360 360 C320 375, 270 375, 240 360 Z" fill="url(#blazer)"/>
+    <polygon points="300,200 312,270 288,270" fill="#FFFFFF"/>
+    <polygon points="300,215 308,310 292,310" fill="url(#gateGold)"/>
+
+    <!-- Left Arm Holding Books / Binder against chest -->
+    <path d="M255 220 L210 280 L250 310" stroke="url(#blazer)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- Binder with 'JAMB 300+' -->
+    <rect x="200" y="270" width="55" height="75" rx="8" fill="url(#gateGold)" stroke="#92400E" stroke-width="3" transform="rotate(-15 227 307)"/>
+    <line x1="215" y1="285" x2="245" y2="280" stroke="#78350F" stroke-width="3"/>
+    <line x1="218" y1="298" x2="248" y2="293" stroke="#78350F" stroke-width="3"/>
+    <circle cx="255" cy="315" r="15" fill="url(#skin)"/> <!-- Left Hand holding book -->
+
+    <!-- Right Arm Giving Big Confident Thumbs-Up -->
+    <path d="M345 220 L400 240 L440 220" stroke="url(#blazer)" stroke-width="30" stroke-linecap="round"/>
+    <!-- Right Hand with Thumbs-up pointing up -->
+    <circle cx="445" cy="215" r="16" fill="url(#skin)"/>
+    <path d="M445 215 L445 185" stroke="url(#skin)" stroke-width="12" stroke-linecap="round"/> <!-- Thumb Up -->
+
+    <!-- Head & Warm Welcoming Expression -->
+    <ellipse cx="300" cy="135" rx="52" ry="58" fill="url(#skin)"/>
+    <!-- Hair -->
+    <path d="M248 120 C248 65, 352 65, 352 120 C335 85, 260 85, 248 120 Z" fill="#18181B"/>
+    <circle cx="248" cy="135" r="13" fill="url(#skin)"/>
+    <circle cx="352" cy="135" r="13" fill="url(#skin)"/>
+
+    <!-- Gold Glasses -->
+    <rect x="265" y="115" width="30" height="25" rx="7" fill="none" stroke="#F59E0B" stroke-width="4"/>
+    <rect x="305" y="115" width="30" height="25" rx="7" fill="none" stroke="#F59E0B" stroke-width="4"/>
+    <line x1="295" y1="127" x2="305" y2="127" stroke="#F59E0B" stroke-width="4"/>
+
+    <!-- Welcoming Friendly Eyes -->
+    <ellipse cx="280" cy="127" rx="5" ry="7" fill="#FFFFFF"/>
+    <circle cx="282" cy="127" r="3.5" fill="#0F172A"/>
+    <ellipse cx="320" cy="127" rx="5" ry="7" fill="#FFFFFF"/>
+    <circle cx="322" cy="127" r="3.5" fill="#0F172A"/>
+
+    <!-- Warm Encouraging Smile -->
+    <path d="M280 155 Q300 175 320 155" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+
+    <!-- Speech Welcome Banner -->
+    <g transform="translate(380, 80)">
+      <rect x="0" y="0" width="180" height="55" rx="16" fill="#1E40AF" stroke="url(#gateGold)" stroke-width="3"/>
+      <polygon points="10,40 -8,55 18,52" fill="#1E40AF"/>
+      <text x="90" y="24" fill="#FDE047" font-family="system-ui, sans-serif" font-size="12" font-weight="900" text-anchor="middle">WELCOME SCHOLAR!</text>
+      <text x="90" y="42" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="11" font-weight="700" text-anchor="middle">Ready for 300+ in JAMB?</text>
+    </g>
+  </g>
+</svg>

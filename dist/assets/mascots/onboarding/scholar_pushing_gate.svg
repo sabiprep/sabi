@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="gateIron" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="50%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="gateGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="pillarStone" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="50%" stop-color="#64748B"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8D5524"/>
+      <stop offset="100%" stop-color="#613612"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <filter id="drop" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Ground -->
+  <ellipse cx="300" cy="460" rx="270" ry="24" fill="#000000" opacity="0.25"/>
+
+  <!-- ==================== THE GRAND CITADEL GATE ==================== -->
+  <g id="citadel_gate" filter="url(#drop)">
+    <!-- Right Massive Stone Gate Pillar -->
+    <rect x="500" y="40" width="60" height="420" rx="8" fill="url(#pillarStone)"/>
+    <rect x="490" y="25" width="80" height="24" rx="4" fill="#1E293B"/>
+    <polygon points="530,2 560,25 500,25" fill="url(#gateGold)"/>
+    <!-- Pillar Sconces / Golden Lantern -->
+    <rect x="480" y="180" width="16" height="36" rx="4" fill="url(#gateGold)"/>
+    <ellipse cx="488" cy="170" rx="10" ry="14" fill="#FEF08A" opacity="0.9"/>
+
+    <!-- Left Distant Gate Pillar -->
+    <rect x="30" y="40" width="40" height="420" rx="6" fill="url(#pillarStone)" opacity="0.6"/>
+
+    <!-- Top Heavy Wrought-Iron Arch Curve with Golden Finials -->
+    <path d="M70 120 Q290 20 500 100" fill="none" stroke="url(#gateIron)" stroke-width="16" stroke-linecap="round"/>
+    <path d="M70 140 Q290 40 500 120" fill="none" stroke="url(#gateGold)" stroke-width="6"/>
+
+    <!-- Ornate Golden Crest on Gate Arch Top -->
+    <circle cx="340" cy="62" r="24" fill="url(#gateGold)" stroke="#1E293B" stroke-width="4"/>
+    <polygon points="340,44 346,58 360,60 348,70 352,84 340,75 328,84 332,70 320,60 334,58" fill="#1E3A8A"/>
+
+    <!-- The Massive Ornate Gate Door Being Pushed (Positioned at x: 260 to 500) -->
+    <!-- Heavy Vertical Spear Bars -->
+    <g stroke="url(#gateIron)" stroke-width="10" stroke-linecap="round">
+      <!-- Spears with Golden Arrowhead Tips -->
+      <line x1="280" y1="110" x2="280" y2="450"/>
+      <line x1="320" y1="95" x2="320" y2="450"/>
+      <line x1="360" y1="88" x2="360" y2="450"/>
+      <line x1="400" y1="86" x2="400" y2="450"/>
+      <line x1="440" y1="88" x2="440" y2="450"/>
+      <line x1="480" y1="94" x2="480" y2="450"/>
+    </g>
+    <!-- Spear Tips in Gold -->
+    <polygon points="280,90 286,110 274,110" fill="url(#gateGold)"/>
+    <polygon points="320,75 326,95 314,95" fill="url(#gateGold)"/>
+    <polygon points="360,68 366,88 354,88" fill="url(#gateGold)"/>
+    <polygon points="400,66 406,86 394,86" fill="url(#gateGold)"/>
+    <polygon points="440,68 446,88 434,88" fill="url(#gateGold)"/>
+    <polygon points="480,74 486,94 474,94" fill="url(#gateGold)"/>
+
+    <!-- Horizontal Support Beams & Golden Reinforcing Plates -->
+    <rect x="260" y="170" width="240" height="20" rx="4" fill="url(#gateIron)"/>
+    <rect x="260" y="174" width="240" height="12" fill="url(#gateGold)"/>
+    <rect x="260" y="320" width="240" height="20" rx="4" fill="url(#gateIron)"/>
+    <rect x="260" y="324" width="240" height="12" fill="url(#gateGold)"/>
+    <rect x="260" y="420" width="240" height="18" rx="4" fill="url(#gateIron)"/>
+
+    <!-- Decorative Wrought-Iron Scrolls & Rings -->
+    <circle cx="340" cy="245" r="30" fill="none" stroke="url(#gateGold)" stroke-width="6"/>
+    <circle cx="420" cy="245" r="30" fill="none" stroke="url(#gateGold)" stroke-width="6"/>
+    <circle cx="340" cy="370" r="22" fill="none" stroke="url(#gateGold)" stroke-width="5"/>
+    <circle cx="420" cy="370" r="22" fill="none" stroke="url(#gateGold)" stroke-width="5"/>
+
+    <!-- Heavy Gate Lock Mechanism & Golden Latch (Slightly budging) -->
+    <rect x="260" y="270" width="35" height="50" rx="8" fill="url(#gateGold)" stroke="#1E293B" stroke-width="3"/>
+    <line x1="270" y1="295" x2="285" y2="295" stroke="#451A03" stroke-width="4"/>
+  </g>
+
+  <!-- ==================== THE SABI SCHOLAR PUSHING ==================== -->
+  <g id="scholar_pushing" filter="url(#drop)">
+    <!-- Backpack -->
+    <rect x="70" y="230" width="60" height="100" rx="16" fill="#D97706" transform="rotate(-18 100 280)"/>
+    <rect x="60" y="250" width="16" height="50" rx="6" fill="#92400E" transform="rotate(-18 100 280)"/>
+
+    <!-- Back Leg (Anchored deeply into ground at left) -->
+    <path d="M165 350 L105 445" stroke="#1E293B" stroke-width="36" stroke-linecap="round"/>
+    <ellipse cx="90" cy="452" rx="32" ry="16" fill="#0F172A"/>
+
+    <!-- Front Leg (Bent sharply, pushing weight forward) -->
+    <path d="M220 340 L265 390 L240 450" stroke="#1E293B" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+    <ellipse cx="245" cy="455" rx="34" ry="16" fill="#0F172A"/>
+
+    <!-- Torso / Royal Blue Blazer Leaning 45 Degrees -->
+    <path d="M140 220 C160 185, 230 195, 255 225 L260 365 C220 380, 160 370, 140 350 Z" fill="url(#blazer)"/>
+    <!-- Collar & Tie -->
+    <polygon points="195,215 208,280 190,280" fill="#FFFFFF"/>
+    <polygon points="200,230 210,320 194,320" fill="url(#gateGold)"/>
+
+    <!-- Head & Neck -->
+    <ellipse cx="225" cy="155" rx="48" ry="54" fill="url(#skin)"/>
+    <!-- Hair (Clean fade) -->
+    <path d="M178 140 C178 88, 274 88, 274 140 C260 110, 190 110, 178 140 Z" fill="#18181B"/>
+    <circle cx="178" cy="155" r="12" fill="url(#skin)"/>
+
+    <!-- Glasses (Gold rims) -->
+    <rect x="210" y="138" width="30" height="24" rx="7" fill="none" stroke="#F59E0B" stroke-width="3.5"/>
+    <rect x="250" y="138" width="30" height="24" rx="7" fill="none" stroke="#F59E0B" stroke-width="3.5"/>
+    <line x1="240" y1="150" x2="250" y2="150" stroke="#F59E0B" stroke-width="3.5"/>
+
+    <!-- Focused Eyes looking forward at Gate Bars -->
+    <ellipse cx="225" cy="150" rx="5" ry="7" fill="#FFFFFF"/>
+    <circle cx="228" cy="150" r="3.5" fill="#0F172A"/>
+    <ellipse cx="265" cy="150" rx="5" ry="7" fill="#FFFFFF"/>
+    <circle cx="268" cy="150" r="3.5" fill="#0F172A"/>
+
+    <!-- Gritted Determined Teeth / Mouth -->
+    <path d="M232 182 Q248 190 262 182" fill="none" stroke="#FFFFFF" stroke-width="4.5" stroke-linecap="round"/>
+
+    <!-- ARMS: Firmly Planted on the Gate Bars -->
+    <!-- Lower Left Arm pressing against Gate Bar -->
+    <path d="M190 240 L240 240 L285 245" stroke="url(#blazer)" stroke-width="30" stroke-linecap="round"/>
+    <circle cx="295" cy="246" r="16" fill="url(#skin)"/>
+
+    <!-- Upper Right Arm pushing Gate at Chest Height -->
+    <path d="M230 255 L280 265 L320 270" stroke="url(#blazer)" stroke-width="30" stroke-linecap="round"/>
+    <circle cx="330" cy="270" r="16" fill="url(#skin)"/>
+
+    <!-- Effort Energy Sparkles at contact point with Gate -->
+    <polygon points="295,220 300,230 310,233 300,238 295,248 290,238 280,233 290,230" fill="url(#gateGold)"/>
+    <polygon points="335,285 339,293 348,295 340,299 336,307 332,299 324,295 332,293" fill="url(#gateGold)"/>
+    <circle cx="270" cy="115" r="5" fill="#60A5FA"/>
+  </g>
+</svg>

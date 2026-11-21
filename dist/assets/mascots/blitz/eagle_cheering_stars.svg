@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="eagleGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="eagleFeather" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="eagleBeak" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#F59E0B" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <!-- Ground / Pedestal -->
+  <ellipse cx="256" cy="450" rx="130" ry="26" fill="#1E293B"/>
+  <ellipse cx="256" cy="440" rx="122" ry="20" fill="#334155"/>
+  <ellipse cx="256" cy="432" rx="112" ry="16" fill="#475569"/>
+
+  <!-- Sabi Eagle Celebrating Level Mastery -->
+  <g id="eagle_celebrating" filter="url(#glow)">
+    <!-- Claws on Pedestal -->
+    <path d="M205 420 L215 435 M220 420 L225 437 M235 420 L235 435" stroke="url(#eagleBeak)" stroke-width="8" stroke-linecap="round"/>
+    <path d="M277 420 L277 435 M287 420 L292 437 M302 420 L307 435" stroke="url(#eagleBeak)" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- Tail Feathers -->
+    <polygon points="230,370 256,430 282,370" fill="#172554"/>
+
+    <!-- Main Torso -->
+    <ellipse cx="256" cy="300" rx="90" ry="105" fill="url(#eagleFeather)"/>
+    <path d="M200 260 Q256 360 312 260 Q256 380 200 260 Z" fill="url(#eagleGold)"/>
+
+    <!-- Wings Raised in High 'V' Celebration -->
+    <!-- Left Wing Raised -->
+    <path d="M190 260 C130 200, 60 120, 50 60 C90 120, 140 200, 180 280 Z" fill="url(#eagleFeather)"/>
+    <path d="M180 270 C130 210, 80 140, 70 90 C100 140, 140 210, 175 285 Z" fill="url(#eagleGold)" opacity="0.6"/>
+
+    <!-- Right Wing Raised -->
+    <path d="M322 260 C382 200, 452 120, 462 60 C422 120, 372 200, 332 280 Z" fill="url(#eagleFeather)"/>
+    <path d="M332 270 C382 210, 432 140, 442 90 C412 140, 372 210, 337 285 Z" fill="url(#eagleGold)" opacity="0.6"/>
+
+    <!-- Head & White Feathers -->
+    <circle cx="256" cy="175" r="70" fill="#FFFFFF"/>
+
+    <!-- Golden Crown on Head -->
+    <polygon points="216,95 236,120 256,85 276,120 296,95 292,135 220,135" fill="url(#eagleGold)" stroke="#B45309" stroke-width="3"/>
+    <circle cx="216" cy="95" r="5" fill="#EF4444"/>
+    <circle cx="256" cy="85" r="6" fill="#3B82F6"/>
+    <circle cx="296" cy="95" r="5" fill="#EF4444"/>
+
+    <!-- Happy Confident Eagle Eyes -->
+    <ellipse cx="230" cy="170" rx="12" ry="14" fill="#0F172A"/>
+    <circle cx="233" cy="167" r="5" fill="url(#eagleGold)"/>
+    <circle cx="234" cy="165" r="2" fill="#FFFFFF"/>
+
+    <ellipse cx="282" cy="170" rx="12" ry="14" fill="#0F172A"/>
+    <circle cx="279" cy="167" r="5" fill="url(#eagleGold)"/>
+    <circle cx="278" cy="165" r="2" fill="#FFFFFF"/>
+
+    <!-- Open Beak (Chirp of Victory) -->
+    <path d="M244 185 Q256 180 268 185 L256 225 Z" fill="url(#eagleBeak)"/>
+    <path d="M248 195 L264 195" stroke="#78350F" stroke-width="2.5"/>
+
+    <!-- THREE PROMINENT GOLDEN STARS FLOATING AROUND MASCOT -->
+    <!-- Star 1 (Left Wing) -->
+    <polygon points="90,130 98,154 122,156 104,172 110,196 88,182 70,196 74,172 58,156 80,154" fill="url(#eagleGold)" stroke="#B45309" stroke-width="2"/>
+    <!-- Star 2 (Center Overhead) -->
+    <polygon points="256,20 264,44 288,46 270,62 276,86 254,72 236,86 240,62 224,46 246,44" fill="url(#eagleGold)" stroke="#B45309" stroke-width="2"/>
+    <!-- Star 3 (Right Wing) -->
+    <polygon points="420,130 428,154 452,156 434,172 440,196 418,182 400,196 404,172 388,156 410,154" fill="url(#eagleGold)" stroke="#B45309" stroke-width="2"/>
+  </g>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="ironGate" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="goldLock" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <filter id="gateShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="8" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#gateShadow)">
+    <!-- Stone Archway Pillars -->
+    <rect x="40" y="80" width="56" height="400" rx="10" fill="#334155"/>
+    <rect x="30" y="60" width="76" height="30" rx="6" fill="#1E293B"/>
+    <rect x="416" y="80" width="56" height="400" rx="10" fill="#334155"/>
+    <rect x="406" y="60" width="76" height="30" rx="6" fill="#1E293B"/>
+
+    <!-- Arch Beam Top -->
+    <path d="M40 90 Q256 20 472 90 L460 140 Q256 80 52 140 Z" fill="#1E293B"/>
+    <text x="256" y="98" fill="#F59E0B" font-family="system-ui, sans-serif" font-size="20" font-weight="900" text-anchor="middle" letter-spacing="4">UNIT CHECKPOINT</text>
+
+    <!-- Heavy Iron Bars / Gate Grid -->
+    <g stroke="url(#ironGate)" stroke-width="12" stroke-linecap="round">
+      <line x1="120" y1="120" x2="120" y2="470"/>
+      <line x1="165" y1="110" x2="165" y2="470"/>
+      <line x1="210" y1="105" x2="210" y2="470"/>
+      <line x1="256" y1="100" x2="256" y2="470"/>
+      <line x1="302" y1="105" x2="302" y2="470"/>
+      <line x1="347" y1="110" x2="347" y2="470"/>
+      <line x1="392" y1="120" x2="392" y2="470"/>
+
+      <line x1="90" y1="200" x2="422" y2="200"/>
+      <line x1="90" y1="340" x2="422" y2="340"/>
+    </g>
+
+    <!-- Giant Heavy Golden Padlock in Center -->
+    <path d="M206 250 C206 180, 306 180, 306 250 L306 270 L206 270 Z" fill="none" stroke="#94A3B8" stroke-width="26" stroke-linecap="round"/>
+    <rect x="176" y="260" width="160" height="130" rx="26" fill="url(#goldLock)" stroke="#B45309" stroke-width="6"/>
+
+    <!-- Keyhole & Eye Shield -->
+    <circle cx="256" cy="315" r="14" fill="#451A03"/>
+    <polygon points="252,315 260,315 264,345 248,345" fill="#451A03"/>
+
+    <!-- Warning / Lock Banner -->
+    <rect x="136" y="420" width="240" height="42" rx="12" fill="#0F172A" stroke="#EF4444" stroke-width="3"/>
+    <text x="256" y="447" fill="#F8FAFC" font-family="system-ui, sans-serif" font-size="14" font-weight="800" text-anchor="middle">🔒 Complete Prior Levels</text>
+  </g>
+</svg>

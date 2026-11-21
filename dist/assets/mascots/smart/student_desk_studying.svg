@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="deskWood" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#92400E"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8D5524"/>
+      <stop offset="100%" stop-color="#6B3E19"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground Shadow -->
+  <ellipse cx="256" cy="460" rx="190" ry="24" fill="#000000" opacity="0.2"/>
+
+  <!-- Study Chair Backrest -->
+  <rect x="186" y="220" width="140" height="150" rx="20" fill="#1E293B"/>
+  <rect x="196" y="230" width="120" height="130" rx="14" fill="#334155"/>
+
+  <!-- Student Seated -->
+  <!-- Torso / Blue Blazer -->
+  <path d="M196 290 C196 260, 316 260, 316 290 L320 380 L192 380 Z" fill="url(#blazer)"/>
+  <polygon points="256,290 266,350 246,350" fill="#FFFFFF"/>
+  <polygon points="256,300 262,370 250,370" fill="url(#gold)"/>
+
+  <!-- Head & Thinking Pose -->
+  <ellipse cx="256" cy="210" rx="52" ry="58" fill="url(#skin)"/>
+  <!-- Hair -->
+  <path d="M204 195 C204 140, 308 140, 308 195 C290 160, 220 160, 204 195 Z" fill="#18181B"/>
+  <circle cx="204" cy="210" r="12" fill="url(#skin)"/>
+  <circle cx="308" cy="210" r="12" fill="url(#skin)"/>
+
+  <!-- Glasses -->
+  <rect x="222" y="195" width="28" height="22" rx="6" fill="none" stroke="#F59E0B" stroke-width="4"/>
+  <rect x="262" y="195" width="28" height="22" rx="6" fill="none" stroke="#F59E0B" stroke-width="4"/>
+  <line x1="250" y1="206" x2="262" y2="206" stroke="#F59E0B" stroke-width="4"/>
+
+  <!-- Eyes looking down intently at the study notes -->
+  <ellipse cx="236" cy="206" rx="4" ry="5" fill="#0F172A"/>
+  <ellipse cx="276" cy="206" rx="4" ry="5" fill="#0F172A"/>
+
+  <!-- Focused gentle smile -->
+  <path d="M244 235 Q256 242 268 235" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Left Arm resting on table -->
+  <path d="M200 300 L170 370 L210 375" stroke="url(#blazer)" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="215" cy="375" r="14" fill="url(#skin)"/>
+
+  <!-- Right Arm with Pen Writing -->
+  <path d="M310 300 L340 365 L300 375" stroke="url(#blazer)" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="295" cy="375" r="14" fill="url(#skin)"/>
+  <!-- Pen -->
+  <line x1="290" y1="365" x2="275" y2="390" stroke="#F59E0B" stroke-width="6" stroke-linecap="round"/>
+
+  <!-- Large Study Desk in Foreground -->
+  <polygon points="60,370 452,370 492,410 20,410" fill="url(#deskWood)"/>
+  <rect x="20" y="410" width="472" height="24" rx="4" fill="#78350F"/>
+
+  <!-- Desk Legs -->
+  <rect x="40" y="434" width="24" height="60" fill="#451A03"/>
+  <rect x="448" y="434" width="24" height="60" fill="#451A03"/>
+
+  <!-- On-Desk Open Textbook / JAMB Syllabus Notes -->
+  <polygon points="210,380 290,380 305,405 195,405" fill="#F8FAFC"/>
+  <line x1="250" y1="380" x2="250" y2="405" stroke="#CBD5E1" stroke-width="3"/>
+  <!-- Lines of text on page -->
+  <line x1="215" y1="388" x2="242" y2="388" stroke="#94A3B8" stroke-width="2"/>
+  <line x1="215" y1="394" x2="240" y2="394" stroke="#94A3B8" stroke-width="2"/>
+  <line x1="258" y1="388" x2="285" y2="388" stroke="#94A3B8" stroke-width="2"/>
+  <line x1="258" y1="394" x2="282" y2="394" stroke="#94A3B8" stroke-width="2"/>
+
+  <!-- On-Desk 8-Digit JAMB Calculator (Glowing gold accent) -->
+  <rect x="360" y="378" width="56" height="30" rx="5" fill="#1E293B" stroke="#F59E0B" stroke-width="2"/>
+  <rect x="366" y="382" width="44" height="10" rx="2" fill="#65A30D"/> <!-- LCD Screen -->
+  <!-- Tiny Buttons -->
+  <circle cx="372" cy="398" r="2.5" fill="#64748B"/>
+  <circle cx="380" cy="398" r="2.5" fill="#64748B"/>
+  <circle cx="388" cy="398" r="2.5" fill="#64748B"/>
+  <circle cx="396" cy="398" r="2.5" fill="#EF4444"/>
+  <circle cx="404" cy="398" r="2.5" fill="#F59E0B"/>
+
+  <!-- Desk Lamp on Left with Warm Glow Cone -->
+  <polygon points="90,390 120,390 110,320 100,320" fill="#CBD5E1"/>
+  <ellipse cx="105" cy="320" rx="20" ry="12" fill="#F59E0B"/>
+  <polygon points="80,332 130,332 170,410 40,410" fill="#FEF08A" opacity="0.18"/>
+</svg>

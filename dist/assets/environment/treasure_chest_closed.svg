@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="chestWood" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#B45309"/>
+      <stop offset="100%" stop-color="#78350F"/>
+    </linearGradient>
+    <linearGradient id="chestGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#CA8A04"/>
+    </linearGradient>
+    <filter id="chestShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="256" cy="450" rx="140" ry="24" fill="#000000" opacity="0.25"/>
+
+  <g filter="url(#chestShadow)">
+    <!-- Chest Lower Box -->
+    <rect x="116" y="240" width="280" height="180" rx="16" fill="url(#chestWood)" stroke="#451A03" stroke-width="8"/>
+
+    <!-- Gold Bands on Box -->
+    <rect x="156" y="240" width="36" height="180" fill="url(#chestGold)"/>
+    <rect x="320" y="240" width="36" height="180" fill="url(#chestGold)"/>
+
+    <!-- Chest Lid (Domed Top) -->
+    <path d="M106 240 C106 140, 406 140, 406 240 Z" fill="url(#chestWood)" stroke="#451A03" stroke-width="8"/>
+    <!-- Lid Gold Ribs -->
+    <path d="M156 240 C156 160, 192 160, 192 240 Z" fill="url(#chestGold)"/>
+    <path d="M320 240 C320 160, 356 160, 356 240 Z" fill="url(#chestGold)"/>
+
+    <!-- Front Rim Bar -->
+    <rect x="96" y="230" width="320" height="26" rx="6" fill="url(#chestGold)" stroke="#A16207" stroke-width="4"/>
+
+    <!-- Front Lock Latch -->
+    <rect x="236" y="225" width="40" height="55" rx="10" fill="url(#chestGold)" stroke="#A16207" stroke-width="4"/>
+    <circle cx="256" cy="245" r="7" fill="#451A03"/>
+    <polygon points="253,245 259,245 261,262 251,262" fill="#451A03"/>
+
+    <!-- Sparkling Stars Around Chest -->
+    <polygon points="90,140 96,158 114,160 100,172 104,190 88,180 74,190 78,172 64,160 82,158" fill="url(#chestGold)"/>
+    <polygon points="420,130 426,148 444,150 430,162 434,180 418,170 404,180 408,162 394,150 412,148" fill="url(#chestGold)"/>
+    <circle cx="256" cy="110" r="10" fill="#FEF08A"/>
+  </g>
+</svg>

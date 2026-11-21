@@ -1,0 +1,131 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 500" width="100%" height="100%">
+  <defs>
+    <linearGradient id="gateIron" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="50%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="gateGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="pillarStone" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="50%" stop-color="#64748B"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8D5524"/>
+      <stop offset="100%" stop-color="#613612"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <filter id="drop" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Ground -->
+  <ellipse cx="300" cy="460" rx="270" ry="24" fill="#000000" opacity="0.25"/>
+
+  <!-- ==================== THE GRAND GATES SWUNG WIDE OPEN ==================== -->
+  <!-- Left Pillar & Left Swung Gate Door -->
+  <g id="left_gate_open">
+    <rect x="40" y="40" width="50" height="420" rx="8" fill="url(#pillarStone)"/>
+    <polygon points="65,15 95,40 35,40" fill="url(#gateGold)"/>
+    <!-- Left Gate Door Angled Open into 3D Depth -->
+    <path d="M85 130 L170 170 L170 440 L85 410 Z" fill="#1E293B" opacity="0.85"/>
+    <!-- Iron Bars on Left Door in Perspective -->
+    <line x1="105" y1="140" x2="105" y2="415" stroke="url(#gateIron)" stroke-width="8"/>
+    <line x1="130" y1="150" x2="130" y2="425" stroke="url(#gateIron)" stroke-width="8"/>
+    <line x1="155" y1="162" x2="155" y2="435" stroke="url(#gateIron)" stroke-width="8"/>
+    <!-- Spear Tips -->
+    <polygon points="105,128 110,140 100,140" fill="url(#gateGold)"/>
+    <polygon points="130,138 135,150 125,150" fill="url(#gateGold)"/>
+    <polygon points="155,150 160,162 150,162" fill="url(#gateGold)"/>
+  </g>
+
+  <!-- Right Pillar & Right Swung Gate Door -->
+  <g id="right_gate_open">
+    <rect x="510" y="40" width="50" height="420" rx="8" fill="url(#pillarStone)"/>
+    <polygon points="535,15 565,40 505,40" fill="url(#gateGold)"/>
+    <!-- Right Gate Door Angled Open into 3D Depth -->
+    <path d="M515 130 L430 170 L430 440 L515 410 Z" fill="#1E293B" opacity="0.85"/>
+    <line x1="495" y1="140" x2="495" y2="415" stroke="url(#gateIron)" stroke-width="8"/>
+    <line x1="470" y1="150" x2="470" y2="425" stroke="url(#gateIron)" stroke-width="8"/>
+    <line x1="445" y1="162" x2="445" y2="435" stroke="url(#gateIron)" stroke-width="8"/>
+    <!-- Spear Tips -->
+    <polygon points="495,128 500,140 490,140" fill="url(#gateGold)"/>
+    <polygon points="470,138 475,150 465,150" fill="url(#gateGold)"/>
+    <polygon points="445,150 450,162 440,162" fill="url(#gateGold)"/>
+  </g>
+
+  <!-- Top Gateway Arch Connecting Both Pillars -->
+  <path d="M85 80 Q300 -10 515 80" fill="none" stroke="url(#gateIron)" stroke-width="16" stroke-linecap="round"/>
+  <path d="M85 96 Q300 6 515 96" fill="none" stroke="url(#gateGold)" stroke-width="6"/>
+
+  <!-- Golden Campus Crest at Center of Arch -->
+  <circle cx="300" cy="42" r="28" fill="url(#gateGold)" stroke="#1E293B" stroke-width="4"/>
+  <polygon points="300,20 307,36 324,38 310,50 315,66 300,56 285,66 290,50 276,38 293,36" fill="#1E3A8A"/>
+
+  <!-- ==================== THE SCHOLAR STRIDING THROUGH IN CELEBRATION ==================== -->
+  <g id="scholar_celebrating" filter="url(#drop)">
+    <!-- Confident Walking Legs -->
+    <!-- Left Leg Stepping Forward -->
+    <path d="M265 340 L230 435" stroke="#1E293B" stroke-width="36" stroke-linecap="round"/>
+    <ellipse cx="220" cy="442" rx="34" ry="17" fill="#0F172A"/>
+
+    <!-- Right Leg Stepping Forward -->
+    <path d="M335 340 L370 435" stroke="#1E293B" stroke-width="36" stroke-linecap="round"/>
+    <ellipse cx="380" cy="442" rx="34" ry="17" fill="#0F172A"/>
+
+    <!-- Torso / Royal Blue Blazer -->
+    <path d="M250 200 C250 170, 350 170, 350 200 L360 350 C320 365, 270 365, 240 350 Z" fill="url(#blazer)"/>
+    <!-- Crisp White Shirt & Golden Tie -->
+    <polygon points="300,200 312,270 288,270" fill="#FFFFFF"/>
+    <polygon points="300,215 308,310 292,310" fill="url(#gateGold)"/>
+
+    <!-- Backpack Straps & Golden Sash -->
+    <path d="M265 200 L250 330" stroke="#D97706" stroke-width="10" stroke-linecap="round"/>
+    <path d="M335 200 L350 330" stroke="#D97706" stroke-width="10" stroke-linecap="round"/>
+
+    <!-- Arms Thrown High in Victory -->
+    <!-- Left Arm Raised High -->
+    <path d="M255 220 L195 140 L170 65" stroke="url(#blazer)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="165" cy="55" r="18" fill="url(#skin)"/> <!-- Fist -->
+
+    <!-- Right Arm Raised High -->
+    <path d="M345 220 L405 140 L430 65" stroke="url(#blazer)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="435" cy="55" r="18" fill="url(#skin)"/> <!-- Fist -->
+
+    <!-- Head & Joyful Face -->
+    <ellipse cx="300" cy="135" rx="52" ry="58" fill="url(#skin)"/>
+    <!-- Hair -->
+    <path d="M248 120 C248 65, 352 65, 352 120 C335 85, 260 85, 248 120 Z" fill="#18181B"/>
+    <circle cx="248" cy="135" r="13" fill="url(#skin)"/>
+    <circle cx="352" cy="135" r="13" fill="url(#skin)"/>
+
+    <!-- Gold Glasses -->
+    <rect x="265" y="115" width="30" height="25" rx="7" fill="none" stroke="#F59E0B" stroke-width="4"/>
+    <rect x="305" y="115" width="30" height="25" rx="7" fill="none" stroke="#F59E0B" stroke-width="4"/>
+    <line x1="295" y1="127" x2="305" y2="127" stroke="#F59E0B" stroke-width="4"/>
+
+    <!-- Joyful Eyes -->
+    <path d="M272 128 Q280 120 288 128" stroke="#0F172A" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <path d="M312 128 Q320 120 328 128" stroke="#0F172A" stroke-width="4" fill="none" stroke-linecap="round"/>
+
+    <!-- Big Open Cheerful Smile -->
+    <path d="M278 155 Q300 182 322 155 Z" fill="#FFFFFF" stroke="#0F172A" stroke-width="3"/>
+    <path d="M288 170 Q300 178 312 170" fill="#EF4444"/>
+
+    <!-- Victory Golden Sparkles & Confetti Stars -->
+    <polygon points="140,25 146,43 164,45 150,57 154,75 138,65 124,75 128,57 114,45 132,43" fill="url(#gateGold)"/>
+    <polygon points="460,25 466,43 484,45 470,57 474,75 458,65 444,75 448,57 434,45 452,43" fill="url(#gateGold)"/>
+    <polygon points="300,90 304,98 313,99 306,105 308,114 300,109 292,114 294,105 287,99 296,98" fill="url(#gateGold)"/>
+    <circle cx="210" cy="95" r="7" fill="#60A5FA"/>
+    <circle cx="390" cy="95" r="7" fill="#60A5FA"/>
+  </g>
+</svg>

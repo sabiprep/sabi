@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="eagleGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="eagleFeather" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="eagleBeak" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <filter id="pedestalShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Pedestal Platform (like Duolingo character stand) -->
+  <g filter="url(#pedestalShadow)">
+    <ellipse cx="256" cy="455" rx="130" ry="26" fill="#1E293B"/>
+    <ellipse cx="256" cy="445" rx="124" ry="22" fill="#334155"/>
+    <ellipse cx="256" cy="437" rx="114" ry="18" fill="#475569"/>
+  </g>
+
+  <!-- Sabi Eagle Standing Proud -->
+  <g id="eagle_body">
+    <!-- Tail Feathers -->
+    <path d="M220 380 L256 430 L292 380 Z" fill="#1E3A8A"/>
+
+    <!-- Claws on Pedestal -->
+    <path d="M205 425 L215 440 M220 425 L225 442 M235 425 L235 440" stroke="url(#eagleBeak)" stroke-width="8" stroke-linecap="round"/>
+    <path d="M277 425 L277 440 M287 425 L292 442 M302 425 L307 440" stroke="url(#eagleBeak)" stroke-width="8" stroke-linecap="round"/>
+
+    <!-- Main Body & Wings Folded -->
+    <ellipse cx="256" cy="310" rx="95" ry="110" fill="url(#eagleFeather)"/>
+    <!-- Chest Shield / Gold Feathers -->
+    <path d="M200 270 Q256 360 312 270 Q256 390 200 270 Z" fill="url(#eagleGold)"/>
+
+    <!-- Left Wing (Folded) -->
+    <path d="M165 240 C140 280, 140 370, 195 400 C185 360, 185 290, 165 240 Z" fill="#172554"/>
+    <!-- Right Wing (Folded) -->
+    <path d="M347 240 C372 280, 372 370, 317 400 C327 360, 327 290, 347 240 Z" fill="#172554"/>
+
+    <!-- Head & Crown -->
+    <circle cx="256" cy="180" r="75" fill="#FFFFFF"/>
+    <!-- Head Crest Feathers -->
+    <path d="M220 130 Q256 70 292 130 Q256 110 220 130 Z" fill="url(#eagleGold)"/>
+
+    <!-- Academic Cap / Gold Headband -->
+    <rect x="210" y="115" width="92" height="16" rx="6" fill="url(#eagleGold)"/>
+    <polygon points="256,75 320,110 256,120 192,110" fill="#1E3A8A"/>
+    <circle cx="256" cy="98" r="6" fill="url(#eagleGold)"/>
+    <!-- Tassel hanging left -->
+    <path d="M256 98 Q220 105 210 135" fill="none" stroke="url(#eagleGold)" stroke-width="4"/>
+    <rect x="206" y="135" width="8" height="14" rx="2" fill="url(#eagleGold)"/>
+
+    <!-- Fierce & Sharp Eyes -->
+    <ellipse cx="225" cy="175" rx="14" ry="16" fill="#0F172A"/>
+    <circle cx="228" cy="172" r="6" fill="url(#eagleGold)"/>
+    <circle cx="230" cy="170" r="2.5" fill="#FFFFFF"/>
+
+    <ellipse cx="287" cy="175" rx="14" ry="16" fill="#0F172A"/>
+    <circle cx="284" cy="172" r="6" fill="url(#eagleGold)"/>
+    <circle cx="282" cy="170" r="2.5" fill="#FFFFFF"/>
+
+    <!-- Sharp Curved Eagle Beak -->
+    <path d="M242 190 Q256 185 270 190 L260 235 Q256 245 252 235 Z" fill="url(#eagleBeak)"/>
+    <path d="M246 198 L266 198" stroke="#78350F" stroke-width="2"/>
+  </g>
+</svg>

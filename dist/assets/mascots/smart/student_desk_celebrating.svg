@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="deskWood" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#92400E"/>
+    </linearGradient>
+    <linearGradient id="skin" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8D5524"/>
+      <stop offset="100%" stop-color="#6B3E19"/>
+    </linearGradient>
+    <linearGradient id="blazer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FCD34D"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <ellipse cx="256" cy="460" rx="190" ry="24" fill="#000000" opacity="0.2"/>
+
+  <!-- Study Chair -->
+  <rect x="186" y="240" width="140" height="150" rx="20" fill="#1E293B"/>
+
+  <!-- Student Jumping Up in Chair Celebrating Correct Answer -->
+  <g id="celebrating_student" filter="url(#shadow)">
+    <!-- Torso Raised Higher in Triumph -->
+    <path d="M196 240 C196 210, 316 210, 316 240 L320 360 L192 360 Z" fill="url(#blazer)"/>
+    <polygon points="256,240 266,310 246,310" fill="#FFFFFF"/>
+    <polygon points="256,250 262,330 250,330" fill="url(#gold)"/>
+
+    <!-- Left Arm Raised High Fist Pump -->
+    <path d="M200 250 L140 180 L125 110" stroke="url(#blazer)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="120" cy="100" r="15" fill="url(#skin)"/>
+
+    <!-- Right Arm Raised High Fist Pump -->
+    <path d="M312 250 L372 180 L387 110" stroke="url(#blazer)" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="392" cy="100" r="15" fill="url(#skin)"/>
+
+    <!-- Head & Cheerful Smile -->
+    <ellipse cx="256" cy="165" rx="50" ry="56" fill="url(#skin)"/>
+    <path d="M206 150 C206 95, 306 95, 306 150 C290 115, 222 115, 206 150 Z" fill="#18181B"/>
+    <circle cx="206" cy="165" r="12" fill="url(#skin)"/>
+    <circle cx="306" cy="165" r="12" fill="url(#skin)"/>
+
+    <!-- Glasses -->
+    <rect x="225" y="145" width="28" height="22" rx="6" fill="none" stroke="#F59E0B" stroke-width="4"/>
+    <rect x="260" y="145" width="28" height="22" rx="6" fill="none" stroke="#F59E0B" stroke-width="4"/>
+    <line x1="253" y1="156" x2="260" y2="156" stroke="#F59E0B" stroke-width="4"/>
+
+    <!-- Joyful Eyes -->
+    <path d="M232 155 Q239 148 246 155" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M266 155 Q273 148 280 155" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+    <!-- Big Ecstatic Smile -->
+    <path d="M236 185 Q256 210 276 185 Z" fill="#FFFFFF" stroke="#0F172A" stroke-width="2.5"/>
+    <path d="M246 200 Q256 208 266 200" fill="#EF4444"/>
+
+    <!-- Large Glowing Green Checkmark Floating Above Head -->
+    <circle cx="256" cy="50" r="28" fill="#10B981" filter="url(#shadow)"/>
+    <path d="M243 50 L252 60 L270 42" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+
+  <!-- Large Study Desk in Foreground -->
+  <polygon points="60,370 452,370 492,410 20,410" fill="url(#deskWood)"/>
+  <rect x="20" y="410" width="472" height="24" rx="4" fill="#78350F"/>
+  <rect x="40" y="434" width="24" height="60" fill="#451A03"/>
+  <rect x="448" y="434" width="24" height="60" fill="#451A03"/>
+
+  <!-- Textbook, Calculator & Lamp on Desk -->
+  <polygon points="210,380 290,380 305,405 195,405" fill="#F8FAFC"/>
+  <rect x="360" y="378" width="56" height="30" rx="5" fill="#1E293B" stroke="#10B981" stroke-width="2"/>
+  <rect x="366" y="382" width="44" height="10" rx="2" fill="#10B981"/> <!-- Green Correct Screen -->
+</svg>

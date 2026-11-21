@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="calcBody" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="100%" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="calcGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="lcdScreen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#84CC16"/>
+      <stop offset="100%" stop-color="#4D7C0F"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="8" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- Main Calculator Casing (Angled Desktop Ergonomic Shape) -->
+    <rect x="96" y="56" width="320" height="400" rx="36" fill="url(#calcBody)" stroke="url(#calcGold)" stroke-width="8"/>
+
+    <!-- Solar Power Panel -->
+    <rect x="136" y="86" width="100" height="24" rx="4" fill="#3B260F" stroke="#78350F" stroke-width="2"/>
+    <line x1="161" y1="86" x2="161" y2="110" stroke="#78350F" stroke-width="1.5"/>
+    <line x1="186" y1="86" x2="186" y2="110" stroke="#78350F" stroke-width="1.5"/>
+    <line x1="211" y1="86" x2="211" y2="110" stroke="#78350F" stroke-width="1.5"/>
+
+    <!-- JAMB Official Badge -->
+    <rect x="256" y="86" width="120" height="24" rx="6" fill="#1E40AF"/>
+    <text x="316" y="103" fill="#FDE047" font-family="system-ui, sans-serif" font-size="11" font-weight="900" text-anchor="middle" letter-spacing="1">JAMB OFFICIAL</text>
+
+    <!-- 8-Digit Vintage LCD Display -->
+    <rect x="126" y="126" width="260" height="65" rx="10" fill="url(#lcdScreen)" stroke="#1A2E05" stroke-width="4"/>
+    <!-- Digits Display (Score 340) -->
+    <text x="370" y="174" fill="#0F172A" font-family="'JetBrains Mono', monospace" font-size="42" font-weight="900" text-anchor="end" letter-spacing="4">340.00</text>
+
+    <!-- Keypad Grid (Rows 1-5) -->
+    <!-- Row 1: Function Keys -->
+    <rect x="126" y="210" width="55" height="42" rx="8" fill="#EF4444"/>
+    <text x="153" y="236" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="16" font-weight="900" text-anchor="middle">ON/C</text>
+
+    <rect x="194" y="210" width="55" height="42" rx="8" fill="#F59E0B"/>
+    <text x="221" y="236" fill="#0F172A" font-family="system-ui, sans-serif" font-size="16" font-weight="900" text-anchor="middle">√</text>
+
+    <rect x="262" y="210" width="55" height="42" rx="8" fill="#F59E0B"/>
+    <text x="289" y="236" fill="#0F172A" font-family="system-ui, sans-serif" font-size="16" font-weight="900" text-anchor="middle">%</text>
+
+    <rect x="331" y="210" width="55" height="42" rx="8" fill="#3B82F6"/>
+    <text x="358" y="236" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">÷</text>
+
+    <!-- Row 2: 7, 8, 9, x -->
+    <rect x="126" y="262" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="153" y="288" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">7</text>
+
+    <rect x="194" y="262" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="221" y="288" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">8</text>
+
+    <rect x="262" y="262" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="289" y="288" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">9</text>
+
+    <rect x="331" y="262" width="55" height="42" rx="8" fill="#3B82F6"/>
+    <text x="358" y="288" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">×</text>
+
+    <!-- Row 3: 4, 5, 6, - -->
+    <rect x="126" y="314" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="153" y="340" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">4</text>
+
+    <rect x="194" y="314" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="221" y="340" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">5</text>
+
+    <rect x="262" y="314" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="289" y="340" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">6</text>
+
+    <rect x="331" y="314" width="55" height="42" rx="8" fill="#3B82F6"/>
+    <text x="358" y="340" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">-</text>
+
+    <!-- Row 4: 1, 2, 3, + -->
+    <rect x="126" y="366" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="153" y="392" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">1</text>
+
+    <rect x="194" y="366" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="221" y="392" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">2</text>
+
+    <rect x="262" y="366" width="55" height="42" rx="8" fill="#334155"/>
+    <text x="289" y="392" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">3</text>
+
+    <rect x="331" y="366" width="55" height="88" rx="8" fill="#10B981"/> <!-- Big Tall + / = button -->
+    <text x="358" y="416" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="24" font-weight="900" text-anchor="middle">=</text>
+
+    <!-- Row 5: 0, ., +/- -->
+    <rect x="126" y="414" width="123" height="40" rx="8" fill="#334155"/>
+    <text x="187" y="439" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="18" font-weight="900" text-anchor="middle">0</text>
+
+    <rect x="262" y="414" width="55" height="40" rx="8" fill="#334155"/>
+    <text x="289" y="439" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="20" font-weight="900" text-anchor="middle">.</text>
+  </g>
+</svg>

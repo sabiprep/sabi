@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="lockGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="50%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <linearGradient id="eagleFeather" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="eagleBeak" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="10" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Ground -->
+  <ellipse cx="256" cy="460" rx="140" ry="24" fill="#000000" opacity="0.25"/>
+
+  <!-- GIANT GOLDEN PADLOCK (LOCKED UNIT) -->
+  <g id="giant_padlock" filter="url(#shadow)">
+    <!-- Shackle / Arch of Lock -->
+    <path d="M196 230 C196 150, 316 150, 316 230 L316 260 L196 260 Z" fill="none" stroke="#64748B" stroke-width="32" stroke-linecap="round"/>
+
+    <!-- Padlock Body -->
+    <rect x="156" y="250" width="200" height="170" rx="32" fill="url(#lockGold)" stroke="#92400E" stroke-width="8"/>
+    <!-- Keyhole -->
+    <circle cx="256" cy="325" r="16" fill="#451A03"/>
+    <polygon points="250,325 262,325 266,365 246,365" fill="#451A03"/>
+    <!-- Rivet Accents -->
+    <circle cx="185" cy="275" r="6" fill="#FEF08A"/>
+    <circle cx="327" cy="275" r="6" fill="#FEF08A"/>
+    <circle cx="185" cy="390" r="6" fill="#FEF08A"/>
+    <circle cx="327" cy="390" r="6" fill="#FEF08A"/>
+  </g>
+
+  <!-- EAGLE RESTING / SLEEPING ON TOP OF THE LOCK -->
+  <g id="eagle_sleeping" transform="translate(0, -10)">
+    <!-- Torso Curled on Top Bar of Padlock -->
+    <ellipse cx="256" cy="190" rx="85" ry="55" fill="url(#eagleFeather)"/>
+    <!-- Folded Wings Wrapped Snug Around Body -->
+    <path d="M185 170 C165 200, 180 235, 230 235 C205 215, 200 185, 185 170 Z" fill="#172554"/>
+    <path d="M327 170 C347 200, 332 235, 282 235 C307 215, 312 185, 327 170 Z" fill="#172554"/>
+
+    <!-- Resting Head Tucked In -->
+    <ellipse cx="230" cy="160" rx="42" ry="40" fill="#FFFFFF"/>
+    <!-- Nightcap / Cap Tilted back -->
+    <polygon points="210,130 245,115 235,140" fill="#1E3A8A"/>
+    <circle cx="210" cy="130" r="5" fill="url(#lockGold)"/>
+
+    <!-- Sleeping Eyes (Gentle peaceful curve) -->
+    <path d="M205 165 Q218 174 228 165" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+    <!-- Curved Beak Tucked Down -->
+    <polygon points="228,168 245,168 238,188" fill="url(#eagleBeak)"/>
+
+    <!-- "Zzz" Floating Sleep Letters -->
+    <g fill="#93C5FD" font-family="system-ui, sans-serif" font-weight="900">
+      <text x="310" y="130" font-size="22">z</text>
+      <text x="335" y="100" font-size="28">Z</text>
+      <text x="370" y="65" font-size="36">Z</text>
+    </g>
+  </g>
+
+  <!-- Locked Unit Footnote Badge -->
+  <rect x="136" y="445" width="240" height="34" rx="10" fill="#0F172A" stroke="#EF4444" stroke-width="2"/>
+  <text x="256" y="468" fill="#F8FAFC" font-family="system-ui, sans-serif" font-size="13" font-weight="900" text-anchor="middle">🔒 Clear Prior Unit to Wake!</text>
+</svg>

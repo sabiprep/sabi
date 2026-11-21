@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- Signpost Pole -->
+  <rect x="55" y="22" width="10" height="86" rx="4" fill="#475569" stroke="#1E293B" stroke-width="2" />
+  <ellipse cx="60" cy="108" rx="22" ry="6" fill="#1E293B" />
+  <!-- Forward Straight Sign -->
+  <path d="M30 24 H86 L96 34 L86 44 H30 Z" fill="#2563EB" stroke="#F8FAFC" stroke-width="2" stroke-linejoin="round" />
+  <text x="58" y="37" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-weight="900" font-size="8">FORWARD</text>
+  <!-- Left Branch Sign -->
+  <path d="M90 50 H34 L24 60 L34 70 H90 Z" fill="#F59E0B" stroke="#0F172A" stroke-width="2" stroke-linejoin="round" />
+  <text x="60" y="63" text-anchor="middle" fill="#0F172A" font-family="system-ui, sans-serif" font-weight="900" font-size="8">WEST QUAD</text>
+  <!-- Right Branch Sign -->
+  <path d="M30 76 H86 L96 86 L86 96 H30 Z" fill="#10B981" stroke="#0F172A" stroke-width="2" stroke-linejoin="round" />
+  <text x="58" y="89" text-anchor="middle" fill="#0F172A" font-family="system-ui, sans-serif" font-weight="900" font-size="8">EAST LABS</text>
+</svg>
