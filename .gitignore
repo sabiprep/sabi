@@ -11,3 +11,4 @@ server/index.js.map
 # Scratch space for the local "does the function boot?" simulation documented in
 # docs/runbooks/phase0-rollout.md §8c (esbuild bundle + harness). Never committed.
 .tmp-fn/
+dist/
