@@ -1,24 +1,189 @@
 import type { Question, SubjectName } from '../../types';
 
-import eng2024Orig from './english-language/2024/original/questions.json';
-import eng2024Twin1 from './english-language/2024/twin/twin1/questions.json';
-import eng2024Twin2 from './english-language/2024/twin/twin2/questions.json';
-import eng2024Twin3 from './english-language/2024/twin/twin3/questions.json';
-
-import mth2024Orig from './mathematics/2024/original/questions.json';
-import mth2024Twin1 from './mathematics/2024/twin/twin1/questions.json';
-import mth2024Twin2 from './mathematics/2024/twin/twin2/questions.json';
-import mth2024Twin3 from './mathematics/2024/twin/twin3/questions.json';
-
-import phy2024Orig from './physics/2024/original/questions.json';
-import phy2024Twin1 from './physics/2024/twin/twin1/questions.json';
-import phy2024Twin2 from './physics/2024/twin/twin2/questions.json';
-import phy2024Twin3 from './physics/2024/twin/twin3/questions.json';
-
-import chm2024Orig from './chemistry/2024/original/questions.json';
-import chm2024Twin1 from './chemistry/2024/twin/twin1/questions.json';
-import chm2024Twin2 from './chemistry/2024/twin/twin2/questions.json';
-import chm2024Twin3 from './chemistry/2024/twin/twin3/questions.json';
+import english_language_2010_Orig from './english-language/2010/original/questions.json';
+import english_language_2010_Twin1 from './english-language/2010/twin/twin1/questions.json';
+import english_language_2010_Twin2 from './english-language/2010/twin/twin2/questions.json';
+import english_language_2010_Twin3 from './english-language/2010/twin/twin3/questions.json';
+import english_language_2011_Orig from './english-language/2011/original/questions.json';
+import english_language_2011_Twin1 from './english-language/2011/twin/twin1/questions.json';
+import english_language_2011_Twin2 from './english-language/2011/twin/twin2/questions.json';
+import english_language_2011_Twin3 from './english-language/2011/twin/twin3/questions.json';
+import english_language_2012_Orig from './english-language/2012/original/questions.json';
+import english_language_2012_Twin1 from './english-language/2012/twin/twin1/questions.json';
+import english_language_2012_Twin2 from './english-language/2012/twin/twin2/questions.json';
+import english_language_2012_Twin3 from './english-language/2012/twin/twin3/questions.json';
+import english_language_2013_Orig from './english-language/2013/original/questions.json';
+import english_language_2013_Twin1 from './english-language/2013/twin/twin1/questions.json';
+import english_language_2013_Twin2 from './english-language/2013/twin/twin2/questions.json';
+import english_language_2013_Twin3 from './english-language/2013/twin/twin3/questions.json';
+import english_language_2014_Orig from './english-language/2014/original/questions.json';
+import english_language_2014_Twin1 from './english-language/2014/twin/twin1/questions.json';
+import english_language_2014_Twin2 from './english-language/2014/twin/twin2/questions.json';
+import english_language_2014_Twin3 from './english-language/2014/twin/twin3/questions.json';
+import english_language_2015_Orig from './english-language/2015/original/questions.json';
+import english_language_2015_Twin1 from './english-language/2015/twin/twin1/questions.json';
+import english_language_2015_Twin2 from './english-language/2015/twin/twin2/questions.json';
+import english_language_2015_Twin3 from './english-language/2015/twin/twin3/questions.json';
+import english_language_2016_Orig from './english-language/2016/original/questions.json';
+import english_language_2016_Twin1 from './english-language/2016/twin/twin1/questions.json';
+import english_language_2016_Twin2 from './english-language/2016/twin/twin2/questions.json';
+import english_language_2016_Twin3 from './english-language/2016/twin/twin3/questions.json';
+import english_language_2017_Orig from './english-language/2017/original/questions.json';
+import english_language_2017_Twin1 from './english-language/2017/twin/twin1/questions.json';
+import english_language_2017_Twin2 from './english-language/2017/twin/twin2/questions.json';
+import english_language_2017_Twin3 from './english-language/2017/twin/twin3/questions.json';
+import english_language_2018_Orig from './english-language/2018/original/questions.json';
+import english_language_2018_Twin1 from './english-language/2018/twin/twin1/questions.json';
+import english_language_2018_Twin2 from './english-language/2018/twin/twin2/questions.json';
+import english_language_2018_Twin3 from './english-language/2018/twin/twin3/questions.json';
+import english_language_2019_Orig from './english-language/2019/original/questions.json';
+import english_language_2019_Twin1 from './english-language/2019/twin/twin1/questions.json';
+import english_language_2019_Twin2 from './english-language/2019/twin/twin2/questions.json';
+import english_language_2019_Twin3 from './english-language/2019/twin/twin3/questions.json';
+import english_language_2020_Orig from './english-language/2020/original/questions.json';
+import english_language_2020_Twin1 from './english-language/2020/twin/twin1/questions.json';
+import english_language_2020_Twin2 from './english-language/2020/twin/twin2/questions.json';
+import english_language_2020_Twin3 from './english-language/2020/twin/twin3/questions.json';
+import english_language_2021_Orig from './english-language/2021/original/questions.json';
+import english_language_2021_Twin1 from './english-language/2021/twin/twin1/questions.json';
+import english_language_2021_Twin2 from './english-language/2021/twin/twin2/questions.json';
+import english_language_2021_Twin3 from './english-language/2021/twin/twin3/questions.json';
+import english_language_2022_Orig from './english-language/2022/original/questions.json';
+import english_language_2022_Twin1 from './english-language/2022/twin/twin1/questions.json';
+import english_language_2022_Twin2 from './english-language/2022/twin/twin2/questions.json';
+import english_language_2022_Twin3 from './english-language/2022/twin/twin3/questions.json';
+import mathematics_2010_Orig from './mathematics/2010/original/questions.json';
+import mathematics_2010_Twin1 from './mathematics/2010/twin/twin1/questions.json';
+import mathematics_2010_Twin2 from './mathematics/2010/twin/twin2/questions.json';
+import mathematics_2010_Twin3 from './mathematics/2010/twin/twin3/questions.json';
+import mathematics_2011_Orig from './mathematics/2011/original/questions.json';
+import mathematics_2011_Twin1 from './mathematics/2011/twin/twin1/questions.json';
+import mathematics_2011_Twin2 from './mathematics/2011/twin/twin2/questions.json';
+import mathematics_2011_Twin3 from './mathematics/2011/twin/twin3/questions.json';
+import mathematics_2012_Orig from './mathematics/2012/original/questions.json';
+import mathematics_2012_Twin1 from './mathematics/2012/twin/twin1/questions.json';
+import mathematics_2012_Twin2 from './mathematics/2012/twin/twin2/questions.json';
+import mathematics_2012_Twin3 from './mathematics/2012/twin/twin3/questions.json';
+import mathematics_2013_Orig from './mathematics/2013/original/questions.json';
+import mathematics_2013_Twin1 from './mathematics/2013/twin/twin1/questions.json';
+import mathematics_2013_Twin2 from './mathematics/2013/twin/twin2/questions.json';
+import mathematics_2013_Twin3 from './mathematics/2013/twin/twin3/questions.json';
+import mathematics_2014_Orig from './mathematics/2014/original/questions.json';
+import mathematics_2014_Twin1 from './mathematics/2014/twin/twin1/questions.json';
+import mathematics_2014_Twin2 from './mathematics/2014/twin/twin2/questions.json';
+import mathematics_2014_Twin3 from './mathematics/2014/twin/twin3/questions.json';
+import mathematics_2015_Orig from './mathematics/2015/original/questions.json';
+import mathematics_2015_Twin1 from './mathematics/2015/twin/twin1/questions.json';
+import mathematics_2015_Twin2 from './mathematics/2015/twin/twin2/questions.json';
+import mathematics_2015_Twin3 from './mathematics/2015/twin/twin3/questions.json';
+import mathematics_2016_Orig from './mathematics/2016/original/questions.json';
+import mathematics_2016_Twin1 from './mathematics/2016/twin/twin1/questions.json';
+import mathematics_2016_Twin2 from './mathematics/2016/twin/twin2/questions.json';
+import mathematics_2016_Twin3 from './mathematics/2016/twin/twin3/questions.json';
+import mathematics_2017_Orig from './mathematics/2017/original/questions.json';
+import mathematics_2017_Twin1 from './mathematics/2017/twin/twin1/questions.json';
+import mathematics_2017_Twin2 from './mathematics/2017/twin/twin2/questions.json';
+import mathematics_2017_Twin3 from './mathematics/2017/twin/twin3/questions.json';
+import mathematics_2018_Orig from './mathematics/2018/original/questions.json';
+import mathematics_2018_Twin1 from './mathematics/2018/twin/twin1/questions.json';
+import mathematics_2018_Twin2 from './mathematics/2018/twin/twin2/questions.json';
+import mathematics_2018_Twin3 from './mathematics/2018/twin/twin3/questions.json';
+import mathematics_2019_Orig from './mathematics/2019/original/questions.json';
+import mathematics_2019_Twin1 from './mathematics/2019/twin/twin1/questions.json';
+import mathematics_2019_Twin2 from './mathematics/2019/twin/twin2/questions.json';
+import mathematics_2019_Twin3 from './mathematics/2019/twin/twin3/questions.json';
+import mathematics_2020_Orig from './mathematics/2020/original/questions.json';
+import mathematics_2020_Twin1 from './mathematics/2020/twin/twin1/questions.json';
+import mathematics_2020_Twin2 from './mathematics/2020/twin/twin2/questions.json';
+import mathematics_2020_Twin3 from './mathematics/2020/twin/twin3/questions.json';
+import mathematics_2021_Orig from './mathematics/2021/original/questions.json';
+import mathematics_2021_Twin1 from './mathematics/2021/twin/twin1/questions.json';
+import mathematics_2021_Twin2 from './mathematics/2021/twin/twin2/questions.json';
+import mathematics_2021_Twin3 from './mathematics/2021/twin/twin3/questions.json';
+import mathematics_2022_Orig from './mathematics/2022/original/questions.json';
+import mathematics_2022_Twin1 from './mathematics/2022/twin/twin1/questions.json';
+import mathematics_2022_Twin2 from './mathematics/2022/twin/twin2/questions.json';
+import mathematics_2022_Twin3 from './mathematics/2022/twin/twin3/questions.json';
+import mathematics_2023_Orig from './mathematics/2023/original/questions.json';
+import mathematics_2023_Twin1 from './mathematics/2023/twin/twin1/questions.json';
+import mathematics_2023_Twin2 from './mathematics/2023/twin/twin2/questions.json';
+import mathematics_2023_Twin3 from './mathematics/2023/twin/twin3/questions.json';
+import mathematics_2024_Orig from './mathematics/2024/original/questions.json';
+import mathematics_2024_Twin1 from './mathematics/2024/twin/twin1/questions.json';
+import mathematics_2024_Twin2 from './mathematics/2024/twin/twin2/questions.json';
+import mathematics_2024_Twin3 from './mathematics/2024/twin/twin3/questions.json';
+import mathematics_2025_Orig from './mathematics/2025/original/questions.json';
+import mathematics_2025_Twin1 from './mathematics/2025/twin/twin1/questions.json';
+import mathematics_2025_Twin2 from './mathematics/2025/twin/twin2/questions.json';
+import mathematics_2025_Twin3 from './mathematics/2025/twin/twin3/questions.json';
+import mathematics_2026_Orig from './mathematics/2026/original/questions.json';
+import mathematics_2026_Twin1 from './mathematics/2026/twin/twin1/questions.json';
+import mathematics_2026_Twin2 from './mathematics/2026/twin/twin2/questions.json';
+import mathematics_2026_Twin3 from './mathematics/2026/twin/twin3/questions.json';
+import physics_2019_Orig from './physics/2019/original/questions.json';
+import physics_2019_Twin1 from './physics/2019/twin/twin1/questions.json';
+import physics_2019_Twin2 from './physics/2019/twin/twin2/questions.json';
+import physics_2019_Twin3 from './physics/2019/twin/twin3/questions.json';
+import physics_2020_Orig from './physics/2020/original/questions.json';
+import physics_2020_Twin1 from './physics/2020/twin/twin1/questions.json';
+import physics_2020_Twin2 from './physics/2020/twin/twin2/questions.json';
+import physics_2020_Twin3 from './physics/2020/twin/twin3/questions.json';
+import chemistry_2019_Orig from './chemistry/2019/original/questions.json';
+import chemistry_2019_Twin1 from './chemistry/2019/twin/twin1/questions.json';
+import chemistry_2019_Twin2 from './chemistry/2019/twin/twin2/questions.json';
+import chemistry_2019_Twin3 from './chemistry/2019/twin/twin3/questions.json';
+import chemistry_2020_Orig from './chemistry/2020/original/questions.json';
+import chemistry_2020_Twin1 from './chemistry/2020/twin/twin1/questions.json';
+import chemistry_2020_Twin2 from './chemistry/2020/twin/twin2/questions.json';
+import chemistry_2020_Twin3 from './chemistry/2020/twin/twin3/questions.json';
+import biology_2011_Orig from './biology/2011/original/questions.json';
+import biology_2011_Twin1 from './biology/2011/twin/twin1/questions.json';
+import biology_2011_Twin2 from './biology/2011/twin/twin2/questions.json';
+import biology_2011_Twin3 from './biology/2011/twin/twin3/questions.json';
+import biology_2012_Orig from './biology/2012/original/questions.json';
+import biology_2012_Twin1 from './biology/2012/twin/twin1/questions.json';
+import biology_2012_Twin2 from './biology/2012/twin/twin2/questions.json';
+import biology_2012_Twin3 from './biology/2012/twin/twin3/questions.json';
+import economics_2009_Orig from './economics/2009/original/questions.json';
+import economics_2009_Twin1 from './economics/2009/twin/twin1/questions.json';
+import economics_2009_Twin2 from './economics/2009/twin/twin2/questions.json';
+import economics_2009_Twin3 from './economics/2009/twin/twin3/questions.json';
+import economics_2010_Orig from './economics/2010/original/questions.json';
+import economics_2010_Twin1 from './economics/2010/twin/twin1/questions.json';
+import economics_2010_Twin2 from './economics/2010/twin/twin2/questions.json';
+import economics_2010_Twin3 from './economics/2010/twin/twin3/questions.json';
+import accounting_2019_Orig from './accounting/2019/original/questions.json';
+import accounting_2019_Twin1 from './accounting/2019/twin/twin1/questions.json';
+import accounting_2019_Twin2 from './accounting/2019/twin/twin2/questions.json';
+import accounting_2019_Twin3 from './accounting/2019/twin/twin3/questions.json';
+import accounting_2020_Orig from './accounting/2020/original/questions.json';
+import accounting_2020_Twin1 from './accounting/2020/twin/twin1/questions.json';
+import accounting_2020_Twin2 from './accounting/2020/twin/twin2/questions.json';
+import accounting_2020_Twin3 from './accounting/2020/twin/twin3/questions.json';
+import commerce_2016_Orig from './commerce/2016/original/questions.json';
+import commerce_2016_Twin1 from './commerce/2016/twin/twin1/questions.json';
+import commerce_2016_Twin2 from './commerce/2016/twin/twin2/questions.json';
+import commerce_2016_Twin3 from './commerce/2016/twin/twin3/questions.json';
+import government_2019_Orig from './government/2019/original/questions.json';
+import government_2019_Twin1 from './government/2019/twin/twin1/questions.json';
+import government_2019_Twin2 from './government/2019/twin/twin2/questions.json';
+import government_2019_Twin3 from './government/2019/twin/twin3/questions.json';
+import government_2020_Orig from './government/2020/original/questions.json';
+import government_2020_Twin1 from './government/2020/twin/twin1/questions.json';
+import government_2020_Twin2 from './government/2020/twin/twin2/questions.json';
+import government_2020_Twin3 from './government/2020/twin/twin3/questions.json';
+import literature_in_english_2020_Orig from './literature-in-english/2020/original/questions.json';
+import literature_in_english_2020_Twin1 from './literature-in-english/2020/twin/twin1/questions.json';
+import literature_in_english_2020_Twin2 from './literature-in-english/2020/twin/twin2/questions.json';
+import literature_in_english_2020_Twin3 from './literature-in-english/2020/twin/twin3/questions.json';
+import christian_religious_studies_2019_Orig from './christian-religious-studies/2019/original/questions.json';
+import christian_religious_studies_2019_Twin1 from './christian-religious-studies/2019/twin/twin1/questions.json';
+import christian_religious_studies_2019_Twin2 from './christian-religious-studies/2019/twin/twin2/questions.json';
+import christian_religious_studies_2019_Twin3 from './christian-religious-studies/2019/twin/twin3/questions.json';
+import geography_2020_Orig from './geography/2020/original/questions.json';
+import geography_2020_Twin1 from './geography/2020/twin/twin1/questions.json';
+import geography_2020_Twin2 from './geography/2020/twin/twin2/questions.json';
+import geography_2020_Twin3 from './geography/2020/twin/twin3/questions.json';
 
 export type TwinDifficultyId = 'original' | 'simple' | 'medium' | 'hard';
 export type QuestionVariantFolder = 'original' | 'twin1' | 'twin2' | 'twin3';
@@ -27,11 +192,15 @@ export interface StructuredJambQuestionItem {
   question_number: number;
   question_id: string;
   canonical_id: string;
+  aloc_id?: string;
+  parent_question_id?: string;
   difficulty_id: TwinDifficultyId;
   subject: SubjectName;
   year: number;
   topic: string;
   subtopic: string;
+  section?: string | null;
+  image_url?: string | null;
   question: string;
   options: {
     A: string;
@@ -58,6 +227,7 @@ export interface YearQuestionFileEnvelope {
   subject: SubjectName;
   subject_slug: string;
   year: number;
+  total_questions?: number;
   questions: StructuredJambQuestionItem[];
 }
 
@@ -74,25 +244,193 @@ export interface YearQuestionBundle {
 }
 
 const REGISTERED_ORIGINAL_ENVELOPES: YearQuestionFileEnvelope[] = [
-  eng2024Orig as YearQuestionFileEnvelope,
-  mth2024Orig as YearQuestionFileEnvelope,
-  phy2024Orig as YearQuestionFileEnvelope,
-  chm2024Orig as YearQuestionFileEnvelope,
+  english_language_2010_Orig as YearQuestionFileEnvelope,
+  english_language_2011_Orig as YearQuestionFileEnvelope,
+  english_language_2012_Orig as YearQuestionFileEnvelope,
+  english_language_2013_Orig as YearQuestionFileEnvelope,
+  english_language_2014_Orig as YearQuestionFileEnvelope,
+  english_language_2015_Orig as YearQuestionFileEnvelope,
+  english_language_2016_Orig as YearQuestionFileEnvelope,
+  english_language_2017_Orig as YearQuestionFileEnvelope,
+  english_language_2018_Orig as YearQuestionFileEnvelope,
+  english_language_2019_Orig as YearQuestionFileEnvelope,
+  english_language_2020_Orig as YearQuestionFileEnvelope,
+  english_language_2021_Orig as YearQuestionFileEnvelope,
+  english_language_2022_Orig as YearQuestionFileEnvelope,
+  mathematics_2010_Orig as YearQuestionFileEnvelope,
+  mathematics_2011_Orig as YearQuestionFileEnvelope,
+  mathematics_2012_Orig as YearQuestionFileEnvelope,
+  mathematics_2013_Orig as YearQuestionFileEnvelope,
+  mathematics_2014_Orig as YearQuestionFileEnvelope,
+  mathematics_2015_Orig as YearQuestionFileEnvelope,
+  mathematics_2016_Orig as YearQuestionFileEnvelope,
+  mathematics_2017_Orig as YearQuestionFileEnvelope,
+  mathematics_2018_Orig as YearQuestionFileEnvelope,
+  mathematics_2019_Orig as YearQuestionFileEnvelope,
+  mathematics_2020_Orig as YearQuestionFileEnvelope,
+  mathematics_2021_Orig as YearQuestionFileEnvelope,
+  mathematics_2022_Orig as YearQuestionFileEnvelope,
+  mathematics_2023_Orig as YearQuestionFileEnvelope,
+  mathematics_2024_Orig as YearQuestionFileEnvelope,
+  mathematics_2025_Orig as YearQuestionFileEnvelope,
+  mathematics_2026_Orig as YearQuestionFileEnvelope,
+  physics_2019_Orig as YearQuestionFileEnvelope,
+  physics_2020_Orig as YearQuestionFileEnvelope,
+  chemistry_2019_Orig as YearQuestionFileEnvelope,
+  chemistry_2020_Orig as YearQuestionFileEnvelope,
+  biology_2011_Orig as YearQuestionFileEnvelope,
+  biology_2012_Orig as YearQuestionFileEnvelope,
+  economics_2009_Orig as YearQuestionFileEnvelope,
+  economics_2010_Orig as YearQuestionFileEnvelope,
+  accounting_2019_Orig as YearQuestionFileEnvelope,
+  accounting_2020_Orig as YearQuestionFileEnvelope,
+  commerce_2016_Orig as YearQuestionFileEnvelope,
+  government_2019_Orig as YearQuestionFileEnvelope,
+  government_2020_Orig as YearQuestionFileEnvelope,
+  literature_in_english_2020_Orig as YearQuestionFileEnvelope,
+  christian_religious_studies_2019_Orig as YearQuestionFileEnvelope,
+  geography_2020_Orig as YearQuestionFileEnvelope,
 ];
 
 const REGISTERED_TWIN_ENVELOPES: YearQuestionFileEnvelope[] = [
-  eng2024Twin1 as YearQuestionFileEnvelope,
-  eng2024Twin2 as YearQuestionFileEnvelope,
-  eng2024Twin3 as YearQuestionFileEnvelope,
-  mth2024Twin1 as YearQuestionFileEnvelope,
-  mth2024Twin2 as YearQuestionFileEnvelope,
-  mth2024Twin3 as YearQuestionFileEnvelope,
-  phy2024Twin1 as YearQuestionFileEnvelope,
-  phy2024Twin2 as YearQuestionFileEnvelope,
-  phy2024Twin3 as YearQuestionFileEnvelope,
-  chm2024Twin1 as YearQuestionFileEnvelope,
-  chm2024Twin2 as YearQuestionFileEnvelope,
-  chm2024Twin3 as YearQuestionFileEnvelope,
+  english_language_2010_Twin1 as YearQuestionFileEnvelope,
+  english_language_2010_Twin2 as YearQuestionFileEnvelope,
+  english_language_2010_Twin3 as YearQuestionFileEnvelope,
+  english_language_2011_Twin1 as YearQuestionFileEnvelope,
+  english_language_2011_Twin2 as YearQuestionFileEnvelope,
+  english_language_2011_Twin3 as YearQuestionFileEnvelope,
+  english_language_2012_Twin1 as YearQuestionFileEnvelope,
+  english_language_2012_Twin2 as YearQuestionFileEnvelope,
+  english_language_2012_Twin3 as YearQuestionFileEnvelope,
+  english_language_2013_Twin1 as YearQuestionFileEnvelope,
+  english_language_2013_Twin2 as YearQuestionFileEnvelope,
+  english_language_2013_Twin3 as YearQuestionFileEnvelope,
+  english_language_2014_Twin1 as YearQuestionFileEnvelope,
+  english_language_2014_Twin2 as YearQuestionFileEnvelope,
+  english_language_2014_Twin3 as YearQuestionFileEnvelope,
+  english_language_2015_Twin1 as YearQuestionFileEnvelope,
+  english_language_2015_Twin2 as YearQuestionFileEnvelope,
+  english_language_2015_Twin3 as YearQuestionFileEnvelope,
+  english_language_2016_Twin1 as YearQuestionFileEnvelope,
+  english_language_2016_Twin2 as YearQuestionFileEnvelope,
+  english_language_2016_Twin3 as YearQuestionFileEnvelope,
+  english_language_2017_Twin1 as YearQuestionFileEnvelope,
+  english_language_2017_Twin2 as YearQuestionFileEnvelope,
+  english_language_2017_Twin3 as YearQuestionFileEnvelope,
+  english_language_2018_Twin1 as YearQuestionFileEnvelope,
+  english_language_2018_Twin2 as YearQuestionFileEnvelope,
+  english_language_2018_Twin3 as YearQuestionFileEnvelope,
+  english_language_2019_Twin1 as YearQuestionFileEnvelope,
+  english_language_2019_Twin2 as YearQuestionFileEnvelope,
+  english_language_2019_Twin3 as YearQuestionFileEnvelope,
+  english_language_2020_Twin1 as YearQuestionFileEnvelope,
+  english_language_2020_Twin2 as YearQuestionFileEnvelope,
+  english_language_2020_Twin3 as YearQuestionFileEnvelope,
+  english_language_2021_Twin1 as YearQuestionFileEnvelope,
+  english_language_2021_Twin2 as YearQuestionFileEnvelope,
+  english_language_2021_Twin3 as YearQuestionFileEnvelope,
+  english_language_2022_Twin1 as YearQuestionFileEnvelope,
+  english_language_2022_Twin2 as YearQuestionFileEnvelope,
+  english_language_2022_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2010_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2010_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2010_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2011_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2011_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2011_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2012_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2012_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2012_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2013_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2013_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2013_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2014_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2014_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2014_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2015_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2015_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2015_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2016_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2016_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2016_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2017_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2017_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2017_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2018_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2018_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2018_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2019_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2019_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2019_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2020_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2020_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2020_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2021_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2021_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2021_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2022_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2022_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2022_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2023_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2023_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2023_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2024_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2024_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2024_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2025_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2025_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2025_Twin3 as YearQuestionFileEnvelope,
+  mathematics_2026_Twin1 as YearQuestionFileEnvelope,
+  mathematics_2026_Twin2 as YearQuestionFileEnvelope,
+  mathematics_2026_Twin3 as YearQuestionFileEnvelope,
+  physics_2019_Twin1 as YearQuestionFileEnvelope,
+  physics_2019_Twin2 as YearQuestionFileEnvelope,
+  physics_2019_Twin3 as YearQuestionFileEnvelope,
+  physics_2020_Twin1 as YearQuestionFileEnvelope,
+  physics_2020_Twin2 as YearQuestionFileEnvelope,
+  physics_2020_Twin3 as YearQuestionFileEnvelope,
+  chemistry_2019_Twin1 as YearQuestionFileEnvelope,
+  chemistry_2019_Twin2 as YearQuestionFileEnvelope,
+  chemistry_2019_Twin3 as YearQuestionFileEnvelope,
+  chemistry_2020_Twin1 as YearQuestionFileEnvelope,
+  chemistry_2020_Twin2 as YearQuestionFileEnvelope,
+  chemistry_2020_Twin3 as YearQuestionFileEnvelope,
+  biology_2011_Twin1 as YearQuestionFileEnvelope,
+  biology_2011_Twin2 as YearQuestionFileEnvelope,
+  biology_2011_Twin3 as YearQuestionFileEnvelope,
+  biology_2012_Twin1 as YearQuestionFileEnvelope,
+  biology_2012_Twin2 as YearQuestionFileEnvelope,
+  biology_2012_Twin3 as YearQuestionFileEnvelope,
+  economics_2009_Twin1 as YearQuestionFileEnvelope,
+  economics_2009_Twin2 as YearQuestionFileEnvelope,
+  economics_2009_Twin3 as YearQuestionFileEnvelope,
+  economics_2010_Twin1 as YearQuestionFileEnvelope,
+  economics_2010_Twin2 as YearQuestionFileEnvelope,
+  economics_2010_Twin3 as YearQuestionFileEnvelope,
+  accounting_2019_Twin1 as YearQuestionFileEnvelope,
+  accounting_2019_Twin2 as YearQuestionFileEnvelope,
+  accounting_2019_Twin3 as YearQuestionFileEnvelope,
+  accounting_2020_Twin1 as YearQuestionFileEnvelope,
+  accounting_2020_Twin2 as YearQuestionFileEnvelope,
+  accounting_2020_Twin3 as YearQuestionFileEnvelope,
+  commerce_2016_Twin1 as YearQuestionFileEnvelope,
+  commerce_2016_Twin2 as YearQuestionFileEnvelope,
+  commerce_2016_Twin3 as YearQuestionFileEnvelope,
+  government_2019_Twin1 as YearQuestionFileEnvelope,
+  government_2019_Twin2 as YearQuestionFileEnvelope,
+  government_2019_Twin3 as YearQuestionFileEnvelope,
+  government_2020_Twin1 as YearQuestionFileEnvelope,
+  government_2020_Twin2 as YearQuestionFileEnvelope,
+  government_2020_Twin3 as YearQuestionFileEnvelope,
+  literature_in_english_2020_Twin1 as YearQuestionFileEnvelope,
+  literature_in_english_2020_Twin2 as YearQuestionFileEnvelope,
+  literature_in_english_2020_Twin3 as YearQuestionFileEnvelope,
+  christian_religious_studies_2019_Twin1 as YearQuestionFileEnvelope,
+  christian_religious_studies_2019_Twin2 as YearQuestionFileEnvelope,
+  christian_religious_studies_2019_Twin3 as YearQuestionFileEnvelope,
+  geography_2020_Twin1 as YearQuestionFileEnvelope,
+  geography_2020_Twin2 as YearQuestionFileEnvelope,
+  geography_2020_Twin3 as YearQuestionFileEnvelope,
 ];
 
 /**
@@ -114,6 +452,7 @@ export function toRuntimeQuestion(item: StructuredJambQuestionItem): Question {
     topic: item.topic,
     subtopic: item.subtopic,
     year: item.year,
+    image_url: item.image_url || null,
     question: item.question,
     options: item.options,
     answer: item.answer,

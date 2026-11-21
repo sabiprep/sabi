@@ -35,6 +35,7 @@ export interface Question {
   topic: string;
   subtopic: string;
   year: number;
+  image_url?: string | null;
   question: string;
   options: {
     A: string;

@@ -1,0 +1,706 @@
+{
+  "database": "SABI JAMB UTME Structured Question Bank",
+  "total_subjects": 12,
+  "total_subject_years": 46,
+  "total_json_files": 184,
+  "total_original_questions": 2525,
+  "total_diagrams": 144,
+  "subjects": [
+    {
+      "order": 1,
+      "subject": "English Language",
+      "subject_slug": "english-language",
+      "years_extracted": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022
+      ],
+      "total_years": 13,
+      "total_original_questions": 1005,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2010,
+          "original_questions": 75,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2010/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2010/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2010/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2010/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2011,
+          "original_questions": 99,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2011/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2011/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2011/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2011/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2012,
+          "original_questions": 97,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2012/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2012/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2012/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2012/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2013,
+          "original_questions": 98,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2013/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2013/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2013/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2013/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2014,
+          "original_questions": 82,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2014/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2014/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2014/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2014/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2015,
+          "original_questions": 70,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2015/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2015/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2015/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2015/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2016,
+          "original_questions": 75,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2016/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2016/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2016/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2016/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2017,
+          "original_questions": 49,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2017/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2017/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2017/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2017/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2018,
+          "original_questions": 79,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2018/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2018/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2018/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2018/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2019,
+          "original_questions": 108,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2019/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2020,
+          "original_questions": 58,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2020/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2021,
+          "original_questions": 57,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2021/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2021/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2021/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2021/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2022,
+          "original_questions": 58,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/english-language/2022/original/questions.json",
+            "twin1_simple": "src/data/question-bank/english-language/2022/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/english-language/2022/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/english-language/2022/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 2,
+      "subject": "Mathematics",
+      "subject_slug": "mathematics",
+      "years_extracted": [
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023,
+        2024,
+        2025,
+        2026
+      ],
+      "total_years": 17,
+      "total_original_questions": 781,
+      "total_diagrams": 131,
+      "years": [
+        {
+          "year": 2010,
+          "original_questions": 48,
+          "diagrams": 11,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2010/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2010/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2010/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2010/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2011,
+          "original_questions": 48,
+          "diagrams": 9,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2011/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2011/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2011/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2011/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2012,
+          "original_questions": 48,
+          "diagrams": 7,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2012/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2012/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2012/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2012/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2013,
+          "original_questions": 46,
+          "diagrams": 8,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2013/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2013/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2013/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2013/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2014,
+          "original_questions": 48,
+          "diagrams": 12,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2014/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2014/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2014/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2014/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2015,
+          "original_questions": 50,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2015/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2015/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2015/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2015/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2016,
+          "original_questions": 50,
+          "diagrams": 14,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2016/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2016/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2016/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2016/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2017,
+          "original_questions": 48,
+          "diagrams": 8,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2017/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2017/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2017/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2017/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2018,
+          "original_questions": 49,
+          "diagrams": 10,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2018/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2018/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2018/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2018/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2019,
+          "original_questions": 49,
+          "diagrams": 8,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2019/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2020,
+          "original_questions": 50,
+          "diagrams": 17,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2020/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2021,
+          "original_questions": 39,
+          "diagrams": 1,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2021/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2021/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2021/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2021/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2022,
+          "original_questions": 39,
+          "diagrams": 6,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2022/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2022/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2022/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2022/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2023,
+          "original_questions": 49,
+          "diagrams": 8,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2023/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2023/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2023/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2023/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2024,
+          "original_questions": 40,
+          "diagrams": 3,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2024/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2024/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2024/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2024/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2025,
+          "original_questions": 40,
+          "diagrams": 3,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2025/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2025/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2025/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2025/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2026,
+          "original_questions": 40,
+          "diagrams": 6,
+          "paths": {
+            "original": "src/data/question-bank/mathematics/2026/original/questions.json",
+            "twin1_simple": "src/data/question-bank/mathematics/2026/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/mathematics/2026/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/mathematics/2026/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 3,
+      "subject": "Physics",
+      "subject_slug": "physics",
+      "years_extracted": [
+        2019,
+        2020
+      ],
+      "total_years": 2,
+      "total_original_questions": 87,
+      "total_diagrams": 10,
+      "years": [
+        {
+          "year": 2019,
+          "original_questions": 48,
+          "diagrams": 2,
+          "paths": {
+            "original": "src/data/question-bank/physics/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/physics/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/physics/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/physics/2019/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2020,
+          "original_questions": 39,
+          "diagrams": 8,
+          "paths": {
+            "original": "src/data/question-bank/physics/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/physics/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/physics/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/physics/2020/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 4,
+      "subject": "Chemistry",
+      "subject_slug": "chemistry",
+      "years_extracted": [
+        2019,
+        2020
+      ],
+      "total_years": 2,
+      "total_original_questions": 90,
+      "total_diagrams": 1,
+      "years": [
+        {
+          "year": 2019,
+          "original_questions": 50,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/chemistry/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/chemistry/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/chemistry/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/chemistry/2019/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2020,
+          "original_questions": 40,
+          "diagrams": 1,
+          "paths": {
+            "original": "src/data/question-bank/chemistry/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/chemistry/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/chemistry/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/chemistry/2020/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 5,
+      "subject": "Biology",
+      "subject_slug": "biology",
+      "years_extracted": [
+        2011,
+        2012
+      ],
+      "total_years": 2,
+      "total_original_questions": 83,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2011,
+          "original_questions": 44,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/biology/2011/original/questions.json",
+            "twin1_simple": "src/data/question-bank/biology/2011/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/biology/2011/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/biology/2011/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2012,
+          "original_questions": 39,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/biology/2012/original/questions.json",
+            "twin1_simple": "src/data/question-bank/biology/2012/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/biology/2012/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/biology/2012/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 6,
+      "subject": "Economics",
+      "subject_slug": "economics",
+      "years_extracted": [
+        2009,
+        2010
+      ],
+      "total_years": 2,
+      "total_original_questions": 98,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2009,
+          "original_questions": 50,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/economics/2009/original/questions.json",
+            "twin1_simple": "src/data/question-bank/economics/2009/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/economics/2009/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/economics/2009/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2010,
+          "original_questions": 48,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/economics/2010/original/questions.json",
+            "twin1_simple": "src/data/question-bank/economics/2010/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/economics/2010/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/economics/2010/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 7,
+      "subject": "Financial Accounting",
+      "subject_slug": "accounting",
+      "years_extracted": [
+        2019,
+        2020
+      ],
+      "total_years": 2,
+      "total_original_questions": 89,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2019,
+          "original_questions": 49,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/accounting/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/accounting/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/accounting/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/accounting/2019/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2020,
+          "original_questions": 40,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/accounting/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/accounting/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/accounting/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/accounting/2020/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 8,
+      "subject": "Commerce",
+      "subject_slug": "commerce",
+      "years_extracted": [
+        2016
+      ],
+      "total_years": 1,
+      "total_original_questions": 48,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2016,
+          "original_questions": 48,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/commerce/2016/original/questions.json",
+            "twin1_simple": "src/data/question-bank/commerce/2016/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/commerce/2016/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/commerce/2016/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 9,
+      "subject": "Government",
+      "subject_slug": "government",
+      "years_extracted": [
+        2019,
+        2020
+      ],
+      "total_years": 2,
+      "total_original_questions": 70,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2019,
+          "original_questions": 30,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/government/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/government/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/government/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/government/2019/twin/twin3/questions.json"
+          }
+        },
+        {
+          "year": 2020,
+          "original_questions": 40,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/government/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/government/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/government/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/government/2020/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 10,
+      "subject": "Literature-in-English",
+      "subject_slug": "literature-in-english",
+      "years_extracted": [
+        2020
+      ],
+      "total_years": 1,
+      "total_original_questions": 40,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2020,
+          "original_questions": 40,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/literature-in-english/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/literature-in-english/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/literature-in-english/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/literature-in-english/2020/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 11,
+      "subject": "Christian Religious Studies",
+      "subject_slug": "christian-religious-studies",
+      "years_extracted": [
+        2019
+      ],
+      "total_years": 1,
+      "total_original_questions": 94,
+      "total_diagrams": 0,
+      "years": [
+        {
+          "year": 2019,
+          "original_questions": 94,
+          "diagrams": 0,
+          "paths": {
+            "original": "src/data/question-bank/christian-religious-studies/2019/original/questions.json",
+            "twin1_simple": "src/data/question-bank/christian-religious-studies/2019/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/christian-religious-studies/2019/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/christian-religious-studies/2019/twin/twin3/questions.json"
+          }
+        }
+      ]
+    },
+    {
+      "order": 12,
+      "subject": "Geography",
+      "subject_slug": "geography",
+      "years_extracted": [
+        2020
+      ],
+      "total_years": 1,
+      "total_original_questions": 40,
+      "total_diagrams": 2,
+      "years": [
+        {
+          "year": 2020,
+          "original_questions": 40,
+          "diagrams": 2,
+          "paths": {
+            "original": "src/data/question-bank/geography/2020/original/questions.json",
+            "twin1_simple": "src/data/question-bank/geography/2020/twin/twin1/questions.json",
+            "twin2_medium": "src/data/question-bank/geography/2020/twin/twin2/questions.json",
+            "twin3_hard": "src/data/question-bank/geography/2020/twin/twin3/questions.json"
+          }
+        }
+      ]
+    }
+  ]
+}

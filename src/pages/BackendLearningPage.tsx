@@ -9,7 +9,7 @@ import { recordQuestionAttempt } from '../utils/userProgressStore';
 type Mode = 'diagnostic' | 'smart_practice' | 'blitz' | 'cbt' | 'custom';
 type LearningQuestion = {
   id: string; position: number; subject: string; topic: string; subtopic?: string | null;
-  year?: number | null; question: string; options: Record<'A'|'B'|'C'|'D', string>;
+  year?: number | null; image_url?: string | null; question: string; options: Record<'A'|'B'|'C'|'D', string>;
   localAnswer?: 'A'|'B'|'C'|'D'; localExplanation?: string;
   answerState?: { selectedOption: string; isCorrect?: boolean; correctOption?: string; explanation?: string; elapsedMs?: number; answeredAt?: string } | null;
 };
@@ -124,6 +124,7 @@ export function BackendLearningPage() {
         topic: q.topic,
         subtopic: q.subtopic || null,
         year: q.year || 2024,
+        image_url: q.image_url || null,
         question: q.question,
         options: q.options,
         localAnswer: q.answer,
@@ -301,6 +302,7 @@ export function BackendLearningPage() {
       {session&&current&&!completed&&<section className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-7 space-y-5">
         <div className="flex flex-wrap justify-between gap-3"><div><span className="text-xs font-black uppercase tracking-wider text-blue-600">{MODE_LABELS[session.mode]}</span><h2 className="text-lg font-black">{current.subject} · {current.topic}</h2></div><span className="text-xs font-bold text-slate-500">Question {index+1} of {questions.length}{session.mode==='cbt'&&cbtRemainingSeconds!==null&&<span> · {Math.floor(cbtRemainingSeconds/60)}:{String(cbtRemainingSeconds%60).padStart(2,'0')} remaining</span>}</span></div>
         <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-blue-600" style={{width:`${((index+1)/questions.length)*100}%`}}/></div>
+        {current.image_url&&<div className="p-3 rounded-2xl bg-white border border-slate-200 flex items-center justify-center max-w-md"><img src={current.image_url} alt={`Diagram for ${current.subject}`} className="max-h-56 w-auto object-contain rounded"/></div>}
         <div className="text-lg sm:text-xl font-bold leading-relaxed"><MathText text={current.question}/></div>
         <div className="grid gap-3">{(['A','B','C','D'] as const).map(key=><button key={key} disabled={Boolean(answerResult)||Boolean(current.answerState)||loading} onClick={()=>setChoice(key)} className={`text-left p-4 rounded-xl border flex gap-3 items-start ${choice===key?'border-blue-500 bg-blue-50 dark:bg-blue-950/40':'border-slate-200 dark:border-slate-700'}`}><span className="font-black">{key}.</span><span><MathText text={current.options[key]||''}/></span></button>)}</div>
         {(answerResult||current.answerState)&&<div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 space-y-2"><div className="font-black flex items-center gap-2"><CheckCircle2 size={18} className="text-emerald-600"/>Answer recorded by SABI</div>{session.mode==='cbt'&&!completed?<p className="text-sm">Your response has been recorded. Correct answers and feedback will be available after the exam.</p>:<><p className="text-sm">{(answerResult||current.answerState).isCorrect?'Correct answer.':'Answer saved. Review the correct option and explanation below.'} Correct option: {(answerResult||current.answerState).correctOption||'Recorded'}</p>{(answerResult||current.answerState).explanation&&<p className="text-sm text-slate-600 dark:text-slate-300"><MathText text={(answerResult||current.answerState).explanation}/></p>}</>}{session.mode!=='cbt'&&<button disabled={aiLoading} onClick={()=>void requestAIExplanation()} className="mt-2 px-4 py-2 rounded-lg border border-blue-200 text-blue-700 dark:text-blue-300 dark:border-blue-800 text-sm font-black disabled:opacity-60">{aiLoading?'Preparing explanation…':'Explain this answer with Sabi AI'}</button>}{aiExplanation?.aiAvailable&&<div className="mt-3 border-t pt-3 text-sm leading-relaxed"><b className="block mb-2">Sabi AI explanation</b><MathText text={aiExplanation.explanation}/></div>}{aiExplanation?.reason==='AI_CONSENT_REQUIRED'&&<div className="mt-3 space-y-2"><p className="text-xs text-slate-500">If you enable AI, Sabi will send this question and your selected answer to the configured AI provider to prepare a tutoring explanation. This does not change your score. You can revoke consent later.</p><button onClick={()=>void grantAIConsentAndExplain()} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-black">Agree and enable AI explanations</button></div>}{aiExplanation&&!aiExplanation.aiAvailable&&aiExplanation.reason!=='AI_CONSENT_REQUIRED'&&<p role="status" className="mt-2 text-xs text-slate-500">{aiExplanation.storedExplanation?'AI is currently unavailable. The approved explanation above is still available.':(aiExplanation.message||'AI explanations are not configured yet.')}</p>}</div>}

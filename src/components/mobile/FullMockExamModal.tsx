@@ -291,8 +291,17 @@ export default function FullMockExamModal({
               </div>
             </div>
 
-            {/* Question Stem */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-white leading-relaxed">
+            {/* Question Stem & Diagram */}
+            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-900 dark:text-white leading-relaxed space-y-3">
+              {currentQ.image_url && (
+                <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-center">
+                  <img
+                    src={currentQ.image_url}
+                    alt={`Diagram for ${currentQ.subject} Question ${currentQuestionIndex + 1}`}
+                    className="max-h-52 w-auto object-contain rounded"
+                  />
+                </div>
+              )}
               <MathText text={currentQ.question} />
             </div>
 

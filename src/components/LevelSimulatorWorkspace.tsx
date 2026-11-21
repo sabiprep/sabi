@@ -391,6 +391,18 @@ export default function LevelSimulatorWorkspace({
                     </button>
                   </div>
 
+                  {/* Question Diagram / Table / Figure (if present) */}
+                  {q.image_url && (
+                    <div className="my-2 p-3 rounded-2xl bg-white border border-slate-300 flex items-center justify-center max-w-md">
+                      <img
+                        src={q.image_url}
+                        alt={`Diagram for ${q.subject} ${q.year} Question ${idx + 1}`}
+                        className="max-h-56 w-auto object-contain rounded-lg"
+                        loading="lazy"
+                      />
+                    </div>
+                  )}
+
                   {/* Question Stem rendered with pure KaTeX */}
                   <div className="text-base sm:text-lg font-bold text-white leading-relaxed">
                     <MathText text={q.question} />
@@ -588,8 +600,17 @@ export default function LevelSimulatorWorkspace({
           </div>
         </div>
 
-        {/* Question Stem Container — Enlarged Pure KaTeX & Reading Typography */}
-        <div className="flex-1 min-h-[140px] rounded-3xl bg-gradient-to-b from-[#0E172D] to-[#0A1122] border-2 border-blue-500/30 p-5 sm:p-8 flex flex-col justify-center shadow-xl">
+        {/* Question Stem Container — Enlarged Pure KaTeX, Diagram & Reading Typography */}
+        <div className="flex-1 min-h-[140px] rounded-3xl bg-gradient-to-b from-[#0E172D] to-[#0A1122] border-2 border-blue-500/30 p-5 sm:p-8 flex flex-col justify-center gap-4 shadow-xl">
+          {currentQuestion.image_url && (
+            <div className="p-3 rounded-2xl bg-white border border-slate-200 flex items-center justify-center self-center max-w-md w-full shadow-md">
+              <img
+                src={currentQuestion.image_url}
+                alt={`Diagram for ${currentQuestion.subject} Question ${currentIndex + 1}`}
+                className="max-h-56 sm:max-h-64 w-auto object-contain rounded-lg"
+              />
+            </div>
+          )}
           <div className="text-lg sm:text-2xl lg:text-[26px] font-bold text-white leading-relaxed tracking-tight">
             <MathText text={currentQuestion.question} />
           </div>
@@ -797,7 +818,16 @@ function AiVerificationModal({
         {/* Modal Body */}
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
           {/* Question & Verified Answer Box */}
-          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-2">
+          <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+            {question.image_url && (
+              <div className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-center max-w-sm mx-auto">
+                <img
+                  src={question.image_url}
+                  alt={`Diagram for ${question.subject}`}
+                  className="max-h-48 w-auto object-contain rounded"
+                />
+              </div>
+            )}
             <div className="text-sm sm:text-base font-bold text-white">
               <MathText text={question.question} />
             </div>

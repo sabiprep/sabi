@@ -4,48 +4,6 @@
   "subject": "Mathematics",
   "subject_slug": "mathematics",
   "year": 2024,
-  "questions": [
-    {
-      "question_number": 1,
-      "question_id": "MTH-2024-TWIN3-Q01",
-      "canonical_id": "MTH-2024-Q01",
-      "difficulty_id": "hard",
-      "subject": "Mathematics",
-      "year": 2024,
-      "topic": "Algebra",
-      "subtopic": "Indices and Logarithms",
-      "question": "Solve for x if 9^(x + 1) = 27^(x - 1).",
-      "options": {
-        "A": "5",
-        "B": "4",
-        "C": "3",
-        "D": "2"
-      },
-      "answer": "A",
-      "explanation": "Convert both sides to base 3: (3^2)^(x + 1) = (3^3)^(x - 1) => 3^(2x + 2) = 3^(3x - 3). Equating powers: 2x + 2 = 3x - 3 => x = 5.",
-      "explanation_short": "3^(2x+2) = 3^(3x-3) => 2x + 2 = 3x - 3 => x = 5.",
-      "explanation_pidgin": "Carry both 9 and 27 go base 3: 3^(2x+2) = 3^(3x-3). Solve 2x + 2 = 3x - 3, you go get x = 5."
-    },
-    {
-      "question_number": 2,
-      "question_id": "MTH-2024-TWIN3-Q02",
-      "canonical_id": "MTH-2024-Q02",
-      "difficulty_id": "hard",
-      "subject": "Mathematics",
-      "year": 2024,
-      "topic": "Calculus",
-      "subtopic": "Differentiation",
-      "question": "If the gradient of the curve y = kx^2 - 6x + 5 at x = 3 is 12, find the value of the constant k.",
-      "options": {
-        "A": "3",
-        "B": "2",
-        "C": "4",
-        "D": "6"
-      },
-      "answer": "A",
-      "explanation": "Differentiating gives dy/dx = 2kx - 6. At x = 3, the gradient is 2k(3) - 6 = 12 => 6k = 18 => k = 3.",
-      "explanation_short": "dy/dx = 2kx - 6; at x = 3, 6k - 6 = 12 => k = 3.",
-      "explanation_pidgin": "dy/dx na 2kx - 6. Put x = 3 make e equal 12: 6k - 6 = 12 => 6k = 18 => k = 3."
-    }
-  ]
+  "total_questions": 0,
+  "questions": []
 }
