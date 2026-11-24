@@ -65,10 +65,21 @@ app.use(express.json({ limit: config.maxJsonBody }));
 // and any origin configured through ALLOWED_ORIGINS / SABI_APP_URL) instead of a
 // wildcard. Requests served by this very process are always same-origin-allowed.
 app.use((req, res, next) => {
+  // Allow the frontend SPA and Vite assets to render inside the AI Studio preview iframe,
+  // while keeping strict X-Frame-Options / CORP headers on all /api/* routes.
+  if (!req.path.startsWith('/api')) {
+    res.removeHeader('X-Frame-Options');
+    res.removeHeader('Cross-Origin-Resource-Policy');
+    res.removeHeader('Cross-Origin-Opener-Policy');
+  }
+
   const origin = req.headers.origin;
-  const selfOrigin = `${req.protocol}://${req.headers.host || ''}`;
-  const isSameOrigin = Boolean(origin) && origin === selfOrigin;
-  const allowed = isOriginAllowed(origin) || isSameOrigin;
+  const host = req.headers.host || '';
+  const isSameOrigin =
+    Boolean(origin) &&
+    Boolean(host) &&
+    (origin === `http://${host}` || origin === `https://${host}`);
+  const allowed = isOriginAllowed(origin) || isSameOrigin || !req.path.startsWith('/api');
 
   if (allowed) {
     res.header('Access-Control-Allow-Origin', origin || '*');
@@ -1172,7 +1183,7 @@ async function startServer() {
     // production module graph so the API does not load Rollup's native binaries.
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: 'spa',
       optimizeDeps: { force: true },
     });

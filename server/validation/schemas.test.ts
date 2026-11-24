@@ -219,4 +219,35 @@ describe('onboardingSchema v3', () => {
       registeredSubjects: answers.chosenSubjects,
     }).success).toBe(false);
   });
+
+  it('accepts the renovated Wonderland onboarding payload with the 4 excluded questions omitted', () => {
+    const wonderlandAnswers = {
+      fullName: 'Ada Obi',
+      currentClass: 'Senior Secondary 3 (SS3)',
+      attempts: '2+',
+      targetCourse: 'Medicine and Surgery',
+      targetUniversity: 'University of Uyo',
+      subjectConfidence: {
+        'English Language': 4,
+        Mathematics: 5,
+        Physics: 3,
+        Chemistry: 4,
+      },
+      prioritySubject: 'Physics',
+      struggleType: 'I struggle with methods, concepts or formulas',
+      troubleTopic: 'Quadratic Equations',
+      studyStyle: 'I prefer a structured study plan',
+      dailyStudyHours: '2–3 hours',
+      explanationPreference: 'Detailed, step-by-step explanations',
+      chosenSubjects: ['English Language', 'Mathematics', 'Physics', 'Chemistry'],
+    };
+
+    const parsed = onboardingSchema.safeParse({
+      questionSetVersion: 'v3',
+      submissionKey: '9a4d1f44-0c2f-4b79-a69d-3a6cdb8d9a01',
+      onboardingAnswers: wonderlandAnswers,
+      registeredSubjects: wonderlandAnswers.chosenSubjects,
+    });
+    expect(parsed.success).toBe(true);
+  });
 });

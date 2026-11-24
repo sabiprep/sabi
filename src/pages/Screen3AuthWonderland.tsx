@@ -1140,12 +1140,12 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                   </div>
 
                   <div className="p-3 rounded-2xl bg-purple-700/10 border border-purple-700/25 text-xs font-bold text-[#22064B]">
-                    Account authenticated! Next up in our renovation: the new SABI Wonderland Onboarding screens.
+                    Account authenticated! Tap below to personalize your 4 JAMB subjects and study profile.
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => navigate('/welcome')}
+                    onClick={() => navigate('/onboarding/1')}
                     className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] tracking-[0.04em] uppercase flex items-center justify-center gap-2 cursor-pointer"
                     style={{
                       fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
@@ -1155,7 +1155,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                         '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
                     }}
                   >
-                    <span>BACK TO WELCOME</span>
+                    <span>CONTINUE TO ONBOARDING</span>
                     <ArrowRight size={20} />
                   </button>
                 </div>
@@ -1309,6 +1309,14 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
               </>
             )}
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/onboarding/1')}
+            className="mt-3 px-4 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
+          >
+            Continue to Onboarding Screens (1/10) →
+          </button>
         </div>
       </main>
     </SabiWonderlandShell>

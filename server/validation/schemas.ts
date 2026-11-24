@@ -79,7 +79,7 @@ export const onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
   if (input.questionSetVersion === 'v3') {
     const a = input.onboardingAnswers;
     let invalidV3 = false;
-    const requiredText = ['fullName','currentClass','attempts','targetCourse','targetUniversity','monthsUntilExam','prioritySubject','struggleType','troubleTopic','studyStyle','dailyStudyHours','studyEnvironment','explanationPreference','languagePreference'];
+    const requiredText = ['fullName','currentClass','attempts','targetCourse','targetUniversity','prioritySubject','struggleType','troubleTopic','studyStyle','dailyStudyHours','explanationPreference'];
     for (const key of requiredText) {
       if (typeof a[key] !== 'string' || !String(a[key]).trim()) {
         invalidV3 = true;

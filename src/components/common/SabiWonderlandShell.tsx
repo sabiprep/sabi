@@ -85,227 +85,56 @@ export function SabiPurpleBookLogo({
 export function SabiGraduationBooksIllustration({ className = '' }: { className?: string }) {
   return (
     <div className={`relative flex items-center justify-center select-none ${className}`}>
+      <img
+        src="/assets/aistudio/sabi-academic-hero_0dfb21da.png"
+        alt="SABI 3D Graduation Cap and Books"
+        className="w-full max-w-[305px] sm:max-w-[345px] lg:max-w-[365px] h-auto object-contain drop-shadow-[0_14px_24px_rgba(180,115,0,0.24)] pointer-events-none select-none"
+        draggable={false}
+      />
+    </div>
+  );
+}
+
+/**
+ * SABI Open-Book Character Mascot with Expressive Eyes & Golden Smile
+ * Matches the onboarding speech-bubble header mascot in the uploaded Onboarding UI designs.
+ */
+export function SabiOnboardingMascot({ className = '' }: { className?: string }) {
+  return (
+    <div className={`relative shrink-0 select-none ${className}`}>
       <svg
-        viewBox="0 0 420 280"
-        className="w-full max-w-[285px] sm:max-w-[330px] lg:max-w-[350px] h-auto overflow-visible drop-shadow-[0_14px_24px_rgba(180,115,0,0.22)]"
+        viewBox="0 0 84 82"
+        className="w-[62px] h-[62px] sm:w-[68px] sm:h-[68px] overflow-visible"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <defs>
-          {/* Floor Shadow */}
-          <radialGradient id="floorOvalShadow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#E69500" stopOpacity="0.65" />
-            <stop offset="70%" stopColor="#F5A600" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#FFE51E" stopOpacity="0" />
-          </radialGradient>
+        {/* Left Deep Purple Book Page */}
+        <path
+          d="M10 15 L39 23.5 V70 L10 61.5 Z"
+          fill="#6C19E5"
+        />
+        {/* Right Lighter Purple Book Page */}
+        <path
+          d="M42.5 23.5 L71.5 15 V61.5 L42.5 70 Z"
+          fill="#9E47FF"
+        />
 
-          {/* Bottom Green Book Gradients */}
-          <linearGradient id="greenBookCover" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#00E676" />
-            <stop offset="55%" stopColor="#00C853" />
-            <stop offset="100%" stopColor="#008E3B" />
-          </linearGradient>
-          <linearGradient id="goldenBookRim" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#FFB300" />
-            <stop offset="50%" stopColor="#FFA000" />
-            <stop offset="100%" stopColor="#FF8F00" />
-          </linearGradient>
+        {/* Left Eye (White Sclera + Dark Purple Pupil) */}
+        <circle cx="25.5" cy="40.5" r="7.5" fill="#FFFFFF" />
+        <circle cx="26" cy="40.5" r="3.6" fill="#2A055E" />
 
-          {/* Middle Purple Book Gradients */}
-          <linearGradient id="purpleBookCover" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#A855F7" />
-            <stop offset="50%" stopColor="#7C2AE8" />
-            <stop offset="100%" stopColor="#4C0E9F" />
-          </linearGradient>
+        {/* Right Eye (White Sclera + Dark Purple Pupil) */}
+        <circle cx="56" cy="40.5" r="7.5" fill="#FFFFFF" />
+        <circle cx="55.5" cy="40.5" r="3.6" fill="#2A055E" />
 
-          {/* Book Pages Cream Gradient */}
-          <linearGradient id="creamPages" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#FFFFFF" />
-            <stop offset="50%" stopColor="#FFF9E6" />
-            <stop offset="100%" stopColor="#F3E5AB" />
-          </linearGradient>
-
-          {/* Graduation Cap Top Diamond */}
-          <linearGradient id="capTopDiamond" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#B366FF" />
-            <stop offset="45%" stopColor="#8429F5" />
-            <stop offset="100%" stopColor="#5610B8" />
-          </linearGradient>
-          <linearGradient id="capEdgeRim" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#5812B8" />
-            <stop offset="50%" stopColor="#38067F" />
-            <stop offset="100%" stopColor="#4A0D9E" />
-          </linearGradient>
-          <linearGradient id="capSkullBase" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#6D1EE0" />
-            <stop offset="55%" stopColor="#460B96" />
-            <stop offset="100%" stopColor="#260359" />
-          </linearGradient>
-
-          {/* Gold Tassel & Bookmark */}
-          <linearGradient id="goldRibbonGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#FFE033" />
-            <stop offset="60%" stopColor="#FFB300" />
-            <stop offset="100%" stopColor="#E68A00" />
-          </linearGradient>
-        </defs>
-
-        {/* 1. Warm Amber Oval Ground Shadow */}
-        <ellipse cx="212" cy="244" rx="164" ry="25" fill="url(#floorOvalShadow)" />
-
-        {/* 2. Left & Right Purple Sparkle Accents */}
-        <g fill="#8B3DFF">
-          {/* Left 2 rays */}
-          <rect
-            x="64"
-            y="84"
-            width="28"
-            height="8"
-            rx="4"
-            transform="rotate(36 64 84)"
-          />
-          <rect
-            x="52"
-            y="108"
-            width="25"
-            height="7.5"
-            rx="3.75"
-            transform="rotate(14 52 108)"
-          />
-          {/* Right 2 rays */}
-          <rect
-            x="332"
-            y="62"
-            width="26"
-            height="7.5"
-            rx="3.75"
-            transform="rotate(-55 332 62)"
-          />
-          <rect
-            x="346"
-            y="80"
-            width="26"
-            height="7.5"
-            rx="3.75"
-            transform="rotate(-26 346 80)"
-          />
-        </g>
-
-        {/* ======================================================= */}
-        {/* 3. BOTTOM BOOK (GREEN HARDCOVER + PAGES + GOLD RIBBON)  */}
-        {/* ======================================================= */}
-        <g>
-          {/* Bottom orange/gold lower board edge */}
-          <path
-            d="M88 214 L224 252 L346 218 L340 225 L224 259 L92 221 Z"
-            fill="url(#goldenBookRim)"
-          />
-          {/* Cream White Pages Block */}
-          <path
-            d="M94 180 L224 214 L340 184 C334 196 335 207 342 218 L224 251 L94 214 C86 204 86 190 94 180 Z"
-            fill="url(#creamPages)"
-          />
-          {/* Subtle Page Horizontal Ridges */}
-          <path
-            d="M100 192 L224 225 L335 196 M98 203 L224 237 L337 207"
-            stroke="#E5D399"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-          {/* Green Spine & Top Cover */}
-          <path
-            d="M84 182 C76 192 78 210 92 218 L224 254 L94 215 C84 205 84 190 95 180 L224 215 L344 184 L322 162 L182 140 L84 182 Z"
-            fill="url(#greenBookCover)"
-          />
-          {/* Top Green Cover Surface */}
-          <path
-            d="M84 182 L195 144 L344 184 L224 215 L84 182 Z"
-            fill="url(#greenBookCover)"
-          />
-          {/* Golden Bookmark Ribbon Hanging from Front Spine */}
-          <path
-            d="M164 225 L182 230 L178 260 L169 252 L159 258 Z"
-            fill="url(#goldRibbonGrad)"
-          />
-        </g>
-
-        {/* ======================================================= */}
-        {/* 4. MIDDLE BOOK (PURPLE HARDCOVER + CREAM PAGES)         */}
-        {/* ======================================================= */}
-        <g>
-          {/* Purple Bottom Cover Lip */}
-          <path
-            d="M118 164 L228 192 L322 168 L325 174 L228 198 L116 170 Z"
-            fill="#4C0E9F"
-          />
-          {/* Cream Pages Block */}
-          <path
-            d="M122 136 L228 162 L318 140 C313 150 314 160 320 168 L228 192 L122 164 C114 155 114 143 122 136 Z"
-            fill="url(#creamPages)"
-          />
-          {/* Page Horizontal Ridges */}
-          <path
-            d="M130 147 L228 172 L315 150 M128 156 L228 181 L317 159"
-            stroke="#E5D399"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-          {/* Purple Rounded Spine & Upper Cover */}
-          <path
-            d="M114 137 C104 146 106 162 120 169 L228 196 L122 165 C113 156 113 143 123 135 L228 162 L322 140 L214 106 L114 137 Z"
-            fill="url(#purpleBookCover)"
-          />
-          {/* Purple Upper Flat Board */}
-          <path
-            d="M114 137 L214 106 L322 140 L228 162 L114 137 Z"
-            fill="url(#purpleBookCover)"
-          />
-        </g>
-
-        {/* ======================================================= */}
-        {/* 5. TOP GRADUATION CAP (MORTARBOARD + GOLDEN TASSEL)     */}
-        {/* ======================================================= */}
-        <g>
-          {/* Cap Shadow on Purple Book */}
-          <ellipse cx="216" cy="134" rx="68" ry="16" fill="#2A045E" fillOpacity="0.45" />
-
-          {/* Cap Skull Base */}
-          <path
-            d="M164 96 V122 C164 134 188 143 216 143 C244 143 268 134 268 122 V96 Z"
-            fill="url(#capSkullBase)"
-          />
-
-          {/* Mortarboard 3D Thickness Rim */}
-          <path
-            d="M112 72 L216 110 L318 72 L318 80 L216 118 L112 80 Z"
-            fill="url(#capEdgeRim)"
-          />
-
-          {/* Mortarboard Top Diamond */}
-          <path
-            d="M216 36 L318 72 L216 110 L112 72 L216 36 Z"
-            fill="url(#capTopDiamond)"
-          />
-
-          {/* Center Button on Mortarboard */}
-          <ellipse cx="216" cy="72" rx="8" ry="4.5" fill="#5812B8" />
-          <ellipse cx="216" cy="70.5" rx="6" ry="3.2" fill="#FFD54F" />
-
-          {/* Golden Tassel Cord & Hanging Brush */}
-          <path
-            d="M218 71 L282 91 C286 92.5 288 96 288 102 V146"
-            stroke="url(#goldRibbonGrad)"
-            strokeWidth="4.5"
-            strokeLinecap="round"
-          />
-          {/* Tassel Gold Ring */}
-          <rect x="283" y="138" width="10" height="5" rx="2" fill="#FFA000" />
-          {/* Tassel Flared Brush */}
-          <path
-            d="M283 143 L293 143 L297 166 C292 169 284 169 279 166 Z"
-            fill="url(#goldRibbonGrad)"
-          />
-        </g>
+        {/* Golden-Yellow Smile Arc Across Center Spine */}
+        <path
+          d="M31 50.5 Q 40.75 58.5 50.5 50.5"
+          stroke="#FFE61E"
+          strokeWidth="4.4"
+          strokeLinecap="round"
+          fill="none"
+        />
       </svg>
     </div>
   );

@@ -83,6 +83,15 @@ export function Screen2WelcomeWonderland() {
               Sign in
             </button>
           </div>
+
+          {/* 8. Direct Onboarding Preview Shortcut */}
+          <button
+            type="button"
+            onClick={() => navigate('/onboarding/1')}
+            className="mt-3 px-4 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
+          >
+            Preview Onboarding Screens (1/10) →
+          </button>
         </div>
       </main>
     </SabiWonderlandShell>

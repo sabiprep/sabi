@@ -109,5 +109,7 @@ export function isOriginAllowed(origin: string | undefined): boolean {
   if (allowList.includes(origin)) return true;
   // Vercel deployments/previews of the SABI project itself.
   if (/^https:\/\/sabi[a-z0-9-]*\.vercel\.app$/i.test(origin)) return true;
+  // Google AI Studio Cloud Run dev & shared preview URLs.
+  if (/^https:\/\/ais-(dev|pre)-[a-z0-9-]+\.[a-z0-9-]+\.run\.app$/i.test(origin)) return true;
   return false;
 }
