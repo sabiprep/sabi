@@ -957,14 +957,14 @@ export function Screen4OnboardingWonderland() {
             <footer className="mt-auto pt-6 pb-1">
               <button
                 type="button"
-                onClick={() => navigate('/onboarding/1')}
+                onClick={() => navigate('/home')}
                 className="w-full py-4 sm:py-4.5 rounded-[20px] bg-[#6C19E5] text-white font-extrabold text-[17px] sm:text-[18px] tracking-[0.06em] uppercase active:translate-y-[2px] hover:brightness-105 transition-all cursor-pointer"
                 style={{
                   fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
                   boxShadow: '0 5px 0 #46099E',
                 }}
               >
-                REVIEW ONBOARDING STEPS
+                ENTER HOME DASHBOARD
               </button>
             </footer>
           </section>

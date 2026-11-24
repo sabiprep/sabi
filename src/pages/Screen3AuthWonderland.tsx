@@ -1310,13 +1310,22 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => navigate('/onboarding/1')}
-            className="mt-3 px-4 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
-          >
-            Continue to Onboarding Screens (1/10) →
-          </button>
+          <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/home')}
+              className="px-4 py-1.5 rounded-full bg-white/90 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
+            >
+              Preview Home Dashboard →
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/onboarding/1')}
+              className="px-4 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
+            >
+              Onboarding (1/10) →
+            </button>
+          </div>
         </div>
       </main>
     </SabiWonderlandShell>
