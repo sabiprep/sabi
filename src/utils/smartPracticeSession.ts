@@ -148,6 +148,10 @@ export function getShortSubjectLabel(canonical: string): string {
  * syllabus topics (Periodic table, Antonyms, Units, Logarithms) so the very first
  * 10-question Blitz / Guided run feels crisp, authentic, and balanced across 4 subjects.
  */
+export function getCuratedStarterQuestions(): PracticeFeedQuestion[] {
+  return CURATED_STARTER_QUESTIONS;
+}
+
 const CURATED_STARTER_QUESTIONS: PracticeFeedQuestion[] = [
   {
     id: 'SABI-CHM-PT-1',

@@ -19,14 +19,19 @@ import {
   buildSmartPracticeDeck,
   buildSmartPracticeResult,
   getComboState,
-  loadSavedQuestionIds,
   saveSmartPracticeResult,
-  toggleSavedQuestionId,
   type PracticeAnswerRecord,
   type PracticeDeckMode,
   type PracticeScope,
   type SmartPracticePace,
 } from '../utils/smartPracticeSession';
+import {
+  loadSavedQuestionSnapshots,
+  normalizeCanonicalQuestionId,
+  toggleQuestionSnapshot,
+  type QuestionSnapshotRecord,
+} from '../utils/questionSnapshotStore';
+import { QuestionShareSheet } from '../components/common/QuestionShareSheet';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { recordMistakeInVault } from '../utils/cbtAndCustomEngine';
 import { recordStudyActivity } from '../utils/userProgressStore';
@@ -97,8 +102,11 @@ export function Screen8SmartPracticeFeedWonderland() {
     () => aiConfig.explanationStyle === 'pidgin_friendly'
   );
 
-  // Side rail states (Save / Report / Share)
-  const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedQuestionIds());
+  // Side rail states (Save Snapshot / Report / Share Snapshot Sheet)
+  const [savedSnapshots, setSavedSnapshots] = useState<QuestionSnapshotRecord[]>(() =>
+    loadSavedQuestionSnapshots()
+  );
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [actionToast, setActionToast] = useState<string | null>(null);
 
   // Touch swipe-up tracking after answering
@@ -257,7 +265,7 @@ export function Screen8SmartPracticeFeedWonderland() {
   // Keyboard shortcuts on Desktop WebApp: A/B/C/D or 1-4 to answer, Enter/Space/ArrowDown/ArrowRight for next
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (showCheckpoint || showExitConfirm) return;
+      if (showCheckpoint || showExitConfirm || shareSheetOpen) return;
       const key = e.key.toLowerCase();
       if (!isAnswered) {
         if (key === 'a' || key === '1') handleSelectOption('A');
@@ -271,7 +279,7 @@ export function Screen8SmartPracticeFeedWonderland() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleAdvance, handleSelectOption, isAnswered, showCheckpoint, showExitConfirm]);
+  }, [handleAdvance, handleSelectOption, isAnswered, shareSheetOpen, showCheckpoint, showExitConfirm]);
 
   // Touch swipe-up handler on answered card
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -288,28 +296,40 @@ export function Screen8SmartPracticeFeedWonderland() {
   };
 
   const handleToggleSave = () => {
-    const next = toggleSavedQuestionId(currentQuestion.id);
-    setSavedIds(next);
-    const savedNow = next.includes(currentQuestion.id);
-    showQuickNotice(savedNow ? 'Saved to your revision deck' : 'Removed from saved questions');
+    const result = toggleQuestionSnapshot({
+      question: currentQuestion,
+      mode: pace === 'blitz' ? 'blitz' : 'smart',
+      wasAnswered: isAnswered,
+      selectedOption,
+      isCorrect: isAnswered ? isCorrect : null,
+      explanationStyle: usePidgin ? 'pidgin' : 'english',
+    });
+    setSavedSnapshots(result.all);
+
+    if (result.action === 'updated') {
+      showQuickNotice('Snapshot updated with your answer & explanation!');
+    } else if (result.action === 'saved') {
+      showQuickNotice(
+        isAnswered
+          ? 'Answered snapshot saved to your Vault!'
+          : 'Unanswered question snapshot saved to try later!'
+      );
+    } else {
+      showQuickNotice('Snapshot removed from Saved Vault');
+    }
   };
 
   const handleReportQuestion = () => {
     showQuickNotice('Question flagged for SABI review. Thank you!');
   };
 
-  const handleShareQuestion = async () => {
-    const text = `SABI JAMB ${currentQuestion.subjectLabel}: ${currentQuestion.question}`;
+  const handleShareQuestion = () => {
     try {
-      if (navigator.share) {
-        await navigator.share({ title: 'SABI JAMB Practice', text });
-      } else if (navigator.clipboard) {
-        await navigator.clipboard.writeText(text);
-        showQuickNotice('Question copied — share with your study group!');
-      }
+      sound.playTap();
     } catch {
-      showQuickNotice('Ready to share with your study group');
+      // ignore
     }
+    setShareSheetOpen(true);
   };
 
   // Current 10-question batch progress bar slots (Matches Screen 03)
@@ -340,7 +360,10 @@ export function Screen8SmartPracticeFeedWonderland() {
       : 9;
   const showPerformanceToast = isAnswered && isCorrect && recentWindow.length >= 2;
   const lastRecord = records[records.length - 1];
-  const isSaved = savedIds.includes(currentQuestion.id);
+  const currentCanonicalId = normalizeCanonicalQuestionId(currentQuestion.id);
+  const isSaved = savedSnapshots.some(
+    (s) => s.canonicalQuestionId === currentCanonicalId || s.questionId === currentQuestion.id
+  );
 
   // =========================================================================
   // SCREEN 05: BLITZ CHECKPOINT (EVERY 10 QUESTIONS)
@@ -973,6 +996,19 @@ export function Screen8SmartPracticeFeedWonderland() {
           </div>
         </div>
       )}
+
+      {/* =================================================================== */}
+      {/* STANDARD SHARE SNAPSHOT SHEET (PNG Card + Public Question Link)     */}
+      {/* =================================================================== */}
+      <QuestionShareSheet
+        open={shareSheetOpen}
+        onClose={() => setShareSheetOpen(false)}
+        question={currentQuestion}
+        mode={pace === 'blitz' ? 'blitz' : 'smart'}
+        wasAnswered={isAnswered}
+        selectedOption={selectedOption}
+        usePidgin={usePidgin}
+      />
     </div>
   );
 }

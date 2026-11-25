@@ -26,6 +26,7 @@ import { Screen20RecommendationsWonderland } from './pages/Screen20Recommendatio
 import { Screen21MistakesVaultWonderland } from './pages/Screen21MistakesVaultWonderland';
 import { Screen22NotificationsWonderland } from './pages/Screen22NotificationsWonderland';
 import { Screen23SabiAssistantWonderland } from './pages/Screen23SabiAssistantWonderland';
+import { Screen24SharedQuestionWonderland } from './pages/Screen24SharedQuestionWonderland';
 
 /**
  * SABI JAMB UTME CBT — Complete Wonderland UI Build
@@ -96,6 +97,9 @@ export default function App() {
         <Route path="/mistakes" element={<Screen21MistakesVaultWonderland />} />
         <Route path="/notifications" element={<Screen22NotificationsWonderland />} />
         <Route path="/assistant" element={<Screen23SabiAssistantWonderland />} />
+
+        {/* Screen 24: Public Standalone Shared Question Landing View */}
+        <Route path="/q/:questionId" element={<Screen24SharedQuestionWonderland />} />
 
         {/* Redirect any unknown path cleanly to Screen 2 (/welcome) */}
         <Route path="*" element={<Navigate to="/welcome" replace />} />

@@ -1,28 +1,40 @@
 import React, { useMemo, useState } from 'react';
 import {
   Bookmark,
+  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronUp,
+  HelpCircle,
   RotateCcw,
+  Share2,
   Trash2,
+  XCircle,
   Zap,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { QuestionSnapshotCard } from '../components/common/QuestionSnapshotCard';
+import { QuestionShareSheet } from '../components/common/QuestionShareSheet';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import {
-  getSavedQuestionsDetailed,
   loadMistakesVault,
   removeMistakeFromVault,
-  toggleSavedQuestionId,
   type CustomPracticeConfig,
 } from '../utils/cbtAndCustomEngine';
+import {
+  loadSavedQuestionSnapshots,
+  recordSnapshotAttempt,
+  removeQuestionSnapshot,
+  type QuestionSnapshotRecord,
+} from '../utils/questionSnapshotStore';
 
 /**
- * SCREEN 21 (`/mistakes`): SAVED QUESTIONS & MISTAKES VAULT
- * Review bookmarked Blitz/Custom questions and past mistakes, toggle Naija Pidgin
- * explanations, or launch a targeted drill from saved/missed items.
+ * SCREEN 21 (`/mistakes`): MISTAKES & SAVED SNAPSHOTS VAULT
+ * - Review past missed questions with English/Pidgin explanations.
+ * - Inspect full-display Saved Question Snapshots from Blitz & Smart Practice
+ *   (preserving answered vs unanswered state, interactive solving for unanswered snapshots,
+ *   and 1-tap Share Snapshot Sheet).
  */
 export function Screen21MistakesVaultWonderland() {
   const navigate = useNavigate();
@@ -30,15 +42,18 @@ export function Screen21MistakesVaultWonderland() {
 
   const [activeTab, setActiveTab] = useState<'mistakes' | 'saved'>('mistakes');
   const [mistakes, setMistakes] = useState(() => loadMistakesVault());
-  const [savedQuestions, setSavedQuestions] = useState(() => getSavedQuestionsDetailed());
+  const [savedSnapshots, setSavedSnapshots] = useState<QuestionSnapshotRecord[]>(() =>
+    loadSavedQuestionSnapshots()
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pidgin, setPidgin] = useState(false);
+  const [shareTarget, setShareTarget] = useState<QuestionSnapshotRecord | null>(null);
 
   const handleDrillVault = () => {
     const drillConfig: CustomPracticeConfig = {
-      subjects: data.subjects.map(s => s.canonicalName),
+      subjects: data.subjects.map((s) => s.canonicalName),
       topics: [],
-      questionCount: Math.max(5, Math.min(20, mistakes.length + savedQuestions.length || 10)),
+      questionCount: Math.max(5, Math.min(20, mistakes.length + savedSnapshots.length || 10)),
       difficulty: 'mix',
       feedbackTiming: 'instant',
       timerMinutes: null,
@@ -73,7 +88,7 @@ export function Screen21MistakesVaultWonderland() {
                 Mistakes & Saved Vault
               </h1>
               <p className="text-[13.5px] font-semibold text-[#3C2263]">
-                Turn missed questions and bookmarks into guaranteed JAMB marks.
+                Review full question snapshots and turn past mistakes into JAMB marks.
               </p>
             </div>
           </div>
@@ -107,11 +122,11 @@ export function Screen21MistakesVaultWonderland() {
               }`}
             >
               <Bookmark size={14} />
-              <span>Saved ({savedQuestions.length})</span>
+              <span>Saved Snapshots ({savedSnapshots.length})</span>
             </button>
             <button
               type="button"
-              onClick={() => setPidgin(prev => !prev)}
+              onClick={() => setPidgin((prev) => !prev)}
               className="px-3.5 py-2 rounded-full bg-white/10 text-[#FFE51E] text-[12px] font-extrabold cursor-pointer"
             >
               {pidgin ? 'Pidgin: ON' : 'Pidgin: OFF'}
@@ -144,8 +159,8 @@ export function Screen21MistakesVaultWonderland() {
                 Your Mistakes Vault is clean!
               </h2>
               <p className="mt-1 text-[14px] font-semibold text-[#5A467A] max-w-[440px] mx-auto">
-                Any question you miss during Blitz, Smart Practice, Custom Practice, or CBT Mock is saved
-                here automatically for quick revision.
+                Any question you miss during Blitz, Smart Practice, Custom Practice, or CBT Mock is
+                saved here automatically for quick revision.
               </p>
               <button
                 type="button"
@@ -161,7 +176,7 @@ export function Screen21MistakesVaultWonderland() {
             </section>
           ) : (
             <div className="space-y-3">
-              {mistakes.map(item => {
+              {mistakes.map((item) => {
                 const isOpen = expandedId === item.questionId;
                 return (
                   <article
@@ -222,68 +237,154 @@ export function Screen21MistakesVaultWonderland() {
               })}
             </div>
           )
-        ) : savedQuestions.length === 0 ? (
+        ) : savedSnapshots.length === 0 ? (
           <section
             className="bg-white rounded-[24px] p-6 sm:p-8 text-center"
             style={{ boxShadow: '0 4px 0 #E2C700' }}
           >
             <Bookmark size={32} className="mx-auto text-[#6C19E5] mb-2" />
-            <h2 className="text-[19px] font-extrabold text-[#260559]">No saved questions yet</h2>
-            <p className="mt-1 text-[14px] font-semibold text-[#5A467A] max-w-[440px] mx-auto">
-              Tap the Save icon during any Blitz, Smart Practice, or Custom session to bookmark tough
-              questions here.
+            <h2 className="text-[19px] font-extrabold text-[#260559]">
+              No saved question snapshots yet
+            </h2>
+            <p className="mt-1 text-[14px] font-semibold text-[#5A467A] max-w-[460px] mx-auto">
+              Tap <strong>Save</strong> during any Blitz or Smart Practice question to capture a
+              full snapshot—either answered (with solution) or unanswered so you can try it later.
             </p>
           </section>
         ) : (
-          <div className="space-y-3">
-            {savedQuestions.map(item => {
-              const isOpen = expandedId === item.id;
+          <div className="space-y-3.5">
+            {savedSnapshots.map((snap) => {
+              const isOpen = expandedId === snap.snapshotId;
               return (
                 <article
-                  key={item.id}
+                  key={snap.snapshotId}
                   className="bg-white rounded-[22px] p-4 sm:p-5"
                   style={{ boxShadow: '0 4px 0 #E2C700' }}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <button
                       type="button"
-                      onClick={() => setExpandedId(isOpen ? null : item.id)}
-                      className="flex-1 text-left cursor-pointer"
+                      onClick={() => setExpandedId(isOpen ? null : snap.snapshotId)}
+                      className="flex-1 min-w-0 text-left cursor-pointer"
                     >
-                      <div className="text-[12px] font-extrabold text-[#6C19E5] mb-1">
-                        {item.subjectLabel} · {item.topicLabel}
+                      <div className="flex items-center flex-wrap gap-1.5 mb-1.5">
+                        {snap.wasAnswered ? (
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-extrabold inline-flex items-center gap-1 ${
+                              snap.isCorrect
+                                ? 'bg-[#ECFDF5] text-[#047857]'
+                                : 'bg-[#FFF1F2] text-[#BE123C]'
+                            }`}
+                          >
+                            {snap.isCorrect ? (
+                              <CheckCircle2 size={12} />
+                            ) : (
+                              <XCircle size={12} />
+                            )}
+                            <span>
+                              Answered Snapshot ({snap.selectedOption} ·{' '}
+                              {snap.isCorrect ? 'Correct' : `Ans: ${snap.answer}`})
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full bg-[#FFF8EB] text-[#B45309] text-[11px] font-extrabold inline-flex items-center gap-1">
+                            <HelpCircle size={12} />
+                            <span>Unanswered Snapshot — Tap to Solve</span>
+                          </span>
+                        )}
+
+                        <span className="text-[12px] font-extrabold text-[#6C19E5]">
+                          {snap.subjectLabel} · {snap.topicLabel}
+                        </span>
                       </div>
+
                       <h3 className="text-[15.5px] font-extrabold text-[#260559] leading-snug">
-                        {item.question}
+                        {snap.question}
                       </h3>
                     </button>
-                    <button
-                      type="button"
-                      aria-label="Remove bookmark"
-                      onClick={() => {
-                        toggleSavedQuestionId(item.id);
-                        setSavedQuestions(getSavedQuestionsDetailed());
-                      }}
-                      className="w-9 h-9 rounded-[11px] bg-[#FFF1F2] text-[#DC2626] flex items-center justify-center shrink-0 cursor-pointer"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        aria-label="Share question snapshot"
+                        onClick={() => setShareTarget(snap)}
+                        className="w-9 h-9 rounded-[11px] bg-[#EFE6FF] text-[#6C19E5] flex items-center justify-center cursor-pointer"
+                      >
+                        <Share2 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={isOpen ? 'Collapse snapshot' : 'View full snapshot'}
+                        onClick={() => setExpandedId(isOpen ? null : snap.snapshotId)}
+                        className="w-9 h-9 rounded-[11px] bg-[#F5F0FF] text-[#260559] flex items-center justify-center cursor-pointer"
+                      >
+                        {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Remove saved snapshot"
+                        onClick={() => setSavedSnapshots(removeQuestionSnapshot(snap.snapshotId))}
+                        className="w-9 h-9 rounded-[11px] bg-[#FFF1F2] text-[#DC2626] flex items-center justify-center cursor-pointer"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
 
                   {isOpen && (
-                    <div className="mt-3 pt-3 border-t border-[#F0E9FA] space-y-2 text-[13.5px]">
-                      <div className="font-extrabold text-[#059669]">
-                        Correct Option {item.answer}: {item.options[item.answer]}
-                      </div>
-                      <p className="font-semibold text-[#3B2264] leading-relaxed">
-                        {pidgin ? item.explanationPidgin : item.explanationFull}
-                      </p>
+                    <div className="mt-4 pt-3 border-t border-[#F0E9FA]">
+                      <QuestionSnapshotCard
+                        mode={snap.mode}
+                        subjectLabel={snap.subjectLabel}
+                        topicLabel={snap.topicLabel}
+                        year={snap.year}
+                        question={snap.question}
+                        options={snap.options}
+                        answer={snap.answer}
+                        explanationShort={snap.explanationShort}
+                        explanationFull={snap.explanationFull}
+                        explanationPidgin={snap.explanationPidgin}
+                        showAnswerState={snap.wasAnswered}
+                        selectedOption={snap.selectedOption}
+                        usePidgin={pidgin || snap.explanationStyle === 'pidgin'}
+                        onAttemptOption={
+                          snap.wasAnswered
+                            ? undefined
+                            : (option) => {
+                                setSavedSnapshots(recordSnapshotAttempt(snap.snapshotId, option));
+                              }
+                        }
+                      />
                     </div>
                   )}
                 </article>
               );
             })}
           </div>
+        )}
+
+        {shareTarget && (
+          <QuestionShareSheet
+            open={Boolean(shareTarget)}
+            onClose={() => setShareTarget(null)}
+            question={{
+              id: shareTarget.canonicalQuestionId || shareTarget.questionId,
+              subjectCanonical: shareTarget.subjectCanonical,
+              subjectLabel: shareTarget.subjectLabel,
+              topicLabel: shareTarget.topicLabel,
+              question: shareTarget.question,
+              options: shareTarget.options,
+              answer: shareTarget.answer,
+              explanationShort: shareTarget.explanationShort,
+              explanationFull: shareTarget.explanationFull,
+              explanationPidgin: shareTarget.explanationPidgin,
+              year: shareTarget.year,
+            }}
+            mode={shareTarget.mode}
+            wasAnswered={shareTarget.wasAnswered}
+            selectedOption={shareTarget.selectedOption}
+            usePidgin={pidgin || shareTarget.explanationStyle === 'pidgin'}
+          />
         )}
       </main>
     </SabiAppChrome>
