@@ -67750,6 +67750,96 @@ var routes_default4 = router5;
 // server/gamification/routes.ts
 var import_express6 = require("express");
 var import_zod6 = require("zod");
+
+// server/gamification/leagueService.ts
+var LEAGUE_THRESHOLDS = {
+  silverMinXp: 450,
+  goldMinXp: 1200,
+  /** Hysteresis buffer so minor fluctuations don't flicker tiers unfairly */
+  silverDemoteBelowXp: 380,
+  goldDemoteBelowXp: 1050
+};
+var TIER_RANK_ORDER = {
+  unranked: 0,
+  blue: 1,
+  silver: 2,
+  gold: 3
+};
+function getCurrentIsoWeekKey(now = /* @__PURE__ */ new Date()) {
+  const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((date.getTime() - yearStart.getTime()) / 864e5 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+function resolveAuthoritativeLeagueTier(params) {
+  const xp = Math.max(0, Math.round(params.totalXp || 0));
+  const solved = Math.max(0, Math.round(params.questionsSolved || 0));
+  const prev = params.previousTier || "unranked";
+  if (xp <= 0 && solved <= 0) {
+    return { tier: "unranked", movement: "stayed" };
+  }
+  let nextTier = "blue";
+  if (xp >= LEAGUE_THRESHOLDS.goldMinXp) {
+    nextTier = "gold";
+  } else if (prev === "gold" && xp >= LEAGUE_THRESHOLDS.goldDemoteBelowXp) {
+    nextTier = "gold";
+  } else if (xp >= LEAGUE_THRESHOLDS.silverMinXp) {
+    nextTier = "silver";
+  } else if (prev === "silver" && xp >= LEAGUE_THRESHOLDS.silverDemoteBelowXp) {
+    nextTier = "silver";
+  } else {
+    nextTier = "blue";
+  }
+  if (prev === "unranked") {
+    return { tier: nextTier, movement: "entered" };
+  }
+  if (TIER_RANK_ORDER[nextTier] > TIER_RANK_ORDER[prev]) {
+    return { tier: nextTier, movement: "promoted" };
+  }
+  if (TIER_RANK_ORDER[nextTier] < TIER_RANK_ORDER[prev]) {
+    return { tier: nextTier, movement: "demoted" };
+  }
+  return { tier: nextTier, movement: "stayed" };
+}
+function sanitizeDisplayFirstName(raw) {
+  const withoutTags = String(raw || "").replace(/<[^>]*>/g, " ");
+  const cleaned = withoutTags.replace(/[^a-zA-Z0-9\s'-]/g, "").trim().split(/\s+/)[0];
+  if (!cleaned || cleaned.toLowerCase() === "candidate") return "Scholar";
+  return cleaned.slice(0, 20);
+}
+function annotateStandingsWithZones(rows, tier, currentUserId) {
+  const sorted = [...rows].sort((a, b) => b.xp - a.xp || b.streakDays - a.streakDays);
+  const total = sorted.length;
+  const promoteSlots = tier === "gold" ? 0 : Math.min(5, Math.max(1, Math.ceil(total * 0.35)));
+  const demoteSlots = tier === "blue" || total < 4 ? 0 : Math.min(3, Math.floor(total * 0.25));
+  return sorted.map((row, idx) => {
+    const rank = idx + 1;
+    let zone = "safe";
+    if (promoteSlots > 0 && rank <= promoteSlots) {
+      zone = "promote";
+    } else if (demoteSlots > 0 && rank > total - demoteSlots) {
+      zone = "demote";
+    }
+    const safeName = sanitizeDisplayFirstName(row.displayName);
+    const isCurrentUser = row.userId === currentUserId;
+    return {
+      userId: isCurrentUser ? row.userId : `peer_${idx + 1}`,
+      displayName: isCurrentUser ? `${safeName} (You)` : safeName,
+      initial: safeName.charAt(0).toUpperCase() || "S",
+      avatarColor: isCurrentUser ? "#711AE3" : row.avatarColor || "#2563EB",
+      leagueTier: tier,
+      xp: Math.max(0, Math.round(row.xp || 0)),
+      streakDays: Math.max(0, Math.round(row.streakDays || 0)),
+      rank,
+      zone,
+      isCurrentUser
+    };
+  });
+}
+
+// server/gamification/routes.ts
 var router6 = (0, import_express6.Router)();
 var ruleSchema = import_zod6.z.strictObject({
   description: import_zod6.z.string().trim().min(3).max(300),
@@ -67757,6 +67847,14 @@ var ruleSchema = import_zod6.z.strictObject({
   maxAwardsPerDay: import_zod6.z.number().int().min(0).max(1e4).default(1),
   isActive: import_zod6.z.boolean().default(false)
 });
+var leagueSyncSchema = import_zod6.z.strictObject({
+  totalXp: import_zod6.z.number().int().min(0).max(5e5),
+  weeklyXp: import_zod6.z.number().int().min(0).max(1e5).optional(),
+  streakDays: import_zod6.z.number().int().min(0).max(3650),
+  questionsSolved: import_zod6.z.number().int().min(0).max(2e5),
+  displayName: import_zod6.z.string().trim().min(1).max(40).optional()
+});
+var TIER_QUERY_SCHEMA = import_zod6.z.enum(["blue", "silver", "gold"]);
 router6.get("/me", requireAuth, async (req, res) => {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Authentication required." });
@@ -67776,6 +67874,155 @@ router6.get("/me", requireAuth, async (req, res) => {
     });
   } catch {
     return res.status(503).json({ error: "Gamification progress is temporarily unavailable." });
+  }
+});
+router6.post("/leagues/sync", requireAuth, validateBody(leagueSyncSchema), async (req, res) => {
+  const user = req.user;
+  if (!user?.id) return res.status(401).json({ error: "Authentication required." });
+  const input = req.body;
+  const safeName = sanitizeDisplayFirstName(input.displayName || user.email?.split("@")[0]);
+  const weekKey = getCurrentIsoWeekKey();
+  try {
+    const { data: existing, error: lookupError } = await supabaseAdmin.from("student_league_standings").select("league_tier, total_xp, weekly_xp").eq("user_id", user.id).maybeSingle();
+    if (lookupError) {
+      const derived2 = resolveAuthoritativeLeagueTier({
+        totalXp: input.totalXp,
+        questionsSolved: input.questionsSolved
+      });
+      return res.json({
+        status: "synced_locally",
+        tier: derived2.tier,
+        previousTier: "unranked",
+        movement: derived2.movement,
+        totalXp: input.totalXp,
+        weekKey
+      });
+    }
+    const previousTier = existing?.league_tier === "blue" || existing?.league_tier === "silver" || existing?.league_tier === "gold" ? existing.league_tier : "unranked";
+    const derived = resolveAuthoritativeLeagueTier({
+      totalXp: input.totalXp,
+      questionsSolved: input.questionsSolved,
+      previousTier
+    });
+    if (derived.tier === "unranked") {
+      return res.json({
+        status: "unranked",
+        tier: "unranked",
+        previousTier,
+        movement: "stayed",
+        totalXp: 0,
+        weekKey
+      });
+    }
+    const { error: upsertError } = await supabaseAdmin.from("student_league_standings").upsert(
+      {
+        user_id: user.id,
+        display_name: safeName,
+        avatar_color: "#711AE3",
+        league_tier: derived.tier,
+        previous_tier: previousTier,
+        movement: derived.movement,
+        weekly_xp: input.weeklyXp ?? input.totalXp,
+        total_xp: input.totalXp,
+        streak_days: input.streakDays,
+        questions_solved: input.questionsSolved,
+        week_key: weekKey,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      },
+      { onConflict: "user_id" }
+    );
+    if (upsertError) {
+      return res.json({
+        status: "synced_locally",
+        tier: derived.tier,
+        previousTier,
+        movement: derived.movement,
+        totalXp: input.totalXp,
+        weekKey
+      });
+    }
+    return res.json({
+      status: "synced",
+      tier: derived.tier,
+      previousTier,
+      movement: derived.movement,
+      totalXp: input.totalXp,
+      weekKey
+    });
+  } catch {
+    const derived = resolveAuthoritativeLeagueTier({
+      totalXp: input.totalXp,
+      questionsSolved: input.questionsSolved
+    });
+    return res.json({
+      status: "synced_locally",
+      tier: derived.tier,
+      previousTier: "unranked",
+      movement: derived.movement,
+      totalXp: input.totalXp,
+      weekKey
+    });
+  }
+});
+router6.get("/leagues", requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+  const rawTier = typeof req.query.tier === "string" ? req.query.tier.toLowerCase() : void 0;
+  let requestedTier;
+  if (rawTier !== void 0) {
+    const parsed = TIER_QUERY_SCHEMA.safeParse(rawTier);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid league tier. Use blue, silver, or gold." });
+    }
+    requestedTier = parsed.data;
+  }
+  try {
+    const { data: myStanding, error: myErr } = await supabaseAdmin.from("student_league_standings").select("user_id, display_name, league_tier, previous_tier, movement, total_xp, streak_days").eq("user_id", userId).maybeSingle();
+    if (myErr) {
+      return res.json({
+        source: "local_fallback",
+        currentUserTier: "unranked",
+        requestedTier: requestedTier || "blue",
+        standings: []
+      });
+    }
+    const userTier = myStanding?.league_tier === "blue" || myStanding?.league_tier === "silver" || myStanding?.league_tier === "gold" ? myStanding.league_tier : "unranked";
+    const activeTier = requestedTier || (userTier === "unranked" ? "blue" : userTier);
+    const { data: rows, error: rowsErr } = await supabaseAdmin.from("student_league_standings").select("user_id, display_name, avatar_color, league_tier, total_xp, streak_days").eq("league_tier", activeTier).order("total_xp", { ascending: false }).limit(30);
+    if (rowsErr) {
+      return res.json({
+        source: "local_fallback",
+        currentUserTier: userTier,
+        requestedTier: activeTier,
+        standings: []
+      });
+    }
+    const normalizedRows = (rows || []).map((r) => ({
+      userId: String(r.user_id),
+      displayName: String(r.display_name || "Scholar"),
+      avatarColor: String(r.avatar_color || "#2563EB"),
+      leagueTier: activeTier,
+      xp: Number(r.total_xp || 0),
+      streakDays: Number(r.streak_days || 0)
+    }));
+    const standings = annotateStandingsWithZones(normalizedRows, activeTier, userId);
+    const myRow = standings.find((r) => r.isCurrentUser) || null;
+    return res.json({
+      source: "supabase",
+      currentUserTier: userTier,
+      previousTier: myStanding?.previous_tier || "unranked",
+      movement: myStanding?.movement || "stayed",
+      requestedTier: activeTier,
+      currentUserRank: myRow?.rank ?? null,
+      standings
+    });
+  } catch {
+    return res.json({
+      source: "local_fallback",
+      currentUserTier: "unranked",
+      requestedTier: requestedTier || "blue",
+      standings: []
+    });
   }
 });
 router6.get("/admin/rules", requireAuth, requireRole("ADMIN", "MASTER_ADMIN"), async (_req, res) => {
@@ -68783,13 +69030,10 @@ Please directly answer the student's question while verifying why Option ${quest
       `;
     const response = await callAiWithTimeout(
       ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.7
-        }
+        model: "gemini-4-hydrogen",
+        contents: prompt
       }),
-      8e3
+      12e3
     );
     res.json({
       explanation: response.text || (question ? question.explanation : "Review the core definitions and formulas for this topic.")
@@ -68815,10 +69059,9 @@ app.post("/api/chat", aiLimiter, requireAuth, validateBody(chatSchema), async (r
   }
   const lastUserMsg = (messages || []).slice().reverse().find((m) => m.sender === "user" || m.role === "user")?.text || "";
   if (!ai) {
-    return res.json({
-      reply: `Sabi Tutor: You are asking about "${currentTopic || currentSubject || "your studies"}". Key syllabus takeaway: Ensure you master the underlying definitions, formulas, and past questions for ${currentTopic || "this topic"}. Keep up the great practice!`,
-      topicMemoryUpdate: `User practiced ${currentTopic || currentSubject || "JAMB topics"}.`,
-      isMock: true
+    return res.status(503).json({
+      error: "SABI AI Assistant is temporarily unavailable because the AI service key is not configured on the server.",
+      code: "AI_UNAVAILABLE"
     });
   }
   const systemInstruction = `
@@ -68842,18 +69085,19 @@ app.post("/api/chat", aiLimiter, requireAuth, validateBody(chatSchema), async (r
          - ${retrievedContext || "Rely on official JAMB syllabus principles."}
 
       Behavioral Directives:
-      - Never give answers immediately on a platter of gold. Ask scaffolding, thought-provoking questions if they seem stuck.
-      - Reference their target course/university or mock performance naturally.
-      - Be warm, extremely knowledgeable about the JAMB syllabus, and maintain steady, high-morale guidance.
+      - Answer the student's JAMB question clearly, accurately, and step by step using the official JAMB UTME syllabus.
+      - Highlight common JAMB exam traps or shortcuts where helpful, and end with one quick check-in question when appropriate.
+      - Match the student's language preference strictly: if language preference is "pidgin", explain warmly and clearly in Nigerian Pidgin English; otherwise use crisp Standard English.
+      - Reference their chosen subjects or target course naturally without sounding robotic.
 
       Return your outputs strictly as a JSON object adhering to this schema:
       {
-        "reply": "tutor's message supporting the user, with helpful hints/feedback or explanations, structured in markdown with equations formatted as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$)",
+        "reply": "tutor's message supporting the user with clear explanations, formulas, and exam tips",
         "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic."
       }
     `;
   try {
-    let rawHistory = (messages || []).filter((m) => m && (m.text || m.content)).slice(-6).map((m) => ({
+    let rawHistory = (messages || []).filter((m) => m && (m.text || m.content)).slice(-8).map((m) => ({
       role: m.sender === "user" || m.role === "user" ? "user" : "model",
       parts: [{ text: String(m.text || m.content) }]
     }));
@@ -68874,7 +69118,7 @@ app.post("/api/chat", aiLimiter, requireAuth, validateBody(chatSchema), async (r
     }
     const response = await callAiWithTimeout(
       ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-4-hydrogen",
         contents: rawHistory,
         config: {
           systemInstruction,
@@ -68892,23 +69136,36 @@ app.post("/api/chat", aiLimiter, requireAuth, validateBody(chatSchema), async (r
               }
             },
             required: ["reply", "topicMemoryUpdate"]
-          },
-          temperature: 0.7
+          }
         }
       }),
-      8e3
+      18e3
     );
-    const parsed = JSON.parse(response.text?.trim() || "{}");
+    const rawText = (response.text || "").trim();
+    let parsed = {};
+    try {
+      parsed = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      parsed = { reply: rawText };
+    }
+    if (!parsed.reply || !parsed.reply.trim()) {
+      return res.status(502).json({
+        error: "SABI Assistant returned an empty response. Please try asking again.",
+        code: "AI_EMPTY_RESPONSE"
+      });
+    }
     res.json({
-      reply: parsed.reply || "Let's keep our momentum going! Ask me anything about your syllabus or practice questions.",
-      topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory
+      reply: parsed.reply.trim(),
+      topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory || ""
     });
   } catch (error) {
-    console.warn("Fallback: Error in AI Tutor chat endpoint:", error?.message || error);
-    const friendlyReply = currentTopic ? `Under **${currentTopic}** (${currentSubject || "JAMB"}), key rules to always remember include knowing the fundamental definitions, the working formulas, and identifying the trap options JAMB frequently sets. What specific sub-question or calculation are you currently tackling?` : `I am right here with you! Let us keep our focus sharp on mastering your 4 JAMB subjects. What topic or concept would you like us to break down next?`;
-    res.json({
-      reply: friendlyReply,
-      topicMemoryUpdate: topicMemory || `Practiced ${currentTopic || "JAMB concepts"}.`
+    const errMsg = String(error?.message || error || "Unknown AI error");
+    console.warn("[SABI] AI Tutor chat error:", errMsg);
+    const isTimeout = errMsg.toLowerCase().includes("timed out");
+    const statusCode = isTimeout ? 504 : Number(error?.status) === 429 ? 429 : 502;
+    res.status(statusCode).json({
+      error: isTimeout ? "SABI Assistant took too long to respond. Please retry \u2014 no AI Credit was charged." : statusCode === 429 ? "SABI Assistant is handling heavy demand right now. Please wait a moment and retry." : "Could not reach SABI Assistant right now. Please retry in a few seconds.",
+      code: isTimeout ? "AI_TIMEOUT" : statusCode === 429 ? "AI_RATE_LIMITED" : "AI_UPSTREAM_ERROR"
     });
   }
 });
@@ -68999,11 +69256,10 @@ ${JSON.stringify(
     `;
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+        model: "gemini-4-hydrogen",
         contents: instructionPrompt,
         config: {
-          responseMimeType: "application/json",
-          temperature: 0.8
+          responseMimeType: "application/json"
         }
       });
       const parsed = JSON.parse(response.text?.trim() || "{}");
