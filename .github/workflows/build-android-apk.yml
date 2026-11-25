@@ -75,6 +75,8 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_PUBLIC_WEB_URL: ${{ vars.VITE_PUBLIC_WEB_URL || 'https://sabi-tan.vercel.app' }}
+          VITE_PLAY_STORE_URL: ${{ vars.VITE_PLAY_STORE_URL || '' }}
         run: npm run android:sync
 
       - name: Grant Execute Permission to Gradle Wrapper

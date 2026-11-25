@@ -6,11 +6,14 @@ const rootDir = process.cwd();
 const androidDir = path.join(rootDir, 'android');
 const gradleWrapperJar = path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.jar');
 const appBuildGradle = path.join(androidDir, 'app', 'build.gradle');
+const ANDROID_VERSION_CODE = 3;
+const ANDROID_VERSION_NAME = '2.1.0';
 
 /**
  * Ensures the Capacitor Android platform folder and gradle-wrapper.jar exist
  * (even when exported from environments that strip binary .jar files),
- * and patches AndroidManifest.xml and styles.xml for SABI JAMB CBT.
+ * keeps Android version metadata synced, and patches AndroidManifest.xml and
+ * styles.xml for SABI JAMB CBT.
  */
 function ensureAndroidPlatform() {
   if (!fs.existsSync(appBuildGradle) || !fs.existsSync(gradleWrapperJar)) {
@@ -21,7 +24,15 @@ function ensureAndroidPlatform() {
     execSync('npx cap add android', { stdio: 'inherit', cwd: rootDir });
   }
 
-  // 1. Patch AndroidManifest.xml for cleartext traffic, network state, and sabi://auth deep links
+  // 0. Keep Android versionCode & versionName aligned with current SABI release
+  if (fs.existsSync(appBuildGradle)) {
+    let gradle = fs.readFileSync(appBuildGradle, 'utf8');
+    gradle = gradle.replace(/versionCode\s+\d+/, `versionCode ${ANDROID_VERSION_CODE}`);
+    gradle = gradle.replace(/versionName\s+"[^"]+"/, `versionName "${ANDROID_VERSION_NAME}"`);
+    fs.writeFileSync(appBuildGradle, gradle, 'utf8');
+  }
+
+  // 1. Patch AndroidManifest.xml for cleartext traffic, network state, and sabi:// deep links
   const manifestPath = path.join(androidDir, 'app', 'src', 'main', 'AndroidManifest.xml');
   if (fs.existsSync(manifestPath)) {
     let manifest = fs.readFileSync(manifestPath, 'utf8');
@@ -40,8 +51,9 @@ function ensureAndroidPlatform() {
       );
     }
 
-    if (!manifest.includes('android:scheme="sabi"')) {
-      const deepLinkFilter = `
+    if (!manifest.includes('android:host="auth"')) {
+      const authDeepLinkFilter = `
+            <!-- Deep Link Intent Filter for Supabase Google OAuth & Email Verification (sabi://auth/callback) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -49,7 +61,21 @@ function ensureAndroidPlatform() {
                 <data android:scheme="sabi" android:host="auth" />
             </intent-filter>
         </activity>`;
-      manifest = manifest.replace('</activity>', deepLinkFilter);
+      manifest = manifest.replace('</activity>', authDeepLinkFilter);
+    }
+
+    if (!manifest.includes('android:host="q"')) {
+      const questionDeepLinkFilter = `
+            <!-- Deep Link Intent Filter for Shared Question Snapshots (sabi://q/<questionId>) & SABI Assistant -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sabi" android:host="q" />
+                <data android:scheme="sabi" android:host="assistant" />
+            </intent-filter>
+        </activity>`;
+      manifest = manifest.replace('</activity>', questionDeepLinkFilter);
     }
 
     fs.writeFileSync(manifestPath, manifest, 'utf8');

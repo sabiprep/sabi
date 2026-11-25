@@ -31,6 +31,15 @@
                 <data android:scheme="sabi" android:host="auth" />
             </intent-filter>
 
+            <!-- Deep Link Intent Filter for Shared Question Snapshots (sabi://q/<questionId>) & SABI Assistant -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sabi" android:host="q" />
+                <data android:scheme="sabi" android:host="assistant" />
+            </intent-filter>
+
         </activity>
 
         <provider

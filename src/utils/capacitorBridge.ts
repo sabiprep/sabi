@@ -21,6 +21,75 @@ const DEFAULT_NATIVE_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
 
 let bridgeInitialized = false;
 
+const SAFE_DEEP_LINK_QUERY_KEYS = new Set(['mode', 'src', 'ref']);
+
+/**
+ * Parses an incoming Capacitor Android deep link (`sabi://...` or universal `https://.../q/...`)
+ * into a safe internal SPA route. Rejects unknown schemes, path traversal, and unsafe query keys.
+ */
+export function resolveDeepLinkRoute(rawUrl: string): string | null {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  // Reject path traversal attempts before WHATWG URL normalizes dot-segments
+  if (/(^|\/)\.\.(\/|$)|%2e%2e/i.test(trimmed)) return null;
+
+  try {
+    const parsed = new URL(trimmed);
+    const protocol = parsed.protocol.toLowerCase();
+    const host = parsed.hostname.toLowerCase();
+    const pathSegments = parsed.pathname
+      .split('/')
+      .map((segment) => segment.trim())
+      .filter(Boolean);
+
+    const buildSafeQuery = () => {
+      const next = new URLSearchParams();
+      parsed.searchParams.forEach((value, key) => {
+        if (SAFE_DEEP_LINK_QUERY_KEYS.has(key) && /^[A-Za-z0-9_-]{1,40}$/.test(value)) {
+          next.set(key, value);
+        }
+      });
+      const serialized = next.toString();
+      return serialized ? `?${serialized}` : '';
+    };
+
+    // Custom scheme: sabi://q/<questionId>, sabi://assistant, sabi://auth
+    if (protocol === 'sabi:') {
+      if (host === 'q') {
+        if (pathSegments.length !== 1) return null;
+        const rawQuestionId = decodeURIComponent(pathSegments[0] || '').trim();
+        if (!/^[A-Za-z0-9_-]{2,80}$/.test(rawQuestionId)) return null;
+        return `/q/${encodeURIComponent(rawQuestionId)}${buildSafeQuery()}`;
+      }
+      if (host === 'assistant') {
+        return pathSegments.length === 0 ? '/assistant' : null;
+      }
+      if (host === 'auth') {
+        return '/auth/verify?verified=true';
+      }
+      return null;
+    }
+
+    // Universal web share link opened in app: https://<host>/q/<questionId>
+    if (
+      (protocol === 'https:' || protocol === 'http:') &&
+      pathSegments.length === 2 &&
+      pathSegments[0] === 'q' &&
+      pathSegments[1]
+    ) {
+      const rawQuestionId = decodeURIComponent(pathSegments[1]).trim();
+      if (!/^[A-Za-z0-9_-]{2,80}$/.test(rawQuestionId)) return null;
+      return `/q/${encodeURIComponent(rawQuestionId)}${buildSafeQuery()}`;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Initializes the SABI Capacitor Android Bridge:
  * 1. Applies the `.is-android-view` class on Android devices/WebViews so the top display
@@ -99,11 +168,11 @@ export function initCapacitorAndroidBridge(): void {
   // 3. Configure initial status bar (prevent WebView overlap with battery/network icons)
   StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
   const initialDark =
-    localStorage.getItem('sabi-theme') !== 'light' &&
+    localStorage.getItem('sabi-theme') === 'dark' &&
     document.documentElement.classList.contains('dark');
   syncAndroidStatusBar(initialDark);
 
-  // 4. Handle Android Deep Links (sabi://auth for SABI account verification & Google Auth)
+  // 4. Handle Android Deep Links (sabi://auth, sabi://q/<id>, sabi://assistant, https://.../q/<id>)
   CapApp.addListener('appUrlOpen', async ({ url }) => {
     if (!url) return;
     try {
@@ -132,8 +201,9 @@ export function initCapacitorAndroidBridge(): void {
         }
       }
 
-      if (url.startsWith('sabi://auth')) {
-        window.location.href = '/auth/verify?verified=true';
+      const resolvedRoute = resolveDeepLinkRoute(url);
+      if (resolvedRoute) {
+        window.location.href = resolvedRoute;
       }
     } catch {
       // Ignore malformed deep link URLs
@@ -148,6 +218,8 @@ export function initCapacitorAndroidBridge(): void {
 
     if (!isRootScreen && (canGoBack || window.history.length > 1)) {
       window.history.back();
+    } else if (path.startsWith('/q/')) {
+      window.location.href = '/welcome';
     } else {
       CapApp.exitApp();
     }
@@ -155,11 +227,12 @@ export function initCapacitorAndroidBridge(): void {
 }
 
 /**
- * Synchronizes the native Android system status bar with SABI's Normal (Light) or Night (Dark) mode.
+ * Synchronizes the native Android system status bar with SABI Wonderland Yellow (Light)
+ * or Midnight Purple (Dark) mode.
  */
 export function syncAndroidStatusBar(isDark: boolean): void {
   if (typeof window === 'undefined' || !Capacitor.isNativePlatform()) return;
   StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
   StatusBar.setStyle({ style: isDark ? Style.Dark : Style.Light }).catch(() => {});
-  StatusBar.setBackgroundColor({ color: isDark ? '#080D1A' : '#FFFFFF' }).catch(() => {});
+  StatusBar.setBackgroundColor({ color: isDark ? '#1E0342' : '#FFE51E' }).catch(() => {});
 }
