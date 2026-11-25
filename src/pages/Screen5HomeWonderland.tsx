@@ -223,7 +223,7 @@ export function Screen5HomeWonderland() {
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => goTo('/progress')}
+              onClick={() => goTo('/progress/streak')}
               aria-label={`${data.streakDays} day streak`}
               className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[13.5px] sm:text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
               style={{ boxShadow: '0 3px 0 #E2C700' }}
@@ -262,9 +262,13 @@ export function Screen5HomeWonderland() {
                 <h2 className="text-[16.5px] sm:text-[18px] font-extrabold text-[#260559]">
                   Mastery estimate
                 </h2>
-                <span className="text-[12px] sm:text-[13px] font-semibold text-[#5E4A80] whitespace-nowrap">
-                  Not a JAMB score
-                </span>
+                <button
+                  type="button"
+                  onClick={() => goTo('/progress/subjects')}
+                  className="text-[12px] sm:text-[13px] font-extrabold text-[#6C19E5] hover:underline whitespace-nowrap cursor-pointer"
+                >
+                  Subject insights →
+                </button>
               </div>
 
               <div className="grid grid-cols-4 gap-2 sm:gap-4">
@@ -274,9 +278,7 @@ export function Screen5HomeWonderland() {
                     type="button"
                     onClick={() =>
                       goTo(
-                        `/practice/setup?pace=smart&scope=single&focus=${encodeURIComponent(
-                          subj.canonicalName
-                        )}`
+                        `/progress/subjects?subject=${encodeURIComponent(subj.canonicalName)}`
                       )
                     }
                     className="flex flex-col items-center rounded-2xl py-1.5 hover:bg-[#FAF7FF] transition-colors cursor-pointer"
@@ -336,7 +338,7 @@ export function Screen5HomeWonderland() {
 
                 <button
                   type="button"
-                  onClick={() => goTo('/progress')}
+                  onClick={() => goTo('/progress/streak')}
                   className="px-3.5 py-2.5 rounded-[14px] bg-[#059669] hover:brightness-105 text-white font-extrabold text-[12.5px] uppercase tracking-wide shrink-0 inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
                   style={{ boxShadow: '0 3px 0 #065F46' }}
                 >

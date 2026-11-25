@@ -7,6 +7,9 @@ import { Screen5HomeWonderland } from './pages/Screen5HomeWonderland';
 import { Screen6SmartPracticeHubWonderland } from './pages/Screen6SmartPracticeHubWonderland';
 import { Screen6bPracticeScopeSetupWonderland } from './pages/Screen6bPracticeScopeSetupWonderland';
 import { Screen7ProgressWonderland } from './pages/Screen7ProgressWonderland';
+import { Screen7aStreakWonderland } from './pages/Screen7aStreakWonderland';
+import { Screen7bLeagueWonderland } from './pages/Screen7bLeagueWonderland';
+import { Screen7cSubjectRatingsWonderland } from './pages/Screen7cSubjectRatingsWonderland';
 import { Screen8SmartPracticeFeedWonderland } from './pages/Screen8SmartPracticeFeedWonderland';
 import { Screen9SmartPracticeResultsWonderland } from './pages/Screen9SmartPracticeResultsWonderland';
 import { Screen10PracticeSettingsWonderland } from './pages/Screen10PracticeSettingsWonderland';
@@ -73,8 +76,11 @@ export default function App() {
         <Route path="/cbt/exam" element={<Screen14CbtExamWonderland />} />
         <Route path="/cbt/results" element={<Screen15CbtResultsWonderland />} />
 
-        {/* Screen 7: Progress, Streaks & Gold League */}
+        {/* Screen 7 & 7A-C: Expanded Progress Hub, My Streak, Multi-Tier Leagues & Subject Performance Ratings */}
         <Route path="/progress" element={<Screen7ProgressWonderland />} />
+        <Route path="/progress/streak" element={<Screen7aStreakWonderland />} />
+        <Route path="/progress/league" element={<Screen7bLeagueWonderland />} />
+        <Route path="/progress/subjects" element={<Screen7cSubjectRatingsWonderland />} />
 
         {/* Screen 10, 11 & 12: 3-Dash Menu Studio (AI Practice Studio, Account Profile, Subscriptions) */}
         <Route path="/settings/practice" element={<Screen10PracticeSettingsWonderland />} />
