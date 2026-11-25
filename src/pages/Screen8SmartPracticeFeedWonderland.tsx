@@ -25,6 +25,7 @@ import {
   type PracticeAnswerRecord,
   type SmartPracticePace,
 } from '../utils/smartPracticeSession';
+import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { sound } from '../utils/soundEffects';
 
 const OPTIONS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
@@ -70,8 +71,15 @@ export function Screen8SmartPracticeFeedWonderland() {
   const [sessionXp, setSessionXp] = useState(0);
   const [comboUpBanner, setComboUpBanner] = useState<number | null>(null);
   const [showCheckpoint, setShowCheckpoint] = useState(false);
+  const aiConfig = useMemo(
+    () => loadPracticeAiConfig(student.subjects.map(s => s.canonicalName)),
+    [student.subjects]
+  );
+
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [usePidgin, setUsePidgin] = useState(false);
+  const [usePidgin, setUsePidgin] = useState(
+    () => aiConfig.explanationStyle === 'pidgin_friendly'
+  );
 
   // Side rail states (Save / Report / Share)
   const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedQuestionIds());
@@ -837,7 +845,7 @@ export function Screen8SmartPracticeFeedWonderland() {
                 : currentQuestion.explanationShort}
             </div>
 
-            {pace === 'guided' && (
+            {(pace === 'guided' || aiConfig.explanationStyle === 'pidgin_friendly') && (
               <button
                 type="button"
                 onClick={() => setUsePidgin(prev => !prev)}

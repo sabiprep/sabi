@@ -1,4 +1,5 @@
 import { getRealUserProgress } from './userProgressStore';
+import { loadPracticeAiConfig } from './sabiAiPracticeConfig';
 
 export interface SubjectMasteryItem {
   canonicalName: string;
@@ -142,13 +143,19 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     };
   });
 
-  // Determine focus subject (prioritySubject if valid, otherwise lowest mastery subject)
+  // Determine focus subject (AI Practice Studio blueprint takes highest priority, then onboarding priority, then lowest mastery)
+  const aiConfig = loadPracticeAiConfig(rawSubjects);
+  const activeBlueprint = aiConfig.blueprint;
+
   const lowestSubject = [...subjects].sort((a, b) => a.percent - b.percent)[0] || subjects[3];
   const priorityCanonical =
-    typeof onboarding?.prioritySubject === 'string' &&
-    rawSubjects.includes(onboarding.prioritySubject)
-      ? onboarding.prioritySubject
-      : lowestSubject.canonicalName;
+    (activeBlueprint?.recommendedSubjectCanonical &&
+      rawSubjects.includes(activeBlueprint.recommendedSubjectCanonical) &&
+      activeBlueprint.recommendedSubjectCanonical) ||
+    (typeof onboarding?.prioritySubject === 'string' &&
+      rawSubjects.includes(onboarding.prioritySubject) &&
+      onboarding.prioritySubject) ||
+    lowestSubject.canonicalName;
 
   const focusMeta = SUBJECT_SHORT_CODES[priorityCanonical] || {
     code: priorityCanonical.slice(0, 4).toUpperCase(),
@@ -156,6 +163,7 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
   };
 
   const recommendedTopic =
+    (activeBlueprint?.recommendedTopic && activeBlueprint.recommendedTopic.trim()) ||
     (typeof onboarding?.troubleTopic === 'string' &&
       onboarding.troubleTopic.trim().length >= 3 &&
       onboarding.troubleTopic.trim()) ||
@@ -173,7 +181,7 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
       ? Number(localStorage.getItem('sabi_wonderland_daily_xp_v1') || '0') || 0
       : 0;
   const xpBalance = 1240 + earnedBonusXp;
-  const dailyGoalTarget = 30;
+  const dailyGoalTarget = activeBlueprint?.dailyXpGoal || 30;
   const dailyGoalDone = Math.min(dailyGoalTarget, 20 + earnedDailyXp);
 
   // Build 30-day November calendar matching the uploaded Progress & Streaks design
@@ -208,8 +216,10 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     subjects,
     recommendedSubject: focusMeta.shortName,
     recommendedTopic,
-    recommendedEvidence: `${focusMeta.shortName} · missed 3 of your last 5`,
-    recommendedMinutes: 8,
+    recommendedEvidence: activeBlueprint
+      ? `${focusMeta.shortName} · structured by SABI AI`
+      : `${focusMeta.shortName} · missed 3 of your last 5`,
+    recommendedMinutes: activeBlueprint?.recommendedMinutes || 8,
     weeklyDays: [
       { label: 'M', status: 'done' },
       { label: 'T', status: 'done' },

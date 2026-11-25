@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Flame, Trophy } from 'lucide-react';
-import { SabiAppChrome } from '../components/common/SabiAppChrome';
+import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import { sound } from '../utils/soundEffects';
 
@@ -24,14 +24,15 @@ export function Screen7ProgressWonderland() {
       xpBalance={data.xpBalance}
     >
       <main className="w-full max-w-[1360px] mx-auto px-3 sm:px-5 lg:px-8 pt-3.5 sm:pt-5 lg:pt-7">
-        {/* 1. PAGE TITLE */}
-        <header className="mb-3.5 sm:mb-5 lg:mb-6">
+        {/* 1. PAGE TITLE + 3-DASH MENU */}
+        <header className="flex items-center justify-between gap-3 mb-3.5 sm:mb-5 lg:mb-6">
           <h1
             className="text-[30px] sm:text-[34px] lg:text-[36px] font-bold text-[#260559] leading-tight tracking-[-0.01em]"
             style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
           >
             Your progress
           </h1>
+          <SabiMenuTriggerButton />
         </header>
 
         {/* RESPONSIVE BODY: Full-width stack on Mobile, 2-Column Layout from `md:` */}

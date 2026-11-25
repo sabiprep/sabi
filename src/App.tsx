@@ -8,6 +8,9 @@ import { Screen6SmartPracticeHubWonderland } from './pages/Screen6SmartPracticeH
 import { Screen7ProgressWonderland } from './pages/Screen7ProgressWonderland';
 import { Screen8SmartPracticeFeedWonderland } from './pages/Screen8SmartPracticeFeedWonderland';
 import { Screen9SmartPracticeResultsWonderland } from './pages/Screen9SmartPracticeResultsWonderland';
+import { Screen10PracticeSettingsWonderland } from './pages/Screen10PracticeSettingsWonderland';
+import { Screen11AccountProfileWonderland } from './pages/Screen11AccountProfileWonderland';
+import { Screen12SubscriptionsWonderland } from './pages/Screen12SubscriptionsWonderland';
 import { WonderlandComingNextScreen } from './pages/WonderlandComingNextScreen';
 
 /**
@@ -20,6 +23,11 @@ import { WonderlandComingNextScreen } from './pages/WonderlandComingNextScreen';
  *   - Screen 5 (`/home`): JAMB Prep Home Dashboard (`Screen5HomeWonderland`)
  *   - Screen 6 (`/practice`): Smart Practice Hub — Guided & Blitz Directory (`Screen6SmartPracticeHubWonderland`)
  *   - Screen 7 (`/progress`): Your Progress, Streaks & Gold League (`Screen7ProgressWonderland`)
+ *   - Screen 8 (`/practice/session`): Smart Practice Live Feed — Blitz & Guided + Checkpoint
+ *   - Screen 9 (`/practice/results`): Smart Practice Results & Next Best Step
+ *   - Screen 10 (`/settings/practice`): SABI AI Practice Studio (`Screen10PracticeSettingsWonderland`)
+ *   - Screen 11 (`/profile`): Account & Profile (`Screen11AccountProfileWonderland`)
+ *   - Screen 12 (`/subscriptions`): Subscriptions & AI Credits (`Screen12SubscriptionsWonderland`)
  *
  * All legacy pages, stylesheets, and components remain archived inside `/src/archive/`.
  */
@@ -87,18 +95,15 @@ export default function App() {
             />
           }
         />
-        <Route
-          path="/profile"
-          element={
-            <WonderlandComingNextScreen
-              tab="profile"
-              title="Your Profile"
-              subtitle="JAMB subject combination, study preferences & account settings."
-              detail="The renovated Profile & Settings screen will be wired here as soon as you send the next UI batch. You can also revisit your onboarding answers anytime below."
-              icon="profile"
-            />
-          }
-        />
+        {/* Screen 10: SABI AI Practice Studio (Practice Configuration & AI Auto-Structure) */}
+        <Route path="/settings/practice" element={<Screen10PracticeSettingsWonderland />} />
+        <Route path="/settings" element={<Navigate to="/settings/practice" replace />} />
+
+        {/* Screen 11: Account & Profile */}
+        <Route path="/profile" element={<Screen11AccountProfileWonderland />} />
+
+        {/* Screen 12: Subscriptions & AI Credits */}
+        <Route path="/subscriptions" element={<Screen12SubscriptionsWonderland />} />
 
         {/* Redirect any old or unknown path directly to Screen 2 (/welcome) */}
         <Route path="*" element={<Navigate to="/welcome" replace />} />

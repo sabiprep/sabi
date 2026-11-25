@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, Flame, TrendingUp, Zap } from 'lucide-react';
+import { Check, ChevronLeft, Flame, SlidersHorizontal, TrendingUp, Zap } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { SabiAppChrome } from '../components/common/SabiAppChrome';
+import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
+import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { sound } from '../utils/soundEffects';
 
 type PracticePace = 'guided' | 'blitz';
@@ -32,9 +33,16 @@ export function Screen6SmartPracticeHubWonderland() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const data = useMemo(() => getWonderlandDashboardState(), []);
+  const aiConfig = useMemo(
+    () => loadPracticeAiConfig(data.subjects.map(s => s.canonicalName)),
+    [data.subjects]
+  );
 
+  const paceQuery = searchParams.get('pace');
   const initialPace: PracticePace =
-    searchParams.get('pace') === 'guided' ? 'guided' : 'blitz';
+    paceQuery === 'guided' || paceQuery === 'blitz'
+      ? paceQuery
+      : aiConfig.blueprint?.recommendedPace || 'blitz';
   const [selectedPace, setSelectedPace] = useState<PracticePace>(initialPace);
 
   const initialFocus = searchParams.get('focus') || data.recommendedSubject;
@@ -117,16 +125,19 @@ export function Screen6SmartPracticeHubWonderland() {
             <ChevronLeft size={23} strokeWidth={2.8} />
           </button>
 
-          <button
-            type="button"
-            onClick={() => navigate('/progress')}
-            aria-label={`${data.streakDays} day streak`}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer"
-            style={{ boxShadow: '0 3.5px 0 #E2C700' }}
-          >
-            <Flame size={17} className="text-[#FF7A00] fill-[#FF7A00] shrink-0" />
-            <span>{data.streakDays}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate('/progress')}
+              aria-label={`${data.streakDays} day streak`}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer"
+              style={{ boxShadow: '0 3.5px 0 #E2C700' }}
+            >
+              <Flame size={17} className="text-[#FF7A00] fill-[#FF7A00] shrink-0" />
+              <span>{data.streakDays}</span>
+            </button>
+            <SabiMenuTriggerButton />
+          </div>
         </header>
 
         {/* 2. HERO TITLE & SUBTITLE */}
@@ -150,9 +161,19 @@ export function Screen6SmartPracticeHubWonderland() {
           <div className="w-[52px] h-[52px] rounded-[16px] bg-[#FFE824] flex items-center justify-center shrink-0">
             <FocusTargetIcon />
           </div>
-          <div className="min-w-0">
-            <div className="text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-[#FFE51E]">
-              FOCUS RIGHT NOW
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-[11.5px] font-extrabold uppercase tracking-[0.06em] text-[#FFE51E]">
+                {aiConfig.blueprint ? 'SABI AI FOCUS RIGHT NOW' : 'FOCUS RIGHT NOW'}
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/settings/practice')}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/14 hover:bg-white/22 text-[11.5px] font-extrabold text-[#FFE51E] transition-colors cursor-pointer shrink-0"
+              >
+                <SlidersHorizontal size={12} />
+                <span>Tune AI</span>
+              </button>
             </div>
             <h2 className="mt-0.5 text-[17.5px] sm:text-[19px] font-extrabold text-white leading-snug">
               {activeFocusSubject.displayLabel} · {focusTopicLabel}

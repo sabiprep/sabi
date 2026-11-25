@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { Calendar, Flame, Monitor, SlidersHorizontal, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { SabiAppChrome } from '../components/common/SabiAppChrome';
+import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
+import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { sound } from '../utils/soundEffects';
 
 /**
@@ -165,6 +166,12 @@ export function Screen5HomeWonderland() {
     navigate(path);
   };
 
+  const aiConfig = useMemo(
+    () => loadPracticeAiConfig(data.subjects.map(s => s.canonicalName)),
+    [data.subjects]
+  );
+  const recommendedPace = aiConfig.blueprint?.recommendedPace || 'guided';
+
   const focusCanonical =
     data.subjects.find(s => s.displayLabel === data.recommendedSubject)?.canonicalName ||
     data.subjects[3]?.canonicalName ||
@@ -204,16 +211,16 @@ export function Screen5HomeWonderland() {
             </div>
           </div>
 
-          {/* Right: Streak & XP Tactile White Pills */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right: Streak, XP Tactile White Pills & 3-Dash Menu Trigger */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={() => goTo('/progress')}
               aria-label={`${data.streakDays} day streak`}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[14px] sm:text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[13.5px] sm:text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
               style={{ boxShadow: '0 3px 0 #E2C700' }}
             >
-              <Flame size={16} className="text-[#FF7A00] fill-[#FF7A00] shrink-0" />
+              <Flame size={15} className="text-[#FF7A00] fill-[#FF7A00] shrink-0" />
               <span>{data.streakDays}</span>
             </button>
 
@@ -221,12 +228,14 @@ export function Screen5HomeWonderland() {
               type="button"
               onClick={() => goTo('/progress')}
               aria-label={`${data.xpBalance.toLocaleString()} XP`}
-              className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[14px] sm:text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-full bg-white text-[#260559] font-extrabold text-[13.5px] sm:text-[15px] tabular-nums transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
               style={{ boxShadow: '0 3px 0 #E2C700' }}
             >
-              <Zap size={15} className="text-[#711AE3] fill-[#711AE3] shrink-0" />
+              <Zap size={14} className="text-[#711AE3] fill-[#711AE3] shrink-0" />
               <span>{data.xpBalance.toLocaleString()}</span>
             </button>
+
+            <SabiMenuTriggerButton />
           </div>
         </header>
 
@@ -381,7 +390,9 @@ export function Screen5HomeWonderland() {
                   type="button"
                   onClick={() =>
                     goTo(
-                      `/practice/session?pace=guided&focus=${encodeURIComponent(focusCanonical)}`
+                      `/practice/session?pace=${recommendedPace}&focus=${encodeURIComponent(
+                        focusCanonical
+                      )}`
                     )
                   }
                   className="px-5 sm:px-6 py-3 rounded-[16px] bg-[#6C19E5] hover:brightness-105 text-white font-extrabold text-[15px] tracking-[0.04em] uppercase shrink-0 transition-transform duration-100 active:translate-y-[1.5px] cursor-pointer whitespace-nowrap"
