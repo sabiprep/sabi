@@ -200,7 +200,7 @@ export function Screen19SubjectsWonderland() {
 
               {savedNotice && (
                 <span className="text-[13px] font-extrabold text-[#059669]">
-                  Saved! Home, Smart Practice, and CBT Simulator updated.
+                  Saved! Home, Practice Hub, and CBT Simulator updated.
                 </span>
               )}
             </div>
@@ -243,7 +243,7 @@ export function Screen19SubjectsWonderland() {
                   type="button"
                   onClick={() =>
                     navigate(
-                      `/practice/session?pace=guided&focus=${encodeURIComponent(
+                      `/practice/session?pace=smart&focus=${encodeURIComponent(
                         activeSyllabusSubject
                       )}`
                     )

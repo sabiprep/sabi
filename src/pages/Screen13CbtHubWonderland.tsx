@@ -4,12 +4,12 @@ import {
   Award,
   Check,
   Clock,
+  Compass,
   FileCheck2,
   History,
   Lock,
   Monitor,
   ShieldAlert,
-  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
@@ -375,7 +375,7 @@ export function Screen13CbtHubWonderland() {
                 className="mt-3.5 w-full rounded-[15px] bg-[#FFF8D6] hover:bg-[#FFF2B5] border border-[#F0D75B] px-3.5 py-2.5 flex items-center justify-between text-left cursor-pointer"
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Sparkles size={16} className="text-[#6C19E5] shrink-0" />
+                  <Compass size={16} className="text-[#6C19E5] shrink-0" />
                   <span className="text-[13px] font-extrabold text-[#260559] truncate">
                     Want a shorter 12-Q baseline first? Try Diagnostic
                   </span>

@@ -13,7 +13,6 @@ import {
   Menu,
   Monitor,
   SlidersHorizontal,
-  Sparkles,
   Target,
   User,
   X,
@@ -23,6 +22,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SabiPurpleBookLogo } from './SabiWonderlandShell';
+import { SabiBrandEmblem } from './SabiBrandEmblem';
 import { sound } from '../../utils/soundEffects';
 
 export type SabiNavTab =
@@ -114,7 +114,7 @@ const DRAWER_STUDIO_ITEMS: {
     accentBg: 'bg-[#FFE824]',
     accentText: 'text-[#260559]',
     badge: 'AI',
-    Icon: Sparkles,
+    Icon: SabiBrandEmblem,
   },
   {
     id: 'profile',
@@ -148,8 +148,8 @@ export function SabiAppChrome({
   children,
   backdropVariant = 'home',
   hideMobileBottomNav = false,
-  streakDays = 14,
-  xpBalance = 1240,
+  streakDays = 0,
+  xpBalance = 0,
 }: SabiAppChromeProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -300,7 +300,7 @@ export function SabiAppChrome({
                 }`}
               >
                 <span className="flex items-center gap-3 min-w-0">
-                  <Sparkles size={19} strokeWidth={2.4} className="shrink-0" />
+                  <SabiBrandEmblem size={19} strokeWidth={2.4} className="shrink-0" />
                   <span className="truncate">AI Practice Studio</span>
                 </span>
               </button>
@@ -535,7 +535,7 @@ export function SabiAppChrome({
                     { label: 'Weak Areas & Study Plan', path: '/recommendations', Icon: Target },
                     { label: 'Mistakes & Saved Vault', path: '/mistakes', Icon: Bookmark },
                     { label: 'Notifications & Reminders', path: '/notifications', Icon: Bell },
-                    { label: 'Edit Onboarding Answers', path: '/onboarding/1', Icon: Sparkles },
+                    { label: 'Edit Onboarding Answers', path: '/onboarding/1', Icon: SabiBrandEmblem },
                   ].map(({ label, path, Icon }) => (
                     <button
                       key={path}

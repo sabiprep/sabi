@@ -137,7 +137,7 @@ export function Screen15CbtResultsWonderland() {
                 type="button"
                 onClick={() =>
                   navigate(
-                    `/practice/session?pace=guided&focus=${encodeURIComponent(
+                    `/practice/session?pace=smart&focus=${encodeURIComponent(
                       result.weakestSubjectCanonical
                     )}`
                   )

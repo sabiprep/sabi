@@ -334,11 +334,9 @@ export function SabiWonderlandShell({
               </linearGradient>
             </defs>
 
-            {/* 4-Point Purple Star Sparkle */}
-            <path
-              d="M104 42 C107 53 111 57 122 60 C111 63 107 67 104 78 C101 67 97 63 86 60 C97 57 101 53 104 42 Z"
-              fill="#8B3DFF"
-            />
+            {/* Geometric Purple Accent Orb Cluster */}
+            <circle cx="104" cy="60" r="10" fill="#8B3DFF" />
+            <circle cx="84" cy="46" r="4.5" fill="#FF9100" />
 
             {/* White Curved Ribbon Arc Under Book */}
             <path
@@ -378,7 +376,7 @@ export function SabiWonderlandShell({
           </svg>
         </div>
 
-        {/* 3. BOTTOM-LEFT CORNER: Concentric Green & White Rainbow Arc + 4-Point Purple Star */}
+        {/* 3. BOTTOM-LEFT CORNER: Concentric Green & White Rainbow Arc + Geometric Accent Ring */}
         <div className="absolute bottom-0 left-0 w-48 h-44 sm:w-60 sm:h-56 lg:w-68 lg:h-60">
           <svg
             viewBox="0 0 230 210"
@@ -390,11 +388,8 @@ export function SabiWonderlandShell({
             <circle cx="8" cy="205" r="112" stroke="#FFF7C2" strokeWidth="20" fill="none" />
             {/* Inner Emerald-Green Quarter Circle */}
             <circle cx="8" cy="205" r="88" stroke="#00B862" strokeWidth="24" fill="none" />
-            {/* 4-Point Purple Sparkle Star */}
-            <path
-              d="M132 118 C134.5 127 138 130.5 147 133 C138 135.5 134.5 139 132 148 C129.5 139 126 135.5 117 133 C126 130.5 129.5 127 132 118 Z"
-              fill="#8B3DFF"
-            />
+            {/* Geometric Purple Ring Accent */}
+            <circle cx="132" cy="133" r="11" stroke="#8B3DFF" strokeWidth="5.5" fill="none" />
           </svg>
         </div>
 

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -42,7 +43,7 @@ export function Screen9SmartPracticeResultsWonderland() {
       // ignore
     }
     navigate(
-      `/practice/session?pace=guided&focus=${encodeURIComponent(
+      `/practice/session?pace=smart&focus=${encodeURIComponent(
         result.nextBestStep.subjectCanonical
       )}`
     );
@@ -76,7 +77,7 @@ export function Screen9SmartPracticeResultsWonderland() {
           </button>
 
           <div className="px-4 py-2 rounded-full bg-[#2A085E] text-[#FFE51E] font-extrabold text-[14px] sm:text-[15px] whitespace-nowrap">
-            Smart Practice · {result.pace === 'blitz' ? 'Blitz' : 'Guided'}
+            Practice Hub · {result.pace === 'blitz' ? 'Blitz' : 'Smart Practice'}
           </div>
         </header>
 
@@ -187,7 +188,7 @@ export function Screen9SmartPracticeResultsWonderland() {
               style={{ boxShadow: '0 5px 0 #23055B' }}
             >
               <div className="w-[46px] h-[46px] rounded-[14px] bg-[#FFE824] text-[#260559] flex items-center justify-center shrink-0 mt-0.5">
-                <Sparkles size={22} strokeWidth={2.5} />
+                <SabiBrandEmblem size={24} />
               </div>
               <div className="min-w-0">
                 <div className="text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-[#FFE51E]">
@@ -223,7 +224,7 @@ export function Screen9SmartPracticeResultsWonderland() {
                   boxShadow: '0 5px 0 #46099E',
                 }}
               >
-                START GUIDED SESSION
+                START SMART PRACTICE
               </button>
             </section>
           </div>

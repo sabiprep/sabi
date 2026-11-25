@@ -5,13 +5,18 @@ import {
   ChevronLeft,
   Crown,
   ShieldCheck,
-  Sparkles,
   X,
   Zap,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
+import {
+  getEconomySnapshot,
+  getRealUserProgress,
+  saveRealUserProgress,
+} from '../utils/userProgressStore';
 import { sound } from '../utils/soundEffects';
 
 interface PlanCardItem {
@@ -31,12 +36,12 @@ const SABI_PLANS: PlanCardItem[] = [
     name: 'Free Scholar',
     priceNgn: '₦0',
     cadence: 'Forever free',
-    tagline: 'Daily Smart Practice & Blitz fundamentals.',
+    tagline: 'Daily Practice Hub fundamentals & limited XP assistance bonus.',
     features: [
-      'Smart Practice Guided & Blitz feed',
-      'Subject mastery estimate rings',
-      'Daily streak & Gold League access',
-      '15 starter SABI AI Coach credits / month',
+      'Practice Hub (Smart Practice & Blitz feed)',
+      'Real subject mastery estimate rings',
+      'Daily streak & League promotion ladders',
+      'Earn limited Assistance Diamonds via XP (up to 3/day)',
     ],
   },
   {
@@ -87,10 +92,7 @@ export function Screen12SubscriptionsWonderland() {
   const [activePlanId, setActivePlanId] = useState<string>(
     () => (typeof window !== 'undefined' && localStorage.getItem('sabi_plan_id')) || 'free'
   );
-  const [aiCredits, setAiCredits] = useState<number>(() => {
-    if (typeof window === 'undefined') return 15;
-    return Number(localStorage.getItem('sabi_ai_credits_preview') || '15') || 15;
-  });
+  const [economy, setEconomy] = useState(() => getEconomySnapshot());
   const [selectedCheckout, setSelectedCheckout] = useState<{
     title: string;
     price: string;
@@ -110,6 +112,10 @@ export function Screen12SubscriptionsWonderland() {
       // ignore
     }
 
+    const currentProgress = getRealUserProgress();
+    let addedMainDiamonds = 0;
+    let nextSubPlan = currentProgress.subscriptionPlan;
+
     if (selectedCheckout.planId) {
       const matched = SABI_PLANS.find(p => p.id === selectedCheckout.planId);
       setActivePlanId(selectedCheckout.planId);
@@ -118,22 +124,27 @@ export function Screen12SubscriptionsWonderland() {
         localStorage.setItem('sabi_plan_label', matched.name);
       }
       if (selectedCheckout.planId === 'season_unlock') {
-        const nextCredits = aiCredits + 250;
-        setAiCredits(nextCredits);
-        localStorage.setItem('sabi_ai_credits_preview', String(nextCredits));
+        addedMainDiamonds += 250;
+        nextSubPlan = 'citadel_pro';
       } else if (selectedCheckout.planId === 'monthly_pass') {
-        const nextCredits = aiCredits + 100;
-        setAiCredits(nextCredits);
-        localStorage.setItem('sabi_ai_credits_preview', String(nextCredits));
+        addedMainDiamonds += 100;
+        nextSubPlan = 'scholar_pass';
+      } else {
+        nextSubPlan = 'free';
       }
     }
 
     if (selectedCheckout.creditDelta) {
-      const nextCredits = aiCredits + selectedCheckout.creditDelta;
-      setAiCredits(nextCredits);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sabi_ai_credits_preview', String(nextCredits));
-      }
+      addedMainDiamonds += selectedCheckout.creditDelta;
+    }
+
+    if (addedMainDiamonds > 0 || nextSubPlan !== currentProgress.subscriptionPlan) {
+      saveRealUserProgress({
+        ...currentProgress,
+        subscriptionPlan: nextSubPlan,
+        mainDiamonds: currentProgress.mainDiamonds + addedMainDiamonds,
+      });
+      setEconomy(getEconomySnapshot());
     }
 
     setStatusMessage(
@@ -219,13 +230,16 @@ export function Screen12SubscriptionsWonderland() {
           </div>
 
           <div className="rounded-[18px] bg-white/12 px-4 py-3 flex items-center gap-3 shrink-0">
-            <Sparkles size={20} className="text-[#FFE824] shrink-0" />
+            <SabiBrandEmblem size={24} className="shrink-0" />
             <div>
               <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#DCD0F5]">
-                SABI AI Credits
+                Diamonds / AI Credits
               </div>
               <div className="text-[20px] font-extrabold text-[#FFE824] tabular-nums leading-tight">
-                {aiCredits} credits
+                {economy.aiCreditsAvailable} credits
+              </div>
+              <div className="text-[11px] font-semibold text-[#E5DAFB] tabular-nums">
+                {economy.subscriptionDiamonds} plan · {economy.assistanceDiamonds} XP assist
               </div>
             </div>
           </div>

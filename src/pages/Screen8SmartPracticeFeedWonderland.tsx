@@ -27,6 +27,7 @@ import {
 } from '../utils/smartPracticeSession';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { recordMistakeInVault } from '../utils/cbtAndCustomEngine';
+import { recordStudyActivity } from '../utils/userProgressStore';
 import { sound } from '../utils/soundEffects';
 
 const OPTIONS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
@@ -46,8 +47,9 @@ export function Screen8SmartPracticeFeedWonderland() {
   const [searchParams] = useSearchParams();
   const student = useMemo(() => getWonderlandDashboardState(), []);
 
+  const rawPace = searchParams.get('pace');
   const pace: SmartPracticePace =
-    searchParams.get('pace') === 'guided' ? 'guided' : 'blitz';
+    rawPace === 'guided' || rawPace === 'smart' ? 'guided' : 'blitz';
   const focusSubject =
     searchParams.get('focus') ||
     student.subjects[student.subjects.length - 1]?.canonicalName ||
@@ -176,12 +178,20 @@ export function Screen8SmartPracticeFeedWonderland() {
         xpEarned: earnedXp,
         elapsedSeconds,
       };
+      recordStudyActivity({
+        subject: currentQuestion.subjectCanonical,
+        topic: currentQuestion.topicLabel,
+        isCorrect: answeredCorrectly,
+        mode: pace === 'blitz' ? 'blitz' : 'smart',
+        elapsedSeconds,
+        xpOverride: earnedXp,
+      });
       if (!answeredCorrectly) {
         recordMistakeInVault(currentQuestion, opt);
       }
       setRecords(prev => [...prev, record]);
     },
-    [currentQuestion, currentStreak, isAnswered, questionStartMs, showCheckpoint]
+    [currentQuestion, currentStreak, isAnswered, pace, questionStartMs, showCheckpoint]
   );
 
   const handleAdvance = useCallback(() => {
@@ -356,7 +366,7 @@ export function Screen8SmartPracticeFeedWonderland() {
         <main className="relative z-10 flex-1 w-full max-w-[680px] mx-auto px-4 sm:px-6 pt-10 sm:pt-14 pb-5 sm:pb-8 flex flex-col justify-between">
           {/* Center Hero + Stats */}
           <div className="flex flex-col items-center text-center my-auto py-4">
-            {/* Tilted 3D Purple Lightning Badge + Sparkle */}
+            {/* Tilted 3D Purple Lightning Badge + Geometric Accent Ring */}
             <div className="relative mb-6 sm:mb-7">
               <div
                 className="w-[116px] h-[116px] sm:w-[130px] sm:h-[130px] rounded-[28px] bg-[#711AE3] flex items-center justify-center -rotate-6"
@@ -368,14 +378,10 @@ export function Screen8SmartPracticeFeedWonderland() {
                   strokeWidth={1.8}
                 />
               </div>
-              <svg
-                viewBox="0 0 28 28"
-                className="w-7 h-7 text-[#711AE3] absolute -right-8 bottom-3"
-                fill="currentColor"
+              <span
+                className="w-6 h-6 rounded-full border-[4px] border-[#711AE3] absolute -right-7 bottom-3"
                 aria-hidden="true"
-              >
-                <path d="M14 2C15.5 9 19 12.5 26 14C19 15.5 15.5 19 14 26C12.5 19 9 15.5 2 14C9 12.5 12.5 9 14 2Z" />
-              </svg>
+              />
             </div>
 
             <h1
@@ -527,7 +533,7 @@ export function Screen8SmartPracticeFeedWonderland() {
 
           {/* Center Mode Pill */}
           <div className="px-4 py-2 rounded-full bg-[#2C0A5C] border border-white/10 flex items-center gap-1.5 text-[13.5px] sm:text-[14.5px] font-extrabold whitespace-nowrap">
-            <span className="text-[#DCD0F5]">Smart Practice</span>
+            <span className="text-[#DCD0F5]">Practice Hub</span>
             <span className="text-[#9E84CC]" aria-hidden="true">
               •
             </span>
@@ -537,7 +543,7 @@ export function Screen8SmartPracticeFeedWonderland() {
                 <span>Blitz</span>
               </span>
             ) : (
-              <span className="text-[#FFE51E]">Guided</span>
+              <span className="text-[#FFE51E]">Smart Practice</span>
             )}
           </div>
 

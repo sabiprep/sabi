@@ -9,11 +9,11 @@ import {
   Lock,
   LogOut,
   ShieldCheck,
-  Sparkles,
   Volume2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { sound } from '../utils/soundEffects';
@@ -331,7 +331,7 @@ export function Screen11AccountProfileWonderland() {
             >
               <div className="flex items-center gap-3.5 min-w-0">
                 <div className="w-12 h-12 rounded-[15px] bg-[#FFE824] text-[#260559] flex items-center justify-center shrink-0">
-                  <Sparkles size={23} strokeWidth={2.5} />
+                  <SabiBrandEmblem size={24} />
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#FFE824]">

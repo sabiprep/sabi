@@ -6,13 +6,13 @@ import {
   Clock,
   Flame,
   Plus,
-  Sparkles,
   Target,
   Zap,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import {
   getTopicsForSubject,
@@ -44,7 +44,7 @@ const CONCENTRATION_MODES: {
 }[] = [
   {
     id: 'guided_first',
-    title: 'Guided Mastery First',
+    title: 'Smart Practice First',
     subtitle: 'Calm step-by-step adaptive drills before rapid Blitz reinforcement.',
   },
   {
@@ -54,8 +54,8 @@ const CONCENTRATION_MODES: {
   },
   {
     id: 'balanced_mix',
-    title: 'Balanced Guided + Blitz',
-    subtitle: 'SABI alternates deep Guided fixes with quick Blitz retention runs.',
+    title: 'Balanced Smart Practice + Blitz',
+    subtitle: 'SABI alternates deep Smart Practice fixes with quick Blitz retention runs.',
   },
   {
     id: 'cbt_readiness',
@@ -263,7 +263,7 @@ export function Screen10PracticeSettingsWonderland() {
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
               <div className="flex items-start gap-3.5 min-w-0">
                 <div className="w-[48px] h-[48px] rounded-[15px] bg-[#FFE824] text-[#260559] flex items-center justify-center shrink-0">
-                  <Sparkles size={24} strokeWidth={2.5} />
+                  <SabiBrandEmblem size={25} />
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11.5px] font-extrabold uppercase tracking-[0.07em] text-[#FFE51E]">
@@ -283,7 +283,7 @@ export function Screen10PracticeSettingsWonderland() {
                   type="button"
                   onClick={() =>
                     navigate(
-                      `/practice/session?pace=${config.blueprint?.recommendedPace || 'guided'}&focus=${encodeURIComponent(
+                      `/practice/session?pace=${config.blueprint?.recommendedPace === 'blitz' ? 'blitz' : 'smart'}&focus=${encodeURIComponent(
                         config.blueprint?.recommendedSubjectCanonical || config.focusSubjectCanonical
                       )}`
                     )
@@ -683,7 +683,7 @@ export function Screen10PracticeSettingsWonderland() {
                   boxShadow: '0 5px 0 #46099E',
                 }}
               >
-                <Sparkles size={20} className="text-[#FFE824] shrink-0" />
+                <SabiBrandEmblem size={20} className="shrink-0" />
                 <span>
                   {isStructuring ? 'SABI AI IS STRUCTURING...' : 'FINISH & SEND TO SABI AI'}
                 </span>
@@ -691,7 +691,7 @@ export function Screen10PracticeSettingsWonderland() {
               </button>
 
               <p className="mt-2.5 text-center text-[12px] font-semibold text-[#5A467A]">
-                Automatically updates your Home focus, Daily Goal, and Smart Practice / Blitz feed.
+                Automatically updates your Home focus, Daily Goal, and Practice Hub feeds.
               </p>
             </section>
           </div>

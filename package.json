@@ -15,6 +15,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "android:sync": "rm -rf dist node_modules/.vite android/app/src/main/assets/public && vite build && node scripts/ensure-android.mjs && cap sync android",
+    "capacitor:copy:after": "rm -f android/app/src/main/assets/public/server.cjs android/app/src/main/assets/public/server.cjs.map",
     "android:open": "cap open android",
     "android:apk:debug": "rm -rf dist node_modules/.vite android/app/src/main/assets/public && vite build && node scripts/ensure-android.mjs && cap sync android && cd android && chmod +x ./gradlew && ./gradlew assembleDebug",
     "android:apk:release": "rm -rf dist node_modules/.vite android/app/src/main/assets/public && vite build && node scripts/ensure-android.mjs && cap sync android && cd android && chmod +x ./gradlew && ./gradlew assembleRelease",

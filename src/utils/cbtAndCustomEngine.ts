@@ -6,6 +6,7 @@ import {
   toggleSavedQuestionId,
   type PracticeFeedQuestion,
 } from './smartPracticeSession';
+import { recordSessionDurationBonus, recordStudyActivity } from './userProgressStore';
 
 export type CbtMockPreset = 'full_180' | 'quick_40';
 
@@ -298,8 +299,20 @@ export function gradeCbtExam(params: {
     if (isCorrect) bucket.correct += 1;
     bySubject.set(q.subjectCanonical, bucket);
 
-    if (selectedOption && !isCorrect) {
-      recordMistakeInVault(q, selectedOption);
+    if (selectedOption) {
+      recordStudyActivity({
+        subject: q.subjectCanonical,
+        topic: q.topicLabel,
+        isCorrect,
+        mode: 'cbt',
+        elapsedSeconds: Math.max(
+          8,
+          Math.round(durationUsedSeconds / Math.max(1, deck.length))
+        ),
+      });
+      if (!isCorrect) {
+        recordMistakeInVault(q, selectedOption);
+      }
     }
 
     return {
@@ -358,10 +371,12 @@ export function saveCbtMockResult(result: CbtMockResult): void {
     };
     localStorage.setItem(CBT_HISTORY_KEY, JSON.stringify([compact, ...existing].slice(0, 12)));
 
-    // Award XP for finishing a CBT mock
-    const prevBonus = Number(localStorage.getItem('sabi_wonderland_earned_xp_v1') || '0') || 0;
-    const xpGain = Math.max(25, Math.round(result.correctCount * 4));
-    localStorage.setItem('sabi_wonderland_earned_xp_v1', String(prevBonus + xpGain));
+    // Credit CBT completion duration XP into the unified real progress store
+    recordSessionDurationBonus({
+      mode: 'cbt',
+      durationSeconds: result.durationUsedSeconds,
+      completionBonusXp: Math.max(20, Math.round(result.correctCount * 2)),
+    });
   } catch {
     // ignore storage quota errors
   }

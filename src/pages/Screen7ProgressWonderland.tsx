@@ -11,9 +11,9 @@ import { sound } from '../utils/soundEffects';
  */
 export function Screen7ProgressWonderland() {
   const data = useMemo(() => getWonderlandDashboardState(), []);
-  const [selectedDay, setSelectedDay] = useState<number | null>(23);
+  const [selectedDay, setSelectedDay] = useState<number | null>(data.calendarTodayDay);
 
-  const daysToBeatRecord = Math.max(1, data.longestStreak - data.streakDays);
+  const daysToBeatRecord = Math.max(1, data.longestStreak - data.streakDays + 1);
   const activeDayDetail = data.calendarDays.find(item => item.day === selectedDay) || null;
 
   return (
@@ -55,7 +55,11 @@ export function Screen7ProgressWonderland() {
                   {data.streakDays}-day streak
                 </h2>
                 <p className="mt-1.5 text-[14.5px] sm:text-[15.5px] font-bold text-white/95 leading-snug">
-                  Longest ever: {data.longestStreak} days. {daysToBeatRecord} more to beat it!
+                  {data.streakDays === 0 && data.longestStreak === 0
+                    ? 'Complete your first practice session today to ignite your streak!'
+                    : data.streakDays >= data.longestStreak && data.streakDays > 0
+                    ? `New personal record! Longest ever: ${data.longestStreak} day${data.longestStreak === 1 ? '' : 's'}.`
+                    : `Longest ever: ${data.longestStreak} day${data.longestStreak === 1 ? '' : 's'}. ${daysToBeatRecord} more to beat it!`}
                 </p>
               </div>
             </section>
@@ -119,9 +123,13 @@ export function Screen7ProgressWonderland() {
                   </span>
                   <span className="text-[#260559] font-extrabold tabular-nums">
                     {activeDayDetail.status === 'practised' || activeDayDetail.status === 'today'
-                      ? `${activeDayDetail.xpEarned || 30} XP earned`
+                      ? activeDayDetail.xpEarned && activeDayDetail.xpEarned > 0
+                        ? `${activeDayDetail.xpEarned} XP earned`
+                        : activeDayDetail.status === 'today'
+                        ? '0 XP today · Practice to log today'
+                        : 'Session logged'
                       : activeDayDetail.status === 'missed'
-                      ? 'Rest day'
+                      ? 'No practice logged'
                       : 'Upcoming'}
                   </span>
                 </div>
@@ -149,47 +157,59 @@ export function Screen7ProgressWonderland() {
                 </span>
               </div>
 
-              <div className="space-y-2">
-                {data.leagueRows.map(row => (
-                  <React.Fragment key={row.rank}>
-                    {row.rank === 6 && (
-                      <div className="py-1.5 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-[#059669]">
-                        <div className="flex-1 h-px bg-[#D1FAE5]" />
-                        <span>Top 5 move up</span>
-                        <div className="flex-1 h-px bg-[#D1FAE5]" />
-                      </div>
-                    )}
-                    <div
-                      className={`flex items-center justify-between gap-3 px-3.5 py-3 rounded-[16px] ${
-                        row.isCurrentUser ? 'bg-[#F3ECFF]' : 'bg-transparent'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <span
-                          className={`w-5 text-center text-[16px] font-extrabold tabular-nums shrink-0 ${
-                            row.rank <= 3 ? 'text-[#B45309]' : 'text-[#5E4A80]'
-                          }`}
-                        >
-                          {row.rank}
-                        </span>
-                        <div
-                          className="w-[40px] h-[40px] rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shrink-0"
-                          style={{ backgroundColor: row.avatarBg }}
-                        >
-                          {row.initial}
+              {data.leagueRows.length === 0 ? (
+                <div className="rounded-[18px] bg-[#FAF7FF] border border-dashed border-[#D8C5FA] p-5 text-center">
+                  <p className="text-[15px] font-extrabold text-[#260559]">
+                    Not placed in a league yet
+                  </p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#5A467A]">
+                    Complete your first Smart Practice, Blitz, or CBT session to enter Blue League
+                    and start competing for Silver and Gold promotion.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {data.leagueRows.map(row => (
+                    <React.Fragment key={row.rank}>
+                      {row.rank === 6 && (
+                        <div className="py-1.5 flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-[#059669]">
+                          <div className="flex-1 h-px bg-[#D1FAE5]" />
+                          <span>Top 5 move up</span>
+                          <div className="flex-1 h-px bg-[#D1FAE5]" />
                         </div>
-                        <span className="text-[16px] font-extrabold text-[#260559] truncate">
-                          {row.name}
+                      )}
+                      <div
+                        className={`flex items-center justify-between gap-3 px-3.5 py-3 rounded-[16px] ${
+                          row.isCurrentUser ? 'bg-[#F3ECFF]' : 'bg-transparent'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <span
+                            className={`w-5 text-center text-[16px] font-extrabold tabular-nums shrink-0 ${
+                              row.rank <= 3 ? 'text-[#B45309]' : 'text-[#5E4A80]'
+                            }`}
+                          >
+                            {row.rank}
+                          </span>
+                          <div
+                            className="w-[40px] h-[40px] rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shrink-0"
+                            style={{ backgroundColor: row.avatarBg }}
+                          >
+                            {row.initial}
+                          </div>
+                          <span className="text-[16px] font-extrabold text-[#260559] truncate">
+                            {row.name}
+                          </span>
+                        </div>
+
+                        <span className="text-[15.5px] font-extrabold text-[#260559] tabular-nums whitespace-nowrap shrink-0">
+                          {row.xp.toLocaleString()} XP
                         </span>
                       </div>
-
-                      <span className="text-[15.5px] font-extrabold text-[#260559] tabular-nums whitespace-nowrap shrink-0">
-                        {row.xp.toLocaleString()} XP
-                      </span>
-                    </div>
-                  </React.Fragment>
-                ))}
-              </div>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         </div>

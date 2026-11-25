@@ -7,10 +7,10 @@ import {
   Flame,
   Monitor,
   Moon,
-  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import {
   loadNotifications,
@@ -108,8 +108,6 @@ export function Screen22NotificationsWonderland() {
                   ? Flame
                   : item.category === 'cbt'
                   ? Monitor
-                  : item.category === 'coach'
-                  ? Sparkles
                   : Bell;
               const iconStyle =
                 item.category === 'streak'
@@ -130,7 +128,11 @@ export function Screen22NotificationsWonderland() {
                     <div
                       className={`w-11 h-11 rounded-[14px] flex items-center justify-center shrink-0 ${iconStyle}`}
                     >
-                      <Icon size={20} />
+                      {item.category === 'coach' ? (
+                        <SabiBrandEmblem size={21} />
+                      ) : (
+                        <Icon size={20} />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">

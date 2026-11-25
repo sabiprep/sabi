@@ -1,15 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
   ChevronLeft,
   Compass,
   RotateCcw,
-  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import {
   buildDiagnosticDeck,
@@ -18,6 +18,10 @@ import {
   type DiagnosticBaselineResult,
 } from '../utils/cbtAndCustomEngine';
 import { getShortSubjectLabel } from '../utils/smartPracticeSession';
+import {
+  recordSessionDurationBonus,
+  recordStudyActivity,
+} from '../utils/userProgressStore';
 import { sound } from '../utils/soundEffects';
 
 const OPTION_KEYS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
@@ -40,6 +44,7 @@ export function Screen18DiagnosticWonderland() {
   const [idx, setIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
   const [report, setReport] = useState<DiagnosticBaselineResult | null>(existingBaseline);
+  const startedAtRef = useRef<number>(Date.now());
 
   const startDiagnostic = () => {
     try {
@@ -47,6 +52,7 @@ export function Screen18DiagnosticWonderland() {
     } catch {
       // ignore
     }
+    startedAtRef.current = Date.now();
     setDeck(buildDiagnosticDeck(mySubjects));
     setIdx(0);
     setAnswers({});
@@ -65,24 +71,42 @@ export function Screen18DiagnosticWonderland() {
     if (idx + 1 < deck.length) {
       window.setTimeout(() => setIdx(prev => prev + 1), 160);
     } else {
-      // Grade diagnostic
+      // Grade diagnostic strictly on real performance — no artificial floors
+      const totalElapsedSec = Math.max(
+        20,
+        Math.round((Date.now() - startedAtRef.current) / 1000)
+      );
+      const perQuestionSec = Math.max(6, Math.round(totalElapsedSec / Math.max(1, deck.length)));
       const totals: Record<string, { correct: number; total: number }> = {};
       let correctCount = 0;
+
       deck.forEach((q, i) => {
+        const isRight = nextAnswers[i] === q.answer;
         const bucket = totals[q.subjectCanonical] || { correct: 0, total: 0 };
         bucket.total += 1;
-        if (nextAnswers[i] === q.answer) {
+        if (isRight) {
           bucket.correct += 1;
           correctCount += 1;
         }
         totals[q.subjectCanonical] = bucket;
+        recordStudyActivity({
+          subject: q.subjectCanonical,
+          topic: q.topicLabel,
+          isCorrect: isRight,
+          mode: 'diagnostic',
+          elapsedSeconds: perQuestionSec,
+        });
+      });
+
+      recordSessionDurationBonus({
+        mode: 'diagnostic',
+        durationSeconds: totalElapsedSec,
+        completionBonusXp: 25,
       });
 
       const subjectMastery: Record<string, number> = {};
       Object.entries(totals).forEach(([subj, stats]) => {
-        // Seed mastery smoothly in 35%–88% range
-        const raw = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 50;
-        subjectMastery[subj] = Math.max(32, Math.min(92, Math.round(32 + raw * 0.58)));
+        subjectMastery[subj] = stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0;
       });
 
       const weakestEntry = Object.entries(subjectMastery).sort((a, b) => a[1] - b[1])[0];
@@ -268,7 +292,7 @@ export function Screen18DiagnosticWonderland() {
                   Recommended Next Step
                 </h3>
                 <p className="mt-1.5 text-[13.5px] font-semibold text-[#5A467A] leading-relaxed">
-                  Start a focused Guided session in{' '}
+                  Start a focused Smart Practice session in{' '}
                   <strong className="text-[#260559]">{report.weakestSubjectLabel}</strong> to lift
                   your lowest mastery estimate quickly.
                 </p>
@@ -279,7 +303,7 @@ export function Screen18DiagnosticWonderland() {
                   type="button"
                   onClick={() =>
                     navigate(
-                      `/practice/session?pace=guided&focus=${encodeURIComponent(
+                      `/practice/session?pace=smart&focus=${encodeURIComponent(
                         report.weakestSubjectCanonical
                       )}`
                     )
@@ -333,7 +357,7 @@ export function Screen18DiagnosticWonderland() {
                   boxShadow: '0 5px 0 #46099E',
                 }}
               >
-                <Sparkles size={18} className="text-[#FFE51E]" />
+                <SabiBrandEmblem size={20} />
                 <span>Start 12-Q Diagnostic</span>
               </button>
             </div>

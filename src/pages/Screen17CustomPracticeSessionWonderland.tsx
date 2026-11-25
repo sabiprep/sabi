@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Bookmark,
@@ -25,6 +25,10 @@ import {
   loadSavedQuestionIds,
 } from '../utils/smartPracticeSession';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
+import {
+  recordSessionDurationBonus,
+  recordStudyActivity,
+} from '../utils/userProgressStore';
 import { sound } from '../utils/soundEffects';
 
 const OPTION_KEYS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
@@ -58,6 +62,7 @@ export function Screen17CustomPracticeSessionWonderland() {
     config.timerMinutes ? config.timerMinutes * 60 : null
   );
   const [finished, setFinished] = useState(false);
+  const sessionStartedAtRef = useRef<number>(Date.now());
 
   const currentQuestion = deck[currentIdx] || deck[0];
   const selected = answers[currentIdx] ?? null;
@@ -67,15 +72,43 @@ export function Screen17CustomPracticeSessionWonderland() {
   const completeSession = () => {
     if (finished) return;
     setFinished(true);
+    const totalElapsedSec = Math.max(
+      15,
+      Math.round((Date.now() - sessionStartedAtRef.current) / 1000)
+    );
+    const answeredCount = Object.keys(answers).length;
+    const perQuestionSec = Math.max(
+      6,
+      Math.round(totalElapsedSec / Math.max(1, answeredCount))
+    );
+
     let correctCount = 0;
     deck.forEach((q, idx) => {
       const picked = answers[idx];
-      if (picked === q.answer) {
+      if (!picked) return;
+      const isRight = picked === q.answer;
+      if (isRight) {
         correctCount += 1;
-      } else if (picked) {
+      } else {
         recordMistakeInVault(q, picked);
       }
+      recordStudyActivity({
+        subject: q.subjectCanonical,
+        topic: q.topicLabel,
+        isCorrect: isRight,
+        mode: 'custom',
+        elapsedSeconds: perQuestionSec,
+      });
     });
+
+    if (answeredCount > 0) {
+      recordSessionDurationBonus({
+        mode: 'custom',
+        durationSeconds: totalElapsedSec,
+        completionBonusXp: Math.max(8, correctCount * 2),
+      });
+    }
+
     const accuracy = deck.length > 0 ? Math.round((correctCount / deck.length) * 100) : 0;
     recordCustomRunSummary({
       id: `cust-${Date.now()}`,
@@ -88,11 +121,6 @@ export function Screen17CustomPracticeSessionWonderland() {
       accuracyPercent: accuracy,
     });
     try {
-      const prevXp = Number(localStorage.getItem('sabi_wonderland_earned_xp_v1') || '0') || 0;
-      localStorage.setItem(
-        'sabi_wonderland_earned_xp_v1',
-        String(prevXp + Math.max(15, correctCount * 10))
-      );
       if (accuracy >= 60) {
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
       }

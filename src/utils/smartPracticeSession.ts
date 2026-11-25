@@ -1,5 +1,6 @@
 import { SEED_QUESTIONS } from '../data/questions';
 import type { Question } from '../types';
+import { recordSessionDurationBonus } from './userProgressStore';
 
 export type SmartPracticePace = 'blitz' | 'guided';
 
@@ -490,7 +491,7 @@ export function buildSmartPracticeResult(params: {
       uniqueSubjects.size === 1 ? '' : 's'
     }. Keep sharpening ${weakest.topicLabel} to lock in your speed and confidence.`;
   } else {
-    coachMessage = `Good push today — you tackled ${totalQuestions} questions. ${weakest.topicLabel} needs a calm Guided review next so the core rules stick.`;
+    coachMessage = `Good push today — you tackled ${totalQuestions} questions. ${weakest.topicLabel} needs a calm Smart Practice review next so the core rules stick.`;
   }
 
   return {
@@ -519,10 +520,11 @@ export function saveSmartPracticeResult(result: SmartPracticeSessionResult): voi
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(LAST_RESULT_STORAGE_KEY, JSON.stringify(result));
-    const prevTotal = Number(localStorage.getItem(BONUS_XP_STORAGE_KEY) || '0') || 0;
-    const prevDaily = Number(localStorage.getItem(DAILY_BONUS_XP_STORAGE_KEY) || '0') || 0;
-    localStorage.setItem(BONUS_XP_STORAGE_KEY, String(prevTotal + result.totalXp));
-    localStorage.setItem(DAILY_BONUS_XP_STORAGE_KEY, String(prevDaily + result.totalXp));
+    recordSessionDurationBonus({
+      mode: result.pace === 'blitz' ? 'blitz' : 'smart',
+      durationSeconds: Math.max(30, result.durationMinutes * 60),
+      completionBonusXp: Math.max(5, Math.round(result.correctCount * 2)),
+    });
   } catch {
     // ignore storage failures
   }

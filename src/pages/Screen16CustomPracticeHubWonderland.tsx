@@ -6,10 +6,10 @@ import {
   Clock,
   History,
   SlidersHorizontal,
-  Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import { getTopicsForSubject } from '../utils/sabiAiPracticeConfig';
 import {
@@ -398,7 +398,7 @@ export function Screen16CustomPracticeHubWonderland() {
                   onClick={() => navigate('/settings/practice')}
                   className="inline-flex items-center gap-1 text-[12px] font-extrabold text-[#6C19E5] cursor-pointer"
                 >
-                  <Sparkles size={13} />
+                  <SabiBrandEmblem size={14} />
                   <span>Use AI Studio</span>
                 </button>
               </div>

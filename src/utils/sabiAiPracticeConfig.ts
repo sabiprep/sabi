@@ -282,9 +282,9 @@ export async function submitPracticeConfigToSabiAi(params: {
   const recommendedMinutes = Math.max(6, Math.min(18, Math.round(config.dailyMinutes * 0.35)));
 
   const modePhrase: Record<ConcentrationMode, string> = {
-    guided_first: 'step-by-step Guided sessions before speeding up in Blitz',
+    guided_first: 'step-by-step Smart Practice sessions before speeding up in Blitz',
     blitz_heavy: 'high-volume Blitz rapid reinforcement with micro-explanations',
-    balanced_mix: 'Guided mastery drills paired with Blitz retention sweeps',
+    balanced_mix: 'Smart Practice mastery drills paired with Blitz retention sweeps',
     cbt_readiness: 'exam-paced accuracy sets leading into timed CBT mocks',
   };
 
@@ -345,7 +345,7 @@ export async function submitPracticeConfigToSabiAi(params: {
 
   const actionSteps: string[] = [
     `Focus block: ${primarySubjectLabel} · ${primaryTopic} (~${recommendedMinutes} min ${
-      recommendedPace === 'blitz' ? 'Blitz feed' : 'Guided set'
+      recommendedPace === 'blitz' ? 'Blitz feed' : 'Smart Practice set'
     })`,
     `Daily rhythm: ${config.dailyMinutes} min/day targeting ${dailyXpGoal} XP with ${stylePhrase[config.explanationStyle]}`,
     `Subject balance: ${subjectAllocations

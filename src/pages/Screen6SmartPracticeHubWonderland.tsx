@@ -40,8 +40,10 @@ export function Screen6SmartPracticeHubWonderland() {
 
   const paceQuery = searchParams.get('pace');
   const initialPace: PracticePace =
-    paceQuery === 'guided' || paceQuery === 'blitz'
-      ? paceQuery
+    paceQuery === 'guided' || paceQuery === 'smart'
+      ? 'guided'
+      : paceQuery === 'blitz'
+      ? 'blitz'
       : aiConfig.blueprint?.recommendedPace || 'blitz';
   const [selectedPace, setSelectedPace] = useState<PracticePace>(initialPace);
 
@@ -59,8 +61,10 @@ export function Screen6SmartPracticeHubWonderland() {
 
   useEffect(() => {
     const paceParam = searchParams.get('pace');
-    if (paceParam === 'guided' || paceParam === 'blitz') {
-      setSelectedPace(paceParam);
+    if (paceParam === 'guided' || paceParam === 'smart') {
+      setSelectedPace('guided');
+    } else if (paceParam === 'blitz') {
+      setSelectedPace('blitz');
     }
   }, [searchParams]);
 
@@ -146,10 +150,10 @@ export function Screen6SmartPracticeHubWonderland() {
             className="text-[31px] sm:text-[36px] font-bold text-[#260559] leading-[1.12] tracking-[-0.01em]"
             style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
           >
-            Smart Practice
+            Practice Hub
           </h1>
           <p className="mt-1.5 text-[15px] sm:text-[16.5px] font-semibold text-[#2E1359] leading-[1.4]">
-            SABI don pick your next questions. You just pick the pace.
+            Choose Smart Practice for deep adaptive sets or Blitz for rapid-fire drills.
           </p>
         </section>
 
@@ -209,7 +213,7 @@ export function Screen6SmartPracticeHubWonderland() {
 
               <div className="flex-1 min-w-0 pr-1">
                 <div className="text-[18.5px] sm:text-[20px] font-extrabold text-[#260559] leading-tight">
-                  Guided session
+                  Smart Practice
                 </div>
                 <p className="mt-1.5 text-[13.5px] sm:text-[14.5px] font-medium text-[#4F3B73] leading-[1.45]">
                   A focused set that adapts as you answer, with full step-by-step explanations.
@@ -309,7 +313,7 @@ export function Screen6SmartPracticeHubWonderland() {
             {selectedPace === 'blitz' && (
               <Zap size={20} className="text-[#FFE51E] fill-[#FFE51E] shrink-0" />
             )}
-            <span>{selectedPace === 'blitz' ? 'START BLITZ' : 'START GUIDED SESSION'}</span>
+            <span>{selectedPace === 'blitz' ? 'START BLITZ' : 'START SMART PRACTICE'}</span>
           </button>
 
           <p className="mt-2.5 text-center text-[13px] sm:text-[13.5px] font-semibold text-[#3B2264] leading-snug max-w-[380px] mx-auto">

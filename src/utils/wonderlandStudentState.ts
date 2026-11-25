@@ -1,15 +1,26 @@
-import { getRealUserProgress } from './userProgressStore';
+import {
+  DAILY_ASSISTANCE_DIAMOND_CAP,
+  XP_PER_ASSISTANCE_DIAMOND,
+  getEconomySnapshot,
+  getRealUserProgress,
+  getTodayIsoDate,
+} from './userProgressStore';
 import { loadPracticeAiConfig } from './sabiAiPracticeConfig';
-import { loadDiagnosticBaseline } from './cbtAndCustomEngine';
+import { loadDiagnosticBaseline, loadMistakesVault } from './cbtAndCustomEngine';
 
 export interface SubjectMasteryItem {
   canonicalName: string;
   shortCode: string;
   displayLabel: string;
   percent: number;
+  attempts: number;
+  correct: number;
+  hasRealData: boolean;
   ringColor: string;
   textColor: string;
 }
+
+export type LeagueTierId = 'unranked' | 'blue' | 'silver' | 'gold';
 
 export interface LeagueRow {
   rank: number;
@@ -18,6 +29,7 @@ export interface LeagueRow {
   avatarBg: string;
   xp: number;
   isCurrentUser?: boolean;
+  zone?: 'promote' | 'safe' | 'demote';
 }
 
 export interface WonderlandDashboardState {
@@ -26,7 +38,17 @@ export interface WonderlandDashboardState {
   level: number;
   streakDays: number;
   longestStreak: number;
+  practicedToday: boolean;
   xpBalance: number;
+  diamondsBalance: number;
+  subscriptionDiamonds: number;
+  assistanceDiamonds: number;
+  xpPerAssistanceDiamond: number;
+  xpTowardNextDiamond: number;
+  dailyAssistanceDiamondsEarned: number;
+  dailyAssistanceDiamondCap: number;
+  dailyStudyMinutes: number;
+  totalQuestionsSolved: number;
   dailyGoalDone: number;
   dailyGoalTarget: number;
   daysToJamb: number;
@@ -37,11 +59,13 @@ export interface WonderlandDashboardState {
   recommendedMinutes: number;
   weeklyDays: { label: string; status: 'done' | 'today' | 'upcoming' }[];
   calendarMonth: string;
+  calendarTodayDay: number;
   calendarDays: {
     day: number;
     status: 'practised' | 'today' | 'missed' | 'upcoming';
     xpEarned?: number;
   }[];
+  leagueTier: LeagueTierId;
   leagueName: string;
   leagueMeta: string;
   leagueRows: LeagueRow[];
@@ -70,8 +94,6 @@ const SUBJECT_RING_PALETTE = [
   { ringColor: '#059669', textColor: '#047857' }, // Emerald (PHY)
   { ringColor: '#EA580C', textColor: '#C2410C' }, // Orange (CHM)
 ];
-
-const DEFAULT_SAMPLE_PERCENTS = [72, 64, 58, 41];
 
 const SUBJECT_TOPIC_DEFAULTS: Record<string, string> = {
   Chemistry: 'Periodic table trends',
@@ -106,19 +128,101 @@ function readStoredOnboarding(): Record<string, any> | null {
   }
 }
 
+function computeDaysToNextJamb(): number {
+  const now = new Date();
+  const year = now.getFullYear();
+  // JAMB UTME sitting window is typically late April (April 20)
+  let target = new Date(year, 3, 20);
+  if (target.getTime() <= now.getTime()) {
+    target = new Date(year + 1, 3, 20);
+  }
+  const diffMs = target.getTime() - now.getTime();
+  return Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+}
+
+function resolveLeagueTier(xpBalance: number, totalQuestionsSolved: number): LeagueTierId {
+  if (xpBalance <= 0 && totalQuestionsSolved <= 0) return 'unranked';
+  if (xpBalance >= 1200) return 'gold';
+  if (xpBalance >= 450) return 'silver';
+  return 'blue';
+}
+
+function buildCurrentWeekDays(
+  dailyActivityLog: Record<string, { questionsPracticed?: number; xpEarned?: number }>
+): { label: string; status: 'done' | 'today' | 'upcoming' }[] {
+  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const now = new Date();
+  const jsDay = now.getDay(); // 0=Sun..6=Sat
+  const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
+  const todayIso = getTodayIsoDate();
+
+  return labels.map((label, idx) => {
+    const d = new Date(now);
+    d.setDate(now.getDate() + mondayOffset + idx);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+      d.getDate()
+    ).padStart(2, '0')}`;
+    const entry = dailyActivityLog[iso];
+    const hasActivity = Boolean(entry && ((entry.questionsPracticed || 0) > 0 || (entry.xpEarned || 0) > 0));
+
+    if (hasActivity) return { label, status: 'done' as const };
+    if (iso === todayIso) return { label, status: 'today' as const };
+    return { label, status: 'upcoming' as const };
+  });
+}
+
+function buildCurrentMonthCalendar(
+  dailyActivityLog: Record<string, { questionsPracticed?: number; xpEarned?: number }>,
+  dailyGoalDone: number
+): {
+  monthLabel: string;
+  todayDay: number;
+  days: { day: number; status: 'practised' | 'today' | 'missed' | 'upcoming'; xpEarned?: number }[];
+} {
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthIdx = now.getMonth();
+  const todayDay = now.getDate();
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  const monthLabel = now.toLocaleString('en-US', { month: 'long' });
+
+  const days = Array.from({ length: daysInMonth }, (_, idx) => {
+    const day = idx + 1;
+    const iso = `${year}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const entry = dailyActivityLog[iso];
+    const xp = entry?.xpEarned || 0;
+    const practised = Boolean(entry && ((entry.questionsPracticed || 0) > 0 || xp > 0));
+
+    if (day === todayDay) {
+      return { day, status: 'today' as const, xpEarned: dailyGoalDone };
+    }
+    if (day > todayDay) {
+      return { day, status: 'upcoming' as const };
+    }
+    if (practised) {
+      return { day, status: 'practised' as const, xpEarned: xp };
+    }
+    return { day, status: 'missed' as const };
+  });
+
+  return { monthLabel, todayDay, days };
+}
+
 export function getWonderlandDashboardState(): WonderlandDashboardState {
   const onboarding = readStoredOnboarding();
   const realProgress = getRealUserProgress();
+  const economy = getEconomySnapshot();
+  const todayIso = getTodayIsoDate();
 
   const rawFullName =
     (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) ||
     onboarding?.fullName ||
-    'Ada';
+    'Scholar';
   const cleanedFullName =
     rawFullName && rawFullName.trim() && rawFullName.trim().toLowerCase() !== 'candidate'
       ? rawFullName.trim()
-      : 'Ada';
-  const firstName = cleanedFullName.split(/\s+/)[0] || 'Ada';
+      : 'Scholar';
+  const firstName = cleanedFullName.split(/\s+/)[0] || 'Scholar';
 
   const rawSubjects: string[] =
     Array.isArray(onboarding?.chosenSubjects) && onboarding.chosenSubjects.length === 4
@@ -127,6 +231,7 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
 
   const diagnosticBaseline = loadDiagnosticBaseline();
 
+  // Strictly real Mastery Estimates — starts at 0% until real answers or diagnostic results exist.
   const subjects: SubjectMasteryItem[] = rawSubjects.slice(0, 4).map((canonicalName, index) => {
     const meta = SUBJECT_SHORT_CODES[canonicalName] || {
       code: canonicalName.slice(0, 4).toUpperCase(),
@@ -135,32 +240,49 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     const palette = SUBJECT_RING_PALETTE[index % SUBJECT_RING_PALETTE.length];
     const stat = realProgress.subjectStats[canonicalName];
     const diagPct = diagnosticBaseline?.subjectMastery?.[canonicalName];
-    const computedRating =
-      stat && typeof stat.rating === 'number' && stat.rating > 0
-        ? Math.min(100, Math.round(stat.rating))
-        : typeof diagPct === 'number'
-        ? Math.min(100, Math.round(diagPct))
-        : DEFAULT_SAMPLE_PERCENTS[index] ?? 50;
+    const solved = stat?.solved || 0;
+    const correct = stat?.correct || 0;
+
+    let percent = 0;
+    let hasRealData = false;
+    if (solved > 0) {
+      percent = Math.min(100, Math.round((correct / solved) * 100));
+      hasRealData = true;
+    } else if (typeof diagPct === 'number') {
+      percent = Math.min(100, Math.round(diagPct));
+      hasRealData = true;
+    }
 
     return {
       canonicalName,
       shortCode: meta.code,
       displayLabel: meta.shortName,
-      percent: computedRating,
+      percent,
+      attempts: solved,
+      correct,
+      hasRealData,
       ringColor: palette.ringColor,
       textColor: palette.textColor,
     };
   });
 
-  // Determine focus subject (AI Practice Studio blueprint takes highest priority, then onboarding priority, then lowest mastery)
+  const totalQuestionsSolved = Object.values(realProgress.subjectStats).reduce(
+    (sum, s) => sum + (s?.solved || 0),
+    0
+  );
+
+  // Determine focus subject: AI Practice Studio blueprint -> Real Mistakes Vault -> Lowest real mastery -> Onboarding priority
   const aiConfig = loadPracticeAiConfig(rawSubjects);
   const activeBlueprint = aiConfig.blueprint;
+  const mistakesVault = loadMistakesVault();
+  const topMistake = mistakesVault[0];
 
-  const lowestSubject = [...subjects].sort((a, b) => a.percent - b.percent)[0] || subjects[3];
+  const lowestSubject = [...subjects].sort((a, b) => a.percent - b.percent)[0] || subjects[0];
   const priorityCanonical =
     (activeBlueprint?.recommendedSubjectCanonical &&
       rawSubjects.includes(activeBlueprint.recommendedSubjectCanonical) &&
       activeBlueprint.recommendedSubjectCanonical) ||
+    (topMistake && rawSubjects.includes(topMistake.subjectCanonical) && topMistake.subjectCanonical) ||
     (typeof onboarding?.prioritySubject === 'string' &&
       rawSubjects.includes(onboarding.prioritySubject) &&
       onboarding.prioritySubject) ||
@@ -173,89 +295,123 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
 
   const recommendedTopic =
     (activeBlueprint?.recommendedTopic && activeBlueprint.recommendedTopic.trim()) ||
+    (topMistake && topMistake.subjectCanonical === priorityCanonical && topMistake.topicLabel) ||
     (typeof onboarding?.troubleTopic === 'string' &&
       onboarding.troubleTopic.trim().length >= 3 &&
       onboarding.troubleTopic.trim()) ||
     SUBJECT_TOPIC_DEFAULTS[priorityCanonical] ||
     'Periodic table trends';
 
-  const streakDays = realProgress.streakDays > 0 ? realProgress.streakDays : 14;
-  const longestStreak = Math.max(21, streakDays + 7);
-  const earnedBonusXp =
-    typeof window !== 'undefined'
-      ? Number(localStorage.getItem('sabi_wonderland_earned_xp_v1') || '0') || 0
-      : 0;
-  const earnedDailyXp =
-    typeof window !== 'undefined'
-      ? Number(localStorage.getItem('sabi_wonderland_daily_xp_v1') || '0') || 0
-      : 0;
-  const xpBalance = 1240 + earnedBonusXp;
-  const dailyGoalTarget = activeBlueprint?.dailyXpGoal || 30;
-  const dailyGoalDone = Math.min(dailyGoalTarget, 20 + earnedDailyXp);
+  const recommendedEvidence = activeBlueprint
+    ? `${focusMeta.shortName} · structured by SABI AI`
+    : topMistake
+    ? `${focusMeta.shortName} · from ${mistakesVault.filter(m => m.subjectCanonical === priorityCanonical).length} missed question${
+        mistakesVault.filter(m => m.subjectCanonical === priorityCanonical).length === 1 ? '' : 's'
+      }`
+    : `${focusMeta.shortName} · ready for your first drill`;
 
-  // Build 30-day November calendar matching the uploaded Progress & Streaks design
-  const missedSet = new Set([1, 3, 4, 8]);
-  const todayDay = 23;
-  const calendarDays = Array.from({ length: 30 }, (_, idx) => {
-    const day = idx + 1;
-    if (day === todayDay) {
-      return { day, status: 'today' as const, xpEarned: dailyGoalDone };
-    }
-    if (day > todayDay) {
-      return { day, status: 'upcoming' as const };
-    }
-    if (missedSet.has(day)) {
-      return { day, status: 'missed' as const };
-    }
-    return { day, status: 'practised' as const, xpEarned: 30 + ((day * 7) % 35) };
-  });
+  // Strictly real streak, XP, level, and daily goal — zero fake defaults
+  const streakDays = realProgress.streakDays;
+  const longestStreak = realProgress.longestStreak;
+  const xpBalance = economy.totalXp;
+  const level = Math.max(1, Math.floor(xpBalance / 250) + 1);
+  const dailyGoalTarget = activeBlueprint?.dailyXpGoal || 40;
+  const dailyGoalDone = Math.min(dailyGoalTarget, economy.dailyXp);
+  const practicedToday = realProgress.lastActiveDate === todayIso && economy.dailyXp > 0;
 
-  const userInitial = firstName.charAt(0).toUpperCase() || 'A';
+  const weeklyDays = buildCurrentWeekDays(realProgress.dailyActivityLog);
+  const monthCal = buildCurrentMonthCalendar(realProgress.dailyActivityLog, dailyGoalDone);
+  const leagueTier = resolveLeagueTier(xpBalance, totalQuestionsSolved);
+  const userInitial = firstName.charAt(0).toUpperCase() || 'S';
 
-  return {
-    firstName,
-    fullName: cleanedFullName,
-    level: 7,
-    streakDays,
-    longestStreak,
-    xpBalance,
-    dailyGoalDone,
-    dailyGoalTarget,
-    daysToJamb: 112,
-    subjects,
-    recommendedSubject: focusMeta.shortName,
-    recommendedTopic,
-    recommendedEvidence: activeBlueprint
-      ? `${focusMeta.shortName} · structured by SABI AI`
-      : `${focusMeta.shortName} · missed 3 of your last 5`,
-    recommendedMinutes: activeBlueprint?.recommendedMinutes || 8,
-    weeklyDays: [
-      { label: 'M', status: 'done' },
-      { label: 'T', status: 'done' },
-      { label: 'W', status: 'done' },
-      { label: 'T', status: 'done' },
-      { label: 'F', status: 'done' },
-      { label: 'S', status: 'today' },
-      { label: 'S', status: 'upcoming' },
+  const leagueTitles: Record<LeagueTierId, { name: string; meta: string }> = {
+    unranked: { name: 'No League Yet', meta: 'Complete 1 practice session to enter Blue League' },
+    blue: { name: 'Blue League', meta: 'Top 5 promote to Silver League' },
+    silver: { name: 'Silver League', meta: 'Top 5 promote to Gold · bottom 3 drop to Blue' },
+    gold: { name: 'Gold League', meta: 'Top tier · defend your spot to stay in Gold' },
+  };
+
+  const tierSeeds: Record<Exclude<LeagueTierId, 'unranked'>, Omit<LeagueRow, 'rank'>[]> = {
+    blue: [
+      { name: 'Bola', initial: 'B', avatarBg: '#2563EB', xp: 360 },
+      { name: 'Ibrahim', initial: 'I', avatarBg: '#05A85C', xp: 295 },
+      { name: 'Chisom', initial: 'C', avatarBg: '#FF7A00', xp: 220 },
+      { name: 'Tope', initial: 'T', avatarBg: '#0D9488', xp: 145 },
+      { name: 'Hauwa', initial: 'H', avatarBg: '#E11D48', xp: 80 },
     ],
-    calendarMonth: 'November',
-    calendarDays,
-    leagueName: 'Gold League',
-    leagueMeta: '3 days left · top 5 move up',
-    leagueRows: [
-      { rank: 1, name: 'Chidi', initial: 'C', avatarBg: '#05A85C', xp: 1480 },
-      { rank: 2, name: 'Fatima', initial: 'F', avatarBg: '#FF7A00', xp: 1395 },
-      { rank: 3, name: 'Emeka', initial: 'E', avatarBg: '#2563EB', xp: 1310 },
+    silver: [
+      { name: 'Emeka', initial: 'E', avatarBg: '#2563EB', xp: 1080 },
+      { name: 'Fatima', initial: 'F', avatarBg: '#FF7A00', xp: 940 },
+      { name: 'Kemi', initial: 'K', avatarBg: '#05A85C', xp: 790 },
+      { name: 'Sadiq', initial: 'S', avatarBg: '#0D9488', xp: 610 },
+      { name: 'Zainab', initial: 'Z', avatarBg: '#E11D48', xp: 495 },
+    ],
+    gold: [
+      { name: 'Chidi', initial: 'C', avatarBg: '#05A85C', xp: 1840 },
+      { name: 'Amina', initial: 'A', avatarBg: '#FF7A00', xp: 1620 },
+      { name: 'Damilola', initial: 'D', avatarBg: '#2563EB', xp: 1470 },
+      { name: 'Uche', initial: 'U', avatarBg: '#0D9488', xp: 1310 },
+      { name: 'Ngozi', initial: 'N', avatarBg: '#E11D48', xp: 1215 },
+    ],
+  };
+
+  let leagueRows: LeagueRow[] = [];
+  if (leagueTier !== 'unranked') {
+    const combined: Omit<LeagueRow, 'rank'>[] = [
+      ...tierSeeds[leagueTier],
       {
-        rank: 4,
         name: `${firstName} (You)`,
         initial: userInitial,
         avatarBg: '#711AE3',
         xp: xpBalance,
         isCurrentUser: true,
       },
-      { rank: 5, name: 'Tunde', initial: 'T', avatarBg: '#0D9488', xp: 1185 },
-      { rank: 6, name: 'Zainab', initial: 'Z', avatarBg: '#E11D48', xp: 1110 },
-    ],
+    ].sort((a, b) => b.xp - a.xp);
+
+    leagueRows = combined.map((row, idx) => ({
+      ...row,
+      rank: idx + 1,
+      zone:
+        idx < 3 && leagueTier !== 'gold'
+          ? 'promote'
+          : idx >= combined.length - 2 && leagueTier !== 'blue'
+          ? 'demote'
+          : 'safe',
+    }));
+  }
+
+  return {
+    firstName,
+    fullName: cleanedFullName,
+    level,
+    streakDays,
+    longestStreak,
+    practicedToday,
+    xpBalance,
+    diamondsBalance: economy.totalDiamonds,
+    subscriptionDiamonds: economy.subscriptionDiamonds,
+    assistanceDiamonds: economy.assistanceDiamonds,
+    xpPerAssistanceDiamond: XP_PER_ASSISTANCE_DIAMOND,
+    xpTowardNextDiamond: economy.xpTowardNextDiamond,
+    dailyAssistanceDiamondsEarned: economy.dailyAssistanceDiamondsEarned,
+    dailyAssistanceDiamondCap: DAILY_ASSISTANCE_DIAMOND_CAP,
+    dailyStudyMinutes: economy.dailyStudyMinutes,
+    totalQuestionsSolved,
+    dailyGoalDone,
+    dailyGoalTarget,
+    daysToJamb: computeDaysToNextJamb(),
+    subjects,
+    recommendedSubject: focusMeta.shortName,
+    recommendedTopic,
+    recommendedEvidence,
+    recommendedMinutes: activeBlueprint?.recommendedMinutes || 8,
+    weeklyDays,
+    calendarMonth: monthCal.monthLabel,
+    calendarTodayDay: monthCal.todayDay,
+    calendarDays: monthCal.days,
+    leagueTier,
+    leagueName: leagueTitles[leagueTier].name,
+    leagueMeta: leagueTitles[leagueTier].meta,
+    leagueRows,
   };
 }

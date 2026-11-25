@@ -409,7 +409,7 @@ export function Screen5HomeWonderland() {
 
           {/* RIGHT COLUMN (5/12 on Tablet & Desktop) */}
           <div className="md:col-span-5 space-y-3.5 sm:space-y-4">
-            {/* 6. SMART PRACTICE FEATURE HUB (GUIDED + BLITZ) */}
+            {/* 6. PRACTICE HUB (SMART PRACTICE + BLITZ) */}
             <section
               className="relative overflow-hidden rounded-[24px] bg-[#711AE3] p-4 sm:p-5 lg:p-6 text-white"
               style={{ boxShadow: '0 5px 0 #480A99' }}
@@ -424,7 +424,7 @@ export function Screen5HomeWonderland() {
                   className="text-[20px] sm:text-[22px] font-bold text-white leading-tight whitespace-nowrap"
                   style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
                 >
-                  Smart Practice
+                  Practice Hub
                 </h2>
                 <span className="text-[12px] sm:text-[13px] font-bold text-[#E6D5FF] whitespace-nowrap">
                   SABI picks · you set the pace
@@ -432,17 +432,17 @@ export function Screen5HomeWonderland() {
               </div>
 
               <div className="relative z-10 grid grid-cols-2 gap-3">
-                {/* Guided Mode Card */}
+                {/* Smart Practice Mode Card */}
                 <button
                   type="button"
-                  onClick={() => goTo('/practice?pace=guided')}
+                  onClick={() => goTo('/practice?pace=smart')}
                   className="rounded-[18px] bg-white px-3.5 sm:px-4 py-3.5 sm:py-4 text-left flex items-center gap-2.5 sm:gap-3 transition-transform duration-100 active:translate-y-[1.5px] hover:bg-[#FCF9FF] cursor-pointer min-h-[74px]"
                   style={{ boxShadow: '0 4px 0 #D8C7F7' }}
                 >
                   <ConcentricTargetIcon size={25} color="#6C19E5" />
                   <div className="min-w-0">
-                    <div className="text-[16px] sm:text-[17px] font-extrabold text-[#260559] leading-tight truncate">
-                      Guided
+                    <div className="text-[15.5px] sm:text-[16.5px] font-extrabold text-[#260559] leading-tight truncate">
+                      Smart Practice
                     </div>
                     <div className="text-[12px] sm:text-[12.5px] font-semibold text-[#5A467A] leading-tight mt-0.5 truncate">
                       Adaptive set

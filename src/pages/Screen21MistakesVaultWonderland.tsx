@@ -144,7 +144,7 @@ export function Screen21MistakesVaultWonderland() {
                 Your Mistakes Vault is clean!
               </h2>
               <p className="mt-1 text-[14px] font-semibold text-[#5A467A] max-w-[440px] mx-auto">
-                Any question you miss during Blitz, Guided, Custom Practice, or CBT Mock is saved
+                Any question you miss during Blitz, Smart Practice, Custom Practice, or CBT Mock is saved
                 here automatically for quick revision.
               </p>
               <button
@@ -156,7 +156,7 @@ export function Screen21MistakesVaultWonderland() {
                   boxShadow: '0 4px 0 #46099E',
                 }}
               >
-                Start Smart Practice
+                Open Practice Hub
               </button>
             </section>
           ) : (
@@ -230,7 +230,7 @@ export function Screen21MistakesVaultWonderland() {
             <Bookmark size={32} className="mx-auto text-[#6C19E5] mb-2" />
             <h2 className="text-[19px] font-extrabold text-[#260559]">No saved questions yet</h2>
             <p className="mt-1 text-[14px] font-semibold text-[#5A467A] max-w-[440px] mx-auto">
-              Tap the Save icon during any Blitz, Guided, or Custom session to bookmark tough
+              Tap the Save icon during any Blitz, Smart Practice, or Custom session to bookmark tough
               questions here.
             </p>
           </section>

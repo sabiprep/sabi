@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronLeft, Lock } from 'lucide-react';
+import { Check, ChevronLeft, Lock, Star } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -652,7 +652,7 @@ export function Screen4OnboardingWonderland() {
               )}
 
               {/* --------------------------------------------------------- */}
-              {/* Q4: SUBJECT CONFIDENCE LEVELS (1 - 5 Per Chosen Subject)  */}
+              {/* Q4: SUBJECT CONFIDENCE LEVELS (Play Store 5-Star Rating)  */}
               {/* --------------------------------------------------------- */}
               {question.type === 'confidence' && (
                 <div>
@@ -668,42 +668,64 @@ export function Screen4OnboardingWonderland() {
                   <div className="space-y-3">
                     {selectedSubjects.map(canonicalSubject => {
                       const currentRating = answers.subjectConfidence[canonicalSubject] || 0;
+                      const ratingLabels: Record<number, string> = {
+                        0: 'Tap stars to rate',
+                        1: 'Needs heavy focus',
+                        2: 'Still shaky',
+                        3: 'Getting there',
+                        4: 'Confident',
+                        5: 'Exam-ready',
+                      };
                       return (
                         <div
                           key={canonicalSubject}
                           className="bg-white rounded-[18px] px-4 py-3.5"
                           style={{ boxShadow: '0 4px 0 #E2C700' }}
                         >
-                          <div className="flex items-center justify-between mb-2.5">
-                            <span className="text-[15px] sm:text-[15.5px] font-extrabold text-[#260559]">
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <span className="text-[15px] sm:text-[15.5px] font-extrabold text-[#260559] truncate">
                               {getSubjectDisplayLabel(canonicalSubject)}
                             </span>
-                            <span className="text-[12px] font-bold text-[#6C19E5]">
-                              {currentRating > 0 ? `${currentRating} / 5` : 'Tap 1–5'}
+                            <span
+                              className={`text-[12px] font-extrabold whitespace-nowrap ${
+                                currentRating > 0 ? 'text-[#6C19E5]' : 'text-[#7A689C]'
+                              }`}
+                            >
+                              {ratingLabels[currentRating] || ratingLabels[0]}
                             </span>
                           </div>
-                          <div className="grid grid-cols-5 gap-2">
-                            {[1, 2, 3, 4, 5].map(level => {
-                              const isSelected = currentRating === level;
+                          <div
+                            className="flex items-center justify-between gap-1.5 sm:gap-2"
+                            role="radiogroup"
+                            aria-label={`${getSubjectDisplayLabel(canonicalSubject)} confidence rating`}
+                          >
+                            {[1, 2, 3, 4, 5].map(starValue => {
+                              const isFilled = starValue <= currentRating;
                               return (
                                 <button
-                                  key={level}
+                                  key={starValue}
                                   type="button"
+                                  role="radio"
+                                  aria-checked={currentRating === starValue}
+                                  aria-label={`Rate ${getSubjectDisplayLabel(canonicalSubject)} ${starValue} out of 5 stars`}
                                   onClick={() =>
-                                    handleSetConfidence(canonicalSubject, level)
+                                    handleSetConfidence(canonicalSubject, starValue)
                                   }
-                                  className={`py-2.5 rounded-[13px] font-extrabold text-[15px] transition-transform duration-100 active:translate-y-[1px] cursor-pointer ${
-                                    isSelected
-                                      ? 'bg-[#6C19E5] text-white'
-                                      : 'bg-[#F4EEFF] text-[#260559] hover:bg-[#E9DCFF]'
+                                  className={`flex-1 min-h-[46px] rounded-[13px] flex items-center justify-center transition-all duration-150 active:scale-95 cursor-pointer ${
+                                    isFilled
+                                      ? 'bg-[#FFF8D6] border border-[#F2C94C]'
+                                      : 'bg-[#F6F2FF] border border-transparent hover:bg-[#EDE4FF]'
                                   }`}
-                                  style={{
-                                    boxShadow: isSelected
-                                      ? '0 3px 0 #46099E'
-                                      : '0 2.5px 0 #D8C7F7',
-                                  }}
                                 >
-                                  {level}
+                                  <Star
+                                    size={26}
+                                    strokeWidth={2.2}
+                                    className={`transition-transform duration-150 ${
+                                      isFilled
+                                        ? 'text-[#F59E0B] fill-[#FFB800] scale-105'
+                                        : 'text-[#B6A5D6] fill-transparent'
+                                    }`}
+                                  />
                                 </button>
                               );
                             })}

@@ -2,9 +2,9 @@ import React, { useMemo } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Bookmark,
   ChevronLeft,
   SlidersHorizontal,
-  Sparkles,
   Target,
   Zap,
 } from 'lucide-react';
@@ -36,12 +36,12 @@ export function Screen20RecommendationsWonderland() {
     return [
       {
         id: 'block-1',
-        tag: 'PRIORITY #1 · GUIDED FIX',
+        tag: 'PRIORITY #1 · SMART PRACTICE',
         title: `${weakest.displayLabel}: ${getTopicsForSubject(weakest.canonicalName)[0]}`,
         evidence: `Current mastery estimate ${weakest.percent}% — biggest score gain opportunity`,
         minutes: 10,
-        path: `/practice/session?pace=guided&focus=${encodeURIComponent(weakest.canonicalName)}`,
-        cta: 'Start Guided',
+        path: `/practice/session?pace=smart&focus=${encodeURIComponent(weakest.canonicalName)}`,
+        cta: 'Start Smart Practice',
       },
       {
         id: 'block-2',
@@ -212,7 +212,7 @@ export function Screen20RecommendationsWonderland() {
             >
               <div>
                 <div className="flex items-center gap-1.5 text-[12px] font-extrabold text-[#6C19E5] uppercase">
-                  <Sparkles size={14} />
+                  <Bookmark size={14} />
                   <span>Mistakes Vault</span>
                 </div>
                 <div className="mt-0.5 text-[16px] font-extrabold text-[#260559]">
