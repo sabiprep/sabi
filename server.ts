@@ -828,13 +828,10 @@ app.post('/api/explain', aiLimiter, requireAuth, validateBody(explainSchema), as
 
     const response = await callAiWithTimeout(
       ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: prompt,
-        config: {
-          temperature: 0.7,
-        },
       }),
-      8000
+      12000
     );
 
     res.json({
@@ -889,14 +886,9 @@ app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (r
       .find((m: any) => m.sender === 'user' || m.role === 'user')?.text || '';
 
   if (!ai) {
-    return res.json({
-      reply: `Sabi Tutor: You are asking about "${
-        currentTopic || currentSubject || 'your studies'
-      }". Key syllabus takeaway: Ensure you master the underlying definitions, formulas, and past questions for ${
-        currentTopic || 'this topic'
-      }. Keep up the great practice!`,
-      topicMemoryUpdate: `User practiced ${currentTopic || currentSubject || 'JAMB topics'}.`,
-      isMock: true,
+    return res.status(503).json({
+      error: 'SABI AI Assistant is temporarily unavailable because the AI service key is not configured on the server.',
+      code: 'AI_UNAVAILABLE',
     });
   }
 
@@ -935,13 +927,14 @@ app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (r
          - ${retrievedContext || 'Rely on official JAMB syllabus principles.'}
 
       Behavioral Directives:
-      - Never give answers immediately on a platter of gold. Ask scaffolding, thought-provoking questions if they seem stuck.
-      - Reference their target course/university or mock performance naturally.
-      - Be warm, extremely knowledgeable about the JAMB syllabus, and maintain steady, high-morale guidance.
+      - Answer the student's JAMB question clearly, accurately, and step by step using the official JAMB UTME syllabus.
+      - Highlight common JAMB exam traps or shortcuts where helpful, and end with one quick check-in question when appropriate.
+      - Match the student's language preference strictly: if language preference is "pidgin", explain warmly and clearly in Nigerian Pidgin English; otherwise use crisp Standard English.
+      - Reference their chosen subjects or target course naturally without sounding robotic.
 
       Return your outputs strictly as a JSON object adhering to this schema:
       {
-        "reply": "tutor's message supporting the user, with helpful hints/feedback or explanations, structured in markdown with equations formatted as LaTeX enclosed in $ signs (e.g. $x^2 + 5x + 6$)",
+        "reply": "tutor's message supporting the user with clear explanations, formulas, and exam tips",
         "topicMemoryUpdate": "re-written, updated single-paragraph rolling summary of the user's progress, strengths, and remaining weak concepts in this specific topic."
       }
     `;
@@ -949,7 +942,7 @@ app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (r
   try {
     let rawHistory = (messages || [])
       .filter((m: any) => m && (m.text || m.content))
-      .slice(-6)
+      .slice(-8)
       .map((m: any) => ({
         role: (m.sender === 'user' || m.role === 'user' ? 'user' : 'model') as 'user' | 'model',
         parts: [{ text: String(m.text || m.content) }],
@@ -976,7 +969,7 @@ app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (r
 
     const response = await callAiWithTimeout(
       ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: rawHistory,
         config: {
           systemInstruction: systemInstruction,
@@ -996,29 +989,42 @@ app.post('/api/chat', aiLimiter, requireAuth, validateBody(chatSchema), async (r
             },
             required: ['reply', 'topicMemoryUpdate'],
           },
-          temperature: 0.7,
         },
       }),
-      8000
+      18000
     );
 
-    const parsed = JSON.parse(response.text?.trim() || '{}');
+    const rawText = (response.text || '').trim();
+    let parsed: { reply?: string; topicMemoryUpdate?: string } = {};
+    try {
+      parsed = rawText ? JSON.parse(rawText) : {};
+    } catch {
+      parsed = { reply: rawText };
+    }
+
+    if (!parsed.reply || !parsed.reply.trim()) {
+      return res.status(502).json({
+        error: 'SABI Assistant returned an empty response. Please try asking again.',
+        code: 'AI_EMPTY_RESPONSE',
+      });
+    }
+
     res.json({
-      reply:
-        parsed.reply ||
-        "Let's keep our momentum going! Ask me anything about your syllabus or practice questions.",
-      topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory,
+      reply: parsed.reply.trim(),
+      topicMemoryUpdate: parsed.topicMemoryUpdate || topicMemory || '',
     });
   } catch (error: any) {
-    console.warn('Fallback: Error in AI Tutor chat endpoint:', error?.message || error);
-    const friendlyReply = currentTopic
-      ? `Under **${currentTopic}** (${
-          currentSubject || 'JAMB'
-        }), key rules to always remember include knowing the fundamental definitions, the working formulas, and identifying the trap options JAMB frequently sets. What specific sub-question or calculation are you currently tackling?`
-      : `I am right here with you! Let us keep our focus sharp on mastering your 4 JAMB subjects. What topic or concept would you like us to break down next?`;
-    res.json({
-      reply: friendlyReply,
-      topicMemoryUpdate: topicMemory || `Practiced ${currentTopic || 'JAMB concepts'}.`,
+    const errMsg = String(error?.message || error || 'Unknown AI error');
+    console.warn('[SABI] AI Tutor chat error:', errMsg);
+    const isTimeout = errMsg.toLowerCase().includes('timed out');
+    const statusCode = isTimeout ? 504 : Number(error?.status) === 429 ? 429 : 502;
+    res.status(statusCode).json({
+      error: isTimeout
+        ? 'SABI Assistant took too long to respond. Please retry — no AI Credit was charged.'
+        : statusCode === 429
+        ? 'SABI Assistant is handling heavy demand right now. Please wait a moment and retry.'
+        : 'Could not reach SABI Assistant right now. Please retry in a few seconds.',
+      code: isTimeout ? 'AI_TIMEOUT' : statusCode === 429 ? 'AI_RATE_LIMITED' : 'AI_UPSTREAM_ERROR',
     });
   }
 });
@@ -1119,11 +1125,10 @@ app.post(
 
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-4-hydrogen',
         contents: instructionPrompt,
         config: {
           responseMimeType: 'application/json',
-          temperature: 0.8,
         },
       });
 

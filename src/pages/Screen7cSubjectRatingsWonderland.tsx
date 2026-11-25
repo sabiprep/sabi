@@ -7,6 +7,7 @@ import {
   ChevronLeft,
   Compass,
   Layers,
+  MessageSquare,
   Target,
   Zap,
 } from 'lucide-react';
@@ -438,7 +439,7 @@ export function Screen7cSubjectRatingsWonderland() {
               )}
 
               {/* BOTTOM QUICK ACTION ROW */}
-              <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <button
                   type="button"
                   onClick={() =>
@@ -448,22 +449,40 @@ export function Screen7cSubjectRatingsWonderland() {
                       )}`
                     )
                   }
-                  className="py-3.5 px-4 rounded-[16px] bg-[#6C19E5] hover:brightness-105 text-white font-extrabold text-[13.5px] uppercase tracking-wide inline-flex items-center justify-center gap-2 cursor-pointer"
+                  className="py-3.5 px-4 rounded-[16px] bg-[#6C19E5] hover:brightness-105 text-white font-extrabold text-[13px] uppercase tracking-wide inline-flex items-center justify-center gap-1.5 cursor-pointer"
                   style={{
                     fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
                     boxShadow: '0 4px 0 #46099E',
                   }}
                 >
-                  <span>Fix Weak Topics Now</span>
-                  <ArrowRight size={16} />
+                  <span>Fix Weak Topics</span>
+                  <ArrowRight size={15} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const params = new URLSearchParams({
+                      subject: activeInsight.subject.canonicalName,
+                    });
+                    if (activeInsight.primaryWeakTopic) {
+                      params.set('topic', activeInsight.primaryWeakTopic);
+                    }
+                    navigate(`/assistant?${params.toString()}`);
+                  }}
+                  className="py-3.5 px-4 rounded-[16px] bg-[#2A085E] hover:brightness-110 text-[#FFE824] font-extrabold text-[13px] inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                  style={{ boxShadow: '0 4px 0 #170338' }}
+                >
+                  <MessageSquare size={15} />
+                  <span>Ask SABI Assistant</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => navigate('/settings/practice')}
-                  className="py-3.5 px-4 rounded-[16px] bg-[#F3EEFD] hover:bg-[#E7DCFA] text-[#260559] font-extrabold text-[13.5px] inline-flex items-center justify-center gap-2 cursor-pointer"
+                  className="py-3.5 px-4 rounded-[16px] bg-[#F3EEFD] hover:bg-[#E7DCFA] text-[#260559] font-extrabold text-[13px] inline-flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <span>Tune SABI AI Focus</span>
+                  <span>Tune AI Focus</span>
                 </button>
               </div>
             </section>

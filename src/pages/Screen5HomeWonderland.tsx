@@ -4,6 +4,7 @@ import {
   Calendar,
   CheckCircle2,
   Flame,
+  MessageSquare,
   Monitor,
   SlidersHorizontal,
   Zap,
@@ -602,6 +603,39 @@ export function Screen5HomeWonderland() {
                     You choose
                   </div>
                 </div>
+              </button>
+            </section>
+
+            {/* 8. SABI ASSISTANT DIRECT CHAT SHORTCUT */}
+            <section
+              className="rounded-[20px] bg-white px-4 py-3.5 sm:px-5 sm:py-4 flex items-center justify-between gap-3"
+              style={{ boxShadow: '0 4px 0 #E2C700' }}
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-[14px] bg-[#2A085E] text-[#FFE824] flex items-center justify-center shrink-0">
+                  <MessageSquare size={21} strokeWidth={2.4} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[15px] sm:text-[16px] font-extrabold text-[#260559] leading-tight truncate">
+                    SABI Assistant
+                  </div>
+                  <div className="text-[12px] sm:text-[12.5px] font-semibold text-[#5A467A] leading-tight mt-0.5 truncate">
+                    Ask any JAMB question · {data.diamondsBalance} AI credits
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => goTo('/assistant')}
+                className="px-4 py-2.5 rounded-[14px] bg-[#6C19E5] hover:brightness-105 text-white font-extrabold text-[12.5px] uppercase tracking-wide shrink-0 inline-flex items-center gap-1 transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
+                style={{
+                  fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                  boxShadow: '0 3px 0 #46099E',
+                }}
+              >
+                <span>Ask</span>
+                <ArrowRight size={14} strokeWidth={2.7} />
               </button>
             </section>
           </div>

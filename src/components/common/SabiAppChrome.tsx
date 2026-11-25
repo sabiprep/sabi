@@ -11,6 +11,7 @@ import {
   Home,
   LogOut,
   Menu,
+  MessageSquare,
   Monitor,
   SlidersHorizontal,
   Target,
@@ -31,6 +32,7 @@ export type SabiNavTab =
   | 'cbt'
   | 'progress'
   | 'profile'
+  | 'assistant'
   | 'subscriptions'
   | 'practice-settings';
 
@@ -106,6 +108,16 @@ const DRAWER_STUDIO_ITEMS: {
   badge?: string;
   Icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 }[] = [
+  {
+    id: 'assistant',
+    title: 'SABI Assistant Chat',
+    subtitle: 'Ask any JAMB question in English or Naija Pidgin',
+    path: '/assistant',
+    accentBg: 'bg-[#6C19E5]',
+    accentText: 'text-[#FFE824]',
+    badge: 'CHAT',
+    Icon: MessageSquare,
+  },
   {
     id: 'practice-settings',
     title: 'SABI AI Practice Studio',
@@ -290,6 +302,21 @@ export function SabiAppChrome({
               <div className="px-3 pb-1 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#B8A2DF]">
                 Studio & Access
               </div>
+              <button
+                type="button"
+                onClick={() => goTo('/assistant')}
+                className={`w-full flex items-center justify-between gap-2 px-4 py-3 rounded-[16px] text-[14.5px] font-extrabold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'assistant'
+                    ? 'bg-[#6C19E5] text-[#FFE51E] shadow-[0_4px_0_#46099E]'
+                    : 'text-white hover:bg-white/10'
+                }`}
+              >
+                <span className="flex items-center gap-3 min-w-0">
+                  <MessageSquare size={19} strokeWidth={2.4} className="shrink-0 text-[#FFE824]" />
+                  <span className="truncate">SABI Assistant</span>
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => goTo('/settings/practice')}
