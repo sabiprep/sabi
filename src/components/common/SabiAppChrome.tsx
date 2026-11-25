@@ -80,6 +80,8 @@ interface SabiAppChromeProps {
   backdropVariant?: 'home' | 'practice' | 'progress';
   /** Hide bottom mobile pill nav on focused sub-screens like Smart Practice Hub */
   hideMobileBottomNav?: boolean;
+  /** Lock main viewport to exact 100dvh with zero outer bottom padding (for full-bleed chat apps) */
+  fullViewport?: boolean;
   /** Optional desktop sidebar stats */
   streakDays?: number;
   xpBalance?: number;
@@ -160,6 +162,7 @@ export function SabiAppChrome({
   children,
   backdropVariant = 'home',
   hideMobileBottomNav = false,
+  fullViewport = false,
   streakDays = 0,
   xpBalance = 0,
 }: SabiAppChromeProps) {
@@ -383,7 +386,9 @@ export function SabiAppChrome({
         {/* ================================================================= */}
         <div
           className={`relative z-10 flex-1 min-w-0 w-full flex flex-col ${
-            hideMobileBottomNav
+            fullViewport
+              ? 'h-[100dvh] max-h-[100dvh] overflow-hidden pb-0'
+              : hideMobileBottomNav
               ? 'pb-[max(env(safe-area-inset-bottom,0px),12px)] lg:pb-8'
               : 'pb-[calc(76px+env(safe-area-inset-bottom,0px))] lg:pb-8'
           }`}

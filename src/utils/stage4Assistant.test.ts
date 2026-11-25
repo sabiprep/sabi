@@ -2,15 +2,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_STORED_ASSISTANT_MESSAGES,
   appendAssistantMessage,
+  appendMessageToSession,
   buildAssistantStarterPrompts,
   clearAssistantConversation,
+  clearAssistantSessionMessages,
   consumeAssistantCredit,
+  createAssistantSession,
+  deleteAssistantSession,
+  deriveChatTitleFromPrompt,
   getAssistantCreditState,
   loadAssistantLanguage,
   loadAssistantMessages,
+  loadAssistantSessions,
+  loadAssistantSettings,
   loadTopicMemory,
   saveAssistantLanguage,
+  saveAssistantSettings,
   saveTopicMemory,
+  searchAssistantSessions,
 } from './sabiAssistantStore';
 import {
   getRealUserProgress,
@@ -42,7 +51,7 @@ function createMemoryStorage(): Storage {
   };
 }
 
-describe('Stage 4 — SABI Assistant Store, AI Credits & Weak-Topic Prompts', () => {
+describe('Stage 1 / Stage 4 — SABI Assistant Multi-Chat Store, Settings, AI Credits & Prompts', () => {
   beforeEach(() => {
     const storage = createMemoryStorage();
     vi.stubGlobal('localStorage', storage);
@@ -91,7 +100,63 @@ describe('Stage 4 — SABI Assistant Store, AI Credits & Weak-Topic Prompts', ()
     expect(secondSpend.remainingCredits).toBe(4);
   });
 
-  it('persists chat history, caps length, and clears cleanly', () => {
+  it('manages multiple Old Chats sessions with auto-titling, search, clear, and delete', () => {
+    const first = createAssistantSession({ subject: 'Chemistry' });
+    appendMessageToSession(first.id, {
+      id: 'u-1',
+      role: 'user',
+      text: 'Explain periodic table ionization energy trends',
+      subject: 'Chemistry',
+      createdAt: '2026-11-25T10:00:00.000Z',
+    });
+
+    const second = createAssistantSession({ subject: 'Physics' });
+    appendMessageToSession(second.id, {
+      id: 'u-2',
+      role: 'user',
+      text: 'How do I calculate maximum height in projectile motion?',
+      subject: 'Physics',
+      createdAt: '2026-11-25T10:05:00.000Z',
+    });
+
+    const all = loadAssistantSessions();
+    expect(all).toHaveLength(2);
+    expect(all[0].title).toContain('maximum height');
+    expect(all[1].title).toContain('ionization energy');
+
+    const matches = searchAssistantSessions(all, 'projectile');
+    expect(matches).toHaveLength(1);
+    expect(matches[0].id).toBe(second.id);
+
+    const cleared = clearAssistantSessionMessages(second.id);
+    expect(cleared.find((s) => s.id === second.id)?.messages).toEqual([]);
+
+    const afterDelete = deleteAssistantSession(first.id);
+    expect(afterDelete).toHaveLength(1);
+    expect(afterDelete[0].id).toBe(second.id);
+  });
+
+  it('migrates legacy v1 flat chat history cleanly into a session', () => {
+    localStorage.setItem(
+      'sabi_assistant_chat_v1',
+      JSON.stringify([
+        {
+          id: 'legacy-1',
+          role: 'user',
+          text: 'What is Newton second law?',
+          subject: 'Physics',
+          createdAt: '2026-11-24T09:00:00.000Z',
+        },
+      ])
+    );
+
+    const sessions = loadAssistantSessions();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].title).toBe(deriveChatTitleFromPrompt('What is Newton second law?'));
+    expect(sessions[0].messages).toHaveLength(1);
+  });
+
+  it('persists chat messages, caps length, and clears cleanly', () => {
     for (let i = 0; i < MAX_STORED_ASSISTANT_MESSAGES + 5; i++) {
       appendAssistantMessage({
         id: `msg-${i}`,
@@ -110,10 +175,21 @@ describe('Stage 4 — SABI Assistant Store, AI Credits & Weak-Topic Prompts', ()
     expect(loadAssistantMessages()).toEqual([]);
   });
 
-  it('persists language preference and rolling topic memory', () => {
+  it('persists Assistant settings (language, explanation depth, default subject) and topic memory', () => {
     expect(loadAssistantLanguage()).toBe('english');
     saveAssistantLanguage('pidgin');
     expect(loadAssistantLanguage()).toBe('pidgin');
+
+    const saved = saveAssistantSettings({
+      explanationDepth: 'short',
+      defaultSubject: 'Mathematics',
+    });
+    expect(saved).toEqual({
+      language: 'pidgin',
+      explanationDepth: 'short',
+      defaultSubject: 'Mathematics',
+    });
+    expect(loadAssistantSettings()).toEqual(saved);
 
     saveTopicMemory('Physics::Projectile Motion', 'Student needs practice on max height formula.');
     expect(loadTopicMemory('Physics::Projectile Motion')).toContain('max height formula');
