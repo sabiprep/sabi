@@ -63872,6 +63872,7 @@ function isOriginAllowed(origin) {
   ];
   if (allowList.includes(origin)) return true;
   if (/^https:\/\/sabi[a-z0-9-]*\.vercel\.app$/i.test(origin)) return true;
+  if (/^https:\/\/ais-(dev|pre)-[a-z0-9-]+\.[a-z0-9-]+\.run\.app$/i.test(origin)) return true;
   return false;
 }
 
@@ -64114,11 +64115,11 @@ var JAMB_SUBJECTS = [
   { slug: "government", name: "Government", category: "Social Sciences", aliases: [] },
   { slug: "economics", name: "Economics", category: "Social Sciences", aliases: [] },
   { slug: "christian-religious-studies", name: "Christian Religious Studies", category: "Arts", aliases: ["CRS", "C.R.S"] },
-  { slug: "islamic-religious-studies", name: "Islamic Religious Studies", category: "Arts", aliases: ["IRS"] },
+  { slug: "islamic-religious-studies", name: "Islamic Religious Studies", category: "Arts", aliases: ["IRS", "Islamic Studies"] },
   { slug: "agricultural-science", name: "Agricultural Science", category: "Science", aliases: [] },
   { slug: "geography", name: "Geography", category: "General", aliases: [] },
   { slug: "commerce", name: "Commerce", category: "Social Sciences", aliases: [] },
-  { slug: "financial-accounting", name: "Financial Accounting", category: "Social Sciences", aliases: ["Accounting"] },
+  { slug: "financial-accounting", name: "Financial Accounting", category: "Social Sciences", aliases: ["Accounting", "Principles of Accounts"] },
   { slug: "history", name: "History", category: "Arts", aliases: [] },
   { slug: "yoruba", name: "Yoruba", category: "Languages", aliases: [] },
   { slug: "igbo", name: "Igbo", category: "Languages", aliases: [] },
@@ -64210,7 +64211,7 @@ var onboardingSchema = onboardingBaseSchema.transform((input, ctx) => {
   if (input.questionSetVersion === "v3") {
     const a = input.onboardingAnswers;
     let invalidV3 = false;
-    const requiredText = ["fullName", "currentClass", "attempts", "targetCourse", "targetUniversity", "monthsUntilExam", "prioritySubject", "struggleType", "troubleTopic", "studyStyle", "dailyStudyHours", "studyEnvironment", "explanationPreference", "languagePreference"];
+    const requiredText = ["fullName", "currentClass", "attempts", "targetCourse", "targetUniversity", "prioritySubject", "struggleType", "troubleTopic", "studyStyle", "dailyStudyHours", "explanationPreference"];
     for (const key of requiredText) {
       if (typeof a[key] !== "string" || !String(a[key]).trim()) {
         invalidV3 = true;
@@ -68236,10 +68237,15 @@ app.use(
 );
 app.use(import_express8.default.json({ limit: config.maxJsonBody }));
 app.use((req, res, next) => {
+  if (!req.path.startsWith("/api")) {
+    res.removeHeader("X-Frame-Options");
+    res.removeHeader("Cross-Origin-Resource-Policy");
+    res.removeHeader("Cross-Origin-Opener-Policy");
+  }
   const origin = req.headers.origin;
-  const selfOrigin = `${req.protocol}://${req.headers.host || ""}`;
-  const isSameOrigin = Boolean(origin) && origin === selfOrigin;
-  const allowed = isOriginAllowed(origin) || isSameOrigin;
+  const host = req.headers.host || "";
+  const isSameOrigin = Boolean(origin) && Boolean(host) && (origin === `http://${host}` || origin === `https://${host}`);
+  const allowed = isOriginAllowed(origin) || isSameOrigin || !req.path.startsWith("/api");
   if (allowed) {
     res.header("Access-Control-Allow-Origin", origin || "*");
     res.header("Vary", "Origin");
@@ -69039,7 +69045,7 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, allowedHosts: true },
       appType: "spa",
       optimizeDeps: { force: true }
     });
