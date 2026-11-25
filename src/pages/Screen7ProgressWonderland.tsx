@@ -6,8 +6,8 @@ import { sound } from '../utils/soundEffects';
 
 /**
  * SCREEN 7 (`/progress`): YOUR PROGRESS, STREAKS & LEAGUE
- * Built 1:1 from Uploaded Image `07___Progress___streaks_7ec43b15.png` for mobile/Android APK,
- * expanding into a balanced 2-column desktop workspace on `lg:` viewports.
+ * Full-bleed edge-to-edge layout on mobile/Android APK, expanding smoothly into
+ * a wide 2-column workspace from `md:` upwards with zero boxed inner framing.
  */
 export function Screen7ProgressWonderland() {
   const data = useMemo(() => getWonderlandDashboardState(), []);
@@ -23,27 +23,27 @@ export function Screen7ProgressWonderland() {
       streakDays={data.streakDays}
       xpBalance={data.xpBalance}
     >
-      <main className="w-full max-w-[440px] lg:max-w-[1060px] mx-auto px-5 sm:px-6 lg:px-9 pt-5 sm:pt-7 lg:pt-8">
+      <main className="w-full max-w-[1360px] mx-auto px-3 sm:px-5 lg:px-8 pt-3.5 sm:pt-5 lg:pt-7">
         {/* 1. PAGE TITLE */}
-        <header className="mb-4 sm:mb-5 lg:mb-7">
+        <header className="mb-3.5 sm:mb-5 lg:mb-6">
           <h1
-            className="text-[30px] sm:text-[34px] font-bold text-[#260559] leading-tight tracking-[-0.01em]"
+            className="text-[30px] sm:text-[34px] lg:text-[36px] font-bold text-[#260559] leading-tight tracking-[-0.01em]"
             style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
           >
             Your progress
           </h1>
         </header>
 
-        {/* RESPONSIVE BODY: Vertical stack on Mobile, 2-Column Layout on Desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
-          {/* LEFT COLUMN (6/12 on Desktop): Streak Hero + Monthly Practice Calendar */}
-          <div className="lg:col-span-6 space-y-4">
+        {/* RESPONSIVE BODY: Full-width stack on Mobile, 2-Column Layout from `md:` */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-start">
+          {/* LEFT COLUMN (6/12 on Tablet & Desktop): Streak Hero + Monthly Practice Calendar */}
+          <div className="md:col-span-6 space-y-4">
             {/* 2. ORANGE STREAK HERO BANNER */}
             <section
-              className="rounded-[26px] bg-[#FF7A00] px-5 py-5 sm:px-6 sm:py-6 text-white flex items-center gap-4 sm:gap-5"
+              className="rounded-[24px] bg-[#FF7A00] px-5 py-5 sm:px-6 sm:py-6 text-white flex items-center gap-4 sm:gap-5"
               style={{ boxShadow: '0 5px 0 #C45600' }}
             >
-              <div className="w-[54px] h-[54px] sm:w-[60px] sm:h-[60px] flex items-center justify-center shrink-0">
+              <div className="w-[54px] h-[54px] sm:w-[62px] sm:h-[62px] flex items-center justify-center shrink-0">
                 <Flame size={46} className="text-white fill-white" strokeWidth={1.6} />
               </div>
               <div className="min-w-0">
@@ -61,11 +61,11 @@ export function Screen7ProgressWonderland() {
 
             {/* 3. MONTHLY PRACTICE CALENDAR CARD */}
             <section
-              className="bg-white rounded-[24px] px-4 py-4 sm:px-5 sm:py-5"
+              className="bg-white rounded-[24px] px-4 py-4 sm:px-6 sm:py-5"
               style={{ boxShadow: '0 4px 0 #E2C700' }}
             >
               <div className="flex items-center justify-between gap-2 mb-4">
-                <h2 className="text-[18px] sm:text-[19px] font-extrabold text-[#260559]">
+                <h2 className="text-[18px] sm:text-[19.5px] font-extrabold text-[#260559]">
                   {data.calendarMonth}
                 </h2>
                 <span className="text-[13px] font-bold text-[#5E4A80] whitespace-nowrap">
@@ -74,11 +74,10 @@ export function Screen7ProgressWonderland() {
               </div>
 
               {/* 7-Column Calendar Grid (Days 1–30) */}
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-2 sm:gap-2.5">
                 {data.calendarDays.map(cell => {
                   const isSelected = selectedDay === cell.day;
-                  let cellClasses =
-                    'bg-[#FAF8FF] text-[#6E5C91] hover:bg-[#F3EEFD]';
+                  let cellClasses = 'bg-[#FAF8FF] text-[#6E5C91] hover:bg-[#F3EEFD]';
 
                   if (cell.status === 'practised') {
                     cellClasses = 'bg-[#FF7A00] text-white hover:brightness-105';
@@ -103,7 +102,7 @@ export function Screen7ProgressWonderland() {
                       }}
                       aria-label={`${data.calendarMonth} ${cell.day}, ${cell.status}`}
                       aria-pressed={isSelected}
-                      className={`aspect-square rounded-[12px] flex items-center justify-center text-[14px] sm:text-[15px] font-extrabold tabular-nums transition-transform duration-100 active:scale-95 cursor-pointer ${cellClasses}`}
+                      className={`aspect-square rounded-[12px] flex items-center justify-center text-[14px] sm:text-[15.5px] font-extrabold tabular-nums transition-transform duration-100 active:scale-95 cursor-pointer ${cellClasses}`}
                     >
                       {cell.day}
                     </button>
@@ -111,9 +110,8 @@ export function Screen7ProgressWonderland() {
                 })}
               </div>
 
-              {/* Quiet Selected Day Context Footer */}
               {activeDayDetail && (
-                <div className="mt-4 pt-3 border-t border-[#F3EEFD] flex items-center justify-between text-[12.5px] font-bold text-[#5A467A]">
+                <div className="mt-4 pt-3 border-t border-[#F3EEFD] flex items-center justify-between text-[13px] font-bold text-[#5A467A]">
                   <span>
                     {data.calendarMonth} {activeDayDetail.day}
                     {activeDayDetail.status === 'today' ? ' · Today' : ''}
@@ -130,28 +128,26 @@ export function Screen7ProgressWonderland() {
             </section>
           </div>
 
-          {/* RIGHT COLUMN (6/12 on Desktop): Gold League Leaderboard */}
-          <div className="lg:col-span-6 space-y-4">
-            {/* 4. GOLD LEAGUE LEADERBOARD CARD */}
+          {/* RIGHT COLUMN (6/12 on Tablet & Desktop): Gold League Leaderboard */}
+          <div className="md:col-span-6 space-y-4">
             <section
-              className="bg-white rounded-[24px] px-4 py-4 sm:px-5 sm:py-5"
+              className="bg-white rounded-[24px] px-4 py-4 sm:px-6 sm:py-5"
               style={{ boxShadow: '0 4px 0 #E2C700' }}
             >
               <div className="flex items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-[38px] h-[38px] rounded-[12px] bg-[#FFE36E] text-[#8F5900] flex items-center justify-center shrink-0">
-                    <Trophy size={20} strokeWidth={2.3} />
+                  <div className="w-[40px] h-[40px] rounded-[12px] bg-[#FFE36E] text-[#8F5900] flex items-center justify-center shrink-0">
+                    <Trophy size={21} strokeWidth={2.3} />
                   </div>
-                  <h2 className="text-[18px] sm:text-[19px] font-extrabold text-[#260559] truncate">
+                  <h2 className="text-[18.5px] sm:text-[20px] font-extrabold text-[#260559] truncate">
                     {data.leagueName}
                   </h2>
                 </div>
-                <span className="text-[12.5px] sm:text-[13px] font-bold text-[#5E4A80] whitespace-nowrap shrink-0">
+                <span className="text-[12.5px] sm:text-[13.5px] font-bold text-[#5E4A80] whitespace-nowrap shrink-0">
                   {data.leagueMeta}
                 </span>
               </div>
 
-              {/* Ranked Student Rows */}
               <div className="space-y-2">
                 {data.leagueRows.map(row => (
                   <React.Fragment key={row.rank}>
@@ -163,7 +159,7 @@ export function Screen7ProgressWonderland() {
                       </div>
                     )}
                     <div
-                      className={`flex items-center justify-between gap-3 px-3 py-2.5 rounded-[16px] ${
+                      className={`flex items-center justify-between gap-3 px-3.5 py-3 rounded-[16px] ${
                         row.isCurrentUser ? 'bg-[#F3ECFF]' : 'bg-transparent'
                       }`}
                     >
@@ -176,7 +172,7 @@ export function Screen7ProgressWonderland() {
                           {row.rank}
                         </span>
                         <div
-                          className="w-[38px] h-[38px] rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shrink-0"
+                          className="w-[40px] h-[40px] rounded-full flex items-center justify-center text-white font-extrabold text-[15px] shrink-0"
                           style={{ backgroundColor: row.avatarBg }}
                         >
                           {row.initial}

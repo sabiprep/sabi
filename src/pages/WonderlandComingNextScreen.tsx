@@ -35,7 +35,7 @@ export function WonderlandComingNextScreen({
       streakDays={data.streakDays}
       xpBalance={data.xpBalance}
     >
-      <main className="w-full max-w-[440px] lg:max-w-[760px] mx-auto px-5 sm:px-6 pt-6 sm:pt-9">
+      <main className="w-full max-w-[1040px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-6 lg:pt-8">
         <header className="mb-5">
           <h1
             className="text-[30px] sm:text-[34px] font-bold text-[#260559] leading-tight"

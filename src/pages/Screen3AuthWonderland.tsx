@@ -792,8 +792,8 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
 
   return (
     <SabiWonderlandShell>
-      <main className="w-full flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-5 sm:py-9">
-        <div className="w-full max-w-[400px] sm:max-w-[435px] mx-auto flex flex-col items-center">
+      <main className="w-full flex-1 flex flex-col items-center justify-center px-3.5 sm:px-6 py-4 sm:py-7">
+        <div className="w-full max-w-[460px] sm:max-w-[500px] mx-auto flex flex-col items-center">
           {/* 1. Top SABI 3D Open-Book Logo + Wordmark */}
           <div className="mb-2.5">
             <SabiPurpleBookLogo size="md" to="/welcome" />

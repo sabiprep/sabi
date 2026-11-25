@@ -408,9 +408,9 @@ export function Screen4OnboardingWonderland() {
       {/* ================================================================= */}
       {/* FOREGROUND ONBOARDING CONTAINER (Mobile APK & Desktop Responsive) */}
       {/* ================================================================= */}
-      <main className="relative z-10 w-full flex-1 flex flex-col max-w-[430px] sm:max-w-[470px] mx-auto px-5 sm:px-6 pt-4 sm:pt-7 pb-6 sm:pb-8">
+      <main className="relative z-10 w-full flex-1 flex flex-col max-w-none md:max-w-[760px] lg:max-w-[840px] mx-auto px-3.5 sm:px-6 pt-3 sm:pt-6 pb-3 sm:pb-6">
         {/* 1. TOP BAR: Back Square Button + White/Purple Pill Progress Track + Step Counter */}
-        <header className="flex items-center justify-between gap-3.5 sm:gap-4 mb-5">
+        <header className="flex items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-5">
           <button
             type="button"
             onClick={handleBack}
@@ -478,7 +478,7 @@ export function Screen4OnboardingWonderland() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3">
                     {WONDERLAND_ONBOARDING_SUBJECTS.map(subj => {
                       const isLocked = Boolean(subj.locked);
                       const isSelected = selectedSubjects.includes(subj.canonicalName);
@@ -871,7 +871,7 @@ export function Screen4OnboardingWonderland() {
             )}
 
             {/* 4. BOTTOM PRIMARY CTA: CONTINUE */}
-            <footer className="mt-auto pt-7 pb-1">
+            <footer className="mt-auto pt-4 pb-1">
               <button
                 type="button"
                 disabled={!canContinue || submitting}
@@ -954,7 +954,7 @@ export function Screen4OnboardingWonderland() {
               </div>
             </div>
 
-            <footer className="mt-auto pt-6 pb-1">
+            <footer className="mt-auto pt-4 pb-1">
               <button
                 type="button"
                 onClick={() => navigate('/home')}

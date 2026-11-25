@@ -34,10 +34,10 @@ const NAV_ITEMS: {
 
 /**
  * Shared SABI Wonderland Authenticated Shell
- * - Mobile / Android APK: Full-bleed SABI Yellow canvas with top-right purple orb,
- *   contextual ambient shapes, and the floating dark-purple 5-tab bottom navigation bar.
- * - Desktop WebApp (`lg:`): Persistent left dark-purple navigation rail with full multi-column
- *   workspace canvas (never collapsed into a narrow phone strip).
+ * - Mobile / Android APK: Full-bleed edge-to-edge SABI Yellow canvas with a compact,
+ *   low-anchored dark-purple 5-tab bottom navigation bar so content fills the screen naturally.
+ * - Desktop WebApp (`lg:`): Persistent left dark-purple navigation rail with a wide,
+ *   full-bleed responsive workspace canvas (no narrow "frame inside a frame" margins).
  */
 export function SabiAppChrome({
   activeTab,
@@ -70,9 +70,9 @@ export function SabiAppChrome({
       {/* DECORATIVE AMBIENT SHAPES (Matches Uploaded Screens 01, 02, 07)   */}
       {/* ================================================================= */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-        {/* Top-Right Large Purple Circle Orb (Present on Home, Smart Practice, Progress) */}
+        {/* Top-Right Large Purple Circle Orb */}
         <div
-          className="absolute -top-[42px] -right-[56px] w-[190px] h-[190px] sm:w-[225px] sm:h-[225px] rounded-full"
+          className="absolute -top-[48px] -right-[56px] w-[180px] h-[180px] sm:w-[220px] sm:h-[220px] rounded-full"
           style={{
             background: 'linear-gradient(145deg, #7C22F2 0%, #6D18E3 100%)',
           }}
@@ -81,7 +81,7 @@ export function SabiAppChrome({
         {/* Home Screen: Pale Cream-Yellow Ring Peeking on Middle-Left */}
         {backdropVariant === 'home' && (
           <div
-            className="absolute -left-[68px] top-[340px] w-[160px] h-[160px] rounded-full lg:left-[210px]"
+            className="absolute -left-[74px] top-[340px] w-[160px] h-[160px] rounded-full lg:left-[186px]"
             style={{
               border: '20px solid rgba(255, 248, 178, 0.72)',
             }}
@@ -91,7 +91,7 @@ export function SabiAppChrome({
         {/* Smart Practice Hub: Vibrant Emerald-Green Hollow Ring at Bottom-Left */}
         {backdropVariant === 'practice' && (
           <div
-            className="absolute -left-[58px] -bottom-[52px] w-[190px] h-[190px] sm:w-[215px] sm:h-[215px] rounded-full lg:left-[225px]"
+            className="absolute -left-[62px] -bottom-[56px] w-[190px] h-[190px] sm:w-[215px] sm:h-[215px] rounded-full lg:left-[195px]"
             style={{
               border: '22px solid #00B862',
             }}
@@ -103,19 +103,19 @@ export function SabiAppChrome({
       {/* DESKTOP LEFT NAVIGATION RAIL (`lg:flex`)                          */}
       {/* ================================================================= */}
       <aside
-        className="hidden lg:flex lg:flex-col lg:w-[252px] lg:shrink-0 lg:sticky lg:top-0 lg:h-[100dvh] z-30 bg-[#2A085E] text-white px-5 py-7 justify-between shadow-[6px_0_24px_rgba(42,8,94,0.16)]"
+        className="hidden lg:flex lg:flex-col lg:w-[232px] xl:w-[248px] lg:shrink-0 lg:sticky lg:top-0 lg:h-[100dvh] z-30 bg-[#2A085E] text-white px-4 py-6 justify-between shadow-[6px_0_24px_rgba(42,8,94,0.16)]"
         aria-label="Primary navigation"
       >
         <div>
           {/* SABI Brand Lockup */}
-          <div className="flex items-center gap-3 px-2 mb-8">
+          <div className="flex items-center gap-3 px-1.5 mb-7">
             <div className="bg-[#FFE824] rounded-2xl px-3 py-1.5 shadow-[0_3px_0_#D8B700]">
               <SabiPurpleBookLogo size="sm" to="/home" />
             </div>
           </div>
 
           {/* 5 Student Navigation Links */}
-          <nav className="space-y-2">
+          <nav className="space-y-1.5">
             {NAV_ITEMS.map(({ id, label, path, Icon }) => {
               const isActive = activeTab === id;
               return (
@@ -123,13 +123,13 @@ export function SabiAppChrome({
                   key={id}
                   type="button"
                   onClick={() => navigate(path)}
-                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 rounded-[18px] text-[15px] font-extrabold transition-all duration-150 cursor-pointer whitespace-nowrap ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-[16px] text-[15px] font-extrabold transition-all duration-150 cursor-pointer whitespace-nowrap ${
                     isActive
                       ? 'bg-[#6C19E5] text-[#FFE51E] shadow-[0_4px_0_#46099E]'
                       : 'text-[#D6C7EE] hover:bg-white/10 hover:text-white'
                   }`}
                 >
-                  <Icon size={21} strokeWidth={2.4} />
+                  <Icon size={20} strokeWidth={2.4} />
                   <span>{label}</span>
                 </button>
               );
@@ -138,8 +138,8 @@ export function SabiAppChrome({
         </div>
 
         {/* Desktop Compact Streak & XP Summary */}
-        <div className="space-y-3">
-          <div className="rounded-[20px] bg-[#3B1080] p-4 border border-white/10 space-y-2.5">
+        <div className="space-y-2.5">
+          <div className="rounded-[18px] bg-[#3B1080] p-3.5 border border-white/10 space-y-2">
             <div className="flex items-center justify-between text-xs font-bold text-[#D6C7EE]">
               <span className="flex items-center gap-1.5">
                 <Flame size={15} className="text-[#FF7A00] fill-[#FF7A00]" />
@@ -169,29 +169,31 @@ export function SabiAppChrome({
       </aside>
 
       {/* ================================================================= */}
-      {/* MAIN CONTENT VIEWPORT                                             */}
+      {/* MAIN CONTENT VIEWPORT (Full-width fluid on mobile & desktop)      */}
       {/* ================================================================= */}
       <div
-        className={`relative z-10 flex-1 w-full flex flex-col ${
-          hideMobileBottomNav ? 'pb-7 lg:pb-10' : 'pb-[104px] lg:pb-10'
+        className={`relative z-10 flex-1 min-w-0 w-full flex flex-col ${
+          hideMobileBottomNav
+            ? 'pb-[max(env(safe-area-inset-bottom,0px),12px)] lg:pb-8'
+            : 'pb-[calc(76px+env(safe-area-inset-bottom,0px))] lg:pb-8'
         }`}
       >
         {children}
       </div>
 
       {/* ================================================================= */}
-      {/* MOBILE / ANDROID FLOATING DARK-PURPLE BOTTOM NAV BAR              */}
-      {/* Matches Uploaded Screens 01 (Home) & 07 (Progress) 1:1            */}
+      {/* MOBILE / TABLET FLOATING DARK-PURPLE BOTTOM NAV BAR               */}
+      {/* Anchored low & full-width so cards occupy the full screen cleanly */}
       {/* ================================================================= */}
       {!hideMobileBottomNav && (
         <nav
           aria-label="Mobile navigation"
-          className="lg:hidden fixed bottom-3.5 left-3.5 right-3.5 z-40 mx-auto max-w-[430px] pb-[env(safe-area-inset-bottom,0px)]"
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-2 sm:px-4 pt-1 pb-[max(env(safe-area-inset-bottom,0px),8px)] pointer-events-none"
         >
           <div
-            className="w-full rounded-[26px] bg-[#2A085E] px-2 py-2.5 grid grid-cols-5 items-center"
+            className="pointer-events-auto w-full md:max-w-[640px] mx-auto rounded-[22px] bg-[#2A085E] px-1.5 py-1.5 grid grid-cols-5 items-center"
             style={{
-              boxShadow: '0 8px 24px rgba(42, 8, 94, 0.30)',
+              boxShadow: '0 6px 20px rgba(42, 8, 94, 0.30)',
             }}
           >
             {NAV_ITEMS.map(({ id, label, path, Icon }) => {
@@ -202,12 +204,12 @@ export function SabiAppChrome({
                   type="button"
                   onClick={() => navigate(path)}
                   aria-current={isActive ? 'page' : undefined}
-                  className={`flex flex-col items-center justify-center gap-1 min-h-[46px] rounded-2xl transition-transform duration-100 active:scale-95 cursor-pointer ${
+                  className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] rounded-[16px] transition-transform duration-100 active:scale-95 cursor-pointer ${
                     isActive ? 'text-[#FFE51E]' : 'text-[#C8B8E6]'
                   }`}
                 >
                   <Icon
-                    size={21}
+                    size={20}
                     strokeWidth={isActive ? 2.5 : 2.1}
                     className={isActive ? 'text-[#FFE51E]' : 'text-[#C8B8E6]'}
                   />

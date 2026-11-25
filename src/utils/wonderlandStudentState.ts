@@ -164,7 +164,17 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
 
   const streakDays = realProgress.streakDays > 0 ? realProgress.streakDays : 14;
   const longestStreak = Math.max(21, streakDays + 7);
-  const xpBalance = 1240;
+  const earnedBonusXp =
+    typeof window !== 'undefined'
+      ? Number(localStorage.getItem('sabi_wonderland_earned_xp_v1') || '0') || 0
+      : 0;
+  const earnedDailyXp =
+    typeof window !== 'undefined'
+      ? Number(localStorage.getItem('sabi_wonderland_daily_xp_v1') || '0') || 0
+      : 0;
+  const xpBalance = 1240 + earnedBonusXp;
+  const dailyGoalTarget = 30;
+  const dailyGoalDone = Math.min(dailyGoalTarget, 20 + earnedDailyXp);
 
   // Build 30-day November calendar matching the uploaded Progress & Streaks design
   const missedSet = new Set([1, 3, 4, 8]);
@@ -172,7 +182,7 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
   const calendarDays = Array.from({ length: 30 }, (_, idx) => {
     const day = idx + 1;
     if (day === todayDay) {
-      return { day, status: 'today' as const, xpEarned: 20 };
+      return { day, status: 'today' as const, xpEarned: dailyGoalDone };
     }
     if (day > todayDay) {
       return { day, status: 'upcoming' as const };
@@ -192,8 +202,8 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     streakDays,
     longestStreak,
     xpBalance,
-    dailyGoalDone: 20,
-    dailyGoalTarget: 30,
+    dailyGoalDone,
+    dailyGoalTarget,
     daysToJamb: 112,
     subjects,
     recommendedSubject: focusMeta.shortName,

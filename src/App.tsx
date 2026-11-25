@@ -6,6 +6,8 @@ import { Screen4OnboardingWonderland } from './pages/Screen4OnboardingWonderland
 import { Screen5HomeWonderland } from './pages/Screen5HomeWonderland';
 import { Screen6SmartPracticeHubWonderland } from './pages/Screen6SmartPracticeHubWonderland';
 import { Screen7ProgressWonderland } from './pages/Screen7ProgressWonderland';
+import { Screen8SmartPracticeFeedWonderland } from './pages/Screen8SmartPracticeFeedWonderland';
+import { Screen9SmartPracticeResultsWonderland } from './pages/Screen9SmartPracticeResultsWonderland';
 import { WonderlandComingNextScreen } from './pages/WonderlandComingNextScreen';
 
 /**
@@ -50,6 +52,12 @@ export default function App() {
         <Route path="/practice" element={<Screen6SmartPracticeHubWonderland />} />
         <Route path="/practice/smart" element={<Screen6SmartPracticeHubWonderland />} />
         <Route path="/practice/blitz" element={<Screen6SmartPracticeHubWonderland />} />
+
+        {/* Screen 8: Smart Practice Live Feed — Blitz & Guided + 10-Question Checkpoint */}
+        <Route path="/practice/session" element={<Screen8SmartPracticeFeedWonderland />} />
+
+        {/* Screen 9: Smart Practice Results & Next Best Step */}
+        <Route path="/practice/results" element={<Screen9SmartPracticeResultsWonderland />} />
 
         {/* Screen 7: Progress, Streaks & Gold League */}
         <Route path="/progress" element={<Screen7ProgressWonderland />} />

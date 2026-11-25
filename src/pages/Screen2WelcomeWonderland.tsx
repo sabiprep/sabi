@@ -16,8 +16,8 @@ export function Screen2WelcomeWonderland() {
 
   return (
     <SabiWonderlandShell>
-      <main className="w-full flex-1 flex flex-col items-center justify-center px-5 sm:px-8 py-6 sm:py-10">
-        <div className="w-full max-w-[405px] sm:max-w-[440px] mx-auto flex flex-col items-center text-center">
+      <main className="w-full flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-4 sm:py-8">
+        <div className="w-full max-w-[480px] sm:max-w-[520px] mx-auto flex flex-col items-center text-center">
           {/* 1. Top SABI 3D Purple Open-Book Emblem + Wordmark */}
           <div className="mb-3.5 sm:mb-4">
             <SabiPurpleBookLogo size="md" to="/welcome" />
