@@ -17,6 +17,7 @@ import {
   buildCbtMockDeck,
   gradeCbtExam,
   type CbtMockPreset,
+  type CbtSourceMode,
 } from '../utils/cbtAndCustomEngine';
 import { sound } from '../utils/soundEffects';
 
@@ -180,15 +181,23 @@ export function Screen14CbtExamWonderland() {
 
   const preset: CbtMockPreset =
     searchParams.get('preset') === 'full_180' ? 'full_180' : 'quick_40';
+  const sourceMode: CbtSourceMode =
+    searchParams.get('source') === 'year' ? 'year' : 'shuffle';
+  const parsedYear = Number(searchParams.get('year'));
+  const selectedYear =
+    sourceMode === 'year' && Number.isFinite(parsedYear) && parsedYear >= 2000
+      ? parsedYear
+      : null;
   const timeLimitSeconds = preset === 'full_180' ? 120 * 60 : 30 * 60;
 
   const deck = useMemo(
     () =>
       buildCbtMockDeck(
         student.subjects.map(s => s.canonicalName),
-        preset
+        preset,
+        { source: sourceMode, year: selectedYear }
       ),
-    [student.subjects, preset]
+    [student.subjects, preset, sourceMode, selectedYear]
   );
 
   // Build ordered subject slices for the 4 top tabs
@@ -241,6 +250,8 @@ export function Screen14CbtExamWonderland() {
     const usedSeconds = Math.max(1, timeLimitSeconds - secondsLeft);
     const result = gradeCbtExam({
       preset,
+      sourceMode,
+      selectedYear,
       deck,
       answers,
       flagged,
@@ -248,7 +259,18 @@ export function Screen14CbtExamWonderland() {
       timeLimitSeconds,
     });
     navigate('/cbt/results', { replace: true, state: { result } });
-  }, [answers, deck, flagged, navigate, preset, secondsLeft, submitted, timeLimitSeconds]);
+  }, [
+    answers,
+    deck,
+    flagged,
+    navigate,
+    preset,
+    secondsLeft,
+    selectedYear,
+    sourceMode,
+    submitted,
+    timeLimitSeconds,
+  ]);
 
   // Countdown tick + auto-submit at 00:00
   useEffect(() => {
@@ -327,7 +349,11 @@ export function Screen14CbtExamWonderland() {
             </span>
             <div className="min-w-0">
               <div className="text-[13.5px] sm:text-[15px] font-extrabold truncate">
-                {preset === 'full_180' ? 'UTME 180-Q Mock' : 'Quick 40-Q Mock'}
+                {sourceMode === 'year' && selectedYear
+                  ? `${selectedYear} Paper · ${preset === 'full_180' ? '180-Q' : '40-Q'}`
+                  : preset === 'full_180'
+                  ? 'Shuffle · 180-Q Mock'
+                  : 'Shuffle · 40-Q Mock'}
               </div>
               <div className="text-[11px] font-bold text-[#D5C3F7] tabular-nums">
                 {answeredCount}/{deck.length} answered

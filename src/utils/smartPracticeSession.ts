@@ -1,8 +1,21 @@
 import { SEED_QUESTIONS } from '../data/questions';
 import type { Question } from '../types';
-import { recordSessionDurationBonus } from './userProgressStore';
+import { getRealUserProgress, recordSessionDurationBonus } from './userProgressStore';
 
 export type SmartPracticePace = 'blitz' | 'guided';
+export type PracticeScope = 'merged' | 'single';
+export type PracticeDeckMode = 'standard' | 'daily-failure';
+
+export interface DailyFailureDrillPlan {
+  subjectCanonical: string;
+  subjectLabel: string;
+  topicLabel: string;
+  evidence: string;
+  missedCount: number;
+  weakTopicsCount: number;
+  estimatedMinutes: number;
+  isFailureDriven: boolean;
+}
 
 export interface PracticeFeedQuestion {
   id: string;
@@ -60,8 +73,54 @@ export interface SmartPracticeSessionResult {
 
 const LAST_RESULT_STORAGE_KEY = 'sabi_last_smart_practice_result_v1';
 const SAVED_QUESTIONS_STORAGE_KEY = 'sabi_saved_question_ids_v1';
-const BONUS_XP_STORAGE_KEY = 'sabi_wonderland_earned_xp_v1';
-const DAILY_BONUS_XP_STORAGE_KEY = 'sabi_wonderland_daily_xp_v1';
+const MISTAKES_VAULT_KEY = 'sabi_mistakes_vault_v1';
+const PRACTICE_SCOPE_PREF_KEY = 'sabi_practice_scope_pref_v1';
+
+interface StoredMistakeLite {
+  questionId: string;
+  subjectCanonical: string;
+  subjectLabel: string;
+  topicLabel: string;
+  question: string;
+  options: Record<'A' | 'B' | 'C' | 'D', string>;
+  answer: 'A' | 'B' | 'C' | 'D';
+  explanationShort: string;
+  explanationFull: string;
+  explanationPidgin: string;
+  missedCount: number;
+  lastMissedAt: string;
+}
+
+function readMistakesVaultSafe(): StoredMistakeLite[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(MISTAKES_VAULT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as StoredMistakeLite[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function loadSavedPracticeScope(): PracticeScope {
+  if (typeof window === 'undefined') return 'merged';
+  try {
+    const raw = localStorage.getItem(PRACTICE_SCOPE_PREF_KEY);
+    return raw === 'single' ? 'single' : 'merged';
+  } catch {
+    return 'merged';
+  }
+}
+
+export function savePracticeScopePref(scope: PracticeScope): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(PRACTICE_SCOPE_PREF_KEY, scope);
+  } catch {
+    // ignore
+  }
+}
 
 const SUBJECT_SHORT_LABELS: Record<string, string> = {
   'English Language': 'English',
@@ -315,14 +374,130 @@ function convertSeedQuestion(q: Question): PracticeFeedQuestion {
   };
 }
 
+function shuffleArray<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 /**
- * Builds a rich, mixed question queue prioritizing the student's chosen focus subject
- * while interleaving their other 3 JAMB subjects so practice never feels repetitive.
+ * Computes a truthful, real-data Daily Failure-Driven Practice Plan based on:
+ * 1) Questions the student actually missed (Mistakes Vault)
+ * 2) Weakest topics recorded in `userProgressStore.topicStats` (< 70% accuracy)
+ * 3) Lowest real subject mastery or starter baseline if brand new.
+ */
+export function getDailyFailureDrillPlan(chosenSubjects: string[]): DailyFailureDrillPlan {
+  const validSubjects =
+    chosenSubjects.length > 0
+      ? chosenSubjects
+      : ['English Language', 'Mathematics', 'Physics', 'Chemistry'];
+  const progress = getRealUserProgress();
+  const mistakes = readMistakesVaultSafe();
+
+  // Rank weak topics from real recorded topicStats
+  const weakTopics: {
+    subjectCanonical: string;
+    topicLabel: string;
+    accuracy: number;
+    missed: number;
+    solved: number;
+  }[] = [];
+
+  for (const subj of validSubjects) {
+    const topicsMap = progress.topicStats[subj] || {};
+    for (const [topicLabel, stat] of Object.entries(topicsMap)) {
+      if (!stat || stat.solved <= 0) continue;
+      const accuracy = Math.round((stat.correct / stat.solved) * 100);
+      const missed = Math.max(0, stat.solved - stat.correct);
+      if (accuracy < 75 || missed > 0) {
+        weakTopics.push({
+          subjectCanonical: subj,
+          topicLabel,
+          accuracy,
+          missed,
+          solved: stat.solved,
+        });
+      }
+    }
+  }
+  weakTopics.sort((a, b) => a.accuracy - b.accuracy || b.missed - a.missed);
+
+  const relevantMistakes = mistakes
+    .filter(m => validSubjects.some(s => s.toLowerCase() === m.subjectCanonical.toLowerCase()))
+    .sort((a, b) => b.missedCount - a.missedCount);
+
+  if (relevantMistakes.length > 0) {
+    const top = relevantMistakes[0];
+    const subjectMistakes = relevantMistakes.filter(
+      m => m.subjectCanonical.toLowerCase() === top.subjectCanonical.toLowerCase()
+    );
+    const subjLabel = getShortSubjectLabel(top.subjectCanonical);
+    return {
+      subjectCanonical: top.subjectCanonical,
+      subjectLabel: subjLabel,
+      topicLabel: top.topicLabel || 'Missed questions recovery',
+      evidence: `${subjLabel} · ${subjectMistakes.length} missed question${
+        subjectMistakes.length === 1 ? '' : 's'
+      } queued for today's fix`,
+      missedCount: relevantMistakes.length,
+      weakTopicsCount: weakTopics.length,
+      estimatedMinutes: Math.max(5, Math.min(12, relevantMistakes.length + 4)),
+      isFailureDriven: true,
+    };
+  }
+
+  if (weakTopics.length > 0) {
+    const weakest = weakTopics[0];
+    const subjLabel = getShortSubjectLabel(weakest.subjectCanonical);
+    return {
+      subjectCanonical: weakest.subjectCanonical,
+      subjectLabel: subjLabel,
+      topicLabel: weakest.topicLabel,
+      evidence: `${subjLabel} · ${weakest.accuracy}% accuracy across ${weakest.solved} attempt${
+        weakest.solved === 1 ? '' : 's'
+      }`,
+      missedCount: 0,
+      weakTopicsCount: weakTopics.length,
+      estimatedMinutes: 8,
+      isFailureDriven: true,
+    };
+  }
+
+  // Brand-new student with zero failures yet: prepare a clean starter drill
+  const fallbackSubj = validSubjects[validSubjects.length - 1] || 'Chemistry';
+  const fallbackLabel = getShortSubjectLabel(fallbackSubj);
+  return {
+    subjectCanonical: fallbackSubj,
+    subjectLabel: fallbackLabel,
+    topicLabel: `${fallbackLabel} Starter Drill`,
+    evidence: `${fallbackLabel} · SABI builds your daily fix queue from your answers`,
+    missedCount: 0,
+    weakTopicsCount: 0,
+    estimatedMinutes: 6,
+    isFailureDriven: false,
+  };
+}
+
+/**
+ * Builds a question queue supporting:
+ * - `scope: 'merged'` (default): Interleaves all 4 chosen JAMB subjects prioritizing focusSubject.
+ * - `scope: 'single'`: 100% strictly from `focusSubjectCanonical` (one subject at a time).
+ * - `mode: 'daily-failure'`: Prioritizes real missed questions + weak topics before fresh reinforcement.
  */
 export function buildSmartPracticeDeck(
   focusSubjectCanonical: string,
-  chosenSubjects: string[]
+  chosenSubjects: string[],
+  options?: {
+    scope?: PracticeScope;
+    mode?: PracticeDeckMode;
+  }
 ): PracticeFeedQuestion[] {
+  const scope: PracticeScope = options?.scope === 'single' ? 'single' : 'merged';
+  const mode: PracticeDeckMode = options?.mode === 'daily-failure' ? 'daily-failure' : 'standard';
+
   const validSubjects =
     chosenSubjects.length > 0
       ? chosenSubjects
@@ -339,26 +514,142 @@ export function buildSmartPracticeDeck(
     }
   }
   const uniquePool = Array.from(uniqueMap.values());
+  const usedIds = new Set<string>();
+  const deck: PracticeFeedQuestion[] = [];
 
-  const focusPool = uniquePool.filter(
-    q => q.subjectCanonical.toLowerCase() === focusSubjectCanonical.toLowerCase()
+  const pushUnique = (q: PracticeFeedQuestion) => {
+    if (!usedIds.has(q.id)) {
+      usedIds.add(q.id);
+      deck.push(q);
+      return true;
+    }
+    return false;
+  };
+
+  // MODE A: Daily Failure-Driven Prepared Drill
+  if (mode === 'daily-failure') {
+    const mistakes = readMistakesVaultSafe()
+      .filter(m => validSubjects.some(s => s.toLowerCase() === m.subjectCanonical.toLowerCase()))
+      .sort((a, b) => b.missedCount - a.missedCount);
+
+    for (const m of mistakes.slice(0, 12)) {
+      pushUnique({
+        id: m.questionId,
+        subjectCanonical: m.subjectCanonical,
+        subjectLabel: m.subjectLabel || getShortSubjectLabel(m.subjectCanonical),
+        topicLabel: m.topicLabel || 'Missed Review',
+        question: m.question,
+        options: m.options,
+        answer: m.answer,
+        explanationShort: m.explanationShort,
+        explanationFull: m.explanationFull,
+        explanationPidgin: m.explanationPidgin,
+      });
+    }
+
+    // Add real weak-topic questions from userProgressStore.topicStats
+    const progress = getRealUserProgress();
+    const weakTopicLabels: { subject: string; topic: string }[] = [];
+    for (const subj of validSubjects) {
+      const tMap = progress.topicStats[subj] || {};
+      Object.entries(tMap).forEach(([topic, stat]) => {
+        if (stat.solved > 0 && stat.correct / stat.solved < 0.75) {
+          weakTopicLabels.push({ subject: subj.toLowerCase(), topic: topic.toLowerCase() });
+        }
+      });
+    }
+
+    if (weakTopicLabels.length > 0) {
+      const weakMatches = shuffleArray(
+        uniquePool.filter(q =>
+          weakTopicLabels.some(
+            wt =>
+              q.subjectCanonical.toLowerCase() === wt.subject &&
+              (q.topicLabel.toLowerCase().includes(wt.topic) ||
+                wt.topic.includes(q.topicLabel.toLowerCase()))
+          )
+        )
+      );
+      for (const q of weakMatches) {
+        if (deck.length >= 20) break;
+        pushUnique(q);
+      }
+    }
+
+    // Top up with focus subject + chosen subjects so daily drill always has a rich set
+    const focusFill = shuffleArray(
+      uniquePool.filter(
+        q => q.subjectCanonical.toLowerCase() === focusSubjectCanonical.toLowerCase()
+      )
+    );
+    const chosenFill = shuffleArray(
+      uniquePool.filter(q =>
+        validSubjects.some(s => s.toLowerCase() === q.subjectCanonical.toLowerCase())
+      )
+    );
+    for (const q of [...focusFill, ...chosenFill]) {
+      if (deck.length >= 24) break;
+      pushUnique(q);
+    }
+
+    return deck.length > 0 ? deck : CURATED_STARTER_QUESTIONS;
+  }
+
+  // MODE B: Single-Subject Exclusive Scope (100% strictly the selected subject)
+  if (scope === 'single') {
+    const subjectMistakes = readMistakesVaultSafe()
+      .filter(m => m.subjectCanonical.toLowerCase() === focusSubjectCanonical.toLowerCase())
+      .sort((a, b) => b.missedCount - a.missedCount);
+
+    for (const m of subjectMistakes.slice(0, 6)) {
+      pushUnique({
+        id: m.questionId,
+        subjectCanonical: m.subjectCanonical,
+        subjectLabel: m.subjectLabel || getShortSubjectLabel(m.subjectCanonical),
+        topicLabel: m.topicLabel || 'Review',
+        question: m.question,
+        options: m.options,
+        answer: m.answer,
+        explanationShort: m.explanationShort,
+        explanationFull: m.explanationFull,
+        explanationPidgin: m.explanationPidgin,
+      });
+    }
+
+    const strictSubjectPool = shuffleArray(
+      uniquePool.filter(
+        q => q.subjectCanonical.toLowerCase() === focusSubjectCanonical.toLowerCase()
+      )
+    );
+    for (const q of strictSubjectPool) {
+      if (deck.length >= 40) break;
+      pushUnique(q);
+    }
+
+    return deck.length > 0 ? deck : strictSubjectPool.slice(0, 20);
+  }
+
+  // MODE C: Merged Scope (Interleaves focusSubject with the student's other 3 JAMB subjects)
+  const focusPool = shuffleArray(
+    uniquePool.filter(
+      q => q.subjectCanonical.toLowerCase() === focusSubjectCanonical.toLowerCase()
+    )
   );
   const otherSubjectsSet = new Set(
     validSubjects
       .filter(s => s.toLowerCase() !== focusSubjectCanonical.toLowerCase())
       .map(s => s.toLowerCase())
   );
-  const otherPool = uniquePool.filter(q =>
-    otherSubjectsSet.has(q.subjectCanonical.toLowerCase())
+  const otherPool = shuffleArray(
+    uniquePool.filter(q => otherSubjectsSet.has(q.subjectCanonical.toLowerCase()))
   );
-  const fallbackPool = uniquePool.filter(
-    q =>
-      q.subjectCanonical.toLowerCase() !== focusSubjectCanonical.toLowerCase() &&
-      !otherSubjectsSet.has(q.subjectCanonical.toLowerCase())
+  const fallbackPool = shuffleArray(
+    uniquePool.filter(
+      q =>
+        q.subjectCanonical.toLowerCase() !== focusSubjectCanonical.toLowerCase() &&
+        !otherSubjectsSet.has(q.subjectCanonical.toLowerCase())
+    )
   );
-
-  const deck: PracticeFeedQuestion[] = [];
-  const usedIds = new Set<string>();
 
   const pushNext = (list: PracticeFeedQuestion[]) => {
     const found = list.find(item => !usedIds.has(item.id));

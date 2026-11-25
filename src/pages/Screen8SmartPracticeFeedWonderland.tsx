@@ -23,6 +23,8 @@ import {
   saveSmartPracticeResult,
   toggleSavedQuestionId,
   type PracticeAnswerRecord,
+  type PracticeDeckMode,
+  type PracticeScope,
   type SmartPracticePace,
 } from '../utils/smartPracticeSession';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
@@ -50,18 +52,29 @@ export function Screen8SmartPracticeFeedWonderland() {
   const rawPace = searchParams.get('pace');
   const pace: SmartPracticePace =
     rawPace === 'guided' || rawPace === 'smart' ? 'guided' : 'blitz';
+  const scope: PracticeScope =
+    searchParams.get('scope') === 'single' ? 'single' : 'merged';
+  const deckMode: PracticeDeckMode =
+    searchParams.get('mode') === 'daily-failure' ? 'daily-failure' : 'standard';
   const focusSubject =
     searchParams.get('focus') ||
+    student.recommendedSubjectCanonical ||
     student.subjects[student.subjects.length - 1]?.canonicalName ||
     'Chemistry';
+
+  const focusShortLabel =
+    student.subjects.find(
+      s => s.canonicalName.toLowerCase() === focusSubject.toLowerCase()
+    )?.displayLabel || focusSubject;
 
   const deck = useMemo(
     () =>
       buildSmartPracticeDeck(
         focusSubject,
-        student.subjects.map(s => s.canonicalName)
+        student.subjects.map(s => s.canonicalName),
+        { scope, mode: deckMode }
       ),
-    [focusSubject, student.subjects]
+    [deckMode, focusSubject, scope, student.subjects]
   );
 
   const [sessionStartMs] = useState<number>(() => Date.now());
@@ -521,8 +534,14 @@ export function Screen8SmartPracticeFeedWonderland() {
             onClick={() => {
               if (records.length > 0) {
                 setShowExitConfirm(true);
+              } else if (deckMode === 'daily-failure') {
+                navigate('/home');
               } else {
-                navigate('/practice');
+                navigate(
+                  `/practice/setup?pace=${
+                    pace === 'blitz' ? 'blitz' : 'smart'
+                  }&scope=${scope}&focus=${encodeURIComponent(focusSubject)}`
+                );
               }
             }}
             aria-label="Exit practice session"
@@ -532,18 +551,30 @@ export function Screen8SmartPracticeFeedWonderland() {
           </button>
 
           {/* Center Mode Pill */}
-          <div className="px-4 py-2 rounded-full bg-[#2C0A5C] border border-white/10 flex items-center gap-1.5 text-[13.5px] sm:text-[14.5px] font-extrabold whitespace-nowrap">
-            <span className="text-[#DCD0F5]">Practice Hub</span>
+          <div className="px-3.5 sm:px-4 py-2 rounded-full bg-[#2C0A5C] border border-white/10 flex items-center gap-1.5 text-[12.5px] sm:text-[14px] font-extrabold whitespace-nowrap max-w-[66vw] overflow-hidden">
+            <span className="text-[#DCD0F5] truncate">
+              {deckMode === 'daily-failure' ? 'Daily Drill' : 'Practice Hub'}
+            </span>
             <span className="text-[#9E84CC]" aria-hidden="true">
               •
             </span>
             {pace === 'blitz' ? (
-              <span className="inline-flex items-center gap-1 text-[#FFE51E]">
-                <Zap size={14} className="fill-[#FFE51E] text-[#FFE51E]" />
+              <span className="inline-flex items-center gap-1 text-[#FFE51E] shrink-0">
+                <Zap size={13} className="fill-[#FFE51E] text-[#FFE51E]" />
                 <span>Blitz</span>
               </span>
             ) : (
-              <span className="text-[#FFE51E]">Smart Practice</span>
+              <span className="text-[#FFE51E] shrink-0">Smart Practice</span>
+            )}
+            {deckMode !== 'daily-failure' && (
+              <>
+                <span className="hidden sm:inline text-[#9E84CC]" aria-hidden="true">
+                  •
+                </span>
+                <span className="hidden sm:inline text-[#C9B5F5] truncate">
+                  {scope === 'single' ? focusShortLabel : 'All 4'}
+                </span>
+              </>
             )}
           </div>
 

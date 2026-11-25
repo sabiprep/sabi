@@ -101,8 +101,9 @@ export function Screen6SmartPracticeHubWonderland() {
     } catch {
       // ignore
     }
+    const paceParam = selectedPace === 'blitz' ? 'blitz' : 'smart';
     navigate(
-      `/practice/session?pace=${selectedPace}&focus=${encodeURIComponent(
+      `/practice/setup?pace=${paceParam}&focus=${encodeURIComponent(
         activeFocusSubject.canonicalName
       )}`
     );
@@ -316,8 +317,8 @@ export function Screen6SmartPracticeHubWonderland() {
             <span>{selectedPace === 'blitz' ? 'START BLITZ' : 'START SMART PRACTICE'}</span>
           </button>
 
-          <p className="mt-2.5 text-center text-[13px] sm:text-[13.5px] font-semibold text-[#3B2264] leading-snug max-w-[380px] mx-auto">
-            Both paces feed the same mastery estimate and keep your streak going.
+          <p className="mt-2.5 text-center text-[13px] sm:text-[13.5px] font-semibold text-[#3B2264] leading-snug max-w-[420px] mx-auto">
+            Next: choose all 4 subjects merged together or one subject at a time.
           </p>
         </footer>
       </main>

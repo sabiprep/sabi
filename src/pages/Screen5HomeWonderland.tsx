@@ -1,5 +1,13 @@
 import React, { useMemo } from 'react';
-import { Calendar, Flame, Monitor, SlidersHorizontal, Zap } from 'lucide-react';
+import {
+  ArrowRight,
+  Calendar,
+  CheckCircle2,
+  Flame,
+  Monitor,
+  SlidersHorizontal,
+  Zap,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
@@ -170,9 +178,9 @@ export function Screen5HomeWonderland() {
     () => loadPracticeAiConfig(data.subjects.map(s => s.canonicalName)),
     [data.subjects]
   );
-  const recommendedPace = aiConfig.blueprint?.recommendedPace || 'guided';
-
+  const recommendedPace = aiConfig.blueprint?.recommendedPace === 'blitz' ? 'blitz' : 'smart';
   const focusCanonical =
+    data.recommendedSubjectCanonical ||
     data.subjects.find(s => s.displayLabel === data.recommendedSubject)?.canonicalName ||
     data.subjects[3]?.canonicalName ||
     'Chemistry';
@@ -265,7 +273,11 @@ export function Screen5HomeWonderland() {
                     key={subj.canonicalName}
                     type="button"
                     onClick={() =>
-                      goTo(`/practice?focus=${encodeURIComponent(subj.canonicalName)}`)
+                      goTo(
+                        `/practice/setup?pace=smart&scope=single&focus=${encodeURIComponent(
+                          subj.canonicalName
+                        )}`
+                      )
                     }
                     className="flex flex-col items-center rounded-2xl py-1.5 hover:bg-[#FAF7FF] transition-colors cursor-pointer"
                   >
@@ -298,6 +310,78 @@ export function Screen5HomeWonderland() {
                 </span>
               </div>
             </section>
+
+            {/* 3B. DAILY STREAK REMINDER CARD */}
+            {data.practicedToday ? (
+              <section
+                className="rounded-[22px] bg-[#ECFDF5] border-[2px] border-[#059669] px-4 py-3.5 sm:px-5 sm:py-4 flex items-center justify-between gap-3"
+                style={{ boxShadow: '0 4px 0 #047857' }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-[14px] bg-[#059669] text-white flex items-center justify-center shrink-0">
+                    <CheckCircle2 size={22} strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#047857]">
+                      STREAK PROTECTED TODAY
+                    </div>
+                    <div className="text-[15.5px] sm:text-[16.5px] font-extrabold text-[#163C30] leading-tight truncate">
+                      {data.streakDays}-day streak safe · {data.dailyStudyMinutes}m active
+                    </div>
+                    <p className="text-[12.5px] font-semibold text-[#2B5D4C] leading-snug">
+                      +{data.dailyGoalDone} XP logged today. Keep climbing your league standings!
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => goTo('/progress')}
+                  className="px-3.5 py-2.5 rounded-[14px] bg-[#059669] hover:brightness-105 text-white font-extrabold text-[12.5px] uppercase tracking-wide shrink-0 inline-flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  style={{ boxShadow: '0 3px 0 #065F46' }}
+                >
+                  <span>Streak</span>
+                  <ArrowRight size={14} strokeWidth={2.7} />
+                </button>
+              </section>
+            ) : (
+              <section
+                className="rounded-[22px] bg-[#FF7A00] px-4 py-3.5 sm:px-5 sm:py-4 text-white flex items-center justify-between gap-3"
+                style={{ boxShadow: '0 4px 0 #C2410C' }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-11 h-11 rounded-[14px] bg-white/20 text-[#FFE824] flex items-center justify-center shrink-0">
+                    <Flame size={23} className="fill-[#FFE824] text-[#FFE824]" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#FFF1B8]">
+                      DAILY STREAK REMINDER
+                    </div>
+                    <div className="text-[15.5px] sm:text-[17px] font-extrabold text-white leading-tight">
+                      {data.streakDays > 0
+                        ? `Don't break your ${data.streakDays}-day streak!`
+                        : 'Start your Day 1 streak today!'}
+                    </div>
+                    <p className="text-[12.5px] font-semibold text-[#FFF4E5] leading-snug">
+                      Never pass a day without practising and competing for league promotion.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => goTo('/practice/setup?pace=blitz')}
+                  className="px-3.5 sm:px-4 py-2.5 rounded-[14px] bg-[#FFE824] hover:brightness-105 text-[#260559] font-extrabold text-[12.5px] sm:text-[13px] uppercase tracking-wide shrink-0 inline-flex items-center gap-1 transition-transform active:translate-y-[1px] cursor-pointer whitespace-nowrap"
+                  style={{
+                    fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                    boxShadow: '0 3px 0 #B89D00',
+                  }}
+                >
+                  <span>{data.streakDays > 0 ? 'Keep Alive' : 'Start Now'}</span>
+                  <ArrowRight size={14} strokeWidth={2.8} />
+                </button>
+              </section>
+            )}
 
             {/* 4. DAILY GOAL & WEEKLY STREAK CARD */}
             <section
@@ -362,14 +446,22 @@ export function Screen5HomeWonderland() {
               </div>
             </section>
 
-            {/* 5. RECOMMENDED ACTION CARD (SABI PICKED THIS FOR YOU) */}
+            {/* 5. RECOMMENDED ACTION CARD (FAILURE-DRIVEN DAILY DRILL) */}
             <section
               className="bg-white rounded-[22px] px-4 py-4 sm:px-6 sm:py-5 border-[2.5px] border-[#6C19E5]"
               style={{ boxShadow: '0 4px 0 #E2C700' }}
             >
               <div className="flex items-center justify-between gap-2 mb-2.5">
-                <span className="inline-block px-3 py-1 rounded-full bg-[#EFE6FF] text-[#6C19E5] text-[11px] font-extrabold tracking-[0.04em] uppercase whitespace-nowrap">
-                  SABI PICKED THIS FOR YOU
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-[11px] font-extrabold tracking-[0.04em] uppercase whitespace-nowrap ${
+                    data.dailyDrillIsFailureDriven
+                      ? 'bg-[#FFF0E0] text-[#C2410C]'
+                      : 'bg-[#EFE6FF] text-[#6C19E5]'
+                  }`}
+                >
+                  {data.dailyDrillIsFailureDriven
+                    ? "TODAY'S FAILURE DRILL"
+                    : 'SABI PICKED THIS FOR YOU'}
                 </span>
                 <span className="text-[13px] font-bold text-[#5A467A] whitespace-nowrap tabular-nums">
                   ~{data.recommendedMinutes} min
@@ -390,7 +482,7 @@ export function Screen5HomeWonderland() {
                   type="button"
                   onClick={() =>
                     goTo(
-                      `/practice/session?pace=${recommendedPace}&focus=${encodeURIComponent(
+                      `/practice/session?pace=${recommendedPace}&mode=daily-failure&focus=${encodeURIComponent(
                         focusCanonical
                       )}`
                     )
@@ -435,7 +527,7 @@ export function Screen5HomeWonderland() {
                 {/* Smart Practice Mode Card */}
                 <button
                   type="button"
-                  onClick={() => goTo('/practice?pace=smart')}
+                  onClick={() => goTo('/practice/setup?pace=smart')}
                   className="rounded-[18px] bg-white px-3.5 sm:px-4 py-3.5 sm:py-4 text-left flex items-center gap-2.5 sm:gap-3 transition-transform duration-100 active:translate-y-[1.5px] hover:bg-[#FCF9FF] cursor-pointer min-h-[74px]"
                   style={{ boxShadow: '0 4px 0 #D8C7F7' }}
                 >
@@ -445,7 +537,7 @@ export function Screen5HomeWonderland() {
                       Smart Practice
                     </div>
                     <div className="text-[12px] sm:text-[12.5px] font-semibold text-[#5A467A] leading-tight mt-0.5 truncate">
-                      Adaptive set
+                      All 4 or 1 subject
                     </div>
                   </div>
                 </button>
@@ -453,7 +545,7 @@ export function Screen5HomeWonderland() {
                 {/* Blitz Mode Card */}
                 <button
                   type="button"
-                  onClick={() => goTo('/practice?pace=blitz')}
+                  onClick={() => goTo('/practice/setup?pace=blitz')}
                   className="rounded-[18px] bg-[#FFEB2B] px-3.5 sm:px-4 py-3.5 sm:py-4 text-left flex items-center gap-2.5 sm:gap-3 transition-transform duration-100 active:translate-y-[1.5px] hover:brightness-105 cursor-pointer min-h-[74px]"
                   style={{ boxShadow: '0 4px 0 #D6B500' }}
                 >

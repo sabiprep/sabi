@@ -137,7 +137,7 @@ export function Screen15CbtResultsWonderland() {
                 type="button"
                 onClick={() =>
                   navigate(
-                    `/practice/session?pace=smart&focus=${encodeURIComponent(
+                    `/practice/setup?pace=smart&scope=single&focus=${encodeURIComponent(
                       result.weakestSubjectCanonical
                     )}`
                   )
@@ -154,7 +154,16 @@ export function Screen15CbtResultsWonderland() {
 
               <button
                 type="button"
-                onClick={() => navigate(`/cbt/exam?preset=${result.preset}`)}
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    preset: result.preset,
+                    source: result.sourceMode === 'year' ? 'year' : 'shuffle',
+                  });
+                  if (result.sourceMode === 'year' && result.selectedYear) {
+                    params.set('year', String(result.selectedYear));
+                  }
+                  navigate(`/cbt/exam?${params.toString()}`);
+                }}
                 className="px-4 py-3 rounded-[16px] bg-white/14 hover:bg-white/22 text-white font-extrabold text-[14px] inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw size={16} />

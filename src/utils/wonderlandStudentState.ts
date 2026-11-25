@@ -6,7 +6,8 @@ import {
   getTodayIsoDate,
 } from './userProgressStore';
 import { loadPracticeAiConfig } from './sabiAiPracticeConfig';
-import { loadDiagnosticBaseline, loadMistakesVault } from './cbtAndCustomEngine';
+import { loadDiagnosticBaseline } from './cbtAndCustomEngine';
+import { getDailyFailureDrillPlan } from './smartPracticeSession';
 
 export interface SubjectMasteryItem {
   canonicalName: string;
@@ -54,9 +55,13 @@ export interface WonderlandDashboardState {
   daysToJamb: number;
   subjects: SubjectMasteryItem[];
   recommendedSubject: string;
+  recommendedSubjectCanonical: string;
   recommendedTopic: string;
   recommendedEvidence: string;
   recommendedMinutes: number;
+  dailyDrillIsFailureDriven: boolean;
+  dailyDrillMissedCount: number;
+  dailyDrillWeakTopicsCount: number;
   weeklyDays: { label: string; status: 'done' | 'today' | 'upcoming' }[];
   calendarMonth: string;
   calendarTodayDay: number;
@@ -271,18 +276,17 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     0
   );
 
-  // Determine focus subject: AI Practice Studio blueprint -> Real Mistakes Vault -> Lowest real mastery -> Onboarding priority
+  // Determine daily prepared focus: Real Failure-Driven Drill -> AI Practice Studio blueprint -> Onboarding priority
   const aiConfig = loadPracticeAiConfig(rawSubjects);
   const activeBlueprint = aiConfig.blueprint;
-  const mistakesVault = loadMistakesVault();
-  const topMistake = mistakesVault[0];
+  const failurePlan = getDailyFailureDrillPlan(rawSubjects);
 
   const lowestSubject = [...subjects].sort((a, b) => a.percent - b.percent)[0] || subjects[0];
   const priorityCanonical =
+    (failurePlan.isFailureDriven && failurePlan.subjectCanonical) ||
     (activeBlueprint?.recommendedSubjectCanonical &&
       rawSubjects.includes(activeBlueprint.recommendedSubjectCanonical) &&
       activeBlueprint.recommendedSubjectCanonical) ||
-    (topMistake && rawSubjects.includes(topMistake.subjectCanonical) && topMistake.subjectCanonical) ||
     (typeof onboarding?.prioritySubject === 'string' &&
       rawSubjects.includes(onboarding.prioritySubject) &&
       onboarding.prioritySubject) ||
@@ -294,21 +298,19 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
   };
 
   const recommendedTopic =
+    (failurePlan.isFailureDriven && failurePlan.topicLabel) ||
     (activeBlueprint?.recommendedTopic && activeBlueprint.recommendedTopic.trim()) ||
-    (topMistake && topMistake.subjectCanonical === priorityCanonical && topMistake.topicLabel) ||
     (typeof onboarding?.troubleTopic === 'string' &&
       onboarding.troubleTopic.trim().length >= 3 &&
       onboarding.troubleTopic.trim()) ||
     SUBJECT_TOPIC_DEFAULTS[priorityCanonical] ||
     'Periodic table trends';
 
-  const recommendedEvidence = activeBlueprint
+  const recommendedEvidence = failurePlan.isFailureDriven
+    ? failurePlan.evidence
+    : activeBlueprint
     ? `${focusMeta.shortName} · structured by SABI AI`
-    : topMistake
-    ? `${focusMeta.shortName} · from ${mistakesVault.filter(m => m.subjectCanonical === priorityCanonical).length} missed question${
-        mistakesVault.filter(m => m.subjectCanonical === priorityCanonical).length === 1 ? '' : 's'
-      }`
-    : `${focusMeta.shortName} · ready for your first drill`;
+    : failurePlan.evidence;
 
   // Strictly real streak, XP, level, and daily goal — zero fake defaults
   const streakDays = realProgress.streakDays;
@@ -402,9 +404,15 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     daysToJamb: computeDaysToNextJamb(),
     subjects,
     recommendedSubject: focusMeta.shortName,
+    recommendedSubjectCanonical: priorityCanonical,
     recommendedTopic,
     recommendedEvidence,
-    recommendedMinutes: activeBlueprint?.recommendedMinutes || 8,
+    recommendedMinutes: failurePlan.isFailureDriven
+      ? failurePlan.estimatedMinutes
+      : activeBlueprint?.recommendedMinutes || 8,
+    dailyDrillIsFailureDriven: failurePlan.isFailureDriven,
+    dailyDrillMissedCount: failurePlan.missedCount,
+    dailyDrillWeakTopicsCount: failurePlan.weakTopicsCount,
     weeklyDays,
     calendarMonth: monthCal.monthLabel,
     calendarTodayDay: monthCal.todayDay,

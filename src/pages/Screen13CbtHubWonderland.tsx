@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Award,
+  CalendarDays,
   Check,
   Clock,
   Compass,
@@ -10,13 +11,16 @@ import {
   Lock,
   Monitor,
   ShieldAlert,
+  Shuffle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import {
+  getAvailableCbtYearsForSubjects,
   loadCbtMockHistory,
   type CbtMockPreset,
+  type CbtSourceMode,
 } from '../utils/cbtAndCustomEngine';
 import { sound } from '../utils/soundEffects';
 
@@ -30,6 +34,17 @@ export function Screen13CbtHubWonderland() {
   const data = useMemo(() => getWonderlandDashboardState(), []);
   const history = useMemo(() => loadCbtMockHistory(), []);
   const [preset, setPreset] = useState<CbtMockPreset>('quick_40');
+  const availableYears = useMemo(
+    () => getAvailableCbtYearsForSubjects(data.subjects.map(s => s.canonicalName)),
+    [data.subjects]
+  );
+  const [sourceMode, setSourceMode] = useState<CbtSourceMode>('shuffle');
+  const [selectedYear, setSelectedYear] = useState<number>(
+    () => availableYears[0]?.year || 2020
+  );
+
+  const selectedYearMeta =
+    availableYears.find(y => y.year === selectedYear) || availableYears[0] || null;
 
   const bestScore = useMemo(() => {
     if (history.length === 0) return null;
@@ -45,13 +60,29 @@ export function Screen13CbtHubWonderland() {
     setPreset(next);
   };
 
+  const handleSelectSourceMode = (next: CbtSourceMode) => {
+    try {
+      sound.playTap();
+    } catch {
+      // ignore
+    }
+    setSourceMode(next);
+  };
+
   const handleStartExam = () => {
     try {
       sound.playSuccess();
     } catch {
       // ignore
     }
-    navigate(`/cbt/exam?preset=${preset}`);
+    const params = new URLSearchParams({
+      preset,
+      source: sourceMode,
+    });
+    if (sourceMode === 'year' && selectedYear) {
+      params.set('year', String(selectedYear));
+    }
+    navigate(`/cbt/exam?${params.toString()}`);
   };
 
   return (
@@ -93,7 +124,9 @@ export function Screen13CbtHubWonderland() {
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#FFE51E]">
-                    OFFICIAL-STYLE CBT MODE
+                    {sourceMode === 'year'
+                      ? `${selectedYear} PAST JAMB PAPER`
+                      : 'FULL CURRICULUM SHUFFLE'}
                   </div>
                   <h2 className="mt-0.5 text-[17.5px] sm:text-[20px] font-extrabold text-white leading-snug">
                     {preset === 'full_180'
@@ -207,6 +240,124 @@ export function Screen13CbtHubWonderland() {
               </div>
             </section>
 
+            {/* Choose Question Source: Full Curriculum Shuffle vs Past JAMB Year */}
+            <section
+              className="bg-white rounded-[22px] p-4 sm:p-5 space-y-3.5"
+              style={{ boxShadow: '0 4px 0 #E2C700' }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-[16px] sm:text-[17.5px] font-extrabold text-[#260559]">
+                    Question Source
+                  </h2>
+                  <p className="text-[12.5px] font-semibold text-[#5A467A]">
+                    Pick a specific JAMB past year or shuffle randomly across the full syllabus.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Curriculum Shuffle */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectSourceMode('shuffle')}
+                  aria-pressed={sourceMode === 'shuffle'}
+                  className={`rounded-[18px] p-3.5 text-left flex items-start gap-3 transition-all cursor-pointer ${
+                    sourceMode === 'shuffle'
+                      ? 'bg-[#F5EEFF] border-[2px] border-[#6C19E5]'
+                      : 'bg-[#FAF8FF] border-[2px] border-[#EAE0FA] hover:border-[#C9B3F2]'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-[12px] bg-[#6C19E5] text-[#FFE824] flex items-center justify-center shrink-0">
+                    <Shuffle size={19} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14.5px] font-extrabold text-[#260559] leading-tight">
+                      Full Curriculum Shuffle
+                    </div>
+                    <p className="mt-0.5 text-[12px] font-semibold text-[#5A467A] leading-snug">
+                      Fresh random questions drawn across all past UTME years.
+                    </p>
+                  </div>
+                </button>
+
+                {/* Specific Past Year */}
+                <button
+                  type="button"
+                  onClick={() => handleSelectSourceMode('year')}
+                  aria-pressed={sourceMode === 'year'}
+                  className={`rounded-[18px] p-3.5 text-left flex items-start gap-3 transition-all cursor-pointer ${
+                    sourceMode === 'year'
+                      ? 'bg-[#FFF8D6] border-[2px] border-[#6C19E5]'
+                      : 'bg-[#FAF8FF] border-[2px] border-[#EAE0FA] hover:border-[#C9B3F2]'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-[12px] bg-[#FFE824] text-[#260559] flex items-center justify-center shrink-0">
+                    <CalendarDays size={19} strokeWidth={2.5} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14.5px] font-extrabold text-[#260559] leading-tight">
+                      Pick Past JAMB Year
+                    </div>
+                    <p className="mt-0.5 text-[12px] font-semibold text-[#5A467A] leading-snug">
+                      Sit an exam year paper with smart nearest-year fill if needed.
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Year Selector Chips (visible when Past Year is active) */}
+              {sourceMode === 'year' && availableYears.length > 0 && (
+                <div className="pt-1 space-y-2">
+                  <div className="flex items-center justify-between text-[11.5px] font-extrabold uppercase tracking-wider text-[#5A467A]">
+                    <span>SELECT EXAM YEAR</span>
+                    {selectedYearMeta && (
+                      <span className="text-[#6C19E5] normal-case tracking-normal">
+                        {selectedYearMeta.matchedSubjectsCount}/4 subjects have direct{' '}
+                        {selectedYearMeta.year} papers
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {availableYears.slice(0, 12).map(opt => {
+                      const isPicked = opt.year === selectedYear;
+                      return (
+                        <button
+                          key={opt.year}
+                          type="button"
+                          onClick={() => {
+                            try {
+                              sound.playTap();
+                            } catch {
+                              // ignore
+                            }
+                            setSelectedYear(opt.year);
+                          }}
+                          className={`px-3.5 py-2 rounded-full text-[13px] font-extrabold tabular-nums transition-transform active:translate-y-[1px] cursor-pointer inline-flex items-center gap-1.5 ${
+                            isPicked
+                              ? 'bg-[#2A085E] text-[#FFE51E]'
+                              : 'bg-[#F4EFFC] text-[#260559] hover:bg-[#E7DCFA]'
+                          }`}
+                          style={isPicked ? { boxShadow: '0 3px 0 #170338' } : undefined}
+                        >
+                          <span>{opt.year}</span>
+                          <span
+                            className={`text-[10.5px] px-1.5 py-0.5 rounded-full ${
+                              isPicked
+                                ? 'bg-white/15 text-[#FFE51E]'
+                                : 'bg-white text-[#6C19E5]'
+                            }`}
+                          >
+                            {opt.matchedSubjectsCount}/4
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+
             {/* Your 4 Registered JAMB Subjects for this Sitting */}
             <section
               className="bg-white rounded-[22px] p-4 sm:p-5"
@@ -265,7 +416,8 @@ export function Screen13CbtHubWonderland() {
               }}
             >
               <span>
-                {preset === 'full_180' ? 'START 180-Q CBT MOCK' : 'START 40-Q QUICK MOCK'}
+                {preset === 'full_180' ? 'START 180-Q' : 'START 40-Q'} ·{' '}
+                {sourceMode === 'year' ? `${selectedYear} PAPER` : 'CURRICULUM SHUFFLE'}
               </span>
               <ArrowRight size={20} strokeWidth={2.8} />
             </button>

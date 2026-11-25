@@ -5,6 +5,7 @@ import { Screen3AuthWonderland } from './pages/Screen3AuthWonderland';
 import { Screen4OnboardingWonderland } from './pages/Screen4OnboardingWonderland';
 import { Screen5HomeWonderland } from './pages/Screen5HomeWonderland';
 import { Screen6SmartPracticeHubWonderland } from './pages/Screen6SmartPracticeHubWonderland';
+import { Screen6bPracticeScopeSetupWonderland } from './pages/Screen6bPracticeScopeSetupWonderland';
 import { Screen7ProgressWonderland } from './pages/Screen7ProgressWonderland';
 import { Screen8SmartPracticeFeedWonderland } from './pages/Screen8SmartPracticeFeedWonderland';
 import { Screen9SmartPracticeResultsWonderland } from './pages/Screen9SmartPracticeResultsWonderland';
@@ -53,12 +54,13 @@ export default function App() {
         {/* Screen 5: JAMB Prep Home Dashboard */}
         <Route path="/home" element={<Screen5HomeWonderland />} />
 
-        {/* Screen 6: Smart Practice Hub (Guided Session & Blitz Directory) */}
+        {/* Screen 6 & 6B: Practice Hub & Pre-Session Subject Scope Setup */}
         <Route path="/practice" element={<Screen6SmartPracticeHubWonderland />} />
         <Route path="/practice/smart" element={<Screen6SmartPracticeHubWonderland />} />
         <Route path="/practice/blitz" element={<Screen6SmartPracticeHubWonderland />} />
+        <Route path="/practice/setup" element={<Screen6bPracticeScopeSetupWonderland />} />
 
-        {/* Screen 8 & 9: Smart Practice Live Feed (Blitz & Guided + Checkpoint) & Results */}
+        {/* Screen 8 & 9: Smart Practice Live Feed (Blitz & Smart Practice + Checkpoint) & Results */}
         <Route path="/practice/session" element={<Screen8SmartPracticeFeedWonderland />} />
         <Route path="/practice/results" element={<Screen9SmartPracticeResultsWonderland />} />
 

@@ -9,6 +9,14 @@ import {
 import { recordSessionDurationBonus, recordStudyActivity } from './userProgressStore';
 
 export type CbtMockPreset = 'full_180' | 'quick_40';
+export type CbtSourceMode = 'shuffle' | 'year';
+
+export interface CbtYearOption {
+  year: number;
+  matchedSubjectsCount: number;
+  matchedSubjects: string[];
+  questionCount: number;
+}
 
 export interface CbtExamQuestion extends PracticeFeedQuestion {
   examIndex: number;
@@ -36,6 +44,8 @@ export interface CbtReviewItem {
 export interface CbtMockResult {
   id: string;
   preset: CbtMockPreset;
+  sourceMode?: CbtSourceMode;
+  selectedYear?: number | null;
   title: string;
   completedAt: string;
   totalQuestions: number;
@@ -162,12 +172,48 @@ export function getAllNormalizedQuestions() {
   return cachedAllQuestions;
 }
 
+/**
+ * Scans the real JAMB question bank for all available past years across the
+ * candidate's 4 chosen subjects so the CBT Year Picker shows truthful coverage.
+ */
+export function getAvailableCbtYearsForSubjects(chosenSubjects: string[]): CbtYearOption[] {
+  const orderedSubjects = Array.from(
+    new Set([
+      'English Language',
+      ...chosenSubjects.filter(s => s && s !== 'English Language'),
+    ])
+  ).slice(0, 4);
+  const subjectSet = new Set(orderedSubjects.map(s => s.toLowerCase()));
+  const all = getAllNormalizedQuestions();
+
+  const byYear = new Map<number, { subjects: Set<string>; count: number }>();
+
+  for (const q of all) {
+    if (!q.year || q.year < 2000) continue;
+    if (!subjectSet.has(q.subjectCanonical.toLowerCase())) continue;
+    const entry = byYear.get(q.year) || { subjects: new Set<string>(), count: 0 };
+    entry.subjects.add(q.subjectCanonical);
+    entry.count += 1;
+    byYear.set(q.year, entry);
+  }
+
+  return Array.from(byYear.entries())
+    .map(([year, info]) => ({
+      year,
+      matchedSubjectsCount: info.subjects.size,
+      matchedSubjects: Array.from(info.subjects),
+      questionCount: info.count,
+    }))
+    .sort((a, b) => b.matchedSubjectsCount - a.matchedSubjectsCount || b.year - a.year);
+}
+
 export function getQuestionsForSubject(
   subjectCanonical: string,
   count: number,
   options?: {
     topics?: string[];
     difficulty?: 'mix' | 'easy' | 'medium' | 'hard';
+    year?: number | null;
   }
 ): (PracticeFeedQuestion & { difficulty: 'easy' | 'medium' | 'hard'; year?: number })[] {
   const all = getAllNormalizedQuestions();
@@ -176,6 +222,38 @@ export function getQuestionsForSubject(
   let pool = all.filter(q => q.subjectCanonical.toLowerCase() === normalizedTarget);
   if (pool.length === 0) {
     pool = all;
+  }
+
+  // Optional strict year prioritization with nearest-year fallback if that subject lacks the exact year
+  if (typeof options?.year === 'number' && options.year > 0) {
+    const exactYearMatches = pool.filter(q => q.year === options.year);
+    if (exactYearMatches.length >= count) {
+      pool = exactYearMatches;
+    } else if (exactYearMatches.length > 0) {
+      const remaining = pool
+        .filter(q => q.year !== options.year)
+        .sort(
+          (a, b) =>
+            Math.abs((a.year || 2020) - options.year!) -
+            Math.abs((b.year || 2020) - options.year!)
+        );
+      const exactShuffled = [...exactYearMatches].sort(() => Math.random() - 0.5);
+      const filler = remaining.slice(0, Math.max(0, count - exactShuffled.length));
+      const combined = [...exactShuffled, ...filler];
+      const pickedExact: (PracticeFeedQuestion & {
+        difficulty: 'easy' | 'medium' | 'hard';
+        year?: number;
+      })[] = [];
+      for (let i = 0; i < count; i += 1) {
+        const base = combined[i % combined.length];
+        pickedExact.push(
+          i < combined.length
+            ? base
+            : { ...base, id: `${base.id}-y${Math.floor(i / combined.length)}` }
+        );
+      }
+      return pickedExact;
+    }
   }
 
   if (options?.topics && options.topics.length > 0) {
@@ -200,7 +278,7 @@ export function getQuestionsForSubject(
     }
   }
 
-  // Deterministic yet varied shuffle per run
+  // Varied shuffle per run
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   const picked: (PracticeFeedQuestion & { difficulty: 'easy' | 'medium' | 'hard'; year?: number })[] =
     [];
@@ -224,10 +302,15 @@ export function getQuestionsForSubject(
  * Builds an authentic JAMB UTME CBT mock deck:
  * - `full_180`: 60 English + 40 × 3 remaining chosen subjects = 180 questions (120 mins)
  * - `quick_40`: 10 × 4 chosen subjects = 40 questions (30 mins)
+ * Supports `source: 'shuffle'` (Full Curriculum Random Shuffle) or `source: 'year'` (Specific Past Year).
  */
 export function buildCbtMockDeck(
   chosenSubjects: string[],
-  preset: CbtMockPreset
+  preset: CbtMockPreset,
+  options?: {
+    source?: CbtSourceMode;
+    year?: number | null;
+  }
 ): CbtExamQuestion[] {
   const orderedSubjects = Array.from(
     new Set([
@@ -244,13 +327,16 @@ export function buildCbtMockDeck(
     else break;
   }
 
+  const targetYear = options?.source === 'year' && options?.year ? options.year : null;
   const deck: CbtExamQuestion[] = [];
   let examIndex = 0;
 
-  orderedSubjects.forEach((subject, subjectIdx) => {
+  orderedSubjects.forEach((subject, _subjectIdx) => {
     const perSubjectCount =
       preset === 'full_180' ? (subject === 'English Language' ? 60 : 40) : 10;
-    const questions = getQuestionsForSubject(subject, perSubjectCount);
+    const questions = getQuestionsForSubject(subject, perSubjectCount, {
+      year: targetYear,
+    });
     questions.forEach((q, subIdx) => {
       deck.push({
         ...q,
@@ -269,13 +355,24 @@ export function buildCbtMockDeck(
 
 export function gradeCbtExam(params: {
   preset: CbtMockPreset;
+  sourceMode?: CbtSourceMode;
+  selectedYear?: number | null;
   deck: CbtExamQuestion[];
   answers: Record<number, 'A' | 'B' | 'C' | 'D'>;
   flagged: Record<number, boolean>;
   durationUsedSeconds: number;
   timeLimitSeconds: number;
 }): CbtMockResult {
-  const { preset, deck, answers, flagged, durationUsedSeconds, timeLimitSeconds } = params;
+  const {
+    preset,
+    sourceMode = 'shuffle',
+    selectedYear = null,
+    deck,
+    answers,
+    flagged,
+    durationUsedSeconds,
+    timeLimitSeconds,
+  } = params;
 
   const bySubject = new Map<
     string,
@@ -337,10 +434,19 @@ export function gradeCbtExam(params: {
   const weakest =
     [...subjectScores].sort((a, b) => a.scaledScore100 - b.scaledScore100)[0] || subjectScores[0];
 
+  const baseTitle =
+    preset === 'full_180' ? 'Full JAMB UTME Mock (180Q)' : 'Quick CBT Mock (40Q)';
+  const sourcePrefix =
+    sourceMode === 'year' && selectedYear
+      ? `${selectedYear} Past Paper · `
+      : 'Curriculum Shuffle · ';
+
   const result: CbtMockResult = {
     id: `cbt-${Date.now()}`,
     preset,
-    title: preset === 'full_180' ? 'Full JAMB UTME Mock (180Q)' : 'Quick CBT Mock (40Q)',
+    sourceMode,
+    selectedYear,
+    title: `${sourcePrefix}${baseTitle}`,
     completedAt: new Date().toISOString(),
     totalQuestions,
     answeredCount,
