@@ -14,10 +14,10 @@
     "lint": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "android:sync": "rm -rf dist node_modules/.vite && vite build && node scripts/ensure-android.mjs && cap sync android",
+    "android:sync": "rm -rf dist node_modules/.vite android/app/src/main/assets/public && vite build && node scripts/ensure-android.mjs && cap sync android",
     "android:open": "cap open android",
-    "android:apk:debug": "rm -rf dist node_modules/.vite && vite build && node scripts/ensure-android.mjs && cap sync android && cd android && chmod +x ./gradlew && ./gradlew assembleDebug",
-    "android:apk:release": "rm -rf dist node_modules/.vite && vite build && node scripts/ensure-android.mjs && cap sync android && cd android && chmod +x ./gradlew && ./gradlew assembleRelease",
+    "android:apk:debug": "rm -rf dist node_modules/.vite android/app/src/main/assets/public && vite build && node scripts/ensure-android.mjs && cap sync android && cd android && chmod +x ./gradlew && ./gradlew assembleDebug",
+    "android:apk:release": "rm -rf dist node_modules/.vite android/app/src/main/assets/public && vite build && node scripts/ensure-android.mjs && cap sync android && cd android && chmod +x ./gradlew && ./gradlew assembleRelease",
     "apk:debug": "npm run android:apk:debug"
   },
   "dependencies": {

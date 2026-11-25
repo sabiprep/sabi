@@ -55,7 +55,7 @@ function ensureAndroidPlatform() {
     fs.writeFileSync(manifestPath, manifest, 'utf8');
   }
 
-  // 2. Patch styles.xml so Android status bar (battery %, network bar) never overlaps the WebView
+  // 2. Patch styles.xml so Android status bar matches SABI Wonderland Yellow with dark icons
   const stylesPath = path.join(androidDir, 'app', 'src', 'main', 'res', 'values', 'styles.xml');
   if (fs.existsSync(stylesPath)) {
     const cleanStyles = `<?xml version="1.0" encoding="utf-8"?>
@@ -66,31 +66,48 @@ function ensureAndroidPlatform() {
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:statusBarColor">#080D1A</item>
-        <item name="android:navigationBarColor">#080D1A</item>
+        <item name="android:statusBarColor">#FFE51E</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#2A085E</item>
     </style>
 
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
-        <item name="android:statusBarColor">#080D1A</item>
-        <item name="android:navigationBarColor">#080D1A</item>
+        <item name="android:statusBarColor">#FFE51E</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#2A085E</item>
         <item name="android:fitsSystemWindows">true</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
     </style>
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
-        <item name="android:statusBarColor">#080D1A</item>
-        <item name="android:navigationBarColor">#080D1A</item>
+        <item name="android:statusBarColor">#FFE51E</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#2A085E</item>
     </style>
 </resources>
 `;
     fs.writeFileSync(stylesPath, cleanStyles, 'utf8');
   }
 
-  // 3. Ensure gradlew is executable on Unix/CI
+  // 3. Remove any stale synced web assets so cap sync always writes a 100% fresh bundle
+  const androidPublicDir = path.join(androidDir, 'app', 'src', 'main', 'assets', 'public');
+  if (fs.existsSync(androidPublicDir)) {
+    fs.rmSync(androidPublicDir, { recursive: true, force: true });
+  }
+
+  // 4. Ensure server.cjs / server.cjs.map are never copied into Android WebView assets
+  for (const serverArtifact of ['server.cjs', 'server.cjs.map']) {
+    const artifactPath = path.join(rootDir, 'dist', serverArtifact);
+    if (fs.existsSync(artifactPath)) {
+      fs.rmSync(artifactPath, { force: true });
+    }
+  }
+
+  // 5. Ensure gradlew is executable on Unix/CI
   const gradlewPath = path.join(androidDir, 'gradlew');
   if (fs.existsSync(gradlewPath)) {
     try {
@@ -100,7 +117,7 @@ function ensureAndroidPlatform() {
     }
   }
 
-  console.log('[SABI Android] Android platform verified and configured.');
+  console.log('[SABI Android] Android platform verified, cleaned, and configured.');
 }
 
 ensureAndroidPlatform();

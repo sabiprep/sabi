@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
   BarChart3,
+  Bell,
+  Bookmark,
+  BookOpen,
   ChevronRight,
+  Compass,
   CreditCard,
   Flame,
   Home,
@@ -10,6 +14,7 @@ import {
   Monitor,
   SlidersHorizontal,
   Sparkles,
+  Target,
   User,
   X,
   Zap,
@@ -516,29 +521,33 @@ export function SabiAppChrome({
 
                 {/* Quick Study Shortcuts */}
                 <div className="text-[12px] font-extrabold uppercase tracking-[0.06em] text-[#3C2263] mb-2.5 px-1">
-                  Quick Navigation
+                  All SABI Study Tools
                 </div>
                 <div
-                  className="bg-white rounded-[20px] p-2 space-y-1"
+                  className="bg-white rounded-[20px] p-2 space-y-0.5"
                   style={{ boxShadow: '0 4px 0 #E2C700' }}
                 >
                   {[
-                    { label: 'Home Dashboard', path: '/home', Icon: Home },
-                    { label: 'Smart Practice Hub', path: '/practice', Icon: Zap },
-                    { label: 'Progress & Streaks', path: '/progress', Icon: BarChart3 },
-                    { label: 'Edit Onboarding Answers', path: '/onboarding/1', Icon: SlidersHorizontal },
+                    { label: 'CBT Exam Simulator', path: '/cbt', Icon: Monitor },
+                    { label: 'Custom Practice Builder', path: '/practice/custom', Icon: SlidersHorizontal },
+                    { label: 'JAMB 12-Q Diagnostic', path: '/diagnostic', Icon: Compass },
+                    { label: 'Subjects & Syllabus', path: '/subjects', Icon: BookOpen },
+                    { label: 'Weak Areas & Study Plan', path: '/recommendations', Icon: Target },
+                    { label: 'Mistakes & Saved Vault', path: '/mistakes', Icon: Bookmark },
+                    { label: 'Notifications & Reminders', path: '/notifications', Icon: Bell },
+                    { label: 'Edit Onboarding Answers', path: '/onboarding/1', Icon: Sparkles },
                   ].map(({ label, path, Icon }) => (
                     <button
                       key={path}
                       type="button"
                       onClick={() => goTo(path)}
-                      className="w-full px-3 py-2.5 rounded-[14px] hover:bg-[#F5F0FF] flex items-center justify-between text-[14px] font-extrabold text-[#260559] cursor-pointer"
+                      className="w-full px-3 py-2.5 rounded-[14px] hover:bg-[#F5F0FF] flex items-center justify-between text-[13.5px] font-extrabold text-[#260559] cursor-pointer"
                     >
                       <span className="flex items-center gap-3">
-                        <Icon size={18} className="text-[#6C19E5]" />
+                        <Icon size={17} className="text-[#6C19E5]" />
                         <span>{label}</span>
                       </span>
-                      <ChevronRight size={17} className="text-[#8B76B3]" />
+                      <ChevronRight size={16} className="text-[#8B76B3]" />
                     </button>
                   ))}
                 </div>

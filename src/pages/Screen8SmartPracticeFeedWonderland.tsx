@@ -26,6 +26,7 @@ import {
   type SmartPracticePace,
 } from '../utils/smartPracticeSession';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
+import { recordMistakeInVault } from '../utils/cbtAndCustomEngine';
 import { sound } from '../utils/soundEffects';
 
 const OPTIONS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
@@ -175,6 +176,9 @@ export function Screen8SmartPracticeFeedWonderland() {
         xpEarned: earnedXp,
         elapsedSeconds,
       };
+      if (!answeredCorrectly) {
+        recordMistakeInVault(currentQuestion, opt);
+      }
       setRecords(prev => [...prev, record]);
     },
     [currentQuestion, currentStreak, isAnswered, questionStartMs, showCheckpoint]

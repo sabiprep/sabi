@@ -14,25 +14,25 @@
     "allowMixedContent": true,
     "captureInput": true,
     "webContentsDebuggingEnabled": true,
-    "backgroundColor": "#080D1A"
+    "backgroundColor": "#FFE51E"
   },
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 1400,
+      "launchShowDuration": 900,
       "launchAutoHide": true,
-      "backgroundColor": "#080D1A",
+      "backgroundColor": "#FFE51E",
       "androidSplashResourceName": "splash",
       "androidScaleType": "CENTER_CROP",
       "showSpinner": false
     },
     "StatusBar": {
-      "style": "DARK",
-      "backgroundColor": "#080D1A",
+      "style": "LIGHT",
+      "backgroundColor": "#FFE51E",
       "overlaysWebView": false
     },
     "Keyboard": {
       "resize": "body",
-      "style": "DARK",
+      "style": "LIGHT",
       "resizeOnFullScreen": true
     }
   }

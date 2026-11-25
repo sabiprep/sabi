@@ -1,0 +1,442 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ArrowRight,
+  Bookmark,
+  Check,
+  CheckCircle2,
+  Clock,
+  RotateCcw,
+  X,
+  XCircle,
+} from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import confetti from 'canvas-confetti';
+import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
+import {
+  buildCustomPracticeDeck,
+  loadCustomPracticeConfig,
+  recordCustomRunSummary,
+  recordMistakeInVault,
+  toggleSavedQuestionId,
+  type CustomPracticeConfig,
+} from '../utils/cbtAndCustomEngine';
+import {
+  getShortSubjectLabel,
+  loadSavedQuestionIds,
+} from '../utils/smartPracticeSession';
+import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
+import { sound } from '../utils/soundEffects';
+
+const OPTION_KEYS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
+
+/**
+ * SCREEN 17 (`/practice/custom/session`): CUSTOM PRACTICE LIVE RUNNER
+ * Clean, simple, well-fitted Wonderland practice runner supporting instant
+ * or end-of-set explanations, optional timer, bookmarking, and full results review.
+ */
+export function Screen17CustomPracticeSessionWonderland() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const student = useMemo(() => getWonderlandDashboardState(), []);
+  const mySubjects = useMemo(() => student.subjects.map(s => s.canonicalName), [student.subjects]);
+  const aiConfig = useMemo(() => loadPracticeAiConfig(mySubjects), [mySubjects]);
+
+  const config: CustomPracticeConfig = useMemo(() => {
+    const fromState = (location.state as { config?: CustomPracticeConfig } | null)?.config;
+    return fromState || loadCustomPracticeConfig(mySubjects);
+  }, [location.state, mySubjects]);
+
+  const deck = useMemo(() => buildCustomPracticeDeck(config), [config]);
+
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
+  const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedQuestionIds());
+  const [usePidgin, setUsePidgin] = useState(
+    () => aiConfig.explanationStyle === 'pidgin_friendly'
+  );
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(
+    config.timerMinutes ? config.timerMinutes * 60 : null
+  );
+  const [finished, setFinished] = useState(false);
+
+  const currentQuestion = deck[currentIdx] || deck[0];
+  const selected = answers[currentIdx] ?? null;
+  const showInstantFeedback = config.feedbackTiming === 'instant' && selected !== null;
+  const isCorrectNow = selected !== null && selected === currentQuestion.answer;
+
+  const completeSession = () => {
+    if (finished) return;
+    setFinished(true);
+    let correctCount = 0;
+    deck.forEach((q, idx) => {
+      const picked = answers[idx];
+      if (picked === q.answer) {
+        correctCount += 1;
+      } else if (picked) {
+        recordMistakeInVault(q, picked);
+      }
+    });
+    const accuracy = deck.length > 0 ? Math.round((correctCount / deck.length) * 100) : 0;
+    recordCustomRunSummary({
+      id: `cust-${Date.now()}`,
+      completedAt: new Date().toISOString(),
+      subjectsLabel: config.onlyMistakesOrSaved
+        ? 'Mistakes & Saved Drill'
+        : config.subjects.map(getShortSubjectLabel).join(' · '),
+      correctCount,
+      totalQuestions: deck.length,
+      accuracyPercent: accuracy,
+    });
+    try {
+      const prevXp = Number(localStorage.getItem('sabi_wonderland_earned_xp_v1') || '0') || 0;
+      localStorage.setItem(
+        'sabi_wonderland_earned_xp_v1',
+        String(prevXp + Math.max(15, correctCount * 10))
+      );
+      if (accuracy >= 60) {
+        confetti({ particleCount: 50, spread: 60, origin: { y: 0.5 } });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    if (finished || secondsLeft === null) return;
+    if (secondsLeft <= 0) {
+      completeSession();
+      return;
+    }
+    const id = window.setInterval(() => {
+      setSecondsLeft(prev => (prev === null ? null : Math.max(0, prev - 1)));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [finished, secondsLeft]);
+
+  const handlePick = (opt: 'A' | 'B' | 'C' | 'D') => {
+    if (config.feedbackTiming === 'instant' && selected !== null) return;
+    try {
+      if (config.feedbackTiming === 'instant' && opt === currentQuestion.answer) {
+        sound.playSuccess();
+      } else {
+        sound.playTap();
+      }
+    } catch {
+      // ignore
+    }
+    setAnswers(prev => ({ ...prev, [currentIdx]: opt }));
+    if (config.feedbackTiming === 'instant' && opt !== currentQuestion.answer) {
+      recordMistakeInVault(currentQuestion, opt);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIdx + 1 >= deck.length) {
+      completeSession();
+    } else {
+      setCurrentIdx(prev => prev + 1);
+    }
+  };
+
+  // =========================================================================
+  // SUMMARY VIEW WHEN COMPLETED
+  // =========================================================================
+  if (finished) {
+    const correctCount = deck.filter((q, idx) => answers[idx] === q.answer).length;
+    const accuracy = deck.length > 0 ? Math.round((correctCount / deck.length) * 100) : 0;
+
+    return (
+      <div
+        className="min-h-[100dvh] w-full bg-[#FFE824] text-[#260559] pt-[env(safe-area-inset-top,0px)] pb-[max(env(safe-area-inset-bottom,0px),24px)]"
+        style={{
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          background: 'linear-gradient(180deg, #FFEC2E 0%, #FFE61E 60%, #FFE014 100%)',
+        }}
+      >
+        <main className="w-full max-w-[920px] mx-auto px-3.5 sm:px-6 pt-5 space-y-4">
+          <section
+            className="rounded-[26px] bg-[#2A085E] p-5 sm:p-7 text-white text-center"
+            style={{ boxShadow: '0 6px 0 #170338' }}
+          >
+            <span className="inline-block px-3 py-1 rounded-full bg-white/14 text-[#FFE51E] text-[11px] font-extrabold uppercase tracking-wider">
+              CUSTOM PRACTICE COMPLETE
+            </span>
+            <h1
+              className="mt-2 text-[34px] sm:text-[42px] font-bold text-[#FFE51E] tabular-nums leading-none"
+              style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
+            >
+              {correctCount}/{deck.length} ({accuracy}%)
+            </h1>
+            <p className="mt-2 text-[14px] font-semibold text-[#D9C7FA]">
+              {accuracy >= 75
+                ? 'Solid mastery! Keep this momentum rolling into CBT Mock mode.'
+                : 'Great practice run. Review the missed explanations below to lock in the concepts.'}
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => navigate('/practice/custom')}
+                className="px-5 py-3 rounded-[16px] bg-[#FFE824] text-[#260559] font-extrabold text-[14px] uppercase tracking-wide inline-flex items-center gap-1.5 cursor-pointer"
+                style={{
+                  fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                  boxShadow: '0 4px 0 #C7AD00',
+                }}
+              >
+                <RotateCcw size={16} />
+                <span>New Custom Set</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/home')}
+                className="px-5 py-3 rounded-[16px] bg-white/14 hover:bg-white/22 text-white font-extrabold text-[14px] cursor-pointer"
+              >
+                Back to Home
+              </button>
+            </div>
+          </section>
+
+          {/* Answer Review List */}
+          <section
+            className="bg-white rounded-[24px] p-4 sm:p-6 space-y-3"
+            style={{ boxShadow: '0 4px 0 #E2C700' }}
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[18px] font-extrabold text-[#260559]">Full Set Review</h2>
+              <button
+                type="button"
+                onClick={() => setUsePidgin(prev => !prev)}
+                className="px-3 py-1.5 rounded-full bg-[#F3EEFD] text-[#6C19E5] text-[12px] font-extrabold cursor-pointer"
+              >
+                {usePidgin ? 'Naija Pidgin: ON' : 'Explain in Pidgin'}
+              </button>
+            </div>
+
+            {deck.map((q, idx) => {
+              const userAns = answers[idx] ?? null;
+              const ok = userAns === q.answer;
+              return (
+                <div
+                  key={`${q.id}-${idx}`}
+                  className={`rounded-[16px] border p-3.5 ${
+                    ok ? 'border-[#A7F3D0] bg-[#F7FEF9]' : 'border-[#FECACA] bg-[#FFF8F8]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-[11.5px] font-extrabold text-[#6C19E5] mb-1">
+                    {ok ? (
+                      <CheckCircle2 size={15} className="text-[#059669]" />
+                    ) : (
+                      <XCircle size={15} className="text-[#DC2626]" />
+                    )}
+                    <span>
+                      Q{idx + 1} · {q.subjectLabel} · {q.topicLabel}
+                    </span>
+                  </div>
+                  <p className="text-[14.5px] font-extrabold text-[#260559] mb-1.5">
+                    {q.question}
+                  </p>
+                  <div className="text-[12.5px] font-bold flex flex-wrap gap-3 mb-2">
+                    <span className={ok ? 'text-[#059669]' : 'text-[#DC2626]'}>
+                      You picked: {userAns || 'Skipped'}
+                    </span>
+                    <span className="text-[#059669]">
+                      Correct: {q.answer} ({q.options[q.answer]})
+                    </span>
+                  </div>
+                  <p className="text-[13px] font-semibold text-[#3B2264] leading-relaxed">
+                    {usePidgin ? q.explanationPidgin : q.explanationFull}
+                  </p>
+                </div>
+              );
+            })}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // LIVE CUSTOM PRACTICE VIEW
+  // =========================================================================
+  const progressPct = Math.round(((currentIdx + 1) / deck.length) * 100);
+  const isSaved = savedIds.includes(currentQuestion.id);
+
+  return (
+    <div
+      className="min-h-[100dvh] w-full flex flex-col bg-[#FFE824] text-[#260559] pt-[env(safe-area-inset-top,0px)] pb-[max(env(safe-area-inset-bottom,0px),14px)]"
+      style={{
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        background: 'linear-gradient(180deg, #FFEC2E 0%, #FFE61E 60%, #FFE014 100%)',
+      }}
+    >
+      <main className="flex-1 w-full max-w-[880px] mx-auto px-3.5 sm:px-6 pt-3.5 sm:pt-5 flex flex-col">
+        {/* Top Bar */}
+        <header className="flex items-center justify-between gap-2.5 mb-3.5">
+          <button
+            type="button"
+            onClick={() => navigate('/practice/custom')}
+            aria-label="Exit custom practice"
+            className="w-[42px] h-[42px] rounded-[14px] bg-white text-[#260559] flex items-center justify-center cursor-pointer shrink-0"
+            style={{ boxShadow: '0 3px 0 #E2C700' }}
+          >
+            <X size={20} strokeWidth={2.7} />
+          </button>
+
+          {/* Progress Track */}
+          <div className="flex-1 flex items-center gap-2.5">
+            <div className="flex-1 h-3 rounded-full bg-white/80 overflow-hidden p-0.5">
+              <div
+                className="h-full rounded-full bg-[#6C19E5] transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="text-[13px] font-extrabold text-[#260559] tabular-nums shrink-0">
+              {currentIdx + 1}/{deck.length}
+            </span>
+          </div>
+
+          {/* Optional Timer + Save */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {secondsLeft !== null && (
+              <span className="px-3 py-1.5 rounded-full bg-[#2A085E] text-[#FFE51E] font-mono text-[13px] font-extrabold tabular-nums inline-flex items-center gap-1">
+                <Clock size={13} />
+                {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, '0')}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setSavedIds(toggleSavedQuestionId(currentQuestion.id))}
+              aria-label="Save question"
+              className={`w-[42px] h-[42px] rounded-[14px] flex items-center justify-center cursor-pointer ${
+                isSaved ? 'bg-[#2A085E] text-[#FFE51E]' : 'bg-white text-[#260559]'
+              }`}
+              style={{ boxShadow: '0 3px 0 #E2C700' }}
+            >
+              <Bookmark size={18} className={isSaved ? 'fill-[#FFE51E]' : ''} />
+            </button>
+          </div>
+        </header>
+
+        {/* Main Question Card */}
+        <section
+          className="bg-white rounded-[26px] p-4 sm:p-6 flex-1 flex flex-col"
+          style={{ boxShadow: '0 4px 0 #E2C700' }}
+        >
+          <div className="flex items-center flex-wrap gap-2 mb-3">
+            <span className="px-3 py-1 rounded-full bg-[#EFE6FF] text-[#6C19E5] text-[12px] font-extrabold">
+              {currentQuestion.subjectLabel}
+            </span>
+            <span className="text-[13px] font-bold text-[#5A467A]">
+              {currentQuestion.topicLabel}
+            </span>
+          </div>
+
+          <h1 className="text-[18.5px] sm:text-[21px] font-extrabold text-[#260559] leading-[1.4] mb-5 whitespace-pre-line">
+            {currentQuestion.question}
+          </h1>
+
+          {/* 4 Options */}
+          <div className="space-y-2.5 sm:space-y-3">
+            {OPTION_KEYS.map(letter => {
+              const isPicked = selected === letter;
+              const isRightOpt = letter === currentQuestion.answer;
+
+              let styleClass =
+                'bg-[#F8F5FF] hover:bg-[#EFE6FF] text-[#260559] border border-[#E7DCFA]';
+              let badgeClass = 'bg-white text-[#6C19E5] border border-[#DFCFFA]';
+
+              if (showInstantFeedback) {
+                if (isRightOpt) {
+                  styleClass = 'bg-[#10B968] text-white border border-[#088247]';
+                  badgeClass = 'bg-white text-[#088247]';
+                } else if (isPicked && !isRightOpt) {
+                  styleClass = 'bg-[#E5484D] text-white border border-[#A82328]';
+                  badgeClass = 'bg-white text-[#A82328]';
+                } else {
+                  styleClass = 'bg-[#F8F5FF]/60 text-[#260559]/60 border border-transparent';
+                }
+              } else if (isPicked) {
+                styleClass = 'bg-[#6C19E5] text-white border border-[#46099E]';
+                badgeClass = 'bg-[#FFE824] text-[#260559]';
+              }
+
+              return (
+                <button
+                  key={letter}
+                  type="button"
+                  onClick={() => handlePick(letter)}
+                  className={`w-full rounded-[18px] px-4 py-3.5 min-h-[56px] flex items-center justify-between gap-3 text-left transition-all cursor-pointer ${styleClass}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className={`w-8 h-8 rounded-[10px] flex items-center justify-center font-extrabold text-[14px] shrink-0 ${badgeClass}`}
+                    >
+                      {letter}
+                    </span>
+                    <span className="text-[15.5px] font-bold leading-snug">
+                      {currentQuestion.options[letter]}
+                    </span>
+                  </div>
+                  {showInstantFeedback && isRightOpt && <Check size={20} strokeWidth={3} />}
+                  {showInstantFeedback && isPicked && !isRightOpt && (
+                    <X size={20} strokeWidth={3} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Instant Feedback Box */}
+          {showInstantFeedback && (
+            <div
+              className={`mt-4 rounded-[18px] p-4 ${
+                isCorrectNow ? 'bg-[#D8F8E8] text-[#11422C]' : 'bg-[#FFE2E5] text-[#5C1219]'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[15px] font-extrabold">
+                  {isCorrectNow ? 'Correct! You sabi am!' : `Correct answer: Option ${currentQuestion.answer}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUsePidgin(prev => !prev)}
+                  className="text-[11.5px] font-extrabold underline cursor-pointer"
+                >
+                  {usePidgin ? 'Standard English' : 'Naija Pidgin'}
+                </button>
+              </div>
+              <p className="text-[13.5px] font-semibold leading-relaxed">
+                {usePidgin ? currentQuestion.explanationPidgin : currentQuestion.explanationFull}
+              </p>
+            </div>
+          )}
+
+          {/* Footer Action */}
+          <div className="mt-auto pt-5 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={completeSession}
+              className="px-4 py-3 rounded-[15px] bg-[#F5F0FF] text-[#4A356E] font-extrabold text-[13.5px] cursor-pointer"
+            >
+              Finish Early
+            </button>
+
+            <button
+              type="button"
+              disabled={!selected && config.feedbackTiming === 'instant'}
+              onClick={handleNext}
+              className="flex-1 sm:flex-none sm:min-w-[220px] py-3.5 px-6 rounded-[18px] bg-[#6C19E5] disabled:opacity-45 hover:brightness-105 text-white font-bold text-[16px] uppercase tracking-wide inline-flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+              style={{
+                fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                boxShadow: '0 4px 0 #46099E',
+              }}
+            >
+              <span>{currentIdx + 1 >= deck.length ? 'See Summary' : 'Next Question'}</span>
+              <ArrowRight size={18} strokeWidth={2.7} />
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}

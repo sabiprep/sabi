@@ -11,25 +11,22 @@ import { Screen9SmartPracticeResultsWonderland } from './pages/Screen9SmartPract
 import { Screen10PracticeSettingsWonderland } from './pages/Screen10PracticeSettingsWonderland';
 import { Screen11AccountProfileWonderland } from './pages/Screen11AccountProfileWonderland';
 import { Screen12SubscriptionsWonderland } from './pages/Screen12SubscriptionsWonderland';
-import { WonderlandComingNextScreen } from './pages/WonderlandComingNextScreen';
+import { Screen13CbtHubWonderland } from './pages/Screen13CbtHubWonderland';
+import { Screen14CbtExamWonderland } from './pages/Screen14CbtExamWonderland';
+import { Screen15CbtResultsWonderland } from './pages/Screen15CbtResultsWonderland';
+import { Screen16CustomPracticeHubWonderland } from './pages/Screen16CustomPracticeHubWonderland';
+import { Screen17CustomPracticeSessionWonderland } from './pages/Screen17CustomPracticeSessionWonderland';
+import { Screen18DiagnosticWonderland } from './pages/Screen18DiagnosticWonderland';
+import { Screen19SubjectsWonderland } from './pages/Screen19SubjectsWonderland';
+import { Screen20RecommendationsWonderland } from './pages/Screen20RecommendationsWonderland';
+import { Screen21MistakesVaultWonderland } from './pages/Screen21MistakesVaultWonderland';
+import { Screen22NotificationsWonderland } from './pages/Screen22NotificationsWonderland';
 
 /**
- * SABI UI Renovation — Active Build
- * Active renovated Wonderland screens:
- *   - Screen 1 (`/`): SABI Assembly (`Screen1AssembleSplash`) -> transitions directly to Screen 2 (`/welcome`)
- *   - Screen 2 (`/welcome`): SABI Yellow & 3D Purple Wonderland Welcome Screen (`Screen2WelcomeWonderland`)
- *   - Screen 3 (`/auth/*`): SABI Yellow & 3D Purple Wonderland Auth Screen (`Screen3AuthWonderland`)
- *   - Screen 4 (`/onboarding` & `/onboarding/:step`): Wonderland Onboarding (`Screen4OnboardingWonderland`)
- *   - Screen 5 (`/home`): JAMB Prep Home Dashboard (`Screen5HomeWonderland`)
- *   - Screen 6 (`/practice`): Smart Practice Hub — Guided & Blitz Directory (`Screen6SmartPracticeHubWonderland`)
- *   - Screen 7 (`/progress`): Your Progress, Streaks & Gold League (`Screen7ProgressWonderland`)
- *   - Screen 8 (`/practice/session`): Smart Practice Live Feed — Blitz & Guided + Checkpoint
- *   - Screen 9 (`/practice/results`): Smart Practice Results & Next Best Step
- *   - Screen 10 (`/settings/practice`): SABI AI Practice Studio (`Screen10PracticeSettingsWonderland`)
- *   - Screen 11 (`/profile`): Account & Profile (`Screen11AccountProfileWonderland`)
- *   - Screen 12 (`/subscriptions`): Subscriptions & AI Credits (`Screen12SubscriptionsWonderland`)
- *
- * All legacy pages, stylesheets, and components remain archived inside `/src/archive/`.
+ * SABI JAMB UTME CBT — Complete Wonderland UI Build
+ * All 15+ screens from `sabi-main-doc.md` live in the unified SABI Wonderland UI
+ * across Desktop WebApp and Capacitor Android APK.
+ * Legacy screens remain isolated in `/src/archive/`.
  */
 export default function App() {
   return (
@@ -61,51 +58,36 @@ export default function App() {
         <Route path="/practice/smart" element={<Screen6SmartPracticeHubWonderland />} />
         <Route path="/practice/blitz" element={<Screen6SmartPracticeHubWonderland />} />
 
-        {/* Screen 8: Smart Practice Live Feed — Blitz & Guided + 10-Question Checkpoint */}
+        {/* Screen 8 & 9: Smart Practice Live Feed (Blitz & Guided + Checkpoint) & Results */}
         <Route path="/practice/session" element={<Screen8SmartPracticeFeedWonderland />} />
-
-        {/* Screen 9: Smart Practice Results & Next Best Step */}
         <Route path="/practice/results" element={<Screen9SmartPracticeResultsWonderland />} />
+
+        {/* Screen 16 & 17: Custom Practice Dashboard & Live Runner */}
+        <Route path="/practice/custom" element={<Screen16CustomPracticeHubWonderland />} />
+        <Route path="/practice/custom/session" element={<Screen17CustomPracticeSessionWonderland />} />
+
+        {/* Screen 13, 14 & 15: Strict CBT Simulator Dashboard, Exam Hall & Script Review */}
+        <Route path="/cbt" element={<Screen13CbtHubWonderland />} />
+        <Route path="/cbt/exam" element={<Screen14CbtExamWonderland />} />
+        <Route path="/cbt/results" element={<Screen15CbtResultsWonderland />} />
 
         {/* Screen 7: Progress, Streaks & Gold League */}
         <Route path="/progress" element={<Screen7ProgressWonderland />} />
 
-        {/* Upcoming Next-Batch Surfaces (Clean Wonderland Shells — No Dead Links) */}
-        <Route
-          path="/cbt"
-          element={
-            <WonderlandComingNextScreen
-              tab="cbt"
-              title="CBT Simulator"
-              subtitle="Full 180-question & 40-question real exam timer."
-              detail="The renovated CBT Simulator screens will be wired here as soon as you send the next UI batch."
-              icon="cbt"
-            />
-          }
-        />
-        <Route
-          path="/practice/custom"
-          element={
-            <WonderlandComingNextScreen
-              tab="practice"
-              title="Custom Practice"
-              subtitle="Choose your exact subjects, topics, and question count."
-              detail="The renovated Custom Practice setup screen will be wired here as soon as you send the next UI batch."
-              icon="custom"
-            />
-          }
-        />
-        {/* Screen 10: SABI AI Practice Studio (Practice Configuration & AI Auto-Structure) */}
+        {/* Screen 10, 11 & 12: 3-Dash Menu Studio (AI Practice Studio, Account Profile, Subscriptions) */}
         <Route path="/settings/practice" element={<Screen10PracticeSettingsWonderland />} />
         <Route path="/settings" element={<Navigate to="/settings/practice" replace />} />
-
-        {/* Screen 11: Account & Profile */}
         <Route path="/profile" element={<Screen11AccountProfileWonderland />} />
-
-        {/* Screen 12: Subscriptions & AI Credits */}
         <Route path="/subscriptions" element={<Screen12SubscriptionsWonderland />} />
 
-        {/* Redirect any old or unknown path directly to Screen 2 (/welcome) */}
+        {/* Screen 18–22: Diagnostic, Subjects & Syllabus, Weak Areas, Mistakes Vault, Notifications */}
+        <Route path="/diagnostic" element={<Screen18DiagnosticWonderland />} />
+        <Route path="/subjects" element={<Screen19SubjectsWonderland />} />
+        <Route path="/recommendations" element={<Screen20RecommendationsWonderland />} />
+        <Route path="/mistakes" element={<Screen21MistakesVaultWonderland />} />
+        <Route path="/notifications" element={<Screen22NotificationsWonderland />} />
+
+        {/* Redirect any unknown path cleanly to Screen 2 (/welcome) */}
         <Route path="*" element={<Navigate to="/welcome" replace />} />
       </Routes>
     </BrowserRouter>

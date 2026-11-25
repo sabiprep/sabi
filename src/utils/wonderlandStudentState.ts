@@ -1,5 +1,6 @@
 import { getRealUserProgress } from './userProgressStore';
 import { loadPracticeAiConfig } from './sabiAiPracticeConfig';
+import { loadDiagnosticBaseline } from './cbtAndCustomEngine';
 
 export interface SubjectMasteryItem {
   canonicalName: string;
@@ -96,7 +97,10 @@ function readStoredOnboarding(): Record<string, any> | null {
       localStorage.getItem('sabi_onboarding_v3_answers') ||
       localStorage.getItem('sabi_onboarding_wonderland_v3_draft') ||
       localStorage.getItem('sabi_onboarding_v2_answers');
-    return raw ? JSON.parse(raw) : null;
+    const base = raw ? JSON.parse(raw) : {};
+    const profileRaw = localStorage.getItem('sabi_onboarding_profile_v1');
+    const profileOverride = profileRaw ? JSON.parse(profileRaw) : {};
+    return { ...base, ...profileOverride };
   } catch {
     return null;
   }
@@ -121,6 +125,8 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
       ? onboarding.chosenSubjects
       : ['English Language', 'Mathematics', 'Physics', 'Chemistry'];
 
+  const diagnosticBaseline = loadDiagnosticBaseline();
+
   const subjects: SubjectMasteryItem[] = rawSubjects.slice(0, 4).map((canonicalName, index) => {
     const meta = SUBJECT_SHORT_CODES[canonicalName] || {
       code: canonicalName.slice(0, 4).toUpperCase(),
@@ -128,9 +134,12 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
     };
     const palette = SUBJECT_RING_PALETTE[index % SUBJECT_RING_PALETTE.length];
     const stat = realProgress.subjectStats[canonicalName];
+    const diagPct = diagnosticBaseline?.subjectMastery?.[canonicalName];
     const computedRating =
       stat && typeof stat.rating === 'number' && stat.rating > 0
         ? Math.min(100, Math.round(stat.rating))
+        : typeof diagPct === 'number'
+        ? Math.min(100, Math.round(diagPct))
         : DEFAULT_SAMPLE_PERCENTS[index] ?? 50;
 
     return {
