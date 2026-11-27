@@ -273,6 +273,7 @@ export default function App() {
                 }
               />
               <Route path="/auth/verify" element={<Screen3AuthWonderland mode="verify" />} />
+              <Route path="/auth/callback" element={<Screen3AuthWonderland mode="verify" />} />
               <Route
                 path="/auth/forgot-password"
                 element={<Screen3AuthWonderland mode="forgot-password" />}

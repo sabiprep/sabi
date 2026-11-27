@@ -9,17 +9,11 @@
  * calls must go through this helper.
  */
 
+import { Capacitor } from '@capacitor/core';
 import { supabase } from '../lib/supabase';
 
-/**
- * Optional cross-origin API base URL (e.g. the API on Cloud Run while the web
- * app is served from Vercel).
- *
- * Phase 0 fix: this used to be honoured only by the Capacitor bridge, so a web
- * deployment that did not serve `/api/*` from the same origin silently received
- * an HTML page (the SPA shell) for every POST and surfaced it as
- * "check your internet connection". Resolution now happens for every call.
- */
+const DEFAULT_PRODUCTION_API_ORIGIN = 'https://sabi-tan.vercel.app';
+
 /**
  * AI Studio preview hosts (`https://ais-pre-….run.app`, `https://ais-dev-….run.app`)
  * are proxied *static* previews: they answer `/api/*` with `302 → /__cookie_check.html`
@@ -32,18 +26,49 @@ export function isPreviewProxyHost(url: string): boolean {
   return Boolean(match && /^ais-(pre|dev)-/i.test(match[1]));
 }
 
-const CONFIGURED_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
+function isNativeCapacitorRuntime(): boolean {
+  try {
+    return (
+      typeof Capacitor !== 'undefined' &&
+      typeof Capacitor.isNativePlatform === 'function' &&
+      Capacitor.isNativePlatform()
+    );
+  } catch {
+    return false;
+  }
+}
+
+const RAW_CONFIGURED_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
   .trim()
   .replace(/\/+$/, '');
 
-/** The configured API base URL ('' when the API is served from the same origin). */
+const PUBLIC_WEB_FALLBACK_BASE = (
+  import.meta.env.VITE_PUBLIC_WEB_URL ||
+  import.meta.env.VITE_PUBLIC_APP_URL ||
+  DEFAULT_PRODUCTION_API_ORIGIN
+)
+  .trim()
+  .replace(/\/+$/, '');
+
+/**
+ * The effective API base URL:
+ * - Uses `VITE_API_BASE_URL` when explicitly configured.
+ * - On Capacitor Android/iOS (`https://localhost` WebView), automatically falls back to
+ *   `VITE_PUBLIC_WEB_URL` or `https://sabi-tan.vercel.app` so native APK API calls never
+ *   hit the local WebView asset server.
+ * - On Web, defaults to `''` (same-origin `/api/*`).
+ */
 export function getApiBaseUrl(): string {
-  return CONFIGURED_API_BASE;
+  if (RAW_CONFIGURED_API_BASE) return RAW_CONFIGURED_API_BASE;
+  if (isNativeCapacitorRuntime()) {
+    return PUBLIC_WEB_FALLBACK_BASE || DEFAULT_PRODUCTION_API_ORIGIN;
+  }
+  return '';
 }
 
-if (CONFIGURED_API_BASE && isPreviewProxyHost(CONFIGURED_API_BASE)) {
+if (RAW_CONFIGURED_API_BASE && isPreviewProxyHost(RAW_CONFIGURED_API_BASE)) {
   console.warn(
-    `[SABI] VITE_API_BASE_URL points at an AI Studio preview proxy (${CONFIGURED_API_BASE}). ` +
+    `[SABI] VITE_API_BASE_URL points at an AI Studio preview proxy (${RAW_CONFIGURED_API_BASE}). ` +
       'That host does not serve the SABI API: /api/* is answered with an HTML redirect to ' +
       '__cookie_check.html. Rebuild with VITE_API_BASE_URL empty (same-origin deployment) or ' +
       'set it to the host that runs server.ts.'
@@ -55,7 +80,7 @@ if (CONFIGURED_API_BASE && isPreviewProxyHost(CONFIGURED_API_BASE)) {
  * configured base prefix, except when that base is this very origin (in which
  * case the relative path is already correct and no cross-origin call is needed).
  */
-export function resolveApiUrl(input: string, base: string = CONFIGURED_API_BASE): string {
+export function resolveApiUrl(input: string, base: string = getApiBaseUrl()): string {
   if (/^https?:\/\//i.test(input)) return input;
   const normalizedBase = (base || '').trim().replace(/\/+$/, '');
   if (!normalizedBase) return input;

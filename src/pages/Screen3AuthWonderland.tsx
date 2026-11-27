@@ -105,6 +105,34 @@ function PurplePadlockIcon() {
   );
 }
 
+function GoogleBrandIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-5 h-5 shrink-0"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </svg>
+  );
+}
+
 // ==========================================
 // SCREEN 3 (`/auth/*`): AUTH SCREEN (UPLOADED IMAGE 2 DESIGN)
 // ==========================================
@@ -149,6 +177,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
 
   // Auth loading & status banner
   const [authLoading, setAuthLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [authFeedback, setAuthFeedback] = useState<{
     type: 'error' | 'success' | 'info';
     message: string;
@@ -156,25 +185,27 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
   const [unconfirmedEmailForResend, setUnconfirmedEmailForResend] = useState<string>('');
 
   const applySyncedProfileToLocal = (
-    profile: any,
+    synced: any,
     fallbackEmail: string,
     fallbackName?: string
   ) => {
-    const email = (profile?.email || fallbackEmail || '').trim().toLowerCase();
-    const uniqueId = profile?.sabi_unique_id || getOrGenerateSabiUniqueId(email);
+    if (!synced?.id) return null;
+    const email = (synced?.email || fallbackEmail || '').trim().toLowerCase();
+    const uniqueId = synced?.sabi_unique_id || getOrGenerateSabiUniqueId(email);
     const fullName =
-      profile?.full_name ||
+      synced?.full_name ||
       fallbackName ||
       localStorage.getItem('sabi_user_name') ||
       'Candidate';
     const phone =
-      profile?.phone || phoneInput.trim() || localStorage.getItem('sabi_user_phone') || '';
+      synced?.phone || phoneInput.trim() || localStorage.getItem('sabi_user_phone') || '';
     const state =
-      profile?.state_of_origin ||
+      synced?.state_of_origin ||
       stateOfOriginInput ||
       localStorage.getItem('sabi_user_state') ||
       'Lagos';
 
+    localStorage.setItem('sabi_active_user_id', synced.id);
     localStorage.setItem('sabi_user_email', email);
     localStorage.setItem('sabi_user_name', fullName);
     localStorage.setItem('sabi_user_phone', phone);
@@ -182,8 +213,8 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
     localStorage.setItem('sabi_unique_id', uniqueId);
     localStorage.setItem('sabi_user_signed_in', 'true');
 
-    if (profile?.onboarding_answers && typeof profile.onboarding_answers === 'object') {
-      const { live_progress, ...onboardingOnly } = profile.onboarding_answers;
+    if (synced?.onboarding_answers && typeof synced.onboarding_answers === 'object') {
+      const { live_progress, ...onboardingOnly } = synced.onboarding_answers;
       if (Object.keys(onboardingOnly).length > 0) {
         localStorage.setItem('sabi_onboarding_v2_10q', JSON.stringify(onboardingOnly));
         localStorage.setItem('sabi_onboarding_v2_answers', JSON.stringify(onboardingOnly));
@@ -207,6 +238,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
       setEmailInput(savedMail);
     }
 
+    const fullHref = window.location.href || '';
     const hash = window.location.hash || '';
     const search = window.location.search || '';
     const combined = `${hash}&${search}`;
@@ -216,17 +248,108 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
       combined.includes('code=') ||
       combined.includes('verified=true') ||
       combined.includes('error_code=') ||
+      combined.includes('error=') ||
       combined.includes('type=signup')
     ) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-      void refreshProfile();
+      setAuthLoading(true);
+      void (async () => {
+        try {
+          const { completeSupabaseOAuthFromUrl } = await import('../lib/supabase');
+          const outcome = await completeSupabaseOAuthFromUrl(fullHref);
+          window.history.replaceState({}, document.title, window.location.pathname);
+
+          if (outcome.handled && !outcome.ok && outcome.error) {
+            setAuthLoading(false);
+            setAuthFeedback({
+              type: 'error',
+              message: outcome.error,
+            });
+            return;
+          }
+
+          const { data: sessionData } = await supabase.auth.getSession();
+          const activeUser = sessionData?.session?.user;
+
+          if (activeUser) {
+            // Reconcile profile & auth_providers (['google', 'email']) on the server
+            await apiPostJson('/api/auth/verify', {
+              email: activeUser.email,
+            }).catch(() => null);
+          }
+
+          const hydrated = await refreshProfile();
+          setAuthLoading(false);
+
+          if (hydrated?.sabi_unique_id) {
+            setGeneratedUniqueId(hydrated.sabi_unique_id);
+          }
+
+          if (hydrated || activeUser) {
+            const isOnboarded = Boolean(hydrated?.onboarding_completed);
+            navigate(isOnboarded ? safePostAuthRedirect : '/onboarding/1', { replace: true });
+            return;
+          }
+
+          setAuthFeedback({
+            type: 'success',
+            message:
+              '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in.',
+          });
+        } catch (err: any) {
+          setAuthLoading(false);
+          setAuthFeedback({
+            type: 'error',
+            message: err?.message || 'Could not complete authentication callback.',
+          });
+        }
+      })();
+    }
+  }, [refreshProfile, navigate, safePostAuthRedirect]);
+
+  // Handle Continue with Google (Web & Capacitor Android APK)
+  const handleGoogleAuth = async () => {
+    setAuthFeedback(null);
+    setUnconfirmedEmailForResend('');
+
+    if (!isSupabaseConfigured) {
       setAuthFeedback({
-        type: 'success',
+        type: 'error',
         message:
-          '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in.',
+          'Authentication is not configured for this build yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment.',
+      });
+      return;
+    }
+
+    setGoogleLoading(true);
+    try {
+      const redirectTo = getSabiAuthRedirectUrl('/auth/verify');
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          ...(redirectTo ? { redirectTo } : {}),
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) {
+        setGoogleLoading(false);
+        setAuthFeedback({
+          type: 'error',
+          message:
+            error.message ||
+            'Could not start Google Sign-In. Check that Google OAuth is enabled in your Supabase project.',
+        });
+      }
+    } catch (err: any) {
+      setGoogleLoading(false);
+      setAuthFeedback({
+        type: 'error',
+        message: err?.message || 'Unable to connect to Google Sign-In right now.',
       });
     }
-  }, [refreshProfile]);
+  };
 
   const handleResendVerificationEmail = async () => {
     const targetEmail = (unconfirmedEmailForResend || emailInput).trim().toLowerCase();
@@ -262,7 +385,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
     }
   };
 
-  // Handle Create Account form submission
+  // Handle Create Account form submission (100% real Supabase Auth + Profile sync)
   const handleCreateAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
@@ -326,7 +449,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
           type: 'error',
           message:
             result.data?.error ||
-            `An account with ${normalizedEmail} is already registered. Please tap "Sign in" below.`,
+            `An account with ${normalizedEmail} is already registered. Please tap "Sign in" or "Continue with Google".`,
         });
         return;
       }
@@ -355,30 +478,30 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
             },
           });
 
-          if (signUpErr) {
+          if (signUpErr || !signUpData?.user?.id) {
             setAuthLoading(false);
             setAuthFeedback({
               type: 'error',
               message:
-                signUpErr.message ||
+                signUpErr?.message ||
                 describeApiFailure(result, 'Could not create your account.'),
             });
             return;
           }
 
-          if (signUpData?.user?.identities && signUpData.user.identities.length === 0) {
+          if (signUpData.user.identities && signUpData.user.identities.length === 0) {
             setAuthLoading(false);
             setAuthFeedback({
               type: 'error',
-              message: `An account with ${normalizedEmail} is already registered. Please tap "Sign in" below.`,
+              message: `An account with ${normalizedEmail} is already registered. Please tap "Sign in" or "Continue with Google".`,
             });
             return;
           }
 
-          const createdId = signUpData?.user?.id || '';
-          uniqueId = signUpData?.user?.user_metadata?.sabi_unique_id || uniqueId;
+          const createdId = signUpData.user.id;
+          uniqueId = signUpData.user.user_metadata?.sabi_unique_id || uniqueId;
           requiresEmailVerification = Boolean(
-            signUpData?.user && !signUpData?.session && !signUpData?.user?.email_confirmed_at
+            signUpData.user && !signUpData.session && !signUpData.user.email_confirmed_at
           );
           syncedProfile = {
             id: createdId,
@@ -425,47 +548,48 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
       return;
     }
 
-    try {
-      const { error: signInErr } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: passwordInput,
+    // Establish a real client Supabase Auth session (never fall back to unauthenticated local cache)
+    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password: passwordInput,
+    });
+
+    if (signInErr || !signInData?.user?.id) {
+      setAuthLoading(false);
+      setUnconfirmedEmailForResend(normalizedEmail);
+      setAuthFeedback({
+        type: 'info',
+        message: `Your SABI account was created. Check ${normalizedEmail} for the verification link, then sign in.`,
       });
-      if (signInErr) {
-        setAuthLoading(false);
-        setUnconfirmedEmailForResend(normalizedEmail);
-        setAuthFeedback({
-          type: 'info',
-          message: `Your SABI account was created. Check ${normalizedEmail} for the verification link, then sign in.`,
-        });
-        return;
-      }
-    } catch {
-      // Session established on next sign in
+      return;
     }
 
-    if (!syncedProfile) {
-      syncedProfile = {
-        id: '',
-        email: normalizedEmail,
-        sabi_unique_id: uniqueId,
-        full_name: cleanedName,
-        phone: cleanedPhone,
-        state_of_origin: stateOfOriginInput,
-        auth_providers: ['email'],
-        onboarding_completed: false,
-      };
-    }
+    const verifiedProfile = syncedProfile?.id
+      ? syncedProfile
+      : {
+          id: signInData.user.id,
+          email: normalizedEmail,
+          sabi_unique_id: uniqueId,
+          full_name: cleanedName,
+          phone: cleanedPhone,
+          state_of_origin: stateOfOriginInput,
+          auth_providers: syncedProfile?.auth_providers || ['email'],
+          onboarding_completed: Boolean(syncedProfile?.onboarding_completed),
+        };
 
-    applySyncedProfileToLocal(syncedProfile, normalizedEmail, cleanedName);
-    applyProfileToDeviceCache(syncedProfile, normalizedEmail);
-    localStorage.setItem('sabi_user_phone', cleanedPhone);
-    localStorage.setItem('sabi_user_state', stateOfOriginInput);
-    localStorage.setItem('sabi_unique_id', uniqueId);
-    localStorage.setItem('sabi_auth_provider', 'email');
+    applySyncedProfileToLocal(verifiedProfile, normalizedEmail, cleanedName);
+    applyProfileToDeviceCache(verifiedProfile, normalizedEmail);
 
-    await refreshProfile();
-    setGeneratedUniqueId(uniqueId);
+    const hydratedProfile = await refreshProfile();
+    setGeneratedUniqueId(hydratedProfile?.sabi_unique_id || uniqueId);
     setAuthLoading(false);
+
+    // If this email already completed onboarding via Google Sign-In, go straight to Dashboard
+    if (hydratedProfile?.onboarding_completed || verifiedProfile.onboarding_completed) {
+      navigate(safePostAuthRedirect, { replace: true });
+      return;
+    }
+
     setCurrentMode('verify');
     navigate('/auth/verify', { replace: true });
   };
@@ -509,7 +633,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
     }
   };
 
-  // Handle Sign In
+  // Handle Sign In (100% real Supabase session verification)
   const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthFeedback(null);
@@ -543,7 +667,6 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
     setAuthLoading(true);
     let matchedProfile: any = null;
     let resolvedEmail = identifier;
-    let authenticatedUserId: string | undefined;
     let signInErrorMessage = '';
 
     try {
@@ -553,7 +676,6 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
         method: 'email',
       });
       if (loginResult.ok && loginResult.data?.auth_user_id) {
-        authenticatedUserId = loginResult.data.auth_user_id;
         matchedProfile = loginResult.data.profile || matchedProfile;
         resolvedEmail = matchedProfile?.email || resolvedEmail;
       } else if (loginResult.data?.error) {
@@ -565,6 +687,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
       signInErrorMessage = err?.message || 'Sign in failed.';
     }
 
+    let activeSessionUser: any = null;
     if (resolvedEmail) {
       try {
         let { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
@@ -585,8 +708,8 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
           signInErr = retry.error;
         }
 
-        if (signInData?.user) {
-          authenticatedUserId = signInData.user.id;
+        if (signInData?.user && signInData?.session) {
+          activeSessionUser = signInData.user;
           if (!matchedProfile) {
             const { data: profileRow } = await supabase
               .from('profiles')
@@ -596,22 +719,9 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
 
             if (profileRow) {
               matchedProfile = profileRow;
-            } else {
-              const fallbackId =
-                signInData.user.user_metadata?.sabi_unique_id ||
-                getOrGenerateSabiUniqueId(resolvedEmail);
-              matchedProfile = {
-                id: signInData.user.id,
-                email: resolvedEmail,
-                sabi_unique_id: fallbackId,
-                full_name: signInData.user.user_metadata?.full_name || 'Candidate',
-                phone: signInData.user.user_metadata?.phone || '',
-                state_of_origin: signInData.user.user_metadata?.state_of_origin || 'Lagos',
-                auth_providers: ['email'],
-              };
             }
           }
-        } else if (signInErr && !authenticatedUserId) {
+        } else if (signInErr) {
           const errMsg = (signInErr.message || '').toLowerCase();
           if (errMsg.includes('email not confirmed')) {
             setAuthLoading(false);
@@ -623,43 +733,44 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
             return;
           }
           signInErrorMessage =
-            'Incorrect email or password. Forgot your password? Tap "Forgot Password?" below.';
+            'Incorrect email or password. If you signed up with Google, tap "Continue with Google" or use "Forgot Password?".';
         }
       } catch (err: any) {
-        if (!authenticatedUserId) {
-          signInErrorMessage = err?.message || 'Sign in request failed.';
-        }
+        signInErrorMessage = err?.message || 'Sign in request failed.';
       }
     }
 
-    if (!authenticatedUserId || !matchedProfile) {
+    if (!activeSessionUser?.id) {
       setAuthLoading(false);
       setAuthFeedback({
         type: 'error',
         message:
           signInErrorMessage ||
-          'Account not found or incorrect password. Please check your credentials or Create an Account.',
+          'Account not found or incorrect password. Please check your credentials, tap "Continue with Google", or Create an Account.',
       });
       return;
     }
 
-    applySyncedProfileToLocal(matchedProfile, matchedProfile.email || resolvedEmail);
-    applyProfileToDeviceCache(matchedProfile, matchedProfile.email || resolvedEmail);
     const hydratedProfile = await refreshProfile();
+    const effectiveProfile = hydratedProfile || matchedProfile;
+
+    if (effectiveProfile?.id) {
+      applySyncedProfileToLocal(effectiveProfile, effectiveProfile.email || resolvedEmail);
+      applyProfileToDeviceCache(effectiveProfile, effectiveProfile.email || resolvedEmail);
+    }
+
     const resolvedUniqueId =
-      hydratedProfile?.sabi_unique_id ||
-      matchedProfile.sabi_unique_id ||
-      getOrGenerateSabiUniqueId(matchedProfile.email || resolvedEmail);
+      effectiveProfile?.sabi_unique_id ||
+      getOrGenerateSabiUniqueId(effectiveProfile?.email || resolvedEmail);
     setGeneratedUniqueId(resolvedUniqueId);
     setAuthLoading(false);
 
-    if (hydratedProfile?.onboarding_completed || matchedProfile.onboarding_completed) {
+    if (Boolean(effectiveProfile?.onboarding_completed)) {
       navigate(safePostAuthRedirect, { replace: true });
       return;
     }
 
-    setCurrentMode('verify');
-    navigate('/auth/verify', { replace: true });
+    navigate('/onboarding/1', { replace: true });
   };
 
   // Handle Password Reset Request
@@ -1048,7 +1159,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={authLoading}
+                      disabled={authLoading || googleLoading}
                       className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] sm:text-[18px] tracking-[0.04em] uppercase flex items-center justify-center gap-2 cursor-pointer transition-transform duration-150 active:scale-[0.98] hover:brightness-105 disabled:opacity-60"
                       style={{
                         fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
@@ -1061,6 +1172,28 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                       <span>{authLoading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}</span>
                     </button>
                   </div>
+
+                  {/* 6. Divider + Continue with Google */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <div className="flex-1 h-[1.5px] bg-[#22064B]/15 rounded-full" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#4C1D95]">
+                      OR
+                    </span>
+                    <div className="flex-1 h-[1.5px] bg-[#22064B]/15 rounded-full" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleGoogleAuth()}
+                    disabled={authLoading || googleLoading}
+                    className="w-full py-3.5 px-6 rounded-full bg-white hover:bg-[#FFFDF5] text-[#22064B] font-extrabold text-[15px] sm:text-[15.5px] flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 active:scale-[0.98] disabled:opacity-60 border border-white/90"
+                    style={{
+                      boxShadow: '0 4px 0 #E0C438, 0 8px 18px rgba(34, 6, 75, 0.08)',
+                    }}
+                  >
+                    <GoogleBrandIcon />
+                    <span>{googleLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
+                  </button>
                 </form>
               )}
 
@@ -1128,7 +1261,7 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                   <div className="pt-2">
                     <button
                       type="submit"
-                      disabled={authLoading}
+                      disabled={authLoading || googleLoading}
                       className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] sm:text-[18px] tracking-[0.04em] uppercase flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 active:scale-[0.98] hover:brightness-105 disabled:opacity-60"
                       style={{
                         fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
@@ -1142,6 +1275,28 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                       <ArrowRight size={20} strokeWidth={2.5} />
                     </button>
                   </div>
+
+                  {/* 4. Divider + Continue with Google */}
+                  <div className="flex items-center gap-3 pt-1">
+                    <div className="flex-1 h-[1.5px] bg-[#22064B]/15 rounded-full" />
+                    <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#4C1D95]">
+                      OR
+                    </span>
+                    <div className="flex-1 h-[1.5px] bg-[#22064B]/15 rounded-full" />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void handleGoogleAuth()}
+                    disabled={authLoading || googleLoading}
+                    className="w-full py-3.5 px-6 rounded-full bg-white hover:bg-[#FFFDF5] text-[#22064B] font-extrabold text-[15px] sm:text-[15.5px] flex items-center justify-center gap-2.5 cursor-pointer transition-transform duration-150 active:scale-[0.98] disabled:opacity-60 border border-white/90"
+                    style={{
+                      boxShadow: '0 4px 0 #E0C438, 0 8px 18px rgba(34, 6, 75, 0.08)',
+                    }}
+                  >
+                    <GoogleBrandIcon />
+                    <span>{googleLoading ? 'Connecting to Google...' : 'Continue with Google'}</span>
+                  </button>
                 </form>
               )}
 
