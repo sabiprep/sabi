@@ -137,3 +137,9 @@ When you are ready to publish **SABI JAMB CBT** to the Google Play Store or dist
    ```text
    android/app/release/app-release.apk
    ```
+
+
+
+
+
+   cp app/build/outputs/apk/debug/app-debug.apk "/mnt/c/Users/NEW USER/Downloads/sabi-07.apk"
