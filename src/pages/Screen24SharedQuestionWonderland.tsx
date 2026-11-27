@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Check,
   ExternalLink,
+  Loader2,
   Smartphone,
   UserPlus,
   X,
@@ -11,75 +12,191 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { SabiPurpleBookLogo } from '../components/common/SabiWonderlandShell';
 import {
+  checkPublicQuestionAnswerOnServer,
+  fetchPublicQuestionFromServer,
   getPlayStoreAppUrl,
   resolvePublicQuestionById,
+  type PublicAnswerCheckResult,
+  type PublicSharedQuestionPayload,
 } from '../utils/questionSnapshotStore';
 import { sound } from '../utils/soundEffects';
 
 const OPTIONS: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
 
+function getModeLabel(rawMode: string | null): string {
+  switch (rawMode) {
+    case 'smart':
+      return 'Smart Practice';
+    case 'custom':
+      return 'Custom Practice';
+    case 'cbt':
+      return 'CBT Challenge';
+    default:
+      return 'Blitz';
+  }
+}
+
 /**
  * Screen 24 (`/q/:questionId`): Public Standalone Shared Question Landing View
  * Opened directly in Chrome / WebApp when someone outside SABI taps a shared snapshot link.
- * Displays ONLY the single shared question in full view with zero login wall beforehand.
- * Immediately after answering, reveals the verdict + explanation and directs the visitor
- * to SABI Sign-Up (with a ready-to-activate Google Play Store prompt slot).
+ * Queries the live backend (`/api/public/questions/:questionId` -> Supabase `question_bank`)
+ * so ANY real JAMB question can be shared and attempted in full view before directing
+ * the visitor to SABI Sign-Up (and Play Store when published).
  */
 export function Screen24SharedQuestionWonderland() {
   const navigate = useNavigate();
   const { questionId = '' } = useParams<{ questionId: string }>();
   const [searchParams] = useSearchParams();
 
-  const sourceMode = searchParams.get('mode') === 'smart' ? 'Smart Practice' : 'Blitz';
+  const sourceMode = getModeLabel(searchParams.get('mode'));
   const playStoreUrl = useMemo(() => getPlayStoreAppUrl(), []);
-  const question = useMemo(() => resolvePublicQuestionById(questionId), [questionId]);
+  const localMatch = useMemo(() => resolvePublicQuestionById(questionId), [questionId]);
 
+  const [question, setQuestion] = useState<PublicSharedQuestionPayload | null>(() =>
+    localMatch
+      ? {
+          id: localMatch.id,
+          subjectCanonical: localMatch.subjectCanonical,
+          subjectLabel: localMatch.subjectLabel,
+          topicLabel: localMatch.topicLabel,
+          year: localMatch.year,
+          question: localMatch.question,
+          options: localMatch.options,
+        }
+      : null
+  );
+  const [loadingQuestion, setLoadingQuestion] = useState<boolean>(() => !localMatch);
+  const [checkingAnswer, setCheckingAnswer] = useState(false);
   const [selectedOption, setSelectedOption] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
+  const [verdict, setVerdict] = useState<PublicAnswerCheckResult | null>(null);
   const [usePidgin, setUsePidgin] = useState(false);
 
-  // Reset local state if URL questionId changes
+  // Load live question from backend (`/api/public/questions/:questionId` -> Supabase question_bank)
   useEffect(() => {
+    let active = true;
     setSelectedOption(null);
+    setVerdict(null);
     setUsePidgin(false);
-  }, [questionId]);
+    setCheckingAnswer(false);
 
-  const isAnswered = selectedOption !== null;
-  const isCorrect = Boolean(question && isAnswered && selectedOption === question.answer);
+    if (localMatch) {
+      setQuestion({
+        id: localMatch.id,
+        subjectCanonical: localMatch.subjectCanonical,
+        subjectLabel: localMatch.subjectLabel,
+        topicLabel: localMatch.topicLabel,
+        year: localMatch.year,
+        question: localMatch.question,
+        options: localMatch.options,
+      });
+      setLoadingQuestion(false);
+    } else {
+      setQuestion(null);
+      setLoadingQuestion(true);
+    }
+
+    void fetchPublicQuestionFromServer(questionId).then((remote) => {
+      if (!active) return;
+      if (remote) {
+        setQuestion(remote);
+      }
+      setLoadingQuestion(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [localMatch, questionId]);
+
+  const isAnswered = selectedOption !== null && verdict !== null;
+  const isCorrect = Boolean(verdict?.isCorrect);
 
   const handleSelectOption = useCallback(
-    (opt: 'A' | 'B' | 'C' | 'D') => {
-      if (!question || isAnswered) return;
+    async (opt: 'A' | 'B' | 'C' | 'D') => {
+      if (!question || selectedOption !== null || checkingAnswer) return;
       setSelectedOption(opt);
+      setCheckingAnswer(true);
+
       try {
-        if (opt === question.answer) {
-          sound.playSuccess();
-        } else {
-          sound.playTap();
+        const serverVerdict = await checkPublicQuestionAnswerOnServer(question.id, opt);
+        if (serverVerdict) {
+          setVerdict(serverVerdict);
+          try {
+            if (serverVerdict.isCorrect) sound.playSuccess();
+            else sound.playTap();
+          } catch {
+            // ignore audio errors
+          }
+          return;
         }
-      } catch {
-        // ignore audio errors
+
+        // Offline fallback when question was resolved from local starter bank
+        if (localMatch) {
+          const fallbackCorrect = opt === localMatch.answer;
+          setVerdict({
+            questionId: localMatch.id,
+            selectedOption: opt,
+            correctAnswer: localMatch.answer,
+            isCorrect: fallbackCorrect,
+            explanationShort: localMatch.explanationShort,
+            explanationFull: localMatch.explanationFull,
+            explanationPidgin: localMatch.explanationPidgin,
+          });
+          try {
+            if (fallbackCorrect) sound.playSuccess();
+            else sound.playTap();
+          } catch {
+            // ignore
+          }
+          return;
+        }
+
+        // Could not grade (network dropped on DB-only question) -> allow retry
+        setSelectedOption(null);
+      } finally {
+        setCheckingAnswer(false);
       }
     },
-    [isAnswered, question]
+    [checkingAnswer, localMatch, question, selectedOption]
   );
 
   // Allow keyboard answering (A–D or 1–4) on desktop Chrome
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!question || isAnswered) return;
+      if (!question || selectedOption !== null || checkingAnswer) return;
       const key = e.key.toLowerCase();
-      if (key === 'a' || key === '1') handleSelectOption('A');
-      else if (key === 'b' || key === '2') handleSelectOption('B');
-      else if (key === 'c' || key === '3') handleSelectOption('C');
-      else if (key === 'd' || key === '4') handleSelectOption('D');
+      if (key === 'a' || key === '1') void handleSelectOption('A');
+      else if (key === 'b' || key === '2') void handleSelectOption('B');
+      else if (key === 'c' || key === '3') void handleSelectOption('C');
+      else if (key === 'd' || key === '4') void handleSelectOption('D');
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleSelectOption, isAnswered, question]);
+  }, [checkingAnswer, handleSelectOption, question, selectedOption]);
 
   const signUpPath = `/auth/sign-up?ref=shared-q&qid=${encodeURIComponent(
     question?.id || questionId
   )}`;
+
+  if (loadingQuestion) {
+    return (
+      <div
+        className="min-h-[100dvh] w-full bg-[#1E0342] text-white flex flex-col items-center justify-center px-4 py-10"
+        style={{
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          background: 'linear-gradient(180deg, #21044A 0%, #1C033E 55%, #160233 100%)',
+        }}
+      >
+        <div className="bg-[#FFE824] rounded-[18px] px-4 py-2 mb-5 shadow-[0_4px_0_#C7AD00]">
+          <SabiPurpleBookLogo size="sm" to="/welcome" />
+        </div>
+        <div className="inline-flex items-center gap-2.5 text-[15px] font-bold text-[#FFE824]">
+          <Loader2 size={20} className="animate-spin" />
+          <span>Loading JAMB question...</span>
+        </div>
+      </div>
+    );
+  }
 
   // Graceful fallback for invalid/expired question links
   if (!question) {
@@ -182,7 +299,7 @@ export function Screen24SharedQuestionWonderland() {
         <div className="space-y-3">
           {OPTIONS.map((letter) => {
             const text = question.options[letter];
-            const isThisCorrect = letter === question.answer;
+            const isThisCorrect = Boolean(verdict && letter === verdict.correctAnswer);
             const isThisSelected = selectedOption === letter;
 
             let cardBg = 'bg-white text-[#260559] hover:bg-[#FCF9FF]';
@@ -203,16 +320,22 @@ export function Screen24SharedQuestionWonderland() {
                 cardShadow = '0 3px 0 rgba(182, 156, 232, 0.35)';
                 badgeClass = 'bg-[#260559]/12 text-[#260559]/70';
               }
+            } else if (isThisSelected && checkingAnswer) {
+              cardBg = 'bg-[#FFE824] text-[#260559]';
+              cardShadow = '0 4px 0 #C5AB00';
+              badgeClass = 'bg-[#260559] text-[#FFE824]';
             }
 
             return (
               <button
                 key={letter}
                 type="button"
-                disabled={isAnswered}
-                onClick={() => handleSelectOption(letter)}
+                disabled={isAnswered || checkingAnswer}
+                onClick={() => void handleSelectOption(letter)}
                 className={`w-full rounded-[19px] px-4 py-4 min-h-[60px] flex items-center justify-between gap-3 text-left transition-all duration-150 ${
-                  !isAnswered ? 'active:translate-y-[1.5px] cursor-pointer' : 'cursor-default'
+                  !isAnswered && !checkingAnswer
+                    ? 'active:translate-y-[1.5px] cursor-pointer'
+                    : 'cursor-default'
                 } ${cardBg}`}
                 style={{ boxShadow: cardShadow }}
               >
@@ -227,6 +350,9 @@ export function Screen24SharedQuestionWonderland() {
                   </span>
                 </div>
 
+                {checkingAnswer && isThisSelected && (
+                  <Loader2 size={20} className="animate-spin text-[#260559] shrink-0" />
+                )}
                 {isAnswered && isThisCorrect && (
                   <Check size={22} strokeWidth={3} className="text-white shrink-0" />
                 )}
@@ -242,7 +368,9 @@ export function Screen24SharedQuestionWonderland() {
         {!isAnswered && (
           <div className="mt-auto pt-8 text-center">
             <p className="text-[13.5px] font-bold text-[#B9A1DE]">
-              Tap an option above to see if you got this JAMB question right!
+              {checkingAnswer
+                ? 'Checking your answer against the official JAMB syllabus...'
+                : 'Tap an option above to see if you got this JAMB question right!'}
             </p>
           </div>
         )}
@@ -251,7 +379,7 @@ export function Screen24SharedQuestionWonderland() {
       {/* ================================================================= */}
       {/* POST-ANSWER VERDICT + DIRECT SIGN-UP & PLAY STORE PROMPT SHEET    */}
       {/* ================================================================= */}
-      {isAnswered && (
+      {isAnswered && verdict && (
         <section
           className={`relative z-20 w-full mt-2 rounded-t-[28px] px-4 sm:px-6 pt-5 pb-[max(env(safe-area-inset-bottom,0px),22px)] text-[#1D0547] shadow-[0_-12px_36px_rgba(12,2,28,0.5)] ${
             isCorrect ? 'bg-[#B7F7D4]' : 'bg-[#FFD9DC]'
@@ -265,7 +393,9 @@ export function Screen24SharedQuestionWonderland() {
                   className="text-[23px] sm:text-[26px] font-bold text-[#1D0547] leading-tight"
                   style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
                 >
-                  {isCorrect ? 'Correct! You sabi am!' : `Not quite — Option ${question.answer} is right`}
+                  {isCorrect
+                    ? 'Correct! You sabi am!'
+                    : `Not quite — Option ${verdict.correctAnswer} is right`}
                 </h2>
                 <button
                   type="button"
@@ -276,7 +406,7 @@ export function Screen24SharedQuestionWonderland() {
                 </button>
               </div>
               <p className="text-[14.5px] sm:text-[15.5px] font-semibold text-[#240B52] leading-relaxed">
-                {usePidgin ? question.explanationPidgin : question.explanationFull}
+                {usePidgin ? verdict.explanationPidgin : verdict.explanationFull}
               </p>
             </div>
 

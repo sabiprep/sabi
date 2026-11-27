@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bookmark,
   CheckCircle2,
@@ -12,7 +12,7 @@ import {
   XCircle,
   Zap,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { QuestionSnapshotCard } from '../components/common/QuestionSnapshotCard';
 import { QuestionShareSheet } from '../components/common/QuestionShareSheet';
@@ -23,6 +23,7 @@ import {
   type CustomPracticeConfig,
 } from '../utils/cbtAndCustomEngine';
 import {
+  hydrateSavedSnapshotsFromServer,
   loadSavedQuestionSnapshots,
   recordSnapshotAttempt,
   removeQuestionSnapshot,
@@ -38,16 +39,55 @@ import {
  */
 export function Screen21MistakesVaultWonderland() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const data = useMemo(() => getWonderlandDashboardState(), []);
 
-  const [activeTab, setActiveTab] = useState<'mistakes' | 'saved'>('mistakes');
+  const requestedTab = searchParams.get('tab') === 'saved' ? 'saved' : 'mistakes';
+  const [activeTab, setActiveTab] = useState<'mistakes' | 'saved'>(requestedTab);
   const [mistakes, setMistakes] = useState(() => loadMistakesVault());
   const [savedSnapshots, setSavedSnapshots] = useState<QuestionSnapshotRecord[]>(() =>
     loadSavedQuestionSnapshots()
   );
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(() => {
+    if (requestedTab === 'saved') {
+      const initial = loadSavedQuestionSnapshots();
+      return initial[0]?.snapshotId ?? null;
+    }
+    return null;
+  });
   const [pidgin, setPidgin] = useState(false);
   const [shareTarget, setShareTarget] = useState<QuestionSnapshotRecord | null>(null);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'saved') {
+      setActiveTab('saved');
+    } else if (tabParam === 'mistakes') {
+      setActiveTab('mistakes');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    let active = true;
+    void hydrateSavedSnapshotsFromServer().then((res) => {
+      if (!active) return;
+      setSavedSnapshots(res.snapshots);
+      if (requestedTab === 'saved' && res.snapshots[0]) {
+        setExpandedId((prev) => prev || res.snapshots[0].snapshotId);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [requestedTab]);
+
+  const handleSelectTab = (tab: 'mistakes' | 'saved') => {
+    setActiveTab(tab);
+    setSearchParams(tab === 'saved' ? { tab: 'saved' } : {}, { replace: true });
+    if (tab === 'saved' && savedSnapshots[0] && !expandedId) {
+      setExpandedId(savedSnapshots[0].snapshotId);
+    }
+  };
 
   const handleDrillVault = () => {
     const drillConfig: CustomPracticeConfig = {
@@ -103,7 +143,7 @@ export function Screen21MistakesVaultWonderland() {
           <div className="flex items-center gap-2.5 flex-wrap">
             <button
               type="button"
-              onClick={() => setActiveTab('mistakes')}
+              onClick={() => handleSelectTab('mistakes')}
               className={`px-4 py-2 rounded-full text-[13.5px] font-extrabold cursor-pointer ${
                 activeTab === 'mistakes'
                   ? 'bg-[#FFE824] text-[#260559]'
@@ -114,7 +154,7 @@ export function Screen21MistakesVaultWonderland() {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('saved')}
+              onClick={() => handleSelectTab('saved')}
               className={`px-4 py-2 rounded-full text-[13.5px] font-extrabold cursor-pointer inline-flex items-center gap-1.5 ${
                 activeTab === 'saved'
                   ? 'bg-[#FFE824] text-[#260559]'

@@ -26,6 +26,7 @@ import {
   type SmartPracticePace,
 } from '../utils/smartPracticeSession';
 import {
+  hydrateSavedSnapshotsFromServer,
   loadSavedQuestionSnapshots,
   normalizeCanonicalQuestionId,
   toggleQuestionSnapshot,
@@ -107,7 +108,20 @@ export function Screen8SmartPracticeFeedWonderland() {
     loadSavedQuestionSnapshots()
   );
   const [shareSheetOpen, setShareSheetOpen] = useState(false);
-  const [actionToast, setActionToast] = useState<string | null>(null);
+  const [actionToast, setActionToast] = useState<{
+    message: string;
+    showVaultLink?: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void hydrateSavedSnapshotsFromServer().then((res) => {
+      if (active) setSavedSnapshots(res.snapshots);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Touch swipe-up tracking after answering
   const touchStartYRef = useRef<number | null>(null);
@@ -131,11 +145,11 @@ export function Screen8SmartPracticeFeedWonderland() {
     }
   }, [showCheckpoint]);
 
-  const showQuickNotice = (message: string) => {
-    setActionToast(message);
+  const showQuickNotice = (message: string, showVaultLink = false) => {
+    setActionToast({ message, showVaultLink });
     window.setTimeout(() => {
-      setActionToast(prev => (prev === message ? null : prev));
-    }, 2200);
+      setActionToast((prev) => (prev?.message === message ? null : prev));
+    }, showVaultLink ? 3800 : 2400);
   };
 
   const finishAndOpenResults = useCallback(
@@ -307,12 +321,13 @@ export function Screen8SmartPracticeFeedWonderland() {
     setSavedSnapshots(result.all);
 
     if (result.action === 'updated') {
-      showQuickNotice('Snapshot updated with your answer & explanation!');
+      showQuickNotice('Snapshot updated with your answer & explanation!', true);
     } else if (result.action === 'saved') {
       showQuickNotice(
         isAnswered
           ? 'Answered snapshot saved to your Vault!'
-          : 'Unanswered question snapshot saved to try later!'
+          : 'Unanswered snapshot saved to try later!',
+        true
       );
     } else {
       showQuickNotice('Snapshot removed from Saved Vault');
@@ -704,8 +719,17 @@ export function Screen8SmartPracticeFeedWonderland() {
 
         {/* Quick Side-Action Toast (Save / Report / Share) */}
         {actionToast && (
-          <div className="mb-3 px-4 py-2 rounded-full bg-[#3A1478] border border-white/15 text-xs font-bold text-[#FFE51E] self-start">
-            {actionToast}
+          <div className="mb-3 px-4 py-2 rounded-full bg-[#3A1478] border border-white/15 text-xs font-bold text-[#FFE51E] self-start inline-flex items-center gap-2.5 flex-wrap">
+            <span>{actionToast.message}</span>
+            {actionToast.showVaultLink && (
+              <button
+                type="button"
+                onClick={() => navigate('/mistakes?tab=saved')}
+                className="px-2.5 py-0.5 rounded-full bg-[#FFE51E] text-[#260559] font-extrabold text-[11px] cursor-pointer"
+              >
+                View Vault →
+              </button>
+            )}
           </div>
         )}
 

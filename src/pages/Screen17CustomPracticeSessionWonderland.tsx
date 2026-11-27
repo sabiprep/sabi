@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   RotateCcw,
+  Share2,
   X,
   XCircle,
 } from 'lucide-react';
@@ -17,13 +18,20 @@ import {
   loadCustomPracticeConfig,
   recordCustomRunSummary,
   recordMistakeInVault,
-  toggleSavedQuestionId,
   type CustomPracticeConfig,
 } from '../utils/cbtAndCustomEngine';
 import {
   getShortSubjectLabel,
-  loadSavedQuestionIds,
+  type PracticeFeedQuestion,
 } from '../utils/smartPracticeSession';
+import {
+  hydrateSavedSnapshotsFromServer,
+  loadSavedQuestionSnapshots,
+  normalizeCanonicalQuestionId,
+  toggleQuestionSnapshot,
+  type QuestionSnapshotRecord,
+} from '../utils/questionSnapshotStore';
+import { QuestionShareSheet } from '../components/common/QuestionShareSheet';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import {
   recordSessionDurationBonus,
@@ -54,7 +62,15 @@ export function Screen17CustomPracticeSessionWonderland() {
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<number, 'A' | 'B' | 'C' | 'D'>>({});
-  const [savedIds, setSavedIds] = useState<string[]>(() => loadSavedQuestionIds());
+  const [savedSnapshots, setSavedSnapshots] = useState<QuestionSnapshotRecord[]>(() =>
+    loadSavedQuestionSnapshots()
+  );
+  const [snapshotToast, setSnapshotToast] = useState<string | null>(null);
+  const [shareTarget, setShareTarget] = useState<{
+    question: PracticeFeedQuestion & { year?: number };
+    wasAnswered: boolean;
+    selectedOption: 'A' | 'B' | 'C' | 'D' | null;
+  } | null>(null);
   const [usePidgin, setUsePidgin] = useState(
     () => aiConfig.explanationStyle === 'pidgin_friendly'
   );
@@ -63,6 +79,51 @@ export function Screen17CustomPracticeSessionWonderland() {
   );
   const [finished, setFinished] = useState(false);
   const sessionStartedAtRef = useRef<number>(Date.now());
+
+  useEffect(() => {
+    let active = true;
+    void hydrateSavedSnapshotsFromServer().then((res) => {
+      if (active) setSavedSnapshots(res.snapshots);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const isQuestionSaved = (questionId: string) => {
+    const canonical = normalizeCanonicalQuestionId(questionId);
+    return savedSnapshots.some(
+      (s) => s.canonicalQuestionId === canonical || s.questionId === questionId
+    );
+  };
+
+  const handleToggleSnapshot = (
+    question: PracticeFeedQuestion & { year?: number },
+    wasAnswered: boolean,
+    pickedOption: 'A' | 'B' | 'C' | 'D' | null
+  ) => {
+    const res = toggleQuestionSnapshot({
+      question,
+      mode: 'custom',
+      wasAnswered,
+      selectedOption: pickedOption,
+      isCorrect: wasAnswered && pickedOption ? pickedOption === question.answer : null,
+      explanationStyle: usePidgin ? 'pidgin' : 'english',
+    });
+    setSavedSnapshots(res.all);
+    const msg =
+      res.action === 'updated'
+        ? 'Snapshot updated with your answer!'
+        : res.action === 'saved'
+        ? wasAnswered
+          ? 'Answered snapshot saved to Vault!'
+          : 'Unanswered snapshot saved to try later!'
+        : 'Snapshot removed from Vault';
+    setSnapshotToast(msg);
+    window.setTimeout(() => {
+      setSnapshotToast((prev) => (prev === msg ? null : prev));
+    }, 2800);
+  };
 
   const currentQuestion = deck[currentIdx] || deck[0];
   const selected = answers[currentIdx] ?? null;
@@ -250,15 +311,45 @@ export function Screen17CustomPracticeSessionWonderland() {
                     ok ? 'border-[#A7F3D0] bg-[#F7FEF9]' : 'border-[#FECACA] bg-[#FFF8F8]'
                   }`}
                 >
-                  <div className="flex items-center gap-2 text-[11.5px] font-extrabold text-[#6C19E5] mb-1">
-                    {ok ? (
-                      <CheckCircle2 size={15} className="text-[#059669]" />
-                    ) : (
-                      <XCircle size={15} className="text-[#DC2626]" />
-                    )}
-                    <span>
-                      Q{idx + 1} · {q.subjectLabel} · {q.topicLabel}
-                    </span>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 text-[11.5px] font-extrabold text-[#6C19E5]">
+                      {ok ? (
+                        <CheckCircle2 size={15} className="text-[#059669]" />
+                      ) : (
+                        <XCircle size={15} className="text-[#DC2626]" />
+                      )}
+                      <span>
+                        Q{idx + 1} · {q.subjectLabel} · {q.topicLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        aria-label="Save question snapshot"
+                        onClick={() => handleToggleSnapshot(q, Boolean(userAns), userAns)}
+                        className={`w-8 h-8 rounded-[10px] flex items-center justify-center cursor-pointer ${
+                          isQuestionSaved(q.id)
+                            ? 'bg-[#2A085E] text-[#FFE51E]'
+                            : 'bg-white text-[#260559] border border-[#E5D7FA]'
+                        }`}
+                      >
+                        <Bookmark size={14} className={isQuestionSaved(q.id) ? 'fill-[#FFE51E]' : ''} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Share question snapshot"
+                        onClick={() =>
+                          setShareTarget({
+                            question: q,
+                            wasAnswered: Boolean(userAns),
+                            selectedOption: userAns,
+                          })
+                        }
+                        className="w-8 h-8 rounded-[10px] bg-[#EFE6FF] text-[#6C19E5] flex items-center justify-center cursor-pointer"
+                      >
+                        <Share2 size={14} />
+                      </button>
+                    </div>
                   </div>
                   <p className="text-[14.5px] font-extrabold text-[#260559] mb-1.5">
                     {q.question}
@@ -279,6 +370,18 @@ export function Screen17CustomPracticeSessionWonderland() {
             })}
           </section>
         </main>
+
+        {shareTarget && (
+          <QuestionShareSheet
+            open={Boolean(shareTarget)}
+            onClose={() => setShareTarget(null)}
+            question={shareTarget.question}
+            mode="custom"
+            wasAnswered={shareTarget.wasAnswered}
+            selectedOption={shareTarget.selectedOption}
+            usePidgin={usePidgin}
+          />
+        )}
       </div>
     );
   }
@@ -287,7 +390,7 @@ export function Screen17CustomPracticeSessionWonderland() {
   // LIVE CUSTOM PRACTICE VIEW
   // =========================================================================
   const progressPct = Math.round(((currentIdx + 1) / deck.length) * 100);
-  const isSaved = savedIds.includes(currentQuestion.id);
+  const isSaved = isQuestionSaved(currentQuestion.id);
 
   return (
     <div
@@ -333,8 +436,10 @@ export function Screen17CustomPracticeSessionWonderland() {
             )}
             <button
               type="button"
-              onClick={() => setSavedIds(toggleSavedQuestionId(currentQuestion.id))}
-              aria-label="Save question"
+              onClick={() =>
+                handleToggleSnapshot(currentQuestion, showInstantFeedback, selected)
+              }
+              aria-label="Save question snapshot"
               className={`w-[42px] h-[42px] rounded-[14px] flex items-center justify-center cursor-pointer ${
                 isSaved ? 'bg-[#2A085E] text-[#FFE51E]' : 'bg-white text-[#260559]'
               }`}
@@ -342,8 +447,36 @@ export function Screen17CustomPracticeSessionWonderland() {
             >
               <Bookmark size={18} className={isSaved ? 'fill-[#FFE51E]' : ''} />
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                setShareTarget({
+                  question: currentQuestion,
+                  wasAnswered: showInstantFeedback,
+                  selectedOption: selected,
+                })
+              }
+              aria-label="Share question snapshot"
+              className="w-[42px] h-[42px] rounded-[14px] bg-white text-[#6C19E5] flex items-center justify-center cursor-pointer"
+              style={{ boxShadow: '0 3px 0 #E2C700' }}
+            >
+              <Share2 size={18} />
+            </button>
           </div>
         </header>
+
+        {snapshotToast && (
+          <div className="mb-3 px-4 py-2 rounded-full bg-[#2A085E] text-[#FFE51E] text-[12px] font-bold self-start inline-flex items-center gap-2.5">
+            <span>{snapshotToast}</span>
+            <button
+              type="button"
+              onClick={() => navigate('/mistakes?tab=saved')}
+              className="px-2.5 py-0.5 rounded-full bg-[#FFE51E] text-[#260559] font-extrabold text-[11px] cursor-pointer"
+            >
+              View Vault →
+            </button>
+          </div>
+        )}
 
         {/* Main Question Card */}
         <section
@@ -465,6 +598,18 @@ export function Screen17CustomPracticeSessionWonderland() {
           </div>
         </section>
       </main>
+
+      {shareTarget && (
+        <QuestionShareSheet
+          open={Boolean(shareTarget)}
+          onClose={() => setShareTarget(null)}
+          question={shareTarget.question}
+          mode="custom"
+          wasAnswered={shareTarget.wasAnswered}
+          selectedOption={shareTarget.selectedOption}
+          usePidgin={usePidgin}
+        />
+      )}
     </div>
   );
 }

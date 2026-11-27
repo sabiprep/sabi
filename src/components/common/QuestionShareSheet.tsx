@@ -15,7 +15,11 @@ import { useNavigate } from 'react-router-dom';
 import type { PracticeFeedQuestion } from '../../utils/smartPracticeSession';
 import {
   buildQuestionShareCopy,
+  copyTextReliably,
+  normalizeCanonicalQuestionId,
   renderQuestionSnapshotPng,
+  saveSnapshotImageToDevice,
+  shareSnapshotNativeOrWeb,
   type SnapshotSourceMode,
 } from '../../utils/questionSnapshotStore';
 import { QuestionSnapshotCard } from './QuestionSnapshotCard';
@@ -32,9 +36,9 @@ interface QuestionShareSheetProps {
 
 /**
  * Standard SABI Share Snapshot Sheet
- * Displays the live full-display snapshot preview, generates a crisp branded PNG image
- * + direct standalone question link (`/q/:id`), and supports native Web Share API,
- * WhatsApp sharing, PNG download, and 1-tap link copying.
+ * Captures the exact display state (answered with solution OR clean unanswered challenge),
+ * generates a high-resolution PNG snapshot, and shares/saves reliably on both
+ * Android Capacitor APK (native Share/Filesystem) and Desktop/Mobile WebApp.
  */
 export function QuestionShareSheet({
   open,
@@ -47,19 +51,20 @@ export function QuestionShareSheet({
 }: QuestionShareSheetProps) {
   const navigate = useNavigate();
 
-  // Default to hiding answer when sharing so friends can attempt it, with 1-tap toggle if answered
-  const [includeAnswerInSnapshot, setIncludeAnswerInSnapshot] = useState(false);
+  // Default to matching the exact display state at the moment Share was tapped:
+  // answered questions include the answer & explanation (with 1-tap toggle to Challenge Mode).
+  const [includeAnswerInSnapshot, setIncludeAnswerInSnapshot] = useState(wasAnswered);
   const [copiedLink, setCopiedLink] = useState(false);
   const [busyAction, setBusyAction] = useState<'share' | 'download' | null>(null);
   const [statusNote, setStatusNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
-      setIncludeAnswerInSnapshot(false);
+      setIncludeAnswerInSnapshot(wasAnswered);
       setCopiedLink(false);
       setStatusNote(null);
     }
-  }, [open, question.id]);
+  }, [open, question.id, wasAnswered]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,20 +90,21 @@ export function QuestionShareSheet({
   if (!open) return null;
 
   const showNotice = (msg: string) => {
+    if (!msg) return;
     setStatusNote(msg);
     window.setTimeout(() => {
       setStatusNote((prev) => (prev === msg ? null : prev));
-    }, 2600);
+    }, 3400);
   };
 
   const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard?.writeText(shareBundle.url);
+    const copied = await copyTextReliably(shareBundle.url);
+    if (copied) {
       setCopiedLink(true);
       showNotice('Direct question link copied! Anyone who taps it opens this question directly.');
-      window.setTimeout(() => setCopiedLink(false), 2000);
-    } catch {
-      showNotice('Copy the link shown above to share on any platform.');
+      window.setTimeout(() => setCopiedLink(false), 2200);
+    } else {
+      showNotice('Tap and hold the link box above to copy and share on any platform.');
     }
   };
 
@@ -117,13 +123,8 @@ export function QuestionShareSheet({
         showNotice('Could not generate PNG snapshot in this browser.');
         return;
       }
-      const anchor = document.createElement('a');
-      anchor.href = rendered.dataUrl;
-      anchor.download = rendered.filename;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-      showNotice('Snapshot image downloaded — ready to post anywhere!');
+      const outcome = await saveSnapshotImageToDevice(rendered);
+      showNotice(outcome.message);
     } finally {
       setBusyAction(null);
     }
@@ -141,49 +142,29 @@ export function QuestionShareSheet({
         shareUrl: shareBundle.url,
       });
 
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        if (rendered?.blob && typeof File !== 'undefined') {
-          const file = new File([rendered.blob], rendered.filename, { type: 'image/png' });
-          const navAny = navigator as Navigator & {
-            canShare?: (data: ShareData) => boolean;
-          };
-          if (navAny.canShare && navAny.canShare({ files: [file] })) {
-            await navigator.share({
-              title: `SABI JAMB ${question.subjectLabel}`,
-              text: shareBundle.text,
-              url: shareBundle.url,
-              files: [file],
-            });
-            showNotice('Shared snapshot & question link!');
-            return;
-          }
+      const outcome = await shareSnapshotNativeOrWeb({
+        rendered,
+        title: `SABI JAMB ${question.subjectLabel}`,
+        text: shareBundle.text,
+        url: shareBundle.url,
+      });
+
+      if (!outcome.cancelled && outcome.message) {
+        if (outcome.ok && outcome.message.toLowerCase().includes('copied')) {
+          setCopiedLink(true);
+          window.setTimeout(() => setCopiedLink(false), 2200);
         }
-
-        await navigator.share({
-          title: `SABI JAMB ${question.subjectLabel}`,
-          text: shareBundle.text,
-          url: shareBundle.url,
-        });
-        showNotice('Shared question link!');
-        return;
-      }
-
-      // Desktop fallback: copy link & offer download
-      await navigator.clipboard?.writeText(shareBundle.text);
-      setCopiedLink(true);
-      showNotice('Share text & direct link copied to clipboard!');
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        await handleCopyLink();
+        showNotice(outcome.message);
       }
     } finally {
       setBusyAction(null);
     }
   };
 
-  const previewRelativePath = `/q/${encodeURIComponent(
-    question.id.replace(/-(?:loop|y)\d+$/i, '')
-  )}?mode=${encodeURIComponent(mode)}&src=preview`;
+  const canonicalId = normalizeCanonicalQuestionId(question.id) || question.id;
+  const previewRelativePath = `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(
+    mode
+  )}&src=preview`;
 
   return (
     <div
@@ -237,7 +218,7 @@ export function QuestionShareSheet({
                 )}
                 <span className="text-[12.5px] font-extrabold text-[#260559] truncate">
                   {includeAnswerInSnapshot
-                    ? 'Snapshot shows your answer & solution'
+                    ? 'Showing your answered display & solution'
                     : 'Challenge mode (hides answer for friends)'}
                 </span>
               </div>
@@ -308,7 +289,7 @@ export function QuestionShareSheet({
           </div>
 
           {statusNote && (
-            <div className="rounded-[14px] bg-[#2A085E] text-[#FFE824] px-3.5 py-2 text-[12px] font-bold text-center">
+            <div className="rounded-[14px] bg-[#2A085E] text-[#FFE824] px-3.5 py-2.5 text-[12px] font-bold text-center">
               {statusNote}
             </div>
           )}

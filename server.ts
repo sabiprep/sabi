@@ -38,6 +38,7 @@ import aiKnowledgeRoutes from './server/ai/knowledgeRoutes';
 import billingRoutes from './server/billing/routes';
 import gamificationRoutes from './server/gamification/routes';
 import notificationRoutes from './server/notifications/routes';
+import { publicQuestionRouter, snapshotRouter } from './server/snapshots/routes';
 
 const app = express();
 const PORT = config.port;
@@ -1162,6 +1163,8 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/gamification', gamificationRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/public/questions', publicQuestionRouter);
+app.use('/api/snapshots', snapshotRouter);
 
 // -------------------------------------------------------------
 // API fallbacks: JSON 404s for unknown API routes, then structured errors.

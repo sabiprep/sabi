@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildQuestionShareCopy,
   buildQuestionShareUrl,
+  dataUrlToBlob,
+  getPublicShareOrigin,
   loadSavedQuestionSnapshots,
   normalizeCanonicalQuestionId,
   recordSnapshotAttempt,
@@ -129,7 +131,7 @@ describe('Stage 2 — Question Save Snapshots & Public Share-Link System', () =>
     expect(afterDelete).toHaveLength(0);
   });
 
-  it('builds canonical public /q/:id share URLs and WhatsApp links cleanly', () => {
+  it('builds canonical public /q/:id share URLs and never leaks Capacitor localhost origins', () => {
     const url = buildQuestionShareUrl('SABI-CHM-PT-1-loop1', 'blitz', 'https://sabi.ng');
     expect(url).toBe('https://sabi.ng/q/SABI-CHM-PT-1?mode=blitz&src=share');
 
@@ -144,5 +146,23 @@ describe('Stage 2 — Question Save Snapshots & Public Share-Link System', () =>
     expect(bundle.url).toBe('https://sabi.ng/q/SABI-CHM-PT-1?mode=blitz&src=share');
     expect(bundle.text).toContain(bundle.url);
     expect(bundle.whatsappUrl).toContain('https://wa.me/?text=');
+
+    // Simulate Capacitor Android WebView running on https://localhost
+    vi.stubGlobal('window', {
+      localStorage: createMemoryStorage(),
+      location: { origin: 'https://localhost' },
+    });
+    const androidOrigin = getPublicShareOrigin();
+    expect(androidOrigin).not.toContain('localhost');
+    expect(androidOrigin.startsWith('https://')).toBe(true);
+  });
+
+  it('converts PNG data URLs cleanly into binary Blobs for reliable download & share', () => {
+    const tinyPngDataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    const blob = dataUrlToBlob(tinyPngDataUrl);
+    expect(blob).not.toBeNull();
+    expect(blob?.type).toBe('image/png');
+    expect((blob?.size || 0) > 0).toBe(true);
   });
 });

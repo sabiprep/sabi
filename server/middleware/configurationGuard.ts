@@ -61,7 +61,11 @@ export function configurationResponse(
  * purpose: it is the one endpoint that explains which variables are missing.
  */
 export const configurationGuard: RequestHandler = (req, res, next) => {
-  if (!req.path.startsWith('/api/') || req.path === '/api/health') {
+  if (
+    !req.path.startsWith('/api/') ||
+    req.path === '/api/health' ||
+    req.path.startsWith('/api/public/questions/')
+  ) {
     next();
     return;
   }

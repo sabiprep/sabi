@@ -72,7 +72,15 @@ export function QuestionSnapshotCard({
 
         <span className="px-2.5 py-0.5 rounded-full bg-[#330F69] text-[#FFE51E] font-extrabold text-[10.5px] uppercase tracking-wider inline-flex items-center gap-1 shrink-0">
           <Zap size={10} className="fill-[#FFE51E] text-[#FFE51E]" />
-          <span>{mode === 'blitz' ? 'Blitz' : 'Smart Practice'}</span>
+          <span>
+            {mode === 'blitz'
+              ? 'Blitz'
+              : mode === 'custom'
+              ? 'Custom Practice'
+              : mode === 'cbt'
+              ? 'CBT Review'
+              : 'Smart Practice'}
+          </span>
         </span>
       </div>
 

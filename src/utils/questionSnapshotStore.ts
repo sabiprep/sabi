@@ -1,5 +1,9 @@
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import { SEED_QUESTIONS } from '../data/questions';
 import type { Question } from '../types';
+import { apiFetch, apiPostJson, getAccessToken, isPreviewProxyHost, resolveApiUrl } from './apiClient';
 import {
   getCuratedStarterQuestions,
   getShortSubjectLabel,
@@ -41,9 +45,37 @@ export interface SaveSnapshotInput {
   explanationStyle?: 'english' | 'pidgin';
 }
 
+export interface RenderedSnapshotImage {
+  dataUrl: string;
+  base64Data: string;
+  blob: Blob | null;
+  filename: string;
+}
+
+export interface PublicSharedQuestionPayload {
+  id: string;
+  subjectCanonical: string;
+  subjectLabel: string;
+  topicLabel: string;
+  year?: number;
+  question: string;
+  options: Record<'A' | 'B' | 'C' | 'D', string>;
+}
+
+export interface PublicAnswerCheckResult {
+  questionId: string;
+  selectedOption: 'A' | 'B' | 'C' | 'D';
+  correctAnswer: 'A' | 'B' | 'C' | 'D';
+  isCorrect: boolean;
+  explanationShort: string;
+  explanationFull: string;
+  explanationPidgin: string;
+}
+
 const SNAPSHOTS_STORAGE_KEY = 'sabi_question_snapshots_v1';
 const SAVED_IDS_STORAGE_KEY = 'sabi_saved_question_ids_v1';
 const MAX_SNAPSHOTS = 100;
+const FALLBACK_PUBLIC_WEB_ORIGIN = 'https://sabi-tan.vercel.app';
 
 /**
  * Strips synthetic repetition suffixes (e.g. `-loop1`, `-y2`) and sanitizes raw
@@ -82,7 +114,7 @@ function normalizeSeedQuestion(q: Question): PracticeFeedQuestion & { year?: num
 
 /**
  * Resolves any public shared question ID against both Curated Blitz/Smart Practice
- * starters and the full JAMB SEED_QUESTIONS bank. Returns null if not found.
+ * starters and the full JAMB SEED_QUESTIONS bank. Returns null if not found locally.
  */
 export function resolvePublicQuestionById(
   rawId: string
@@ -107,6 +139,67 @@ export function resolvePublicQuestionById(
   if (seedMatch) return normalizeSeedQuestion(seedMatch);
 
   return null;
+}
+
+/**
+ * Fetches a shared question from the live backend (`/api/public/questions/:id`)
+ * which checks Supabase `question_bank` first and falls back to curated/seed banks.
+ */
+export async function fetchPublicQuestionFromServer(
+  rawId: string
+): Promise<PublicSharedQuestionPayload | null> {
+  const canonical = normalizeCanonicalQuestionId(rawId);
+  if (!canonical) return null;
+
+  try {
+    const res = await fetch(resolveApiUrl(`/api/public/questions/${encodeURIComponent(canonical)}`), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const q = data?.question;
+    if (q && typeof q.id === 'string' && typeof q.question === 'string' && q.options) {
+      return q as PublicSharedQuestionPayload;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verifies a visitor's answer on a public shared question via the backend
+ * (`/api/public/questions/:id/check`), so answer keys are never leaked before answering.
+ */
+export async function checkPublicQuestionAnswerOnServer(
+  rawId: string,
+  selectedOption: 'A' | 'B' | 'C' | 'D'
+): Promise<PublicAnswerCheckResult | null> {
+  const canonical = normalizeCanonicalQuestionId(rawId);
+  if (!canonical) return null;
+
+  try {
+    const res = await fetch(
+      resolveApiUrl(`/api/public/questions/${encodeURIComponent(canonical)}/check`),
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ selectedOption }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && typeof data.correctAnswer === 'string') {
+      return data as PublicAnswerCheckResult;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function syncLegacySavedIds(snapshots: QuestionSnapshotRecord[]): void {
@@ -207,9 +300,10 @@ export function isQuestionSnapshotSaved(questionId: string): boolean {
 }
 
 /**
- * Toggles or upgrades a Question Snapshot:
+ * Toggles or upgrades a Question Snapshot locally (instant response) and triggers
+ * cross-device Supabase sync whenever the student is authenticated.
  * - Not saved yet -> captures a full snapshot of current display state (answered or unanswered).
- * - Already saved unanswered, now answered -> upgrades the snapshot to include the answer & explanation!
+ * - Already saved unanswered, now answered -> upgrades the snapshot to include answer & explanation.
  * - Already saved in the same state -> removes the snapshot.
  */
 export function toggleQuestionSnapshot(input: SaveSnapshotInput): {
@@ -252,71 +346,236 @@ export function toggleQuestionSnapshot(input: SaveSnapshotInput): {
       const upgraded = buildRecord();
       const others = current.filter((_, i) => i !== existingIdx);
       const savedList = writeSnapshots([upgraded, ...others]);
+      void syncUpsertSnapshotToServer(upgraded);
       return { action: 'updated', snapshot: upgraded, all: savedList };
     }
 
     const remaining = current.filter((_, i) => i !== existingIdx);
     const savedList = writeSnapshots(remaining);
+    void syncDeleteSnapshotFromServer(canonical);
     return { action: 'removed', snapshot: null, all: savedList };
   }
 
   const created = buildRecord();
   const savedList = writeSnapshots([created, ...current]);
+  void syncUpsertSnapshotToServer(created);
   return { action: 'saved', snapshot: created, all: savedList };
 }
 
 export function removeQuestionSnapshot(questionIdOrSnapshotId: string): QuestionSnapshotRecord[] {
+  const current = loadSavedQuestionSnapshots();
   const canonical = normalizeCanonicalQuestionId(questionIdOrSnapshotId);
-  const remaining = loadSavedQuestionSnapshots().filter(
+  const removed = current.find(
+    (s) =>
+      s.snapshotId === questionIdOrSnapshotId ||
+      s.questionId === questionIdOrSnapshotId ||
+      s.canonicalQuestionId === canonical
+  );
+  const remaining = current.filter(
     (s) =>
       s.snapshotId !== questionIdOrSnapshotId &&
       s.questionId !== questionIdOrSnapshotId &&
       s.canonicalQuestionId !== canonical
   );
+  if (removed?.canonicalQuestionId) {
+    void syncDeleteSnapshotFromServer(removed.canonicalQuestionId);
+  }
   return writeSnapshots(remaining);
 }
 
 /**
  * Allows a student opening an unanswered snapshot in the Saved Vault to attempt it
- * and persist the answered display state.
+ * and persist the answered display state locally and to Supabase.
  */
 export function recordSnapshotAttempt(
   snapshotId: string,
   selectedOption: 'A' | 'B' | 'C' | 'D'
 ): QuestionSnapshotRecord[] {
   const current = loadSavedQuestionSnapshots();
-  const next = current.map((s) =>
-    s.snapshotId === snapshotId
-      ? {
-          ...s,
-          wasAnswered: true,
-          selectedOption,
-          isCorrect: selectedOption === s.answer,
-          savedAt: new Date().toISOString(),
-        }
-      : s
-  );
+  let targetCanonical: string | null = null;
+  const next = current.map((s) => {
+    if (s.snapshotId === snapshotId) {
+      targetCanonical = s.canonicalQuestionId;
+      return {
+        ...s,
+        wasAnswered: true,
+        selectedOption,
+        isCorrect: selectedOption === s.answer,
+        savedAt: new Date().toISOString(),
+      };
+    }
+    return s;
+  });
+  if (targetCanonical) {
+    void syncAttemptSnapshotToServer(targetCanonical, selectedOption);
+  }
   return writeSnapshots(next);
 }
 
+// =============================================================================
+// CROSS-DEVICE CLOUD SYNC (Supabase via `/api/snapshots`)
+// =============================================================================
+
+export async function syncUpsertSnapshotToServer(
+  snapshot: QuestionSnapshotRecord
+): Promise<boolean> {
+  try {
+    const token = await getAccessToken();
+    if (!token) return false;
+    const result = await apiPostJson('/api/snapshots', {
+      snapshotId: snapshot.snapshotId,
+      questionId: snapshot.questionId,
+      canonicalQuestionId: snapshot.canonicalQuestionId,
+      mode: snapshot.mode,
+      subjectCanonical: snapshot.subjectCanonical,
+      subjectLabel: snapshot.subjectLabel,
+      topicLabel: snapshot.topicLabel,
+      year: snapshot.year,
+      question: snapshot.question,
+      options: snapshot.options,
+      answer: snapshot.answer,
+      explanationShort: snapshot.explanationShort,
+      explanationFull: snapshot.explanationFull,
+      explanationPidgin: snapshot.explanationPidgin,
+      wasAnswered: snapshot.wasAnswered,
+      selectedOption: snapshot.selectedOption,
+      isCorrect: snapshot.isCorrect,
+      explanationStyle: snapshot.explanationStyle,
+      savedAt: snapshot.savedAt,
+    });
+    return result.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function syncDeleteSnapshotFromServer(canonicalQuestionId: string): Promise<boolean> {
+  const canonical = normalizeCanonicalQuestionId(canonicalQuestionId);
+  if (!canonical) return false;
+  try {
+    const token = await getAccessToken();
+    if (!token) return false;
+    const res = await apiFetch(`/api/snapshots/${encodeURIComponent(canonical)}`, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function syncAttemptSnapshotToServer(
+  canonicalQuestionId: string,
+  selectedOption: 'A' | 'B' | 'C' | 'D'
+): Promise<boolean> {
+  const canonical = normalizeCanonicalQuestionId(canonicalQuestionId);
+  if (!canonical) return false;
+  try {
+    const token = await getAccessToken();
+    if (!token) return false;
+    const res = await apiFetch(`/api/snapshots/${encodeURIComponent(canonical)}/attempt`, {
+      method: 'PATCH',
+      body: JSON.stringify({ selectedOption }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Returns the public base URL used for external share links.
- * Uses VITE_PUBLIC_WEB_URL when configured (critical for Capacitor Android APK where
- * window.location.origin is https://localhost), falling back to window.location.origin on Web.
+ * Hydrates saved snapshots from Supabase and merges them with local cache
+ * (newest savedAt wins per canonicalQuestionId). Safe when signed out or offline.
+ */
+export async function hydrateSavedSnapshotsFromServer(): Promise<{
+  source: 'supabase' | 'local';
+  snapshots: QuestionSnapshotRecord[];
+}> {
+  const local = loadSavedQuestionSnapshots();
+  try {
+    const token = await getAccessToken();
+    if (!token) return { source: 'local', snapshots: local };
+
+    const res = await apiFetch('/api/snapshots', { method: 'GET' });
+    if (!res.ok) return { source: 'local', snapshots: local };
+
+    const data = await res.json();
+    const remote: QuestionSnapshotRecord[] = Array.isArray(data?.snapshots) ? data.snapshots : [];
+
+    const mergedByCanonical = new Map<string, QuestionSnapshotRecord>();
+    for (const snap of local) {
+      mergedByCanonical.set(snap.canonicalQuestionId, snap);
+    }
+    for (const snap of remote) {
+      const existing = mergedByCanonical.get(snap.canonicalQuestionId);
+      if (!existing) {
+        mergedByCanonical.set(snap.canonicalQuestionId, snap);
+      } else {
+        const remoteTs = new Date(snap.savedAt).getTime() || 0;
+        const localTs = new Date(existing.savedAt).getTime() || 0;
+        // Prefer answered over unanswered or newer timestamp
+        if (
+          (snap.wasAnswered && !existing.wasAnswered) ||
+          (snap.wasAnswered === existing.wasAnswered && remoteTs >= localTs)
+        ) {
+          mergedByCanonical.set(snap.canonicalQuestionId, snap);
+        }
+      }
+    }
+
+    const merged = Array.from(mergedByCanonical.values()).sort(
+      (a, b) => new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime()
+    );
+    const saved = writeSnapshots(merged);
+    return { source: 'supabase', snapshots: saved };
+  } catch {
+    return { source: 'local', snapshots: local };
+  }
+}
+
+// =============================================================================
+// PUBLIC SHARE URL & DEVICE/WEB SHARE UTILITIES
+// =============================================================================
+
+function isLocalOrNativeOrigin(origin: string): boolean {
+  const lower = (origin || '').trim().toLowerCase();
+  if (!lower) return true;
+  if (lower.startsWith('capacitor://') || lower.startsWith('file://')) return true;
+  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(lower);
+}
+
+/**
+ * Returns a real, externally reachable public base URL for share links (`/q/:id`).
+ * Never returns `https://localhost` from a Capacitor Android APK build.
  */
 export function getPublicShareOrigin(): string {
-  const envUrl =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta as any).env?.VITE_PUBLIC_WEB_URL) ||
-    '';
-  const cleanedEnv = String(envUrl).trim().replace(/\/+$/, '');
-  if (cleanedEnv && /^https?:\/\//i.test(cleanedEnv)) {
-    return cleanedEnv;
+  const envPublic =
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PUBLIC_WEB_URL) || '';
+  const cleanedPublic = String(envPublic).trim().replace(/\/+$/, '');
+  if (cleanedPublic && /^https?:\/\//i.test(cleanedPublic) && !isLocalOrNativeOrigin(cleanedPublic)) {
+    return cleanedPublic;
   }
+
+  const envApi =
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) || '';
+  const cleanedApi = String(envApi).trim().replace(/\/+$/, '');
+  if (
+    cleanedApi &&
+    /^https?:\/\//i.test(cleanedApi) &&
+    !isLocalOrNativeOrigin(cleanedApi) &&
+    !isPreviewProxyHost(cleanedApi)
+  ) {
+    return cleanedApi;
+  }
+
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin.replace(/\/+$/, '');
+    const winOrigin = window.location.origin.replace(/\/+$/, '');
+    if (!isLocalOrNativeOrigin(winOrigin)) {
+      return winOrigin;
+    }
   }
-  return 'https://sabi.ng';
+
+  return FALLBACK_PUBLIC_WEB_ORIGIN;
 }
 
 /**
@@ -325,9 +584,7 @@ export function getPublicShareOrigin(): string {
  */
 export function getPlayStoreAppUrl(): string {
   const raw =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta as any).env?.VITE_PLAY_STORE_URL) ||
-    '';
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PLAY_STORE_URL) || '';
   const trimmed = String(raw).trim();
   return /^https:\/\/play\.google\.com\//i.test(trimmed) ? trimmed : '';
 }
@@ -360,6 +617,274 @@ export function buildQuestionShareCopy(params: {
   return { url, text, whatsappUrl };
 }
 
+/**
+ * Reliably copies text to the clipboard on Desktop Web, Mobile Web, iframe previews,
+ * and Android WebView (falls back to off-screen textarea when Clipboard API is blocked).
+ */
+export async function copyTextReliably(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to execCommand fallback
+  }
+
+  if (typeof document === 'undefined') return false;
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    textarea.style.left = '-9999px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return Boolean(copied);
+  } catch {
+    return false;
+  }
+}
+
+export function dataUrlToBlob(dataUrl: string): Blob | null {
+  try {
+    const [header, base64] = dataUrl.split(',');
+    if (!header || !base64) return null;
+    const mimeMatch = /data:([^;]+);/i.exec(header);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mime });
+  } catch {
+    return null;
+  }
+}
+
+function triggerWebBlobDownload(blob: Blob, filename: string): boolean {
+  if (typeof document === 'undefined' || typeof URL === 'undefined') return false;
+  try {
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = objectUrl;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.setTimeout(() => {
+      try {
+        URL.revokeObjectURL(objectUrl);
+      } catch {
+        // ignore
+      }
+    }, 10000);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Saves a rendered PNG Snapshot reliably on BOTH Android APK (via Capacitor Filesystem)
+ * and Desktop/Mobile Web (via Blob Object URL download, avoiding blocked data: URLs).
+ */
+export async function saveSnapshotImageToDevice(
+  rendered: RenderedSnapshotImage
+): Promise<{ ok: boolean; message: string }> {
+  // 1. Native Android / iOS via Capacitor Filesystem
+  if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+    try {
+      await Filesystem.writeFile({
+        path: `SABI-Snapshots/${rendered.filename}`,
+        data: rendered.base64Data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      return {
+        ok: true,
+        message: `Snapshot saved to Documents/SABI-Snapshots/${rendered.filename}`,
+      };
+    } catch {
+      // Scoped storage fallback: write to Cache and open native Share sheet so user can Save to Photos/Files
+      try {
+        const cached = await Filesystem.writeFile({
+          path: rendered.filename,
+          data: rendered.base64Data,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        await Share.share({
+          title: 'Save SABI Question Snapshot',
+          files: [cached.uri],
+          dialogTitle: 'Save or Share SABI Snapshot',
+        });
+        return {
+          ok: true,
+          message: 'Snapshot ready in Android share/save menu!',
+        };
+      } catch {
+        return {
+          ok: false,
+          message: 'Could not save snapshot image on this device. Try Share Snapshot instead.',
+        };
+      }
+    }
+  }
+
+  // 2. Desktop & Mobile Web via Blob Object URL
+  const blob = rendered.blob || dataUrlToBlob(rendered.dataUrl);
+  if (blob && triggerWebBlobDownload(blob, rendered.filename)) {
+    return {
+      ok: true,
+      message: 'Snapshot PNG downloaded — ready to post anywhere!',
+    };
+  }
+
+  return {
+    ok: false,
+    message: 'Your browser blocked automatic download. Long-press the snapshot or copy the link.',
+  };
+}
+
+/**
+ * Shares a rendered PNG Snapshot + direct `/q/:id` link natively on Android APK
+ * (via Capacitor Filesystem + Capacitor Share) or Web (via Web Share API -> reliable
+ * Clipboard + PNG download fallback so desktop users always get both image and link).
+ */
+export async function shareSnapshotNativeOrWeb(params: {
+  rendered: RenderedSnapshotImage | null;
+  title: string;
+  text: string;
+  url: string;
+}): Promise<{ ok: boolean; cancelled?: boolean; message: string }> {
+  const { rendered, title, text, url } = params;
+
+  // 1. Native Android / iOS Capacitor Share with real PNG attachment
+  if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+    try {
+      if (rendered?.base64Data) {
+        const written = await Filesystem.writeFile({
+          path: rendered.filename,
+          data: rendered.base64Data,
+          directory: Directory.Cache,
+          recursive: true,
+        });
+        await Share.share({
+          title,
+          text,
+          url,
+          files: [written.uri],
+          dialogTitle: 'Share SABI Question Snapshot',
+        });
+        return { ok: true, message: 'Shared snapshot image & direct question link!' };
+      }
+
+      await Share.share({
+        title,
+        text,
+        url,
+        dialogTitle: 'Share SABI Question',
+      });
+      return { ok: true, message: 'Shared direct question link!' };
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('cancel') || err?.name === 'AbortError') {
+        return { ok: false, cancelled: true, message: '' };
+      }
+      // Fallback to text-only native share if file attachment was rejected by target app
+      try {
+        await Share.share({ title, text, url, dialogTitle: 'Share SABI Question' });
+        return { ok: true, message: 'Shared direct question link!' };
+      } catch {
+        const copied = await copyTextReliably(text);
+        return {
+          ok: copied,
+          message: copied
+            ? 'Direct link & question text copied — paste in WhatsApp or any app!'
+            : 'Use the Copy button above to share this question link.',
+        };
+      }
+    }
+  }
+
+  // 2. Web Share API (Mobile Chrome/Safari & supported Desktop browsers)
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    const blob = rendered?.blob || (rendered ? dataUrlToBlob(rendered.dataUrl) : null);
+    if (blob && rendered && typeof File !== 'undefined') {
+      try {
+        const file = new File([blob], rendered.filename, { type: 'image/png' });
+        const navAny = navigator as Navigator & {
+          canShare?: (data: ShareData) => boolean;
+        };
+        if (navAny.canShare && navAny.canShare({ files: [file] })) {
+          await navigator.share({
+            title,
+            text,
+            url,
+            files: [file],
+          });
+          return { ok: true, message: 'Shared snapshot image & question link!' };
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          return { ok: false, cancelled: true, message: '' };
+        }
+        // Fall through to link share or desktop fallback
+      }
+    }
+
+    try {
+      await navigator.share({ title, text, url });
+      return { ok: true, message: 'Shared direct question link!' };
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        return { ok: false, cancelled: true, message: '' };
+      }
+      // Fall through to desktop fallback (e.g. iframe blocks navigator.share with NotAllowedError)
+    }
+  }
+
+  // 3. Desktop Web / Restricted Frame Bulletproof Fallback:
+  // Copy the direct link + prompt AND download the PNG snapshot image immediately.
+  const copied = await copyTextReliably(text);
+  const downloaded = rendered
+    ? (await saveSnapshotImageToDevice(rendered)).ok
+    : false;
+
+  if (copied && downloaded) {
+    return {
+      ok: true,
+      message: 'Snapshot PNG downloaded & direct share link copied — paste anywhere!',
+    };
+  }
+  if (copied) {
+    return {
+      ok: true,
+      message: 'Direct question link & text copied to clipboard!',
+    };
+  }
+  if (downloaded) {
+    return {
+      ok: true,
+      message: 'Snapshot PNG downloaded! Copy the link above to share with friends.',
+    };
+  }
+  return {
+    ok: false,
+    message: 'Copy the link above or tap WhatsApp to share this question.',
+  };
+}
+
 // =============================================================================
 // CANVAS PNG SNAPSHOT RENDERER (1080x1350 Crisp Branded Social Card)
 // =============================================================================
@@ -370,26 +895,56 @@ function wrapCanvasText(
   maxWidth: number,
   maxLines: number
 ): string[] {
-  const words = text.replace(/\s+/g, ' ').trim().split(' ');
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return [];
+  const words = normalized.split(' ');
   const lines: string[] = [];
   let current = '';
+  let truncated = false;
 
-  for (const word of words) {
+  for (let i = 0; i < words.length; i += 1) {
+    const word = words[i];
     const candidate = current ? `${current} ${word}` : word;
     if (ctx.measureText(candidate).width <= maxWidth) {
       current = candidate;
     } else {
-      if (current) lines.push(current);
-      current = word;
-      if (lines.length >= maxLines - 1) break;
+      if (current) {
+        lines.push(current);
+        if (lines.length >= maxLines) {
+          truncated = true;
+          current = '';
+          break;
+        }
+      }
+      // Handle unusually long single word (e.g., chemical formula or URL)
+      if (ctx.measureText(word).width > maxWidth) {
+        let chunk = '';
+        for (const ch of word) {
+          if (ctx.measureText(chunk + ch + '…').width > maxWidth) break;
+          chunk += ch;
+        }
+        current = chunk || word.slice(0, 12);
+      } else {
+        current = word;
+      }
     }
   }
+
   if (current && lines.length < maxLines) {
     lines.push(current);
+  } else if (current) {
+    truncated = true;
   }
-  if (lines.length === maxLines && words.join(' ').length > lines.join(' ').length) {
-    lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s+\S*$/, '')}…`;
+
+  if (truncated && lines.length > 0) {
+    const lastIdx = lines.length - 1;
+    let last = lines[lastIdx];
+    while (last.length > 4 && ctx.measureText(`${last}…`).width > maxWidth) {
+      last = last.slice(0, -1).trimEnd();
+    }
+    lines[lastIdx] = `${last}…`;
   }
+
   return lines;
 }
 
@@ -414,9 +969,34 @@ function drawRoundedRect(
   ctx.closePath();
 }
 
+async function waitForWebFontsBriefly(): Promise<void> {
+  if (typeof document === 'undefined' || !('fonts' in document) || !document.fonts?.ready) return;
+  try {
+    await Promise.race([
+      document.fonts.ready,
+      new Promise<void>((resolve) => window.setTimeout(resolve, 500)),
+    ]);
+  } catch {
+    // ignore
+  }
+}
+
+function getCanvasModeLabel(mode: SnapshotSourceMode): string {
+  switch (mode) {
+    case 'blitz':
+      return 'BLITZ SNAPSHOT';
+    case 'custom':
+      return 'CUSTOM PRACTICE';
+    case 'cbt':
+      return 'CBT REVIEW';
+    default:
+      return 'SMART PRACTICE';
+  }
+}
+
 /**
  * Generates a high-resolution PNG snapshot of the full SABI question & answer card
- * ready for external sharing (WhatsApp, X, Telegram, Instagram) or direct download.
+ * ready for external sharing (WhatsApp, X, Telegram, Instagram) or direct device save.
  */
 export async function renderQuestionSnapshotPng(params: {
   question: PracticeFeedQuestion & { year?: number };
@@ -425,8 +1005,10 @@ export async function renderQuestionSnapshotPng(params: {
   selectedOption: 'A' | 'B' | 'C' | 'D' | null;
   explanationStyle?: 'english' | 'pidgin';
   shareUrl: string;
-}): Promise<{ dataUrl: string; blob: Blob | null; filename: string } | null> {
+}): Promise<RenderedSnapshotImage | null> {
   if (typeof document === 'undefined') return null;
+
+  await waitForWebFontsBriefly();
 
   const width = 1080;
   const height = 1350;
@@ -470,14 +1052,14 @@ export async function renderQuestionSnapshotPng(params: {
   ctx.fillStyle = '#6C19E5';
   ctx.fillText('JAMB', padX + 118, 95);
 
-  const modeLabel = params.mode === 'blitz' ? 'BLITZ SNAPSHOT' : 'SMART PRACTICE';
-  drawRoundedRect(ctx, width - padX - 270, 62, 270, 50, 25);
+  const modeLabel = getCanvasModeLabel(params.mode);
+  drawRoundedRect(ctx, width - padX - 280, 62, 280, 50, 25);
   ctx.fillStyle = '#320D68';
   ctx.fill();
   ctx.fillStyle = '#FFE51E';
-  ctx.font = '800 20px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.font = '800 19px "Plus Jakarta Sans", system-ui, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(modeLabel, width - padX - 135, 94);
+  ctx.fillText(modeLabel, width - padX - 140, 94);
   ctx.textAlign = 'left';
 
   // 3. Subject Pill & Topic
@@ -499,16 +1081,16 @@ export async function renderQuestionSnapshotPng(params: {
 
   // 4. Question Stem
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '700 40px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.font = '700 38px "Plus Jakarta Sans", system-ui, sans-serif';
   const questionLines = wrapCanvasText(ctx, params.question.question, contentW, 5);
-  let cursorY = 266;
+  let cursorY = 262;
   for (const line of questionLines) {
     ctx.fillText(line, padX, cursorY);
-    cursorY += 54;
+    cursorY += 50;
   }
 
   // 5. Options A–D
-  cursorY = Math.max(cursorY + 22, 460);
+  cursorY = Math.max(cursorY + 20, 456);
   const letters: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
   const optionH = 104;
   const optionGap = 20;
@@ -571,7 +1153,7 @@ export async function renderQuestionSnapshotPng(params: {
     const optLines = wrapCanvasText(ctx, params.question.options[letter], contentW - 140, 2);
     if (optLines.length === 1) {
       ctx.fillText(optLines[0], padX + 98, cursorY + 62);
-    } else {
+    } else if (optLines.length >= 2) {
       ctx.fillText(optLines[0], padX + 98, cursorY + 46);
       ctx.fillText(optLines[1], padX + 98, cursorY + 80);
     }
@@ -580,8 +1162,8 @@ export async function renderQuestionSnapshotPng(params: {
   }
 
   // 6. Bottom Panel: Explanation (if answered) OR Challenge CTA (if unanswered)
-  const panelY = Math.max(cursorY + 12, 980);
-  const panelH = 220;
+  const panelY = Math.max(cursorY + 12, 976);
+  const panelH = 224;
   if (params.includeAnswer) {
     const answeredRight =
       params.selectedOption === null || params.selectedOption === params.question.answer;
@@ -591,11 +1173,13 @@ export async function renderQuestionSnapshotPng(params: {
 
     ctx.fillStyle = '#1D0547';
     ctx.font = '800 28px "Plus Jakarta Sans", system-ui, sans-serif';
-    ctx.fillText(
-      `Answer: Option ${params.question.answer}`,
-      padX + 28,
-      panelY + 48
-    );
+    const verdictHeadline =
+      params.selectedOption === null
+        ? `Verified Answer: Option ${params.question.answer}`
+        : answeredRight
+        ? `You picked ${params.selectedOption} · Correct!`
+        : `You picked ${params.selectedOption} · Correct is Option ${params.question.answer}`;
+    ctx.fillText(verdictHeadline, padX + 28, panelY + 48);
 
     const exp =
       params.explanationStyle === 'pidgin'
@@ -633,12 +1217,20 @@ export async function renderQuestionSnapshotPng(params: {
   ctx.fillText(`Play on SABI → ${cleanDisplayUrl}`, padX, height - 48);
 
   const dataUrl = canvas.toDataURL('image/png');
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob((b) => resolve(b), 'image/png')
-  );
+  const base64Data = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+  const canvasBlob = await new Promise<Blob | null>((resolve) => {
+    try {
+      canvas.toBlob((b) => resolve(b), 'image/png');
+    } catch {
+      resolve(null);
+    }
+  });
+  const blob = canvasBlob || dataUrlToBlob(dataUrl);
   const canonical = normalizeCanonicalQuestionId(params.question.id) || 'question';
+
   return {
     dataUrl,
+    base64Data,
     blob,
     filename: `sabi-${canonical.toLowerCase()}.png`,
   };

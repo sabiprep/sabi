@@ -1,21 +1,31 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  Bookmark,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronUp,
   Flag,
   RotateCcw,
+  Share2,
   XCircle,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
+import { QuestionShareSheet } from '../components/common/QuestionShareSheet';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import {
   loadLastCbtMockResult,
   type CbtMockResult,
 } from '../utils/cbtAndCustomEngine';
+import {
+  hydrateSavedSnapshotsFromServer,
+  loadSavedQuestionSnapshots,
+  normalizeCanonicalQuestionId,
+  toggleQuestionSnapshot,
+  type QuestionSnapshotRecord,
+} from '../utils/questionSnapshotStore';
 
 type ReviewFilter = 'all' | 'missed' | 'correct' | 'flagged';
 
@@ -38,6 +48,48 @@ export function Screen15CbtResultsWonderland() {
   const [filter, setFilter] = useState<ReviewFilter>('missed');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pidginMode, setPidginMode] = useState(false);
+  const [savedSnapshots, setSavedSnapshots] = useState<QuestionSnapshotRecord[]>(() =>
+    loadSavedQuestionSnapshots()
+  );
+  const [snapshotNotice, setSnapshotNotice] = useState<string | null>(null);
+  const [shareItem, setShareItem] = useState<CbtMockResult['reviewItems'][number] | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    void hydrateSavedSnapshotsFromServer().then((res) => {
+      if (active) setSavedSnapshots(res.snapshots);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const isQuestionSaved = (questionId: string) => {
+    const canonical = normalizeCanonicalQuestionId(questionId);
+    return savedSnapshots.some(
+      (s) => s.canonicalQuestionId === canonical || s.questionId === questionId
+    );
+  };
+
+  const handleToggleCbtSnapshot = (item: CbtMockResult['reviewItems'][number]) => {
+    const res = toggleQuestionSnapshot({
+      question: item.question,
+      mode: 'cbt',
+      wasAnswered: Boolean(item.selectedOption),
+      selectedOption: item.selectedOption,
+      isCorrect: item.selectedOption ? item.isCorrect : null,
+      explanationStyle: pidginMode ? 'pidgin' : 'english',
+    });
+    setSavedSnapshots(res.all);
+    const msg =
+      res.action === 'removed'
+        ? 'Snapshot removed from Vault'
+        : 'CBT question snapshot saved to Vault!';
+    setSnapshotNotice(msg);
+    window.setTimeout(() => {
+      setSnapshotNotice((prev) => (prev === msg ? null : prev));
+    }, 2800);
+  };
 
   if (!result) {
     return (
@@ -250,6 +302,19 @@ export function Screen15CbtResultsWonderland() {
             ))}
           </div>
 
+          {snapshotNotice && (
+            <div className="mb-3 px-4 py-2 rounded-full bg-[#2A085E] text-[#FFE51E] text-[12px] font-bold inline-flex items-center gap-2.5">
+              <span>{snapshotNotice}</span>
+              <button
+                type="button"
+                onClick={() => navigate('/mistakes?tab=saved')}
+                className="px-2.5 py-0.5 rounded-full bg-[#FFE51E] text-[#260559] font-extrabold text-[11px] cursor-pointer"
+              >
+                View Vault →
+              </button>
+            </div>
+          )}
+
           {/* Review Cards */}
           {filteredReview.length === 0 ? (
             <div className="rounded-[18px] bg-[#FAF7FF] p-6 text-center text-[14px] font-bold text-[#5A467A]">
@@ -309,10 +374,43 @@ export function Screen15CbtResultsWonderland() {
                     </button>
 
                     {isOpen && (
-                      <div className="mt-3 pt-3 border-t border-black/10 text-[13.5px] font-semibold text-[#2E1359] leading-relaxed">
-                        {pidginMode
-                          ? item.question.explanationPidgin
-                          : item.question.explanationFull}
+                      <div className="mt-3 pt-3 border-t border-black/10 space-y-3 text-[13.5px] font-semibold text-[#2E1359] leading-relaxed">
+                        <p>
+                          {pidginMode
+                            ? item.question.explanationPidgin
+                            : item.question.explanationFull}
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleCbtSnapshot(item)}
+                            className={`px-3 py-1.5 rounded-[11px] text-[12px] font-extrabold inline-flex items-center gap-1.5 cursor-pointer ${
+                              isQuestionSaved(item.question.id)
+                                ? 'bg-[#2A085E] text-[#FFE51E]'
+                                : 'bg-white text-[#260559] border border-[#DFCFFA]'
+                            }`}
+                          >
+                            <Bookmark
+                              size={13}
+                              className={
+                                isQuestionSaved(item.question.id) ? 'fill-[#FFE51E]' : ''
+                              }
+                            />
+                            <span>
+                              {isQuestionSaved(item.question.id)
+                                ? 'Saved Snapshot'
+                                : 'Save Snapshot'}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShareItem(item)}
+                            className="px-3 py-1.5 rounded-[11px] bg-[#EFE6FF] text-[#6C19E5] text-[12px] font-extrabold inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Share2 size={13} />
+                            <span>Share Snapshot</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -321,6 +419,18 @@ export function Screen15CbtResultsWonderland() {
             </div>
           )}
         </section>
+
+        {shareItem && (
+          <QuestionShareSheet
+            open={Boolean(shareItem)}
+            onClose={() => setShareItem(null)}
+            question={shareItem.question}
+            mode="cbt"
+            wasAnswered={Boolean(shareItem.selectedOption)}
+            selectedOption={shareItem.selectedOption}
+            usePidgin={pidginMode}
+          />
+        )}
       </main>
     </SabiAppChrome>
   );
