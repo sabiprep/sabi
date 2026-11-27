@@ -8,6 +8,14 @@ import {
 } from './smartPracticeSession';
 import { recordSessionDurationBonus, recordStudyActivity } from './userProgressStore';
 import { flushOfflineActivityQueue, loadCachedLiveQuestions } from './activitySyncEngine';
+import {
+  loadDiagnosticBaseline,
+  saveDiagnosticBaseline,
+  type DiagnosticBaselineResult,
+} from './dailyFailurePlan';
+
+export { loadDiagnosticBaseline, saveDiagnosticBaseline };
+export type { DiagnosticBaselineResult };
 
 export type CbtMockPreset = 'full_180' | 'quick_40';
 export type CbtSourceMode = 'shuffle' | 'year';
@@ -88,15 +96,7 @@ export interface MistakeVaultEntry {
   lastMissedAt: string;
 }
 
-export interface DiagnosticBaselineResult {
-  completedAt: string;
-  overallPercent: number;
-  subjectMastery: Record<string, number>;
-  weakestSubjectCanonical: string;
-  weakestSubjectLabel: string;
-  totalQuestions: number;
-  correctCount: number;
-}
+// DiagnosticBaselineResult is re-exported from `./dailyFailurePlan`.
 
 export interface SabiNotificationItem {
   id: string;
@@ -114,7 +114,6 @@ const CBT_LAST_RESULT_KEY = 'sabi_cbt_last_result_v1';
 const CUSTOM_CONFIG_KEY = 'sabi_custom_practice_config_v1';
 const CUSTOM_HISTORY_KEY = 'sabi_custom_practice_history_v1';
 const MISTAKES_VAULT_KEY = 'sabi_mistakes_vault_v1';
-const DIAGNOSTIC_RESULT_KEY = 'sabi_diagnostic_baseline_v1';
 const NOTIFICATIONS_KEY = 'sabi_notifications_v1';
 
 export const ALL_JAMB_SUBJECTS: string[] = [
@@ -744,24 +743,7 @@ export function buildDiagnosticDeck(chosenSubjects: string[]): PracticeFeedQuest
   return deck;
 }
 
-export function saveDiagnosticBaseline(result: DiagnosticBaselineResult): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(DIAGNOSTIC_RESULT_KEY, JSON.stringify(result));
-  } catch {
-    // ignore
-  }
-}
-
-export function loadDiagnosticBaseline(): DiagnosticBaselineResult | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(DIAGNOSTIC_RESULT_KEY);
-    return raw ? (JSON.parse(raw) as DiagnosticBaselineResult) : null;
-  } catch {
-    return null;
-  }
-}
+// `saveDiagnosticBaseline` & `loadDiagnosticBaseline` are re-exported from `./dailyFailurePlan`.
 
 // =========================================================================
 // NOTIFICATIONS & REMINDERS

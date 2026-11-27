@@ -1,5 +1,5 @@
 import { apiPostJson } from './apiClient';
-import { getShortSubjectLabel } from './smartPracticeSession';
+import { getShortSubjectLabel } from '../data/curatedStarterQuestions';
 
 export type ConcentrationLevel = 'light' | 'balanced' | 'deep' | 'sprint';
 export type ConcentrationMode = 'guided_first' | 'blitz_heavy' | 'balanced_mix' | 'cbt_readiness';

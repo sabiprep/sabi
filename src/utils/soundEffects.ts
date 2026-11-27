@@ -4,7 +4,20 @@ class SoundEffects {
   private enabled: boolean = true;
 
   constructor() {
-    // AudioContext will be initialized on first user gesture
+    // Load persisted sound preference if available
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('sabi_wonderland_prefs_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw) as { soundEnabled?: boolean };
+          if (typeof parsed.soundEnabled === 'boolean') {
+            this.enabled = parsed.soundEnabled;
+          }
+        }
+      } catch {
+        // default enabled
+      }
+    }
   }
 
   private getContext(): AudioContext | null {

@@ -472,10 +472,15 @@ export function Screen23SabiAssistantWonderland() {
         return;
       }
 
-      const serverMsg =
-        typeof result.data?.error === 'string' && result.data.error.trim()
-          ? result.data.error.trim()
-          : 'Could not reach SABI Assistant right now. Please try again — no AI Credit was charged.';
+      const rawServerMsg =
+        typeof result.data?.error === 'string' ? result.data.error.trim() : '';
+      const isAiPaused =
+        result.status === 503 ||
+        /api[_\s-]?key|not configured|provider/i.test(rawServerMsg);
+      const serverMsg = isAiPaused
+        ? 'SABI AI Tutor is temporarily paused while the live AI engine is being connected. No AI Credit was charged — you can keep practising in Blitz, Smart Practice, and CBT right now.'
+        : rawServerMsg ||
+          'Could not reach SABI Assistant right now. Please try again — no AI Credit was charged.';
       setErrorBanner({
         kind: 'server',
         message: serverMsg,

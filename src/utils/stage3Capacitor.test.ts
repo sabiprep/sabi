@@ -28,7 +28,7 @@ describe('Stage 3 — Capacitor Android Deep Links & Release Sync', () => {
     expect(resolveDeepLinkRoute('')).toBeNull();
   });
 
-  it('keeps package.json, android/app/build.gradle, and AndroidManifest.xml aligned to v2.1.0 (code 3)', () => {
+  it('keeps package.json, android/app/build.gradle, and AndroidManifest.xml aligned to v2.2.0 (code 4)', () => {
     const rootDir = process.cwd();
     const pkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
     const gradle = fs.readFileSync(path.join(rootDir, 'android/app/build.gradle'), 'utf8');
@@ -41,9 +41,9 @@ describe('Stage 3 — Capacitor Android Deep Links & Release Sync', () => {
       'utf8'
     );
 
-    expect(pkg.version).toBe('2.1.0');
-    expect(gradle).toContain('versionCode 3');
-    expect(gradle).toContain('versionName "2.1.0"');
+    expect(pkg.version).toBe('2.2.0');
+    expect(gradle).toContain('versionCode 4');
+    expect(gradle).toContain('versionName "2.2.0"');
     expect(manifest).toContain('android:scheme="sabi" android:host="auth"');
     expect(manifest).toContain('android:scheme="sabi" android:host="q"');
     expect(manifest).toContain('android:scheme="sabi" android:host="assistant"');

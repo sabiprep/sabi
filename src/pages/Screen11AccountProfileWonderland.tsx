@@ -52,7 +52,13 @@ function loadPrefs(): AppPreferencesState {
 export function Screen11AccountProfileWonderland() {
   const navigate = useNavigate();
   const { profile, user, signOut, refreshProfile } = useAuth();
-  const data = useMemo(() => getWonderlandDashboardState(), [profile]);
+  const [progressRev, setProgressRev] = useState(0);
+  useEffect(() => {
+    const onUpdated = () => setProgressRev((r) => r + 1);
+    window.addEventListener('sabi-progress-updated', onUpdated);
+    return () => window.removeEventListener('sabi-progress-updated', onUpdated);
+  }, []);
+  const data = useMemo(() => getWonderlandDashboardState(), [profile, progressRev]);
   const aiConfig = useMemo(
     () => loadPracticeAiConfig(data.subjects.map(s => s.canonicalName)),
     [data.subjects]
@@ -110,15 +116,20 @@ export function Screen11AccountProfileWonderland() {
     (typeof window !== 'undefined' && localStorage.getItem('sabi_plan_label')) || 'Free Scholar';
 
   const handleTogglePref = (key: keyof AppPreferencesState) => {
-    try {
-      sound.playTap();
-    } catch {
-      // ignore
-    }
     setPrefs(prev => {
       const next = { ...prev, [key]: !prev[key] };
+      if (key === 'soundEnabled') {
+        sound.setEnabled(next.soundEnabled);
+      }
       if (typeof window !== 'undefined') {
         localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(next));
+      }
+      if (next.soundEnabled) {
+        try {
+          sound.playTap();
+        } catch {
+          // ignore
+        }
       }
       return next;
     });

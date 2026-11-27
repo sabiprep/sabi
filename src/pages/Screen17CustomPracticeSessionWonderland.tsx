@@ -20,10 +20,9 @@ import {
   recordMistakeInVault,
   type CustomPracticeConfig,
 } from '../utils/cbtAndCustomEngine';
-import {
-  getShortSubjectLabel,
-  type PracticeFeedQuestion,
-} from '../utils/smartPracticeSession';
+import { getShortSubjectLabel } from '../data/curatedStarterQuestions';
+import type { PracticeFeedQuestion } from '../utils/smartPracticeSession';
+import { flushOfflineActivityQueue } from '../utils/activitySyncEngine';
 import {
   hydrateSavedSnapshotsFromServer,
   loadSavedQuestionSnapshots,
@@ -150,12 +149,14 @@ export function Screen17CustomPracticeSessionWonderland() {
       const isRight = picked === q.answer;
       if (isRight) {
         correctCount += 1;
-      } else {
+      } else if (config.feedbackTiming !== 'instant') {
         recordMistakeInVault(q, picked);
       }
       recordStudyActivity({
+        questionId: q.id,
         subject: q.subjectCanonical,
         topic: q.topicLabel,
+        selectedOption: picked,
         isCorrect: isRight,
         mode: 'custom',
         elapsedSeconds: perQuestionSec,
@@ -168,6 +169,7 @@ export function Screen17CustomPracticeSessionWonderland() {
         durationSeconds: totalElapsedSec,
         completionBonusXp: Math.max(8, correctCount * 2),
       });
+      void flushOfflineActivityQueue();
     }
 
     const accuracy = deck.length > 0 ? Math.round((correctCount / deck.length) * 100) : 0;

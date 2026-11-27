@@ -6,8 +6,10 @@ import {
   getTodayIsoDate,
 } from './userProgressStore';
 import { loadPracticeAiConfig } from './sabiAiPracticeConfig';
-import { loadDiagnosticBaseline } from './cbtAndCustomEngine';
-import { getDailyFailureDrillPlan } from './smartPracticeSession';
+import {
+  getDailyFailureDrillPlan,
+  loadDiagnosticBaseline,
+} from './dailyFailurePlan';
 
 export interface SubjectMasteryItem {
   canonicalName: string;
@@ -152,21 +154,31 @@ function resolveLeagueTier(xpBalance: number, totalQuestionsSolved: number): Lea
   return 'blue';
 }
 
+function parseIsoDateUtc(isoDate: string): Date {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return new Date(Date.UTC(y || 2026, (m || 1) - 1, d || 1));
+}
+
+function formatUtcIsoDate(dt: Date): string {
+  const y = dt.getUTCFullYear();
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(dt.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 function buildCurrentWeekDays(
-  dailyActivityLog: Record<string, { questionsPracticed?: number; xpEarned?: number }>
+  dailyActivityLog: Record<string, { questionsPracticed?: number; xpEarned?: number }>,
+  todayIso: string
 ): { label: string; status: 'done' | 'today' | 'upcoming' }[] {
   const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const now = new Date();
-  const jsDay = now.getDay(); // 0=Sun..6=Sat
+  const anchor = parseIsoDateUtc(todayIso);
+  const jsDay = anchor.getUTCDay(); // 0=Sun..6=Sat
   const mondayOffset = jsDay === 0 ? -6 : 1 - jsDay;
-  const todayIso = getTodayIsoDate();
 
   return labels.map((label, idx) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() + mondayOffset + idx);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
-      d.getDate()
-    ).padStart(2, '0')}`;
+    const d = new Date(anchor.getTime());
+    d.setUTCDate(anchor.getUTCDate() + mondayOffset + idx);
+    const iso = formatUtcIsoDate(d);
     const entry = dailyActivityLog[iso];
     const hasActivity = Boolean(entry && ((entry.questionsPracticed || 0) > 0 || (entry.xpEarned || 0) > 0));
 
@@ -178,18 +190,19 @@ function buildCurrentWeekDays(
 
 function buildCurrentMonthCalendar(
   dailyActivityLog: Record<string, { questionsPracticed?: number; xpEarned?: number }>,
-  dailyGoalDone: number
+  dailyGoalDone: number,
+  todayIso: string
 ): {
   monthLabel: string;
   todayDay: number;
   days: { day: number; status: 'practised' | 'today' | 'missed' | 'upcoming'; xpEarned?: number }[];
 } {
-  const now = new Date();
-  const year = now.getFullYear();
-  const monthIdx = now.getMonth();
-  const todayDay = now.getDate();
-  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-  const monthLabel = now.toLocaleString('en-US', { month: 'long' });
+  const anchor = parseIsoDateUtc(todayIso);
+  const year = anchor.getUTCFullYear();
+  const monthIdx = anchor.getUTCMonth();
+  const todayDay = anchor.getUTCDate();
+  const daysInMonth = new Date(Date.UTC(year, monthIdx + 1, 0)).getUTCDate();
+  const monthLabel = anchor.toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
 
   const days = Array.from({ length: daysInMonth }, (_, idx) => {
     const day = idx + 1;
@@ -321,8 +334,12 @@ export function getWonderlandDashboardState(): WonderlandDashboardState {
   const dailyGoalDone = Math.min(dailyGoalTarget, economy.dailyXp);
   const practicedToday = realProgress.lastActiveDate === todayIso && economy.dailyXp > 0;
 
-  const weeklyDays = buildCurrentWeekDays(realProgress.dailyActivityLog);
-  const monthCal = buildCurrentMonthCalendar(realProgress.dailyActivityLog, dailyGoalDone);
+  const weeklyDays = buildCurrentWeekDays(realProgress.dailyActivityLog, todayIso);
+  const monthCal = buildCurrentMonthCalendar(
+    realProgress.dailyActivityLog,
+    dailyGoalDone,
+    todayIso
+  );
   const leagueTier = resolveLeagueTier(xpBalance, totalQuestionsSolved);
   const userInitial = firstName.charAt(0).toUpperCase() || 'S';
 

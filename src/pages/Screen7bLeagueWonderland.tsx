@@ -38,7 +38,13 @@ const TIER_LIST: PlacedLeagueTier[] = ['blue', 'silver', 'gold'];
  */
 export function Screen7bLeagueWonderland() {
   const navigate = useNavigate();
-  const dashboard = useMemo(() => getWonderlandDashboardState(), []);
+  const [progressRev, setProgressRev] = useState(0);
+  useEffect(() => {
+    const onUpdated = () => setProgressRev((r) => r + 1);
+    window.addEventListener('sabi-progress-updated', onUpdated);
+    return () => window.removeEventListener('sabi-progress-updated', onUpdated);
+  }, []);
+  const dashboard = useMemo(() => getWonderlandDashboardState(), [progressRev]);
   const [remoteTables, setRemoteTables] = useState<Partial<Record<PlacedLeagueTier, LeagueRow[]>>>(
     {}
   );
@@ -46,7 +52,7 @@ export function Screen7bLeagueWonderland() {
 
   const snapshot = useMemo(
     () => getMultiTierLeagueSnapshot({ remoteTables, syncSource }),
-    [remoteTables, syncSource]
+    [remoteTables, syncSource, progressRev]
   );
 
   const [selectedTier, setSelectedTier] = useState<PlacedLeagueTier>(() =>

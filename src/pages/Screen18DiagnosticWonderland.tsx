@@ -17,7 +17,8 @@ import {
   saveDiagnosticBaseline,
   type DiagnosticBaselineResult,
 } from '../utils/cbtAndCustomEngine';
-import { getShortSubjectLabel } from '../utils/smartPracticeSession';
+import { getShortSubjectLabel } from '../data/curatedStarterQuestions';
+import { flushOfflineActivityQueue } from '../utils/activitySyncEngine';
 import {
   recordSessionDurationBonus,
   recordStudyActivity,
@@ -90,8 +91,10 @@ export function Screen18DiagnosticWonderland() {
         }
         totals[q.subjectCanonical] = bucket;
         recordStudyActivity({
+          questionId: q.id,
           subject: q.subjectCanonical,
           topic: q.topicLabel,
+          selectedOption: nextAnswers[i],
           isCorrect: isRight,
           mode: 'diagnostic',
           elapsedSeconds: perQuestionSec,
@@ -103,6 +106,7 @@ export function Screen18DiagnosticWonderland() {
         durationSeconds: totalElapsedSec,
         completionBonusXp: 25,
       });
+      void flushOfflineActivityQueue();
 
       const subjectMastery: Record<string, number> = {};
       Object.entries(totals).forEach(([subj, stats]) => {

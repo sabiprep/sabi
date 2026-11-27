@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -44,8 +44,14 @@ function readinessChipStyle(tone: SubjectRatingInsight['readinessTone']): string
 export function Screen7cSubjectRatingsWonderland() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const dashboard = useMemo(() => getWonderlandDashboardState(), []);
-  const snapshot = useMemo(() => getSubjectRatingsSnapshot(), []);
+  const [progressRev, setProgressRev] = useState(0);
+  useEffect(() => {
+    const onUpdated = () => setProgressRev((r) => r + 1);
+    window.addEventListener('sabi-progress-updated', onUpdated);
+    return () => window.removeEventListener('sabi-progress-updated', onUpdated);
+  }, []);
+  const dashboard = useMemo(() => getWonderlandDashboardState(), [progressRev]);
+  const snapshot = useMemo(() => getSubjectRatingsSnapshot(), [progressRev]);
 
   const querySubject = searchParams.get('subject');
   const initialCanonical =

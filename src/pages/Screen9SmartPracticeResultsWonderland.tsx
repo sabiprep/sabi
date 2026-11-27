@@ -87,7 +87,9 @@ export function Screen9SmartPracticeResultsWonderland() {
             className="text-[31px] sm:text-[38px] font-bold text-[#260559] leading-[1.12] tracking-[-0.01em]"
             style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
           >
-            You did well, {result.firstName}!
+            {result.totalQuestions > 0
+              ? `You did well, ${result.firstName}!`
+              : `Ready to start, ${result.firstName}?`}
           </h1>
           <p className="mt-1.5 text-[14.5px] sm:text-[16px] font-semibold text-[#3B2264]">
             {result.durationMinutes} minute{result.durationMinutes === 1 ? '' : 's'} ·{' '}
@@ -148,6 +150,12 @@ export function Screen9SmartPracticeResultsWonderland() {
             </h2>
 
             <div className="space-y-3.5">
+              {result.topics.length === 0 && (
+                <p className="text-[14px] font-semibold text-[#5A467A] leading-relaxed">
+                  Finish your first Blitz or Smart Practice run to see your topic-by-topic accuracy
+                  breakdown here.
+                </p>
+              )}
               {result.topics.map(row => {
                 const isStrong = row.accuracy >= 60;
                 return (
