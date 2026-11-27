@@ -6,8 +6,8 @@ const rootDir = process.cwd();
 const androidDir = path.join(rootDir, 'android');
 const gradleWrapperJar = path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.jar');
 const appBuildGradle = path.join(androidDir, 'app', 'build.gradle');
-const ANDROID_VERSION_CODE = 4;
-const ANDROID_VERSION_NAME = '2.2.0';
+const ANDROID_VERSION_CODE = 5;
+const ANDROID_VERSION_NAME = '2.3.0';
 
 /**
  * Ensures the Capacitor Android platform folder and gradle-wrapper.jar exist

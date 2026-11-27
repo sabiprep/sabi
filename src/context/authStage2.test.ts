@@ -148,4 +148,29 @@ describe('Stage 2 — Client Auth Hydration, Route Guards & Device Cache Isolati
       })
     ).toBe('https://sabi-tan.vercel.app/auth/verify');
   });
+
+  it('parses Google OAuth tokens and authorization codes from both Web URLs and Android sabi:// deep links', async () => {
+    const { extractOAuthParamsFromUrl } = await import('../lib/supabase');
+
+    const androidImplicit = extractOAuthParamsFromUrl(
+      'sabi://auth/callback#access_token=jwt-acc-123&refresh_token=jwt-ref-456&token_type=bearer'
+    );
+    expect(androidImplicit.hasAuthPayload).toBe(true);
+    expect(androidImplicit.accessToken).toBe('jwt-acc-123');
+    expect(androidImplicit.refreshToken).toBe('jwt-ref-456');
+    expect(androidImplicit.error).toBe('');
+
+    const webPkce = extractOAuthParamsFromUrl(
+      'https://sabi-tan.vercel.app/auth/verify?code=pkce-code-789'
+    );
+    expect(webPkce.hasAuthPayload).toBe(true);
+    expect(webPkce.code).toBe('pkce-code-789');
+
+    const oauthErr = extractOAuthParamsFromUrl(
+      'sabi://auth/callback?error=access_denied&error_description=User+cancelled+sign+in'
+    );
+    expect(oauthErr.hasAuthPayload).toBe(true);
+    expect(oauthErr.error).toBe('access_denied');
+    expect(oauthErr.errorDescription).toBe('User cancelled sign in');
+  });
 });

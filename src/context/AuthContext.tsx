@@ -1,8 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
 import type { Session, User } from '@supabase/supabase-js';
 import { Navigate, useLocation } from 'react-router-dom';
-import { isSupabaseConfigured, supabase, type SabiCandidateProfile } from '../lib/supabase';
-import { apiGetJson } from '../utils/apiClient';
+import {
+  completeSupabaseOAuthFromUrl,
+  isSupabaseConfigured,
+  supabase,
+  type SabiCandidateProfile,
+} from '../lib/supabase';
+import { apiGetJson, apiPostJson } from '../utils/apiClient';
 import {
   flushOfflineActivityQueue,
   hydrateProgressFromServer,
@@ -103,6 +110,9 @@ export function applyProfileToDeviceCache(
     if (profile.phone) localStorage.setItem('sabi_user_phone', profile.phone);
     if (profile.state_of_origin) localStorage.setItem('sabi_user_state', profile.state_of_origin);
     if (profile.sabi_unique_id) localStorage.setItem('sabi_unique_id', profile.sabi_unique_id);
+    if (Array.isArray(profile.auth_providers) && profile.auth_providers.length > 0) {
+      localStorage.setItem('sabi_auth_provider', profile.auth_providers.join(','));
+    }
     localStorage.setItem('sabi_user_signed_in', 'true');
     localStorage.setItem(
       'sabi_onboarding_completed',
@@ -173,28 +183,61 @@ export function resolveProtectedRouteTarget(params: {
   return 'allow';
 }
 
+function deriveDeterministicUniqueId(emailOrId: string): string {
+  const normalized = (emailOrId || 'scholar@sabi.ng').trim().toLowerCase();
+  let hash = 2166136261;
+  for (let i = 0; i < normalized.length; i += 1) {
+    hash ^= normalized.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const absHash = Math.abs(hash);
+  const fourDigits = String((absHash % 9000) + 1000);
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const oneLetter = letters[absHash % letters.length];
+  return `${fourDigits}${oneLetter}`;
+}
+
+function extractUserProviders(user: User): string[] {
+  const appMeta = (user.app_metadata || {}) as Record<string, any>;
+  const list = Array.isArray(appMeta.providers)
+    ? appMeta.providers.filter((p): p is string => typeof p === 'string' && p.length > 0)
+    : [];
+  const primary = typeof appMeta.provider === 'string' && appMeta.provider ? [appMeta.provider] : [];
+  const merged = Array.from(new Set([...list, ...primary]));
+  return merged.length > 0 ? merged : ['email'];
+}
+
 function buildFallbackProfileFromUser(user: User): SabiCandidateProfile {
   const meta = (user.user_metadata || {}) as Record<string, any>;
   const email = (user.email || '').trim().toLowerCase();
+  const isSameCachedUser =
+    typeof window !== 'undefined' &&
+    Boolean(user.id) &&
+    localStorage.getItem('sabi_active_user_id') === user.id;
   const cachedOnboardingCompleted =
-    typeof window !== 'undefined' && localStorage.getItem('sabi_onboarding_completed') === 'true';
+    isSameCachedUser && localStorage.getItem('sabi_onboarding_completed') === 'true';
+  const metaName =
+    (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
+    (typeof meta.name === 'string' && meta.name.trim()) ||
+    '';
+
   return {
     id: user.id,
     email,
     sabi_unique_id:
       (typeof meta.sabi_unique_id === 'string' && meta.sabi_unique_id) ||
-      (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) ||
-      '',
+      (isSameCachedUser && localStorage.getItem('sabi_unique_id')) ||
+      deriveDeterministicUniqueId(email || user.id),
     full_name:
-      (typeof meta.full_name === 'string' && meta.full_name.trim()) ||
-      (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) ||
+      metaName ||
+      (isSameCachedUser && localStorage.getItem('sabi_user_name')) ||
       'Candidate',
     phone: typeof meta.phone === 'string' ? meta.phone : '',
     state_of_origin:
       typeof meta.state_of_origin === 'string' && meta.state_of_origin.trim()
         ? meta.state_of_origin
         : 'Lagos',
-    auth_providers: ['email'],
+    auth_providers: extractUserProviders(user),
     onboarding_completed: cachedOnboardingCompleted,
   };
 }
@@ -208,6 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<SabiCandidateProfile | null>(null);
 
   const hydrateProfileForUser = useCallback(async (activeUser: User): Promise<SabiCandidateProfile | null> => {
+    const normalizedEmail = (activeUser.email || '').trim().toLowerCase();
     try {
       const apiRes = await apiGetJson<{
         status?: string;
@@ -222,16 +266,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Direct RLS-protected fallback if the Express API is unreachable on mobile/web
-      const { data: directProfile } = await supabase
+      const selectCols =
+        'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at';
+      let { data: directProfile } = await supabase
         .from('profiles')
-        .select(
-          'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at'
-        )
+        .select(selectCols)
         .eq('id', activeUser.id)
         .maybeSingle();
 
+      if (!directProfile && normalizedEmail) {
+        const byEmailRes = await supabase
+          .from('profiles')
+          .select(selectCols)
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+        directProfile = byEmailRes.data;
+      }
+
       if (directProfile) {
-        const typedProfile = directProfile as SabiCandidateProfile;
+        const providers = Array.from(
+          new Set([
+            ...(Array.isArray(directProfile.auth_providers) ? directProfile.auth_providers : []),
+            ...extractUserProviders(activeUser),
+          ])
+        );
+        const typedProfile: SabiCandidateProfile = {
+          ...(directProfile as SabiCandidateProfile),
+          auth_providers: providers,
+        };
         applyProfileToDeviceCache(typedProfile, activeUser.email);
         setProfile(typedProfile);
         void hydrateProgressFromServer();
@@ -360,15 +422,80 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setSession(nextSession);
       setUser(nextSession.user);
-      setStatus('authenticated');
-      void hydrateProfileForUser(nextSession.user);
+      void (async () => {
+        await hydrateProfileForUser(nextSession.user);
+        if (!cancelled) {
+          setStatus('authenticated');
+        }
+      })();
     });
+
+    // Native Capacitor Android deep-link listener for Google OAuth (`sabi://auth/callback`)
+    let removeAppUrlListener: (() => void) | null = null;
+    if (
+      typeof window !== 'undefined' &&
+      typeof Capacitor !== 'undefined' &&
+      typeof Capacitor.isNativePlatform === 'function' &&
+      Capacitor.isNativePlatform()
+    ) {
+      void CapApp.addListener('appUrlOpen', async (event) => {
+        if (cancelled || !event?.url) return;
+        const incomingUrl = String(event.url);
+        if (
+          incomingUrl.includes('auth/callback') ||
+          incomingUrl.includes('auth/verify') ||
+          incomingUrl.includes('access_token=') ||
+          incomingUrl.includes('code=')
+        ) {
+          setStatus('loading');
+          const outcome = await completeSupabaseOAuthFromUrl(incomingUrl);
+          if (outcome.ok) {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session?.user) {
+              await apiPostJson('/api/auth/verify', {
+                email: data.session.user.email,
+              }).catch(() => null);
+              setSession(data.session);
+              setUser(data.session.user);
+              await hydrateProfileForUser(data.session.user);
+              if (!cancelled) setStatus('authenticated');
+              return;
+            }
+          }
+          if (!cancelled) {
+            await refreshProfile();
+          }
+          return;
+        }
+
+        // Handle question share deep link: sabi://q/<questionId>
+        const questionMatch = incomingUrl.match(/sabi:\/\/q\/([^/?#]+)/i);
+        if (questionMatch?.[1] && typeof window !== 'undefined') {
+          const targetPath = `/q/${questionMatch[1]}`;
+          if (window.location.pathname !== targetPath) {
+            window.history.pushState({}, '', targetPath);
+            window.dispatchEvent(new PopStateEvent('popstate'));
+          }
+        }
+      })
+        .then((handle) => {
+          removeAppUrlListener = () => {
+            void handle.remove();
+          };
+        })
+        .catch(() => {
+          // Ignore if App plugin is unavailable in test runner
+        });
+    }
 
     return () => {
       cancelled = true;
       authSubscription?.subscription?.unsubscribe();
+      if (removeAppUrlListener) {
+        removeAppUrlListener();
+      }
     };
-  }, [hydrateProfileForUser]);
+  }, [hydrateProfileForUser, refreshProfile]);
 
   // Stage 3: Automatically flush offline study activity events when queued, back online, or app resumes
   useEffect(() => {

@@ -540,8 +540,33 @@ export async function hydrateSavedSnapshotsFromServer(): Promise<{
 function isLocalOrNativeOrigin(origin: string): boolean {
   const lower = (origin || '').trim().toLowerCase();
   if (!lower) return true;
-  if (lower.startsWith('capacitor://') || lower.startsWith('file://')) return true;
-  return /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i.test(lower);
+  if (
+    lower.startsWith('capacitor://') ||
+    lower.startsWith('file://') ||
+    lower.startsWith('ionic://')
+  ) {
+    return true;
+  }
+  try {
+    const parsed = new URL(lower);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      !host ||
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '0.0.0.0' ||
+      host === '10.0.2.2' ||
+      host.endsWith('.local') ||
+      host.startsWith('192.168.') ||
+      /^10\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+    ) {
+      return true;
+    }
+    return false;
+  } catch {
+    return true;
+  }
 }
 
 /**
@@ -581,8 +606,8 @@ export async function publishSharedQuestionLink(
 
 /**
  * Returns a real, externally reachable public base URL for share links (`/q/:id`).
- * Never returns `https://localhost`, `capacitor://`, or private AI Studio preview
- * proxy URLs (`ais-pre-...`, `ais-dev-...`) that lock out external WhatsApp recipients.
+ * Never returns `https://localhost`, `capacitor://`, LAN IPs, or private AI Studio
+ * preview proxy URLs (`ais-pre-...`, `ais-dev-...`).
  */
 export function getPublicShareOrigin(options?: {
   envPublicOverride?: string;
@@ -619,12 +644,20 @@ export function getPublicShareOrigin(options?: {
     return cleanedApi;
   }
 
-  const winOriginRaw =
-    options?.windowOriginOverride ??
-    (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
-  const winOrigin = String(winOriginRaw).trim().replace(/\/+$/, '');
-  if (winOrigin && !isLocalOrNativeOrigin(winOrigin) && !isPreviewProxyHost(winOrigin)) {
-    return winOrigin;
+  const isNative =
+    !options?.windowOriginOverride &&
+    typeof Capacitor !== 'undefined' &&
+    typeof Capacitor.isNativePlatform === 'function' &&
+    Capacitor.isNativePlatform();
+
+  if (!isNative) {
+    const winOriginRaw =
+      options?.windowOriginOverride ??
+      (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
+    const winOrigin = String(winOriginRaw).trim().replace(/\/+$/, '');
+    if (winOrigin && !isLocalOrNativeOrigin(winOrigin) && !isPreviewProxyHost(winOrigin)) {
+      return winOrigin;
+    }
   }
 
   return FALLBACK_PUBLIC_WEB_ORIGIN;
@@ -650,10 +683,10 @@ export function detectVisitorDevice(userAgentOverride?: string): 'android' | 'io
  */
 export function buildSabiAppDeepLink(
   questionId: string,
-  mode: SnapshotSourceMode = 'blitz'
+  _mode: SnapshotSourceMode = 'blitz'
 ): string {
   const canonical = normalizeCanonicalQuestionId(questionId) || questionId;
-  return `sabi://q/${encodeURIComponent(canonical)}?mode=${encodeURIComponent(mode)}&src=share`;
+  return `sabi://q/${encodeURIComponent(canonical)}`;
 }
 
 /**
@@ -667,16 +700,35 @@ export function getPlayStoreAppUrl(): string {
   return /^https:\/\/play\.google\.com\//i.test(trimmed) ? trimmed : '';
 }
 
+/**
+ * Builds a 100% clean, standalone clickable public question link:
+ * e.g. `https://sabi-tan.vercel.app/q/SABI-CHM-PT-1`
+ * Never includes localhost, query-string clutter, or messy text.
+ */
 export function buildQuestionShareUrl(
   questionId: string,
-  mode: SnapshotSourceMode = 'blitz',
+  _mode: SnapshotSourceMode = 'blitz',
   originOverride?: string
 ): string {
   const canonical = normalizeCanonicalQuestionId(questionId) || questionId;
-  const origin = (originOverride || getPublicShareOrigin()).replace(/\/+$/, '');
-  return `${origin}/q/${encodeURIComponent(canonical)}?mode=${encodeURIComponent(mode)}&src=share`;
+  const candidateOrigin = (originOverride || '').trim().replace(/\/+$/, '');
+  const safeOrigin =
+    candidateOrigin &&
+    /^https?:\/\//i.test(candidateOrigin) &&
+    !isLocalOrNativeOrigin(candidateOrigin) &&
+    !isPreviewProxyHost(candidateOrigin)
+      ? candidateOrigin
+      : getPublicShareOrigin(
+          candidateOrigin ? { windowOriginOverride: candidateOrigin } : undefined
+        );
+  return `${safeOrigin}/q/${encodeURIComponent(canonical)}`;
 }
 
+/**
+ * Returns the clean standalone share link for clipboard, WhatsApp, and native Android/Web share.
+ * Keep `text` equal to the clean URL (`https://sabi-tan.vercel.app/q/<id>`) so recipients can
+ * tap the link cleanly without messy question text dumped into the chat.
+ */
 export function buildQuestionShareCopy(params: {
   questionId: string;
   subjectLabel: string;
@@ -686,12 +738,8 @@ export function buildQuestionShareCopy(params: {
   originOverride?: string;
 }): { url: string; text: string; whatsappUrl: string } {
   const url = buildQuestionShareUrl(params.questionId, params.mode, params.originOverride);
-  const shortStem =
-    params.questionText.length > 120
-      ? `${params.questionText.slice(0, 118).trimEnd()}…`
-      : params.questionText;
-  const text = `SABI JAMB ${params.subjectLabel} (${params.topicLabel}) Challenge:\n"${shortStem}"\n\nTap to answer this question on SABI:\n${url}`;
-  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+  const text = url;
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(url)}`;
   return { url, text, whatsappUrl };
 }
 
@@ -773,7 +821,7 @@ function triggerWebBlobDownload(blob: Blob, filename: string): boolean {
 }
 
 /**
- * Saves a rendered PNG Snapshot reliably on BOTH Android APK (via Capacitor Filesystem)
+ * Saves a rendered PNG Snapshot reliably on BOTH Android APK (via Capacitor Filesystem + Share)
  * and Desktop/Mobile Web (via Blob Object URL download, avoiding blocked data: URLs).
  */
 export async function saveSnapshotImageToDevice(
@@ -782,40 +830,41 @@ export async function saveSnapshotImageToDevice(
   // 1. Native Android / iOS via Capacitor Filesystem
   if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
     try {
+      const cached = await Filesystem.writeFile({
+        path: rendered.filename,
+        data: rendered.base64Data,
+        directory: Directory.Cache,
+        recursive: true,
+      });
+      // Also attempt saving a copy into Documents/SABI-Snapshots when allowed by Android OS
       await Filesystem.writeFile({
         path: `SABI-Snapshots/${rendered.filename}`,
         data: rendered.base64Data,
         directory: Directory.Documents,
         recursive: true,
+      }).catch(() => null);
+
+      await Share.share({
+        title: 'Save SABI Question Snapshot',
+        files: [cached.uri],
+        dialogTitle: 'Save or Share SABI Snapshot',
       });
       return {
         ok: true,
-        message: `Snapshot saved to Documents/SABI-Snapshots/${rendered.filename}`,
+        message: 'Snapshot image ready to save or share!',
       };
-    } catch {
-      // Scoped storage fallback: write to Cache and open native Share sheet so user can Save to Photos/Files
-      try {
-        const cached = await Filesystem.writeFile({
-          path: rendered.filename,
-          data: rendered.base64Data,
-          directory: Directory.Cache,
-          recursive: true,
-        });
-        await Share.share({
-          title: 'Save SABI Question Snapshot',
-          files: [cached.uri],
-          dialogTitle: 'Save or Share SABI Snapshot',
-        });
+    } catch (err: any) {
+      const msg = String(err?.message || '').toLowerCase();
+      if (msg.includes('cancel') || err?.name === 'AbortError') {
         return {
           ok: true,
-          message: 'Snapshot ready in Android share/save menu!',
-        };
-      } catch {
-        return {
-          ok: false,
-          message: 'Could not save snapshot image on this device. Try Share Snapshot instead.',
+          message: `Snapshot saved to Documents/SABI-Snapshots/${rendered.filename}`,
         };
       }
+      return {
+        ok: false,
+        message: 'Could not save snapshot image on this device. Try Share Snapshot instead.',
+      };
     }
   }
 
@@ -835,9 +884,9 @@ export async function saveSnapshotImageToDevice(
 }
 
 /**
- * Shares a rendered PNG Snapshot + direct `/q/:id` link natively on Android APK
+ * Shares a rendered PNG Snapshot + clean standalone `/q/:id` link natively on Android APK
  * (via Capacitor Filesystem + Capacitor Share) or Web (via Web Share API -> reliable
- * Clipboard + PNG download fallback so desktop users always get both image and link).
+ * Clipboard + PNG download fallback so desktop users always get both image and clean link).
  */
 export async function shareSnapshotNativeOrWeb(params: {
   rendered: RenderedSnapshotImage | null;
@@ -845,9 +894,14 @@ export async function shareSnapshotNativeOrWeb(params: {
   text: string;
   url: string;
 }): Promise<{ ok: boolean; cancelled?: boolean; message: string }> {
-  const { rendered, title, text, url } = params;
+  const { rendered, title, url } = params;
+  const cleanUrl = buildQuestionShareUrl(
+    url.split('/q/')[1]?.split(/[?#]/)[0] || '',
+    'blitz'
+  );
+  const finalUrl = url.includes('/q/') ? cleanUrl : url;
 
-  // 1. Native Android / iOS Capacitor Share with real PNG attachment
+  // 1. Native Android / iOS Capacitor Share with real PNG attachment + clean standalone URL
   if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
     try {
       if (rendered?.base64Data) {
@@ -857,38 +911,38 @@ export async function shareSnapshotNativeOrWeb(params: {
           directory: Directory.Cache,
           recursive: true,
         });
+        // Note: On Android Capacitor SharePlugin, when `files` is provided, `text` supplies
+        // EXTRA_TEXT. Passing `text: finalUrl` attaches the PNG image + ONLY the clean URL.
         await Share.share({
           title,
-          text,
-          url,
+          text: finalUrl,
           files: [written.uri],
           dialogTitle: 'Share SABI Question Snapshot',
         });
-        return { ok: true, message: 'Shared snapshot image & direct question link!' };
+        return { ok: true, message: 'Shared snapshot image & clean question link!' };
       }
 
       await Share.share({
         title,
-        text,
-        url,
+        url: finalUrl,
         dialogTitle: 'Share SABI Question',
       });
-      return { ok: true, message: 'Shared direct question link!' };
+      return { ok: true, message: 'Shared clean question link!' };
     } catch (err: any) {
       const msg = String(err?.message || '').toLowerCase();
       if (msg.includes('cancel') || err?.name === 'AbortError') {
         return { ok: false, cancelled: true, message: '' };
       }
-      // Fallback to text-only native share if file attachment was rejected by target app
+      // Fallback to clean URL-only native share if file attachment was rejected by target app
       try {
-        await Share.share({ title, text, url, dialogTitle: 'Share SABI Question' });
-        return { ok: true, message: 'Shared direct question link!' };
+        await Share.share({ title, url: finalUrl, dialogTitle: 'Share SABI Question' });
+        return { ok: true, message: 'Shared clean question link!' };
       } catch {
-        const copied = await copyTextReliably(text);
+        const copied = await copyTextReliably(finalUrl);
         return {
           ok: copied,
           message: copied
-            ? 'Direct link & question text copied — paste in WhatsApp or any app!'
+            ? 'Clean question link copied — paste in WhatsApp or any app!'
             : 'Use the Copy button above to share this question link.',
         };
       }
@@ -907,11 +961,10 @@ export async function shareSnapshotNativeOrWeb(params: {
         if (navAny.canShare && navAny.canShare({ files: [file] })) {
           await navigator.share({
             title,
-            text,
-            url,
+            url: finalUrl,
             files: [file],
           });
-          return { ok: true, message: 'Shared snapshot image & question link!' };
+          return { ok: true, message: 'Shared snapshot image & clean question link!' };
         }
       } catch (err: any) {
         if (err?.name === 'AbortError') {
@@ -922,8 +975,8 @@ export async function shareSnapshotNativeOrWeb(params: {
     }
 
     try {
-      await navigator.share({ title, text, url });
-      return { ok: true, message: 'Shared direct question link!' };
+      await navigator.share({ title, url: finalUrl });
+      return { ok: true, message: 'Shared clean question link!' };
     } catch (err: any) {
       if (err?.name === 'AbortError') {
         return { ok: false, cancelled: true, message: '' };
@@ -933,8 +986,8 @@ export async function shareSnapshotNativeOrWeb(params: {
   }
 
   // 3. Desktop Web / Restricted Frame Bulletproof Fallback:
-  // Copy the direct link + prompt AND download the PNG snapshot image immediately.
-  const copied = await copyTextReliably(text);
+  // Copy ONLY the clean standalone link AND download the PNG snapshot image immediately.
+  const copied = await copyTextReliably(finalUrl);
   const downloaded = rendered
     ? (await saveSnapshotImageToDevice(rendered)).ok
     : false;
@@ -942,13 +995,13 @@ export async function shareSnapshotNativeOrWeb(params: {
   if (copied && downloaded) {
     return {
       ok: true,
-      message: 'Snapshot PNG downloaded & direct share link copied — paste anywhere!',
+      message: 'Snapshot PNG downloaded & clean link copied — paste anywhere!',
     };
   }
   if (copied) {
     return {
       ok: true,
-      message: 'Direct question link & text copied to clipboard!',
+      message: 'Clean question link copied to clipboard!',
     };
   }
   if (downloaded) {
@@ -1296,14 +1349,7 @@ export async function renderQuestionSnapshotPng(params: {
 
   const dataUrl = canvas.toDataURL('image/png');
   const base64Data = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
-  const canvasBlob = await new Promise<Blob | null>((resolve) => {
-    try {
-      canvas.toBlob((b) => resolve(b), 'image/png');
-    } catch {
-      resolve(null);
-    }
-  });
-  const blob = canvasBlob || dataUrlToBlob(dataUrl);
+  const blob = dataUrlToBlob(dataUrl);
   const canonical = normalizeCanonicalQuestionId(params.question.id) || 'question';
 
   return {

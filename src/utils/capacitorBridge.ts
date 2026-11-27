@@ -2,7 +2,6 @@ import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { supabase } from '../lib/supabase';
 
 /**
  * Remote API base URL for the compiled Android APK, which cannot use a relative
@@ -15,7 +14,11 @@ import { supabase } from '../lib/supabase';
  * value must be supplied at build time (see .github/workflows/build-android-apk.yml,
  * which now refuses to build an APK without it).
  */
-const DEFAULT_NATIVE_API_BASE = (import.meta.env.VITE_API_BASE_URL || '')
+const DEFAULT_NATIVE_API_BASE = (
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_PUBLIC_WEB_URL ||
+  'https://sabi-tan.vercel.app'
+)
   .trim()
   .replace(/\/+$/, '');
 
@@ -172,40 +175,19 @@ export function initCapacitorAndroidBridge(): void {
     document.documentElement.classList.contains('dark');
   syncAndroidStatusBar(initialDark);
 
-  // 4. Handle Android Deep Links (sabi://auth, sabi://q/<id>, sabi://assistant, https://.../q/<id>)
+  // 4. Handle Android Deep Links (sabi://q/<id>, sabi://assistant, https://.../q/<id>)
+  //    Note: sabi://auth/callback OAuth & email verification tokens are handled by AuthContext
+  //    so profile hydration completes before routing to /onboarding/1 or /home.
   CapApp.addListener('appUrlOpen', async ({ url }) => {
     if (!url) return;
     try {
-      const hashIndex = url.indexOf('#');
-      const queryIndex = url.indexOf('?');
-      const hashParams = new URLSearchParams(hashIndex !== -1 ? url.slice(hashIndex + 1) : '');
-      const querySlice =
-        queryIndex !== -1
-          ? url.slice(queryIndex + 1, hashIndex !== -1 && hashIndex > queryIndex ? hashIndex : undefined)
-          : '';
-      const queryParams = new URLSearchParams(querySlice);
-
-      const accessToken = hashParams.get('access_token') || queryParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
-      const authCode = queryParams.get('code') || hashParams.get('code');
-
-      if (authCode && supabase) {
-        const { data } = await supabase.auth.exchangeCodeForSession(authCode);
-        if (data?.session?.user) {
-          window.location.href = '/home';
-          return;
-        }
-      }
-
-      if (accessToken && refreshToken && supabase) {
-        const { data } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        });
-        if (data?.session?.user) {
-          window.location.href = '/home';
-          return;
-        }
+      if (
+        url.includes('auth/callback') ||
+        url.includes('auth/verify') ||
+        url.includes('access_token=') ||
+        url.includes('code=')
+      ) {
+        return;
       }
 
       const resolvedRoute = resolveDeepLinkRoute(url);

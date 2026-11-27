@@ -166,9 +166,7 @@ export function QuestionShareSheet({
   };
 
   const canonicalId = normalizeCanonicalQuestionId(question.id) || question.id;
-  const previewRelativePath = `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(
-    mode
-  )}&src=preview`;
+  const questionDirectPath = `/q/${encodeURIComponent(canonicalId)}`;
 
   return (
     <div
@@ -209,7 +207,7 @@ export function QuestionShareSheet({
           </button>
         </div>
 
-        {/* Scrollable Snapshot Preview + Controls */}
+        {/* Scrollable Snapshot Card + Controls */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-5 pb-4 space-y-3.5">
           {/* Toggle Answer Visibility if already answered */}
           {wasAnswered && (
@@ -236,7 +234,7 @@ export function QuestionShareSheet({
             </div>
           )}
 
-          {/* Full-Display Snapshot Preview */}
+          {/* Full-Display Snapshot Card */}
           <QuestionSnapshotCard
             mode={mode}
             subjectLabel={question.subjectLabel}
@@ -268,11 +266,11 @@ export function QuestionShareSheet({
                 type="button"
                 onClick={() => {
                   onClose();
-                  navigate(previewRelativePath);
+                  navigate(questionDirectPath);
                 }}
                 className="text-[11.5px] font-extrabold text-[#6C19E5] hover:underline inline-flex items-center gap-1 cursor-pointer"
               >
-                <span>Preview full view</span>
+                <span>Open Question Page</span>
                 <ExternalLink size={11} />
               </button>
             </div>

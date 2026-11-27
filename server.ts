@@ -207,7 +207,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
     // 1. Look up an existing SABI profile for this address.
     const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
       .from('profiles')
-      .select('id')
+      .select('*')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -218,14 +218,85 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
         .json({ error: 'Registration is temporarily unavailable. Please try again.' });
     }
 
-    if (existingProfile) {
+    const existingProviders: string[] = Array.isArray(existingProfile?.auth_providers)
+      ? existingProfile.auth_providers
+      : [];
+    const isGoogleOnlyProfile =
+      Boolean(existingProfile?.id) &&
+      existingProviders.includes('google') &&
+      !existingProviders.includes('email');
+
+    if (existingProfile && !isGoogleOnlyProfile) {
       return res.status(409).json({
         error:
-          'An account with this email is already registered. Please sign in or use Forgot Password.',
+          'An account with this email is already registered. Please sign in with your password or Continue with Google.',
       });
     }
 
-    const uniqueId = generateDeterministicSabiId(normalizedEmail);
+    const uniqueId =
+      existingProfile?.sabi_unique_id || generateDeterministicSabiId(normalizedEmail);
+
+    // 1b. If the student previously signed in with Google using this same email and now registers
+    //     with Email + Password, attach the password to their existing Auth user and link ['google', 'email'].
+    if (existingProfile && isGoogleOnlyProfile) {
+      const mergedProviders = Array.from(new Set([...existingProviders, 'email', provider]));
+      const resolvedName = fullName || existingProfile.full_name || 'Candidate';
+      const resolvedPhone = phone || existingProfile.phone || '';
+      const resolvedState = stateOfOrigin || existingProfile.state_of_origin || 'Lagos';
+
+      const { error: linkErr } = await supabaseAdmin.auth.admin.updateUserById(
+        existingProfile.id,
+        {
+          password: String(password),
+          email_confirm: true,
+          user_metadata: {
+            full_name: resolvedName,
+            phone: resolvedPhone,
+            state_of_origin: resolvedState,
+            sabi_unique_id: uniqueId,
+            email_verified: true,
+            issuer: 'SABI',
+          },
+        }
+      );
+
+      if (linkErr) {
+        return res.status(400).json({
+          error:
+            linkErr.message ||
+            'Could not link email password to your existing Google account. Please Continue with Google.',
+        });
+      }
+
+      const { data: linkedProfile, error: linkProfileErr } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          full_name: resolvedName,
+          phone: resolvedPhone,
+          state_of_origin: resolvedState,
+          sabi_unique_id: uniqueId,
+          auth_providers: mergedProviders,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingProfile.id)
+        .select('*')
+        .single();
+
+      if (linkProfileErr || !linkedProfile) {
+        return res.status(500).json({
+          error: linkProfileErr?.message || 'Failed to synchronize linked Google + Email profile.',
+        });
+      }
+
+      return res.json({
+        status: 'linked',
+        verified: true,
+        auth_user_id: existingProfile.id,
+        profile: linkedProfile,
+        sabi_unique_id: linkedProfile.sabi_unique_id,
+        requires_email_verification: false,
+      });
+    }
 
     // 2. Create the Supabase Auth user. A caller-supplied user id is never trusted.
     let userId: string | undefined;
@@ -254,7 +325,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
       if (alreadyRegistered) {
         return res.status(409).json({
           error:
-            'An account with this email is already registered. Please sign in or use Forgot Password.',
+            'An account with this email is already registered. Please sign in or Continue with Google.',
         });
       }
 
@@ -281,6 +352,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
           phone: phone || '',
           state_of_origin: stateOfOrigin || 'Lagos',
           auth_providers: updatedProviders,
+          onboarding_completed: false,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'email' }
@@ -311,7 +383,7 @@ app.post('/api/auth/register', authLimiter, validateBody(registerSchema), async 
 
 // 0a-1. Confirm the caller's own account (defect B1/B2).
 //       Requires a valid Supabase access token and can only ever affect the
-//       authenticated user.
+//       authenticated user. Also reconciles Google + Email provider lists.
 app.post(
   '/api/auth/verify',
   authLimiter,
@@ -377,6 +449,7 @@ app.post(
         const { error: confirmErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
           email_confirm: true,
           user_metadata: {
+            ...(user.metadata || {}),
             sabi_unique_id: resolvedUniqueId,
             email_verified: true,
             issuer: 'SABI',
@@ -390,8 +463,13 @@ app.post(
         }
       }
 
+      const metadata = user.metadata || {};
+      const googleOrMetaName =
+        (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
+        (typeof metadata.name === 'string' && metadata.name.trim()) ||
+        '';
+
       if (!profile) {
-        const metadata = user.metadata || {};
         const { data: upserted, error: upsertError } = await supabaseAdmin
           .from('profiles')
           .upsert(
@@ -399,10 +477,11 @@ app.post(
               id: user.id,
               email: user.email || email,
               sabi_unique_id: resolvedUniqueId,
-              full_name: metadata.full_name || metadata.name || '',
+              full_name: googleOrMetaName || 'Candidate',
               phone: metadata.phone || user.phone || '',
               state_of_origin: metadata.state_of_origin || 'Lagos',
               auth_providers: user.providers.length ? user.providers : ['email'],
+              onboarding_completed: false,
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'email' }
@@ -421,13 +500,27 @@ app.post(
           });
         }
         profile = upserted;
-      } else if (user.providers.length) {
+      } else {
         const mergedProviders = Array.from(
-          new Set([...(profile.auth_providers || ['email']), ...user.providers])
+          new Set([
+            ...(Array.isArray(profile.auth_providers) ? profile.auth_providers : ['email']),
+            ...(user.providers || []),
+          ])
         );
+        const shouldUpgradeName =
+          googleOrMetaName &&
+          (!profile.full_name ||
+            profile.full_name.trim() === '' ||
+            profile.full_name.trim().toLowerCase() === 'candidate');
+
         const { data: updated, error: providerUpdateError } = await supabaseAdmin
           .from('profiles')
-          .update({ auth_providers: mergedProviders, updated_at: new Date().toISOString() })
+          .update({
+            auth_providers: mergedProviders,
+            sabi_unique_id: resolvedUniqueId,
+            ...(shouldUpgradeName ? { full_name: googleOrMetaName } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', profile.id)
           .select('*')
           .maybeSingle();
@@ -709,11 +802,12 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
   const normalizedEmail = String(user.email || '').trim().toLowerCase();
 
   try {
+    const profileSelectCols =
+      'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at';
+
     let { data: profile, error } = await supabaseAdmin
       .from('profiles')
-      .select(
-        'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at'
-      )
+      .select(profileSelectCols)
       .eq('id', user.id)
       .maybeSingle();
 
@@ -721,16 +815,34 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
       return res.status(500).json({ error: error.message || 'Failed to load candidate profile.' });
     }
 
+    // Reconcile by normalized email if the user previously registered via Email or Google
+    if (!profile && normalizedEmail) {
+      const { data: profileByEmail, error: emailErr } = await supabaseAdmin
+        .from('profiles')
+        .select(profileSelectCols)
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+
+      if (emailErr) {
+        return res
+          .status(500)
+          .json({ error: emailErr.message || 'Failed to load candidate profile.' });
+      }
+      profile = profileByEmail;
+    }
+
+    const metadata = (user.metadata || {}) as Record<string, unknown>;
+    const metaName =
+      (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
+      (typeof metadata.name === 'string' && metadata.name.trim()) ||
+      '';
+
     if (!profile) {
-      const metadata = (user.metadata || {}) as Record<string, unknown>;
       const fallbackUniqueId =
         typeof metadata.sabi_unique_id === 'string' && /^\d{4}[A-Z]$/.test(metadata.sabi_unique_id)
           ? metadata.sabi_unique_id
           : generateDeterministicSabiId(normalizedEmail || user.id);
-      const fallbackName =
-        typeof metadata.full_name === 'string' && metadata.full_name.trim()
-          ? metadata.full_name.trim()
-          : 'Candidate';
+      const fallbackName = metaName || 'Candidate';
       const fallbackPhone =
         typeof metadata.phone === 'string' && metadata.phone.trim()
           ? metadata.phone.trim()
@@ -754,11 +866,9 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
             onboarding_completed: false,
             updated_at: new Date().toISOString(),
           },
-          { onConflict: 'id' }
+          { onConflict: normalizedEmail ? 'email' : 'id' }
         )
-        .select(
-          'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at'
-        )
+        .select(profileSelectCols)
         .maybeSingle();
 
       if (createErr || !createdProfile) {
@@ -767,6 +877,41 @@ app.get('/api/profile/me', requireAuth, async (req, res) => {
           .json({ error: createErr?.message || 'Could not initialize candidate profile.' });
       }
       profile = createdProfile;
+    } else {
+      // Keep auth_providers (e.g. ['email', 'google']) and Google full_name in sync
+      const existingProviders = Array.isArray(profile.auth_providers)
+        ? profile.auth_providers
+        : ['email'];
+      const mergedProviders = Array.from(
+        new Set([...existingProviders, ...(user.providers || [])])
+      );
+      const needsProviderSync = mergedProviders.length > existingProviders.length;
+      const needsNameUpgrade =
+        Boolean(metaName) &&
+        (!profile.full_name ||
+          profile.full_name.trim() === '' ||
+          profile.full_name.trim().toLowerCase() === 'candidate');
+      const needsUniqueId = !profile.sabi_unique_id;
+
+      if (needsProviderSync || needsNameUpgrade || needsUniqueId) {
+        const resolvedUniqueId =
+          profile.sabi_unique_id || generateDeterministicSabiId(normalizedEmail || user.id);
+        const { data: syncedProfile } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            auth_providers: mergedProviders,
+            sabi_unique_id: resolvedUniqueId,
+            ...(needsNameUpgrade ? { full_name: metaName } : {}),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', profile.id)
+          .select(profileSelectCols)
+          .maybeSingle();
+
+        if (syncedProfile) {
+          profile = syncedProfile;
+        }
+      }
     }
 
     const rawOnboarding =

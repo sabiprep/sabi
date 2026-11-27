@@ -55,7 +55,17 @@ function makeProfilesQuery() {
     maybeSingle: async () => {
       if (action === 'select') {
         const id = String(filters.id || '');
-        return { data: mockState.profilesById[id] || null, error: null };
+        if (id && mockState.profilesById[id]) {
+          return { data: mockState.profilesById[id], error: null };
+        }
+        const email = String(filters.email || '').trim().toLowerCase();
+        if (email) {
+          const found = Object.values(mockState.profilesById).find(
+            (p) => String(p.email || '').toLowerCase() === email
+          );
+          return { data: found || null, error: null };
+        }
+        return { data: null, error: null };
       }
       if (action === 'upsert' && upsertData) {
         const id = String(upsertData.id || '');
@@ -70,6 +80,10 @@ function makeProfilesQuery() {
         return { data: mockState.profilesById[id], error: null };
       }
       return { data: null, error: null };
+    },
+    single: async () => {
+      const res = await query.maybeSingle();
+      return res;
     },
   };
   return query;
@@ -87,7 +101,7 @@ beforeAll(async () => {
   supabaseAdminClient = adminMod.supabaseAdmin;
 });
 
-describe('Stage 2 — Real Auth, Profile Hydration & Env Readiness', () => {
+describe('Stage 2 & Stage A — Real Auth, Google + Email Sync, Profile Hydration & Env Readiness', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
 
@@ -101,6 +115,14 @@ describe('Stage 2 — Real Auth, Profile Hydration & Env Readiness', () => {
           sabi_unique_id: '7391M',
         },
         app_metadata: { providers: ['email'] },
+      },
+      'google-synced-token': {
+        id: 'user-stage2-001',
+        email: 'chinedu@sabi.ng',
+        user_metadata: {
+          name: 'Chinedu Okafor (Google)',
+        },
+        app_metadata: { provider: 'google', providers: ['email', 'google'] },
       },
     };
     mockState.profilesById = {
@@ -178,6 +200,49 @@ describe('Stage 2 — Real Auth, Profile Hydration & Env Readiness', () => {
       'Chemistry',
     ]);
     expect(res.body.live_progress).toEqual({ xp: 1450, streakDays: 5 });
+  });
+
+  it('merges auth_providers to ["email", "google"] when an existing email user signs in with Google', async () => {
+    const res = await request(app)
+      .get('/api/profile/me')
+      .set('Authorization', 'Bearer google-synced-token');
+
+    expect(res.status).toBe(200);
+    expect(res.body.profile.email).toBe('chinedu@sabi.ng');
+    expect(res.body.profile.auth_providers).toEqual(expect.arrayContaining(['email', 'google']));
+    expect(res.body.onboarding_completed).toBe(true);
+  });
+
+  it('links an email password to an existing Google-only profile with the same email on POST /api/auth/register', async () => {
+    mockState.profilesById['user-google-only'] = {
+      id: 'user-google-only',
+      email: 'amaka@sabi.ng',
+      sabi_unique_id: '8821K',
+      full_name: 'Amaka Obi',
+      phone: '',
+      state_of_origin: 'Lagos',
+      auth_providers: ['google'],
+      onboarding_completed: true,
+    };
+
+    vi.spyOn(supabaseAdminClient.auth.admin, 'updateUserById').mockResolvedValue({
+      data: { user: { id: 'user-google-only', email: 'amaka@sabi.ng' } },
+      error: null,
+    } as any);
+
+    const res = await request(app).post('/api/auth/register').send({
+      fullName: 'Amaka Obi',
+      email: 'amaka@sabi.ng',
+      password: 'securePassword123',
+      phone: '+2348099998888',
+      stateOfOrigin: 'Anambra',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('linked');
+    expect(res.body.sabi_unique_id).toBe('8821K');
+    expect(res.body.profile.auth_providers).toEqual(expect.arrayContaining(['google', 'email']));
+    expect(res.body.profile.onboarding_completed).toBe(true);
   });
 
   it('auto-initializes a missing profile row cleanly for a newly authenticated candidate', async () => {

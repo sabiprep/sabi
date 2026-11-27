@@ -102,55 +102,63 @@ export function Screen12SubscriptionsWonderland() {
   } | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  const [checkoutBusy, setCheckoutBusy] = useState(false);
   const activePlanObj = SABI_PLANS.find(p => p.id === activePlanId) || SABI_PLANS[0];
 
-  const handleConfirmPreview = () => {
-    if (!selectedCheckout) return;
+  const handleConfirmCheckout = async () => {
+    if (!selectedCheckout || checkoutBusy) return;
+    setCheckoutBusy(true);
     try {
-      sound.playSuccess();
-    } catch {
-      // ignore
-    }
-
-    const currentProgress = getRealUserProgress();
-    let addedMainDiamonds = 0;
-    let nextSubPlan = currentProgress.subscriptionPlan;
-
-    if (selectedCheckout.planId) {
-      const matched = SABI_PLANS.find(p => p.id === selectedCheckout.planId);
-      setActivePlanId(selectedCheckout.planId);
-      if (typeof window !== 'undefined' && matched) {
-        localStorage.setItem('sabi_plan_id', matched.id);
-        localStorage.setItem('sabi_plan_label', matched.name);
-      }
-      if (selectedCheckout.planId === 'season_unlock') {
-        addedMainDiamonds += 250;
-        nextSubPlan = 'citadel_pro';
-      } else if (selectedCheckout.planId === 'monthly_pass') {
-        addedMainDiamonds += 100;
-        nextSubPlan = 'scholar_pass';
-      } else {
-        nextSubPlan = 'free';
-      }
-    }
-
-    if (selectedCheckout.creditDelta) {
-      addedMainDiamonds += selectedCheckout.creditDelta;
-    }
-
-    if (addedMainDiamonds > 0 || nextSubPlan !== currentProgress.subscriptionPlan) {
-      saveRealUserProgress({
-        ...currentProgress,
-        subscriptionPlan: nextSubPlan,
-        mainDiamonds: currentProgress.mainDiamonds + addedMainDiamonds,
+      const { apiPostJson } = await import('../utils/apiClient');
+      const res = await apiPostJson<{
+        authorization_url?: string;
+        checkout_url?: string;
+        message?: string;
+        error?: string;
+      }>('/api/billing/checkout', {
+        planId: selectedCheckout.planId || null,
+        creditDelta: selectedCheckout.creditDelta || null,
+        title: selectedCheckout.title,
       });
-      setEconomy(getEconomySnapshot());
-    }
 
-    setStatusMessage(
-      `${selectedCheckout.title} preview activated. Live Paystack/Flutterwave server verification connects during backend billing rollout.`
-    );
-    setSelectedCheckout(null);
+      const checkoutUrl = res.data?.authorization_url || res.data?.checkout_url;
+      if (res.ok && checkoutUrl && /^https?:\/\//i.test(checkoutUrl)) {
+        try {
+          sound.playSuccess();
+        } catch {
+          // ignore
+        }
+        window.location.assign(checkoutUrl);
+        return;
+      }
+
+      if (selectedCheckout.planId === 'free') {
+        setActivePlanId('free');
+        const currentProgress = getRealUserProgress();
+        saveRealUserProgress({
+          ...currentProgress,
+          subscriptionPlan: 'free',
+        });
+        setEconomy(getEconomySnapshot());
+        setStatusMessage('Your account is on the Free Scholar plan.');
+        setSelectedCheckout(null);
+        return;
+      }
+
+      setStatusMessage(
+        res.data?.message ||
+          res.data?.error ||
+          `Online billing for ${selectedCheckout.title} is currently being finalized. Your current Free Scholar access and earned XP Assistance Diamonds remain active.`
+      );
+      setSelectedCheckout(null);
+    } catch {
+      setStatusMessage(
+        `Could not connect to the payment gateway for ${selectedCheckout.title}. Please try again shortly.`
+      );
+      setSelectedCheckout(null);
+    } finally {
+      setCheckoutBusy(false);
+    }
   };
 
   return (
@@ -421,7 +429,7 @@ export function Screen12SubscriptionsWonderland() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Confirm plan preview"
+          aria-label="Confirm plan checkout"
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#170338]/65 backdrop-blur-xs px-4"
           onClick={() => setSelectedCheckout(null)}
         >
@@ -433,7 +441,7 @@ export function Screen12SubscriptionsWonderland() {
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#6C19E5]">
-                  SUBSCRIPTION PREVIEW
+                  PLAN &amp; CREDITS CHECKOUT
                 </div>
                 <h3
                   className="text-[22px] font-bold text-[#260559] leading-tight mt-0.5"
@@ -456,21 +464,22 @@ export function Screen12SubscriptionsWonderland() {
             </div>
 
             <p className="text-[14px] font-semibold text-[#4F3B73] leading-relaxed mb-5">
-              {selectedCheckout.detail} Payment confirmation will use verified Paystack /
-              Flutterwave webhooks once backend billing is enabled.
+              {selectedCheckout.detail} Payments are verified through Paystack / Flutterwave server
+              webhooks before entitlements are applied to your account.
             </p>
 
             <div className="flex gap-2.5">
               <button
                 type="button"
-                onClick={handleConfirmPreview}
-                className="flex-1 py-3.5 rounded-[16px] bg-[#6C19E5] hover:brightness-105 text-white font-bold text-[15px] uppercase tracking-wide cursor-pointer"
+                disabled={checkoutBusy}
+                onClick={() => void handleConfirmCheckout()}
+                className="flex-1 py-3.5 rounded-[16px] bg-[#6C19E5] hover:brightness-105 disabled:opacity-60 text-white font-bold text-[15px] uppercase tracking-wide cursor-pointer"
                 style={{
                   fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
                   boxShadow: '0 4px 0 #46099E',
                 }}
               >
-                Activate Preview
+                {checkoutBusy ? 'Connecting...' : 'Proceed to Checkout'}
               </button>
               <button
                 type="button"

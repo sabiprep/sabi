@@ -133,9 +133,9 @@ describe('Stage 1B & 2 — Question Save Snapshots & Universal Public Share-Link
     expect(afterDelete).toHaveLength(0);
   });
 
-  it('builds canonical public /q/:id share URLs and rejects localhost, capacitor, and private preview proxy hosts', () => {
+  it('builds canonical public /q/:id share URLs with zero question text dump and rejects localhost, capacitor, LAN, and preview hosts', () => {
     const url = buildQuestionShareUrl('SABI-CHM-PT-1-loop1', 'blitz', 'https://sabi.ng');
-    expect(url).toBe('https://sabi.ng/q/SABI-CHM-PT-1?mode=blitz&src=share');
+    expect(url).toBe('https://sabi.ng/q/SABI-CHM-PT-1');
 
     const bundle = buildQuestionShareCopy({
       questionId: 'SABI-CHM-PT-1',
@@ -145,17 +145,28 @@ describe('Stage 1B & 2 — Question Save Snapshots & Universal Public Share-Link
       mode: 'blitz',
       originOverride: 'https://sabi.ng',
     });
-    expect(bundle.url).toBe('https://sabi.ng/q/SABI-CHM-PT-1?mode=blitz&src=share');
-    expect(bundle.text).toContain(bundle.url);
-    expect(bundle.whatsappUrl).toContain('https://wa.me/?text=');
+    expect(bundle.url).toBe('https://sabi.ng/q/SABI-CHM-PT-1');
+    // Shared text must be strictly the clean clickable URL (no messy question text mixed in)
+    expect(bundle.text).toBe(bundle.url);
+    expect(bundle.whatsappUrl).toBe(`https://wa.me/?text=${encodeURIComponent(bundle.url)}`);
 
-    // Simulate Capacitor Android WebView running on https://localhost
-    const androidOrigin = getPublicShareOrigin({
-      envPublicOverride: '',
-      windowOriginOverride: 'https://localhost',
-    });
-    expect(androidOrigin).not.toContain('localhost');
-    expect(androidOrigin.startsWith('https://')).toBe(true);
+    // Simulate Capacitor Android WebView running on https://localhost, 10.0.2.2, or private LAN IP
+    for (const badOrigin of [
+      'https://localhost',
+      'http://localhost:3000',
+      'http://10.0.2.2:3000',
+      'http://192.168.1.50:3000',
+      'capacitor://localhost',
+    ]) {
+      const androidOrigin = getPublicShareOrigin({
+        envPublicOverride: '',
+        windowOriginOverride: badOrigin,
+      });
+      expect(androidOrigin).toBe('https://sabi-tan.vercel.app');
+      expect(buildQuestionShareUrl('SABI-CHM-PT-1', 'blitz', badOrigin)).toBe(
+        'https://sabi-tan.vercel.app/q/SABI-CHM-PT-1'
+      );
+    }
 
     // Simulate private AI Studio preview proxy host (must never be shared externally)
     const previewOrigin = getPublicShareOrigin({
@@ -190,9 +201,7 @@ describe('Stage 1B & 2 — Question Save Snapshots & Universal Public Share-Link
       )
     ).toBe('desktop');
 
-    expect(buildSabiAppDeepLink('SABI-CHM-PT-1-loop2', 'blitz')).toBe(
-      'sabi://q/SABI-CHM-PT-1?mode=blitz&src=share'
-    );
+    expect(buildSabiAppDeepLink('SABI-CHM-PT-1-loop2', 'blitz')).toBe('sabi://q/SABI-CHM-PT-1');
   });
 
   it('converts PNG data URLs cleanly into binary Blobs for reliable download & share', () => {
