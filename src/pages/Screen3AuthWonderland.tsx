@@ -8,14 +8,19 @@ import {
   CheckCircle2,
   Download,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   SabiWonderlandShell,
   SabiPurpleBookLogo,
   FloatingPurpleCube3D,
   FloatingPurpleTorus3D,
 } from '../components/common/SabiWonderlandShell';
-import { supabase, getSabiAuthRedirectUrl } from '../lib/supabase';
+import { supabase, isSupabaseConfigured, getSabiAuthRedirectUrl } from '../lib/supabase';
+import {
+  useAuth,
+  applyProfileToDeviceCache,
+  sanitizeAuthRedirectPath,
+} from '../context/AuthContext';
 import { apiPostJson, describeApiFailure } from '../utils/apiClient';
 import { saveRealUserProgress } from '../utils/userProgressStore';
 
@@ -107,6 +112,9 @@ export type SabiAuthMode = 'choice' | 'sign-up' | 'sign-in' | 'verify' | 'forgot
 
 export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?: SabiAuthMode }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { refreshProfile, onboardingCompleted, profile } = useAuth();
+  const safePostAuthRedirect = sanitizeAuthRedirectPath(searchParams.get('redirect'), '/home');
   const normalizedInitial: SabiAuthMode = initialMode === 'choice' ? 'sign-up' : initialMode;
   const [currentMode, setCurrentMode] = useState<SabiAuthMode>(normalizedInitial);
 
@@ -205,18 +213,20 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
 
     if (
       combined.includes('access_token=') ||
+      combined.includes('code=') ||
       combined.includes('verified=true') ||
       combined.includes('error_code=') ||
       combined.includes('type=signup')
     ) {
       window.history.replaceState({}, document.title, window.location.pathname);
+      void refreshProfile();
       setAuthFeedback({
         type: 'success',
         message:
           '✓ SABI Account Verified! Your candidate profile is confirmed. You can now sign in.',
       });
     }
-  }, []);
+  }, [refreshProfile]);
 
   const handleResendVerificationEmail = async () => {
     const targetEmail = (unconfirmedEmailForResend || emailInput).trim().toLowerCase();
@@ -282,6 +292,15 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
       setAuthFeedback({
         type: 'error',
         message: 'Passwords do not match. Please confirm your password.',
+      });
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      setAuthFeedback({
+        type: 'error',
+        message:
+          'Authentication is not configured for this build yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment.',
       });
       return;
     }
@@ -438,12 +457,13 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
     }
 
     applySyncedProfileToLocal(syncedProfile, normalizedEmail, cleanedName);
+    applyProfileToDeviceCache(syncedProfile, normalizedEmail);
     localStorage.setItem('sabi_user_phone', cleanedPhone);
     localStorage.setItem('sabi_user_state', stateOfOriginInput);
     localStorage.setItem('sabi_unique_id', uniqueId);
     localStorage.setItem('sabi_auth_provider', 'email');
-    localStorage.setItem('sabi_user_signed_in', 'true');
 
+    await refreshProfile();
     setGeneratedUniqueId(uniqueId);
     setAuthLoading(false);
     setCurrentMode('verify');
@@ -507,6 +527,15 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
       setAuthFeedback({
         type: 'error',
         message: 'Please enter your password to sign in.',
+      });
+      return;
+    }
+
+    if (!isSupabaseConfigured) {
+      setAuthFeedback({
+        type: 'error',
+        message:
+          'Authentication is not configured for this build yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your environment.',
       });
       return;
     }
@@ -615,11 +644,20 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
     }
 
     applySyncedProfileToLocal(matchedProfile, matchedProfile.email || resolvedEmail);
-    localStorage.setItem('sabi_user_signed_in', 'true');
-    setGeneratedUniqueId(
-      matchedProfile.sabi_unique_id || getOrGenerateSabiUniqueId(matchedProfile.email || resolvedEmail)
-    );
+    applyProfileToDeviceCache(matchedProfile, matchedProfile.email || resolvedEmail);
+    const hydratedProfile = await refreshProfile();
+    const resolvedUniqueId =
+      hydratedProfile?.sabi_unique_id ||
+      matchedProfile.sabi_unique_id ||
+      getOrGenerateSabiUniqueId(matchedProfile.email || resolvedEmail);
+    setGeneratedUniqueId(resolvedUniqueId);
     setAuthLoading(false);
+
+    if (hydratedProfile?.onboarding_completed || matchedProfile.onboarding_completed) {
+      navigate(safePostAuthRedirect, { replace: true });
+      return;
+    }
+
     setCurrentMode('verify');
     navigate('/auth/verify', { replace: true });
   };
@@ -1140,12 +1178,21 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                   </div>
 
                   <div className="p-3 rounded-2xl bg-purple-700/10 border border-purple-700/25 text-xs font-bold text-[#22064B]">
-                    Account authenticated! Tap below to personalize your 4 JAMB subjects and study profile.
+                    {onboardingCompleted || profile?.onboarding_completed
+                      ? 'Account verified and synced! Tap below to open your JAMB dashboard.'
+                      : 'Account authenticated! Tap below to personalize your 4 JAMB subjects and study profile.'}
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => navigate('/onboarding/1')}
+                    onClick={() =>
+                      navigate(
+                        onboardingCompleted || profile?.onboarding_completed
+                          ? safePostAuthRedirect
+                          : '/onboarding/1',
+                        { replace: true }
+                      )
+                    }
                     className="w-full py-3.5 sm:py-4 px-6 rounded-full text-white font-bold text-[17px] tracking-[0.04em] uppercase flex items-center justify-center gap-2 cursor-pointer"
                     style={{
                       fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
@@ -1155,7 +1202,11 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                         '0 5px 0 #4A0B9E, 0 10px 20px rgba(92, 17, 194, 0.30), inset 0 2px 3px rgba(255, 255, 255, 0.35)',
                     }}
                   >
-                    <span>CONTINUE TO ONBOARDING</span>
+                    <span>
+                      {onboardingCompleted || profile?.onboarding_completed
+                        ? 'ENTER DASHBOARD'
+                        : 'CONTINUE TO ONBOARDING'}
+                    </span>
                     <ArrowRight size={20} />
                   </button>
                 </div>
@@ -1308,23 +1359,6 @@ export function Screen3AuthWonderland({ mode: initialMode = 'sign-up' }: { mode?
                 </button>
               </>
             )}
-          </div>
-
-          <div className="mt-3.5 flex flex-wrap items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/home')}
-              className="px-4 py-1.5 rounded-full bg-white/90 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
-            >
-              Preview Home Dashboard →
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/onboarding/1')}
-              className="px-4 py-1.5 rounded-full bg-white/80 hover:bg-white text-[#31006E] font-extrabold text-xs tracking-wide shadow-[0_2.5px_0_#E2C700] cursor-pointer transition-all"
-            >
-              Onboarding (1/10) →
-            </button>
           </div>
         </div>
       </main>

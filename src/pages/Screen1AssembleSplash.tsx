@@ -1,16 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SabiIronManAssemble } from '../components/common/SabiIronManAssemble';
+import { useAuth } from '../context/AuthContext';
 
 /**
  * SCREEN 1 (`/`): FULL-SCREEN SABI ASSEMBLY SPLASH
- * Assembles the SABI emblem and transitions directly into Screen 2 (`/welcome`).
+ * Assembles the SABI emblem and routes authenticated candidates straight into
+ * `/home` (or `/onboarding/1`), and new visitors into `/welcome`.
  */
 export function Screen1AssembleSplash() {
   const navigate = useNavigate();
+  const { status, onboardingCompleted } = useAuth();
 
   const handleComplete = () => {
-    navigate('/welcome');
+    if (status === 'authenticated') {
+      navigate(onboardingCompleted ? '/home' : '/onboarding/1', { replace: true });
+    } else {
+      navigate('/welcome', { replace: true });
+    }
   };
 
   return (

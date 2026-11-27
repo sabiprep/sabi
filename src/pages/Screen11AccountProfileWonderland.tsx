@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   BookOpen,
@@ -14,6 +14,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { SabiAppChrome, SabiMenuTriggerButton } from '../components/common/SabiAppChrome';
 import { SabiBrandEmblem } from '../components/common/SabiBrandEmblem';
+import { useAuth } from '../context/AuthContext';
+import { apiPatchJson, describeApiFailure } from '../utils/apiClient';
 import { getWonderlandDashboardState } from '../utils/wonderlandStudentState';
 import { loadPracticeAiConfig } from '../utils/sabiAiPracticeConfig';
 import { sound } from '../utils/soundEffects';
@@ -49,13 +51,17 @@ function loadPrefs(): AppPreferencesState {
  */
 export function Screen11AccountProfileWonderland() {
   const navigate = useNavigate();
-  const data = useMemo(() => getWonderlandDashboardState(), []);
+  const { profile, user, signOut, refreshProfile } = useAuth();
+  const data = useMemo(() => getWonderlandDashboardState(), [profile]);
   const aiConfig = useMemo(
     () => loadPracticeAiConfig(data.subjects.map(s => s.canonicalName)),
     [data.subjects]
   );
 
   const storedOnboarding = useMemo(() => {
+    if (profile?.onboarding_answers && typeof profile.onboarding_answers === 'object') {
+      return profile.onboarding_answers;
+    }
     if (typeof window === 'undefined') return null;
     try {
       const raw =
@@ -66,26 +72,39 @@ export function Screen11AccountProfileWonderland() {
     } catch {
       return null;
     }
-  }, []);
+  }, [profile]);
 
-  const [fullName, setFullName] = useState(data.fullName);
-  const [email] = useState(
-    () =>
-      (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) ||
-      'ada.scholar@sabi.ng'
-  );
-  const [uniqueId] = useState(
-    () => (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) || '4829K'
-  );
+  const [fullName, setFullName] = useState(profile?.full_name || data.fullName);
+  const email =
+    profile?.email ||
+    user?.email ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_email')) ||
+    '';
+  const uniqueId =
+    profile?.sabi_unique_id ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) ||
+    'PENDING';
   const [targetCourse, setTargetCourse] = useState(
-    storedOnboarding?.targetCourse || 'Medicine and Surgery'
+    storedOnboarding?.targetCourse || ''
   );
   const [targetUniversity, setTargetUniversity] = useState(
-    storedOnboarding?.targetUniversity || 'University of Uyo'
+    storedOnboarding?.targetUniversity || ''
   );
   const [prefs, setPrefs] = useState<AppPreferencesState>(loadPrefs);
   const [copied, setCopied] = useState(false);
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savedNotice, setSavedNotice] = useState('');
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    if (profile?.full_name) setFullName(profile.full_name);
+    if (profile?.onboarding_answers?.targetCourse) {
+      setTargetCourse(String(profile.onboarding_answers.targetCourse));
+    }
+    if (profile?.onboarding_answers?.targetUniversity) {
+      setTargetUniversity(String(profile.onboarding_answers.targetUniversity));
+    }
+  }, [profile]);
 
   const currentPlanLabel =
     (typeof window !== 'undefined' && localStorage.getItem('sabi_plan_label')) || 'Free Scholar';
@@ -105,27 +124,53 @@ export function Screen11AccountProfileWonderland() {
     });
   };
 
-  const handleSaveIdentity = () => {
+  const handleSaveIdentity = async () => {
+    setSaveError('');
+    setSavedNotice('');
+
+    const cleanedName = fullName.trim();
+    const cleanedCourse = targetCourse.trim();
+    const cleanedUniversity = targetUniversity.trim();
+
+    if (cleanedName.length < 2) {
+      setSaveError('Full name must be at least 2 characters.');
+      return;
+    }
+
+    setSavingProfile(true);
+    const payload: Record<string, string> = { fullName: cleanedName };
+    if (cleanedCourse.length >= 2) payload.targetCourse = cleanedCourse;
+    if (cleanedUniversity.length >= 2) payload.targetUniversity = cleanedUniversity;
+
+    const res = await apiPatchJson('/api/profile/me', payload);
+    setSavingProfile(false);
+
+    if (!res.ok) {
+      setSaveError(describeApiFailure(res, 'Could not sync profile changes to your account.'));
+      return;
+    }
+
     try {
       sound.playSuccess();
     } catch {
       // ignore
     }
+
     if (typeof window !== 'undefined') {
-      if (fullName.trim()) {
-        localStorage.setItem('sabi_user_name', fullName.trim());
-      }
+      localStorage.setItem('sabi_user_name', cleanedName);
       const nextOnboarding = {
         ...(storedOnboarding || {}),
-        fullName: fullName.trim() || data.fullName,
+        fullName: cleanedName,
         chosenSubjects: data.subjects.map(s => s.canonicalName),
-        targetCourse: targetCourse.trim() || 'Medicine and Surgery',
-        targetUniversity: targetUniversity.trim() || 'University of Uyo',
+        ...(cleanedCourse ? { targetCourse: cleanedCourse } : {}),
+        ...(cleanedUniversity ? { targetUniversity: cleanedUniversity } : {}),
       };
       localStorage.setItem('sabi_onboarding_v3_answers', JSON.stringify(nextOnboarding));
     }
-    setSavedNotice(true);
-    window.setTimeout(() => setSavedNotice(false), 2200);
+
+    void refreshProfile();
+    setSavedNotice('Profile synced to your SABI account!');
+    window.setTimeout(() => setSavedNotice(''), 2600);
   };
 
   const handleCopyId = () => {
@@ -134,11 +179,9 @@ export function Screen11AccountProfileWonderland() {
     window.setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSignOut = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('sabi_user_signed_in');
-    }
-    navigate('/welcome');
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/welcome', { replace: true });
   };
 
   return (
@@ -251,19 +294,24 @@ export function Screen11AccountProfileWonderland() {
               </div>
 
               <div className="flex items-center justify-between gap-3">
-                <span className="text-[12.5px] font-bold text-[#059669]">
-                  {savedNotice ? 'Profile changes saved!' : ''}
+                <span
+                  className={`text-[12.5px] font-bold ${
+                    saveError ? 'text-rose-700' : 'text-[#059669]'
+                  }`}
+                >
+                  {saveError || savedNotice}
                 </span>
                 <button
                   type="button"
-                  onClick={handleSaveIdentity}
-                  className="px-5 py-3 rounded-[16px] bg-[#6C19E5] hover:brightness-105 text-white font-bold text-[14.5px] uppercase tracking-wide cursor-pointer active:translate-y-[1px]"
+                  disabled={savingProfile}
+                  onClick={() => void handleSaveIdentity()}
+                  className="px-5 py-3 rounded-[16px] bg-[#6C19E5] hover:brightness-105 text-white font-bold text-[14.5px] uppercase tracking-wide cursor-pointer active:translate-y-[1px] disabled:opacity-60"
                   style={{
                     fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
                     boxShadow: '0 4px 0 #46099E',
                   }}
                 >
-                  Save Profile
+                  {savingProfile ? 'Saving...' : 'Save Profile'}
                 </button>
               </div>
             </section>

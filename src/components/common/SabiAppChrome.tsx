@@ -24,6 +24,7 @@ import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SabiPurpleBookLogo } from './SabiWonderlandShell';
 import { SabiBrandEmblem } from './SabiBrandEmblem';
+import { useAuth } from '../../context/AuthContext';
 import { sound } from '../../utils/soundEffects';
 
 export type SabiNavTab =
@@ -168,12 +169,17 @@ export function SabiAppChrome({
 }: SabiAppChromeProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { profile, signOut } = useAuth();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const studentName =
-    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) || 'Ada';
+    profile?.full_name ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) ||
+    'Candidate';
   const studentUniqueId =
-    (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) || '4829K';
+    profile?.sabi_unique_id ||
+    (typeof window !== 'undefined' && localStorage.getItem('sabi_unique_id')) ||
+    'PENDING';
   const currentPlanLabel =
     (typeof window !== 'undefined' && localStorage.getItem('sabi_plan_label')) || 'Free Scholar';
 
@@ -211,12 +217,10 @@ export function SabiAppChrome({
     navigate(path);
   };
 
-  const handleSignOut = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('sabi_user_signed_in');
-    }
+  const handleSignOut = async () => {
     setDrawerOpen(false);
-    navigate('/welcome');
+    await signOut();
+    navigate('/welcome', { replace: true });
   };
 
   return (

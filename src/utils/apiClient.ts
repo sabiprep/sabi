@@ -121,20 +121,21 @@ function summarizeSnippet(raw: string): string {
   return raw.replace(/\s+/g, ' ').trim().slice(0, 140);
 }
 
-/**
- * Posts JSON and never throws for transport failures: the caller gets a
- * structured result so the UI can explain what actually went wrong.
- */
-export async function apiPostJson(input: string, payload: unknown): Promise<ApiResult> {
+async function apiRequestJson<T = any>(
+  input: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  payload?: unknown
+): Promise<ApiResult<T>> {
   const url = resolveApiUrl(input);
 
   let response: Response;
   try {
-    response = await apiFetch(input, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    const init: RequestInit = { method };
+    if (payload !== undefined) {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify(payload);
+    }
+    response = await apiFetch(input, init);
   } catch (err: any) {
     return {
       ok: false,
@@ -165,6 +166,28 @@ export async function apiPostJson(input: string, payload: unknown): Promise<ApiR
     snippet: data ? '' : summarizeSnippet(rawBody),
     url,
   };
+}
+
+/**
+ * Fetches JSON with the authenticated Supabase Bearer token and never throws on transport failure.
+ */
+export function apiGetJson<T = any>(input: string): Promise<ApiResult<T>> {
+  return apiRequestJson<T>(input, 'GET');
+}
+
+/**
+ * Posts JSON and never throws for transport failures: the caller gets a
+ * structured result so the UI can explain what actually went wrong.
+ */
+export function apiPostJson<T = any>(input: string, payload: unknown): Promise<ApiResult<T>> {
+  return apiRequestJson<T>(input, 'POST', payload);
+}
+
+/**
+ * Sends an authenticated PATCH JSON request and returns a structured result.
+ */
+export function apiPatchJson<T = any>(input: string, payload: unknown): Promise<ApiResult<T>> {
+  return apiRequestJson<T>(input, 'PATCH', payload);
 }
 
 /**

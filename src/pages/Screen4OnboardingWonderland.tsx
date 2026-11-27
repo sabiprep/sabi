@@ -15,6 +15,7 @@ import {
   SabiOnboardingMascot,
 } from '../components/common/SabiWonderlandShell';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { apiPostJson } from '../utils/apiClient';
 import { sound } from '../utils/soundEffects';
 
@@ -123,6 +124,7 @@ function getSubjectDisplayLabel(canonicalName: string): string {
 export function Screen4OnboardingWonderland() {
   const { step } = useParams<{ step?: string }>();
   const navigate = useNavigate();
+  const { markOnboardingCompleted, refreshProfile, profile } = useAuth();
 
   const totalSteps = ONBOARDING_QUESTIONS.length;
   const parsedStep = step ? Number(step) : 1;
@@ -295,6 +297,7 @@ export function Screen4OnboardingWonderland() {
     setSubmitting(true);
 
     const resolvedName =
+      profile?.full_name ||
       (typeof window !== 'undefined' && localStorage.getItem('sabi_user_name')) ||
       answers.fullName ||
       'Candidate';
@@ -311,7 +314,7 @@ export function Screen4OnboardingWonderland() {
       localStorage.setItem('sabi_onboarding_completed', 'true');
       localStorage.removeItem(DRAFT_STORAGE_KEY);
 
-      // Sync to backend if an authenticated Supabase session exists
+      // Sync to backend for the authenticated Supabase session
       const { data: authData } = await supabase.auth
         .getUser()
         .catch(() => ({ data: null }));
@@ -319,14 +322,26 @@ export function Screen4OnboardingWonderland() {
         const submissionKey =
           localStorage.getItem(SUBMISSION_KEY) || crypto.randomUUID();
         localStorage.setItem(SUBMISSION_KEY, submissionKey);
-        await apiPostJson('/api/profile/onboarding', {
+        const saveRes = await apiPostJson('/api/profile/onboarding', {
           questionSetVersion: 'v3',
           submissionKey,
           onboardingAnswers: finalPayload,
           registeredSubjects: selectedSubjects,
-        }).catch(() => {});
-        localStorage.removeItem(SUBMISSION_KEY);
+        });
+        if (!saveRes.ok && saveRes.status >= 400 && saveRes.status < 500) {
+          setSubmitting(false);
+          setSubmitError(
+            saveRes.data?.error || 'Could not validate your onboarding answers. Please check and try again.'
+          );
+          return;
+        }
+        if (saveRes.ok) {
+          localStorage.removeItem(SUBMISSION_KEY);
+        }
       }
+
+      markOnboardingCompleted(finalPayload, selectedSubjects);
+      void refreshProfile();
 
       try {
         sound.playSuccess();

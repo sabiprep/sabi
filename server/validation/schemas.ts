@@ -150,6 +150,23 @@ export const learningEventsSchema = z.strictObject({
 ), { message: 'Each event payload must be 4 KB or smaller.' });
 
 export const progressSchema = z.strictObject({ progress: z.record(z.string(), z.unknown()) });
+export const profileUpdateSchema = z.strictObject({
+  fullName: z.string().trim().min(2, 'Full name must be at least 2 characters.').max(120).optional(),
+  phone: phoneSchema.optional(),
+  stateOfOrigin: z.string().trim().min(2).max(60).optional(),
+  targetCourse: z.string().trim().min(2).max(120).optional(),
+  targetUniversity: z.string().trim().min(2).max(120).optional(),
+  targetScore: z.number().int().min(100).max(400).optional(),
+}).refine(
+  (value) =>
+    value.fullName !== undefined ||
+    value.phone !== undefined ||
+    value.stateOfOrigin !== undefined ||
+    value.targetCourse !== undefined ||
+    value.targetUniversity !== undefined ||
+    value.targetScore !== undefined,
+  { message: 'Provide at least one profile field to update.' }
+);
 export const explainSchema = z.strictObject({
   questionId: z.string().trim().max(80).optional(), preference: z.enum(['short', 'detailed']).optional(),
   language: z.enum(['english', 'pidgin', 'mixed']).optional(), userCustomPrompt: z.string().trim().max(2000).optional(),
@@ -177,6 +194,7 @@ export type ResetPasswordRequestInput = z.infer<typeof resetPasswordRequestSchem
 export type ResetPasswordConfirmInput = z.infer<typeof resetPasswordConfirmSchema>;
 export type OnboardingInput = z.infer<typeof onboardingSchema>;
 export type ProgressInput = z.infer<typeof progressSchema>;
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
 export type ExplainInput = z.infer<typeof explainSchema>;
 export type ChatInput = z.infer<typeof chatSchema>;
 export type GenerateQuestionInput = z.infer<typeof generateQuestionSchema>;

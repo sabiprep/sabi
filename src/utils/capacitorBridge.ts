@@ -178,24 +178,31 @@ export function initCapacitorAndroidBridge(): void {
     try {
       const hashIndex = url.indexOf('#');
       const queryIndex = url.indexOf('?');
-      const rawParams =
-        hashIndex !== -1
-          ? url.slice(hashIndex + 1)
-          : queryIndex !== -1
-          ? url.slice(queryIndex + 1)
+      const hashParams = new URLSearchParams(hashIndex !== -1 ? url.slice(hashIndex + 1) : '');
+      const querySlice =
+        queryIndex !== -1
+          ? url.slice(queryIndex + 1, hashIndex !== -1 && hashIndex > queryIndex ? hashIndex : undefined)
           : '';
-      const params = new URLSearchParams(rawParams);
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
+      const queryParams = new URLSearchParams(querySlice);
+
+      const accessToken = hashParams.get('access_token') || queryParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token');
+      const authCode = queryParams.get('code') || hashParams.get('code');
+
+      if (authCode && supabase) {
+        const { data } = await supabase.auth.exchangeCodeForSession(authCode);
+        if (data?.session?.user) {
+          window.location.href = '/home';
+          return;
+        }
+      }
 
       if (accessToken && refreshToken && supabase) {
         const { data } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-        if (data?.user?.email) {
-          localStorage.setItem('sabi_user_email', data.user.email.toLowerCase());
-          localStorage.setItem('sabi_user_signed_in', 'true');
+        if (data?.session?.user) {
           window.location.href = '/home';
           return;
         }

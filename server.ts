@@ -25,6 +25,7 @@ import {
   generateQuestionSchema,
   loginSchema,
   onboardingSchema,
+  profileUpdateSchema,
   progressSchema,
   registerSchema,
   resetPasswordConfirmSchema,
@@ -165,6 +166,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     phase: 'phase0',
+    stage: 'stage2-auth-hardened',
     runtime: process.env.VERCEL ? 'vercel-function' : 'node-server',
     timestamp: new Date().toISOString(),
     supabase_url_configured: Boolean(SUPABASE_URL),
@@ -173,6 +175,15 @@ app.get('/api/health', (_req, res) => {
     configuration_error: SUPABASE_ADMIN_ERROR,
     instant_verify: config.instantVerify,
     ai_configured: Boolean(process.env.GEMINI_API_KEY),
+    public_web_url_configured: Boolean(
+      process.env.SABI_APP_URL || process.env.VITE_PUBLIC_WEB_URL || process.env.VITE_PUBLIC_APP_URL
+    ),
+    billing_configured: Boolean(
+      process.env.PAYSTACK_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY
+    ),
+    email_notifications_configured: Boolean(
+      process.env.BREVO_API_KEY || process.env.TERMII_API_KEY
+    ),
     extra_cors_origins: config.allowedOrigins.length,
   });
 });
@@ -685,6 +696,173 @@ app.post('/api/auth/reset-password', (_req, res) => {
       'This recovery method has been retired for security reasons. Update the SABI app and use "Forgot Password" to receive a 6-digit recovery code.',
   });
 });
+
+// 0c-0. Hydrate the authenticated candidate's real Supabase profile across Web & Android.
+app.get('/api/profile/me', requireAuth, async (req, res) => {
+  const user = (req as AuthenticatedRequest).user!;
+  const normalizedEmail = String(user.email || '').trim().toLowerCase();
+
+  try {
+    let { data: profile, error } = await supabaseAdmin
+      .from('profiles')
+      .select(
+        'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at'
+      )
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to load candidate profile.' });
+    }
+
+    if (!profile) {
+      const metadata = (user.metadata || {}) as Record<string, unknown>;
+      const fallbackUniqueId =
+        typeof metadata.sabi_unique_id === 'string' && /^\d{4}[A-Z]$/.test(metadata.sabi_unique_id)
+          ? metadata.sabi_unique_id
+          : generateDeterministicSabiId(normalizedEmail || user.id);
+      const fallbackName =
+        typeof metadata.full_name === 'string' && metadata.full_name.trim()
+          ? metadata.full_name.trim()
+          : 'Candidate';
+      const fallbackPhone =
+        typeof metadata.phone === 'string' && metadata.phone.trim()
+          ? metadata.phone.trim()
+          : user.phone || '';
+      const fallbackState =
+        typeof metadata.state_of_origin === 'string' && metadata.state_of_origin.trim()
+          ? metadata.state_of_origin.trim()
+          : 'Lagos';
+
+      const { data: createdProfile, error: createErr } = await supabaseAdmin
+        .from('profiles')
+        .upsert(
+          {
+            id: user.id,
+            email: normalizedEmail,
+            sabi_unique_id: fallbackUniqueId,
+            full_name: fallbackName,
+            phone: fallbackPhone,
+            state_of_origin: fallbackState,
+            auth_providers: user.providers.length > 0 ? user.providers : ['email'],
+            onboarding_completed: false,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        .select(
+          'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at'
+        )
+        .maybeSingle();
+
+      if (createErr || !createdProfile) {
+        return res
+          .status(500)
+          .json({ error: createErr?.message || 'Could not initialize candidate profile.' });
+      }
+      profile = createdProfile;
+    }
+
+    const rawOnboarding =
+      profile.onboarding_answers && typeof profile.onboarding_answers === 'object'
+        ? (profile.onboarding_answers as Record<string, unknown>)
+        : {};
+    const liveProgress =
+      rawOnboarding.live_progress && typeof rawOnboarding.live_progress === 'object'
+        ? (rawOnboarding.live_progress as Record<string, unknown>)
+        : null;
+
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      status: 'ok',
+      profile,
+      onboarding_completed: Boolean(profile.onboarding_completed),
+      registered_subjects: Array.isArray(profile.registered_subjects)
+        ? profile.registered_subjects
+        : [],
+      live_progress: liveProgress,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Failed to load candidate profile.' });
+  }
+});
+
+// 0c-1. Update safe identity fields on the authenticated candidate's Supabase profile.
+app.patch(
+  '/api/profile/me',
+  requireAuth,
+  validateBody(profileUpdateSchema),
+  async (req, res) => {
+    const user = (req as AuthenticatedRequest).user!;
+    const { fullName, phone, stateOfOrigin, targetCourse, targetUniversity, targetScore } =
+      req.body;
+
+    try {
+      const { data: existing, error: fetchErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id, onboarding_answers')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (fetchErr) {
+        return res
+          .status(500)
+          .json({ error: fetchErr.message || 'Failed to load existing profile.' });
+      }
+
+      if (!existing) {
+        return res.status(404).json({ error: 'Candidate profile not found.' });
+      }
+
+      const updatePayload: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (fullName !== undefined) updatePayload.full_name = fullName;
+      if (phone !== undefined) updatePayload.phone = phone;
+      if (stateOfOrigin !== undefined) updatePayload.state_of_origin = stateOfOrigin;
+      if (targetScore !== undefined) updatePayload.target_score = targetScore;
+
+      if (
+        fullName !== undefined ||
+        targetCourse !== undefined ||
+        targetUniversity !== undefined
+      ) {
+        const currentAnswers =
+          existing.onboarding_answers && typeof existing.onboarding_answers === 'object'
+            ? (existing.onboarding_answers as Record<string, unknown>)
+            : {};
+        updatePayload.onboarding_answers = {
+          ...currentAnswers,
+          ...(fullName !== undefined ? { fullName } : {}),
+          ...(targetCourse !== undefined ? { targetCourse } : {}),
+          ...(targetUniversity !== undefined ? { targetUniversity } : {}),
+        };
+      }
+
+      const { data: updatedProfile, error: updateErr } = await supabaseAdmin
+        .from('profiles')
+        .update(updatePayload)
+        .eq('id', user.id)
+        .select(
+          'id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at'
+        )
+        .maybeSingle();
+
+      if (updateErr || !updatedProfile) {
+        return res
+          .status(500)
+          .json({ error: updateErr?.message || 'Failed to update candidate profile.' });
+      }
+
+      res.set('Cache-Control', 'no-store');
+      return res.json({ status: 'updated', profile: updatedProfile });
+    } catch (err: any) {
+      return res
+        .status(500)
+        .json({ error: err?.message || 'Failed to update candidate profile.' });
+    }
+  }
+);
 
 // 0c. Save the onboarding diagnostic for the authenticated candidate.
 app.post(
