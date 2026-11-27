@@ -33,7 +33,8 @@ __export(server_exports, {
 });
 module.exports = __toCommonJS(server_exports);
 var import_config6 = require("dotenv/config");
-var import_express8 = __toESM(require("express"), 1);
+var import_express9 = __toESM(require("express"), 1);
+var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_helmet = __toESM(require("helmet"), 1);
 var import_genai = require("@google/genai");
@@ -63928,7 +63929,7 @@ function configurationResponse(adminError, route = "/api/*", missing = []) {
   };
 }
 var configurationGuard = (req, res, next) => {
-  if (!req.path.startsWith("/api/") || req.path === "/api/health") {
+  if (!req.path.startsWith("/api/") || req.path === "/api/health" || req.path.startsWith("/api/public/questions/")) {
     next();
     return;
   }
@@ -64294,6 +64295,17 @@ var learningEventsSchema = import_zod.z.strictObject({
   (event) => new TextEncoder().encode(JSON.stringify(event.eventPayload)).length <= 4096
 ), { message: "Each event payload must be 4 KB or smaller." });
 var progressSchema = import_zod.z.strictObject({ progress: import_zod.z.record(import_zod.z.string(), import_zod.z.unknown()) });
+var profileUpdateSchema = import_zod.z.strictObject({
+  fullName: import_zod.z.string().trim().min(2, "Full name must be at least 2 characters.").max(120).optional(),
+  phone: phoneSchema.optional(),
+  stateOfOrigin: import_zod.z.string().trim().min(2).max(60).optional(),
+  targetCourse: import_zod.z.string().trim().min(2).max(120).optional(),
+  targetUniversity: import_zod.z.string().trim().min(2).max(120).optional(),
+  targetScore: import_zod.z.number().int().min(100).max(400).optional()
+}).refine(
+  (value) => value.fullName !== void 0 || value.phone !== void 0 || value.stateOfOrigin !== void 0 || value.targetCourse !== void 0 || value.targetUniversity !== void 0 || value.targetScore !== void 0,
+  { message: "Provide at least one profile field to update." }
+);
 var explainSchema = import_zod.z.strictObject({
   questionId: import_zod.z.string().trim().max(80).optional(),
   preference: import_zod.z.enum(["short", "detailed"]).optional(),
@@ -64323,7 +64335,7 @@ var generateQuestionSchema = import_zod.z.strictObject({
 
 // server/learning/routes.ts
 var import_express = require("express");
-var import_zod2 = require("zod");
+var import_zod3 = require("zod");
 
 // server/learning/cbtTimer.ts
 function getCBTExpiry(metadata) {
@@ -64635,38 +64647,822 @@ async function getXPBalance(db, userId) {
   return (data || []).reduce((sum, row) => sum + Number(row.xp_delta || 0), 0);
 }
 
+// server/learning/activitySync.ts
+var import_zod2 = require("zod");
+
+// src/data/curatedStarterQuestions.ts
+var SUBJECT_SHORT_LABELS = {
+  "English Language": "English",
+  Mathematics: "Mathematics",
+  Physics: "Physics",
+  Chemistry: "Chemistry",
+  Biology: "Biology",
+  Economics: "Economics",
+  Government: "Government",
+  "Literature-in-English": "Literature",
+  Commerce: "Commerce",
+  Geography: "Geography",
+  "Agricultural Science": "Agric Science",
+  "Christian Religious Studies": "CRS",
+  "Islamic Religious Studies": "IRS",
+  "Financial Accounting": "Accounting"
+};
+function getShortSubjectLabel(canonical) {
+  return SUBJECT_SHORT_LABELS[canonical] || canonical;
+}
+var CURATED_STARTER_QUESTIONS = [
+  {
+    id: "SABI-CHM-PT-1",
+    subjectCanonical: "Chemistry",
+    subjectLabel: "Chemistry",
+    topicLabel: "Periodic table",
+    question: "Which of these elements is a noble gas?",
+    options: {
+      A: "Nitrogen",
+      B: "Argon",
+      C: "Chlorine",
+      D: "Oxygen"
+    },
+    answer: "B",
+    explanationShort: "Argon is in Group 18: a full outer shell of 8 electrons, so it hardly reacts.",
+    explanationFull: "Argon (Ar, atomic number 18) belongs to Group 18 (Group 0) of the periodic table. Because its valence shell already holds 8 electrons (a stable octet), it is chemically inert under normal conditions.",
+    explanationPidgin: "Argon dey Group 18 \u2014 im outer shell full with 8 electrons already, so e no dey rush react with anything."
+  },
+  {
+    id: "SABI-CHM-PT-2",
+    subjectCanonical: "Chemistry",
+    subjectLabel: "Chemistry",
+    topicLabel: "Periodic table",
+    question: "As you move from left to right across Period 3, atomic radius generally:",
+    options: {
+      A: "Decreases",
+      B: "Increases",
+      C: "Remains constant",
+      D: "Doubles at Group 14"
+    },
+    answer: "A",
+    explanationShort: "More protons pull the same electron shell tighter toward the nucleus, shrinking the atom.",
+    explanationFull: "Across a period, electrons are added to the same principal energy level while nuclear charge increases by +1 per step. Stronger electrostatic attraction pulls the outer electrons closer, reducing atomic radius.",
+    explanationPidgin: "As you waka go right across a period, more protons dey pull the same shell closer to the center, so the atom dey small pass."
+  },
+  {
+    id: "SABI-ENG-ANT-1",
+    subjectCanonical: "English Language",
+    subjectLabel: "English",
+    topicLabel: "Antonyms",
+    question: 'Choose the word opposite in meaning to "ephemeral" in: Fame is often ephemeral.',
+    options: {
+      A: "Brief",
+      B: "Permanent",
+      C: "Fragile",
+      D: "Sudden"
+    },
+    answer: "B",
+    explanationShort: '"Ephemeral" means lasting for a very short time, so its exact opposite is "permanent".',
+    explanationFull: '"Ephemeral" describes something short-lived or fleeting (like morning dew). "Brief", "fragile", and "sudden" lean similar, while "permanent" means lasting indefinitely.',
+    explanationPidgin: "Ephemeral mean thing wey no dey last long. The direct opposite na permanent \u2014 thing wey dey stay."
+  },
+  {
+    id: "SABI-PHY-UNI-1",
+    subjectCanonical: "Physics",
+    subjectLabel: "Physics",
+    topicLabel: "Units",
+    question: "Which of the following is the SI derived unit of electrical resistance?",
+    options: {
+      A: "Coulomb",
+      B: "Volt",
+      C: "Ohm",
+      D: "Watt"
+    },
+    answer: "C",
+    explanationShort: "Resistance R = V / I is measured in ohms (\u03A9), equal to one volt per ampere.",
+    explanationFull: "By Ohm\u2019s law (R = V / I), electrical resistance is measured in ohms (\u03A9). Coulomb is charge, Volt is potential difference, and Watt is power.",
+    explanationPidgin: "Na Ohm (\u03A9) dem dey use measure electrical resistance \u2014 Volt divide by Ampere."
+  },
+  {
+    id: "SABI-MTH-LOG-1",
+    subjectCanonical: "Mathematics",
+    subjectLabel: "Mathematics",
+    topicLabel: "Logarithms",
+    question: "Evaluate log\u2081\u2080(1000) + log\u2081\u2080(0.01).",
+    options: {
+      A: "5",
+      B: "1",
+      C: "-1",
+      D: "2"
+    },
+    answer: "B",
+    explanationShort: "log\u2081\u2080(1000) = 3 and log\u2081\u2080(0.01) = -2, so 3 + (-2) = 1.",
+    explanationFull: "Write each term as a power of 10: 1000 = 10\xB3 so log\u2081\u2080(1000) = 3, and 0.01 = 10\u207B\xB2 so log\u2081\u2080(0.01) = -2. Adding them gives 3 + (-2) = 1.",
+    explanationPidgin: "1000 na 10 raise to 3 (so log na 3), 0.01 na 10 raise to minus 2 (so log na -2). 3 plus -2 give you 1."
+  },
+  {
+    id: "SABI-CHM-PT-3",
+    subjectCanonical: "Chemistry",
+    subjectLabel: "Chemistry",
+    topicLabel: "Periodic table",
+    question: "Which halogen is the most electronegative element in the periodic table?",
+    options: {
+      A: "Chlorine",
+      B: "Bromine",
+      C: "Iodine",
+      D: "Fluorine"
+    },
+    answer: "D",
+    explanationShort: "Fluorine has a tiny radius and 7 valence electrons, giving it the strongest pull on bonding electrons.",
+    explanationFull: "Electronegativity increases up a group and across a period toward Group 17. Fluorine sits at the top right of the reactive elements (Pauling value 4.0), making it the most electronegative element.",
+    explanationPidgin: "Fluorine small well-well and e need just one electron to complete im shell, so na im dey drag electron pass every other element."
+  },
+  {
+    id: "SABI-ENG-ANT-2",
+    subjectCanonical: "English Language",
+    subjectLabel: "English",
+    topicLabel: "Antonyms",
+    question: 'Choose the word opposite in meaning to "meticulous" in: She kept meticulous records.',
+    options: {
+      A: "Careless",
+      B: "Detailed",
+      C: "Thorough",
+      D: "Orderly"
+    },
+    answer: "A",
+    explanationShort: '"Meticulous" means showing extreme care for details; its opposite is "careless".',
+    explanationFull: 'A meticulous person checks every tiny detail carefully. "Detailed", "thorough", and "orderly" are near-synonyms, leaving "careless" as the true antonym.',
+    explanationPidgin: "Meticulous person dey check every tiny detail sharply. Opposite of dat one na careless."
+  },
+  {
+    id: "SABI-PHY-UNI-2",
+    subjectCanonical: "Physics",
+    subjectLabel: "Physics",
+    topicLabel: "Units",
+    question: "Which of these physical quantities is a vector quantity?",
+    options: {
+      A: "Mass",
+      B: "Temperature",
+      C: "Displacement",
+      D: "Energy"
+    },
+    answer: "C",
+    explanationShort: "Displacement has both magnitude and a specific direction, making it a vector.",
+    explanationFull: "Scalar quantities (mass, temperature, energy) have magnitude only. Displacement specifies both how far and in which direction an object moved, so it is a vector.",
+    explanationPidgin: "Vector get both size and direction. Displacement dey tell you how far you move AND which side you face."
+  },
+  {
+    id: "SABI-MTH-LOG-2",
+    subjectCanonical: "Mathematics",
+    subjectLabel: "Mathematics",
+    topicLabel: "Logarithms",
+    question: "If log\u2082(x) = 5, what is the value of x?",
+    options: {
+      A: "10",
+      B: "25",
+      C: "32",
+      D: "64"
+    },
+    answer: "C",
+    explanationShort: "Convert log\u2082(x) = 5 to index form: x = 2\u2075 = 32.",
+    explanationFull: "By the definition of a logarithm, log_b(x) = y is equivalent to x = b^y. Here b = 2 and y = 5, so x = 2\u2075 = 32.",
+    explanationPidgin: "Carry the base 2 raise am to power 5: 2 \xD7 2 \xD7 2 \xD7 2 \xD7 2 = 32."
+  },
+  {
+    id: "SABI-CHM-PT-4",
+    subjectCanonical: "Chemistry",
+    subjectLabel: "Chemistry",
+    topicLabel: "Periodic table",
+    question: "Elements in Group 1 of the periodic table are collectively called:",
+    options: {
+      A: "Alkali metals",
+      B: "Alkaline earth metals",
+      C: "Transition metals",
+      D: "Lanthanides"
+    },
+    answer: "A",
+    explanationShort: "Group 1 metals (Li, Na, K...) react vigorously with water to form alkaline hydroxides.",
+    explanationFull: "Group 1 elements (excluding hydrogen) are known as alkali metals because they react rapidly with water to produce strong alkalis (metal hydroxides) and hydrogen gas.",
+    explanationPidgin: "Group 1 metals like Sodium and Potassium na Alkali metals because once dem touch water, dem dey form strong alkali sharp-sharp."
+  }
+];
+function getCuratedStarterQuestions() {
+  return CURATED_STARTER_QUESTIONS;
+}
+
+// server/learning/activitySync.ts
+var LAGOS_TIMEZONE = "Africa/Lagos";
+var XP_PER_ACTIVE_MINUTE = 6;
+var MAX_EVENTS_PER_SYNC = 100;
+var activityEventSchema = import_zod2.z.strictObject({
+  clientEventId: import_zod2.z.string().trim().min(4).max(120),
+  eventType: import_zod2.z.enum(["question_attempt", "session_completed"]),
+  mode: import_zod2.z.enum(["blitz", "smart", "custom", "cbt", "diagnostic"]),
+  questionId: import_zod2.z.string().trim().max(120).optional().nullable(),
+  subject: import_zod2.z.string().trim().min(1).max(100),
+  topic: import_zod2.z.string().trim().min(1).max(180).default("Core Syllabus"),
+  selectedOption: import_zod2.z.enum(["A", "B", "C", "D"]).optional().nullable(),
+  isCorrect: import_zod2.z.boolean().optional().nullable(),
+  elapsedSeconds: import_zod2.z.number().int().min(0).max(7200).default(12),
+  comboMultiplier: import_zod2.z.number().int().min(1).max(3).optional(),
+  occurredAt: import_zod2.z.string().trim().max(64).optional()
+});
+var batchActivitySyncSchema = import_zod2.z.strictObject({
+  events: import_zod2.z.array(activityEventSchema).min(1).max(MAX_EVENTS_PER_SYNC)
+});
+function getLagosIsoDate(input) {
+  const date = input instanceof Date ? input : typeof input === "string" && input.trim() ? new Date(input) : /* @__PURE__ */ new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? /* @__PURE__ */ new Date() : date;
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: LAGOS_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(safeDate);
+    const year = parts.find((p) => p.type === "year")?.value;
+    const month = parts.find((p) => p.type === "month")?.value;
+    const day = parts.find((p) => p.type === "day")?.value;
+    if (year && month && day) {
+      return `${year}-${month}-${day}`;
+    }
+  } catch {
+  }
+  const watMs = safeDate.getTime() + 60 * 60 * 1e3;
+  const wat = new Date(watMs);
+  const y = wat.getUTCFullYear();
+  const m = String(wat.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(wat.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+function shiftIsoDate(isoDate, deltaDays) {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y || 2026, (m || 1) - 1, d || 1));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  const year = dt.getUTCFullYear();
+  const month = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(dt.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function computeServerXpForEvent(event) {
+  if (event.eventType === "session_completed") {
+    const clampedSeconds2 = Math.max(10, Math.min(7200, Math.round(event.elapsedSeconds || 60)));
+    const timeBonusXp = Math.min(
+      60,
+      Math.max(4, Math.round(clampedSeconds2 / 60 * XP_PER_ACTIVE_MINUTE))
+    );
+    const completionBase = event.mode === "cbt" ? 25 : 10;
+    return {
+      clampedSeconds: clampedSeconds2,
+      xpAwarded: Math.min(120, timeBonusXp + completionBase)
+    };
+  }
+  const clampedSeconds = Math.max(2, Math.min(180, Math.round(event.elapsedSeconds || 12)));
+  const timeXp = Math.max(1, Math.round(clampedSeconds / 60 * XP_PER_ACTIVE_MINUTE));
+  const multiplier = Math.max(1, Math.min(3, Math.round(event.comboMultiplier || 1)));
+  const baseAccuracyXp = event.isCorrect ? 10 * multiplier : 2;
+  return {
+    clampedSeconds,
+    xpAwarded: Math.min(45, baseAccuracyXp + Math.floor(timeXp / 2))
+  };
+}
+function computeAuthoritativeStreak(activeDatesInput, todayWat = getLagosIsoDate()) {
+  const uniqueSortedDesc = Array.from(
+    new Set(activeDatesInput.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))
+  ).sort((a, b) => a > b ? -1 : a < b ? 1 : 0);
+  if (uniqueSortedDesc.length === 0) {
+    return { streakDays: 0, longestStreak: 0, lastActivityDate: null };
+  }
+  const yesterdayWat = shiftIsoDate(todayWat, -1);
+  const lastActivityDate = uniqueSortedDesc[0];
+  const dateSet = new Set(uniqueSortedDesc);
+  let streakDays = 0;
+  if (lastActivityDate === todayWat || lastActivityDate === yesterdayWat) {
+    let cursor = lastActivityDate;
+    while (dateSet.has(cursor)) {
+      streakDays += 1;
+      cursor = shiftIsoDate(cursor, -1);
+    }
+  }
+  const asc = [...uniqueSortedDesc].reverse();
+  let longestStreak = 1;
+  let running = 1;
+  for (let i = 1; i < asc.length; i += 1) {
+    if (shiftIsoDate(asc[i - 1], 1) === asc[i]) {
+      running += 1;
+      if (running > longestStreak) longestStreak = running;
+    } else {
+      running = 1;
+    }
+  }
+  return {
+    streakDays,
+    longestStreak: Math.max(longestStreak, streakDays),
+    lastActivityDate
+  };
+}
+function normalizeSubjectNameForQuery(raw) {
+  const trimmed = raw.trim();
+  if (/^use of english$/i.test(trimmed)) return "English Language";
+  return trimmed;
+}
+function normalizeAnswerLetter(raw) {
+  const upper = String(raw || "").trim().toUpperCase();
+  if (upper === "A" || upper === "B" || upper === "C" || upper === "D") return upper;
+  return null;
+}
+function shuffleItems(items) {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+function mapSupabaseBankRow(row) {
+  const answer = normalizeAnswerLetter(row.answer);
+  if (!answer || !row.question || !row.option_a || !row.option_b || !row.option_c || !row.option_d) {
+    return null;
+  }
+  const canonicalSubject = normalizeSubjectNameForQuery(String(row.subject || "JAMB UTME"));
+  const topicLabel = String(row.topic || row.subtopic || "Core Syllabus").trim() || "Core Syllabus";
+  const explanationShort = String(row.explanation_short || "").trim() || `Option ${answer} is correct based on the official JAMB ${canonicalSubject} syllabus.`;
+  const explanationFull = String(row.explanation || "").trim() || explanationShort;
+  const explanationPidgin = `Na Option ${answer} be the correct answer for dis ${canonicalSubject} (${topicLabel}) question. ${explanationShort}`;
+  return {
+    id: String(row.id),
+    subjectCanonical: canonicalSubject,
+    subjectLabel: getShortSubjectLabel(canonicalSubject),
+    topicLabel,
+    year: typeof row.year === "number" ? row.year : void 0,
+    difficulty: row.difficulty === "easy" || row.difficulty === "medium" || row.difficulty === "hard" ? row.difficulty : "medium",
+    question: String(row.question),
+    options: {
+      A: String(row.option_a),
+      B: String(row.option_b),
+      C: String(row.option_c),
+      D: String(row.option_d)
+    },
+    answer,
+    explanationShort,
+    explanationFull,
+    explanationPidgin,
+    source: "supabase"
+  };
+}
+function getAuthenticatedUserId(req) {
+  return req.user?.id || null;
+}
+async function buildAuthoritativeSummaryForUser(userId) {
+  const todayWat = getLagosIsoDate();
+  const [usageRes, masteryRes, streakRes] = await Promise.all([
+    supabaseAdmin.from("student_daily_usage").select(
+      "activity_date, questions_practiced, correct_count, xp_earned, study_seconds, sessions_completed, subjects_practiced"
+    ).eq("user_id", userId).order("activity_date", { ascending: false }).limit(90),
+    supabaseAdmin.from("student_topic_mastery").select("subject, topic, attempted_count, correct_count, last_attempt_at, last_result").eq("user_id", userId).limit(500),
+    supabaseAdmin.from("student_streak_state").select("current_streak, longest_streak, last_activity_date").eq("user_id", userId).maybeSingle()
+  ]);
+  if (usageRes.error) {
+    return {
+      timezone: LAGOS_TIMEZONE,
+      todayWat,
+      streakDays: Number(streakRes.data?.current_streak || 0),
+      longestStreak: Number(streakRes.data?.longest_streak || 0),
+      lastActivityDate: streakRes.data?.last_activity_date || null,
+      totalXp: 0,
+      dailyXp: 0,
+      totalStudySeconds: 0,
+      dailyStudySeconds: 0,
+      dailyActivityLog: {},
+      subjectStats: {},
+      topicStats: {},
+      source: "profile_fallback"
+    };
+  }
+  const usageRows = usageRes.data || [];
+  const dailyActivityLog = {};
+  const activeDates = [];
+  let totalXp = 0;
+  let dailyXp = 0;
+  let totalStudySeconds = 0;
+  let dailyStudySeconds = 0;
+  for (const row of usageRows) {
+    const dateKey = String(row.activity_date || "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) continue;
+    const questionsPracticed = Number(row.questions_practiced || 0);
+    const correctCount = Number(row.correct_count || 0);
+    const xpEarned = Number(row.xp_earned || 0);
+    const studySeconds = Number(row.study_seconds || 0);
+    const sessionsCompleted = Number(row.sessions_completed || 0);
+    const subjectsPracticed = Array.isArray(row.subjects_practiced) ? row.subjects_practiced.map(String) : [];
+    dailyActivityLog[dateKey] = {
+      date: dateKey,
+      questionsPracticed,
+      correctCount,
+      xpEarned,
+      studySeconds,
+      sessionsCompleted,
+      subjectsPracticed
+    };
+    if (questionsPracticed > 0 || xpEarned > 0 || sessionsCompleted > 0) {
+      activeDates.push(dateKey);
+    }
+    totalXp += xpEarned;
+    totalStudySeconds += studySeconds;
+    if (dateKey === todayWat) {
+      dailyXp = xpEarned;
+      dailyStudySeconds = studySeconds;
+    }
+  }
+  const computedStreak = computeAuthoritativeStreak(activeDates, todayWat);
+  const rpcCurrent = Number(streakRes.data?.current_streak || 0);
+  const rpcLongest = Number(streakRes.data?.longest_streak || 0);
+  const subjectStats = {};
+  const topicStats = {};
+  for (const m of masteryRes.data || []) {
+    const subj = normalizeSubjectNameForQuery(String(m.subject || "JAMB UTME"));
+    const topic = String(m.topic || "Core Syllabus").trim() || "Core Syllabus";
+    const solved = Number(m.attempted_count || 0);
+    const correct = Number(m.correct_count || 0);
+    if (solved <= 0) continue;
+    if (!subjectStats[subj]) {
+      subjectStats[subj] = { solved: 0, correct: 0, rating: 0 };
+    }
+    subjectStats[subj].solved += solved;
+    subjectStats[subj].correct += correct;
+    subjectStats[subj].rating = Math.round(
+      subjectStats[subj].correct / Math.max(1, subjectStats[subj].solved) * 100
+    );
+    if (!topicStats[subj]) topicStats[subj] = {};
+    const lastAttemptAt = String(m.last_attempt_at || (/* @__PURE__ */ new Date()).toISOString());
+    topicStats[subj][topic] = {
+      solved,
+      correct,
+      lastPracticedAt: lastAttemptAt,
+      ...m.last_result === "incorrect" ? { lastMissedAt: lastAttemptAt } : {}
+    };
+  }
+  return {
+    timezone: LAGOS_TIMEZONE,
+    todayWat,
+    streakDays: Math.max(computedStreak.streakDays, rpcCurrent),
+    longestStreak: Math.max(computedStreak.longestStreak, rpcLongest),
+    lastActivityDate: computedStreak.lastActivityDate || streakRes.data?.last_activity_date || null,
+    totalXp,
+    dailyXp,
+    totalStudySeconds,
+    dailyStudySeconds,
+    dailyActivityLog,
+    subjectStats,
+    topicStats,
+    source: "supabase"
+  };
+}
+function registerStage3LearningRoutes(router8) {
+  router8.get("/question-feed", requireAuth, async (req, res) => {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const rawSubjects = typeof req.query.subjects === "string" ? req.query.subjects.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 4) : [];
+    const focusSubject = typeof req.query.focus === "string" && req.query.focus.trim() ? req.query.focus.trim().slice(0, 80) : rawSubjects[0] || "";
+    const scope = req.query.scope === "single" ? "single" : "merged";
+    const rawLimit = req.query.limit === void 0 ? 30 : Number(req.query.limit);
+    const limit = Number.isInteger(rawLimit) ? Math.max(1, Math.min(80, rawLimit)) : 30;
+    const rawYear = req.query.year !== void 0 ? Number(req.query.year) : void 0;
+    const yearFilter = rawYear !== void 0 && Number.isInteger(rawYear) && rawYear >= 1978 && rawYear <= 2100 ? rawYear : void 0;
+    const difficultyFilter = req.query.difficulty === "easy" || req.query.difficulty === "medium" || req.query.difficulty === "hard" ? req.query.difficulty : void 0;
+    const targetSubjects = scope === "single" && focusSubject ? [focusSubject] : rawSubjects.length > 0 ? rawSubjects : ["English Language", "Mathematics", "Physics", "Chemistry"];
+    const dbSubjects = Array.from(
+      new Set(
+        targetSubjects.flatMap(
+          (s) => /^english language$/i.test(s) ? ["English Language", "Use of English"] : /^use of english$/i.test(s) ? ["Use of English", "English Language"] : [s]
+        )
+      )
+    );
+    const supabaseQuestions = [];
+    const weakTopicsSet = /* @__PURE__ */ new Set();
+    try {
+      const [bankRes, masteryRes] = await Promise.all([
+        (() => {
+          let q = supabaseAdmin.from("question_bank").select(
+            "id, subject, topic, subtopic, year, difficulty, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short"
+          ).eq("status", "published").in("subject", dbSubjects);
+          if (yearFilter) q = q.eq("year", yearFilter);
+          if (difficultyFilter) q = q.ilike("difficulty", difficultyFilter);
+          return q.limit(200);
+        })(),
+        supabaseAdmin.from("student_topic_mastery").select("subject, topic, mastery_score").eq("user_id", userId).lt("mastery_score", 75).limit(40)
+      ]);
+      if (!masteryRes.error && Array.isArray(masteryRes.data)) {
+        for (const m of masteryRes.data) {
+          if (m.topic) weakTopicsSet.add(String(m.topic).toLowerCase());
+        }
+      }
+      if (!bankRes.error && Array.isArray(bankRes.data)) {
+        for (const row of bankRes.data) {
+          const mapped = mapSupabaseBankRow(row);
+          if (mapped) supabaseQuestions.push(mapped);
+        }
+      }
+    } catch {
+    }
+    const prioritizedLive = [
+      ...shuffleItems(
+        supabaseQuestions.filter((q) => weakTopicsSet.has(q.topicLabel.toLowerCase()))
+      ),
+      ...shuffleItems(
+        supabaseQuestions.filter((q) => !weakTopicsSet.has(q.topicLabel.toLowerCase()))
+      )
+    ];
+    const seenIds = /* @__PURE__ */ new Set();
+    const combined = [];
+    for (const q of prioritizedLive) {
+      if (combined.length >= limit) break;
+      if (!seenIds.has(q.id)) {
+        seenIds.add(q.id);
+        combined.push(q);
+      }
+    }
+    if (combined.length < limit) {
+      const subjectLowerSet = new Set(targetSubjects.map((s) => s.toLowerCase()));
+      const curatedBackfill = getCuratedStarterQuestions().filter((q) => subjectLowerSet.has(q.subjectCanonical.toLowerCase())).map((q) => ({ ...q, source: "curated" }));
+      const seedBackfill = SEED_QUESTIONS.filter((q) => {
+        if (!subjectLowerSet.has(q.subject.toLowerCase())) return false;
+        if (yearFilter && q.year !== yearFilter) return false;
+        if (difficultyFilter && q.difficulty !== difficultyFilter) return false;
+        return true;
+      }).map((q) => ({
+        id: q.id,
+        subjectCanonical: q.subject,
+        subjectLabel: getShortSubjectLabel(q.subject),
+        topicLabel: q.topic || q.subtopic || "Core Syllabus",
+        year: q.year,
+        difficulty: q.difficulty,
+        question: q.question,
+        options: q.options,
+        answer: q.answer,
+        explanationShort: q.explanation_short || `Option ${q.answer} is correct based on the official JAMB ${q.subject} syllabus.`,
+        explanationFull: q.explanation || q.explanation_short || "",
+        explanationPidgin: q.explanation_pidgin || `Na Option ${q.answer} be the correct answer for dis ${q.subject} question.`,
+        source: "seed"
+      }));
+      for (const item of shuffleItems([...curatedBackfill, ...seedBackfill])) {
+        if (combined.length >= limit) break;
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          combined.push(item);
+        }
+      }
+    }
+    const supabaseCount = combined.filter((q) => q.source === "supabase").length;
+    res.set("Cache-Control", "no-store");
+    return res.json({
+      source: supabaseCount > 0 ? "supabase" : "verified_catalog",
+      supabaseCount,
+      total: combined.length,
+      questions: combined
+    });
+  });
+  router8.post(
+    "/activity/sync",
+    requireAuth,
+    validateBody(batchActivitySyncSchema),
+    async (req, res) => {
+      const userId = getAuthenticatedUserId(req);
+      if (!userId) return res.status(401).json({ error: "Authentication required." });
+      const { events } = req.body;
+      const syncedEventIds = [];
+      const uniqueEventsMap = /* @__PURE__ */ new Map();
+      for (const ev of events) {
+        if (!uniqueEventsMap.has(ev.clientEventId)) {
+          uniqueEventsMap.set(ev.clientEventId, ev);
+        }
+      }
+      const uniqueEvents = Array.from(uniqueEventsMap.values());
+      const clientIds = uniqueEvents.map((e) => e.clientEventId);
+      try {
+        const { data: existingRows, error: existingErr } = await supabaseAdmin.from("student_activity_events").select("client_event_id").eq("user_id", userId).in("client_event_id", clientIds);
+        if (existingErr) {
+          try {
+            await recordStudyActivity(supabaseAdmin, userId, LAGOS_TIMEZONE);
+          } catch {
+          }
+          const fallbackSummary = await buildAuthoritativeSummaryForUser(userId);
+          return res.status(200).json({
+            status: "fallback_local",
+            syncedEventIds: [],
+            summary: fallbackSummary
+          });
+        }
+        const alreadyStored = new Set(
+          (existingRows || []).map((r) => String(r.client_event_id))
+        );
+        for (const id of alreadyStored) {
+          syncedEventIds.push(id);
+        }
+        const freshEvents = uniqueEvents.filter((e) => !alreadyStored.has(e.clientEventId));
+        if (freshEvents.length > 0) {
+          const eventInsertRows = freshEvents.map((ev) => {
+            const { clampedSeconds, xpAwarded } = computeServerXpForEvent(ev);
+            const occurredIso = ev.occurredAt && !Number.isNaN(new Date(ev.occurredAt).getTime()) ? new Date(ev.occurredAt).toISOString() : (/* @__PURE__ */ new Date()).toISOString();
+            const activityDateWat = getLagosIsoDate(occurredIso);
+            return {
+              user_id: userId,
+              client_event_id: ev.clientEventId,
+              event_type: ev.eventType,
+              mode: ev.mode,
+              question_id: ev.questionId || null,
+              subject: normalizeSubjectNameForQuery(ev.subject),
+              topic: ev.topic || "Core Syllabus",
+              selected_option: ev.selectedOption || null,
+              is_correct: typeof ev.isCorrect === "boolean" ? ev.isCorrect : null,
+              elapsed_seconds: clampedSeconds,
+              xp_awarded: xpAwarded,
+              activity_date_wat: activityDateWat,
+              occurred_at: occurredIso
+            };
+          });
+          const { error: insertErr } = await supabaseAdmin.from("student_activity_events").upsert(eventInsertRows, {
+            onConflict: "user_id,client_event_id",
+            ignoreDuplicates: true
+          });
+          if (insertErr) {
+            return res.status(503).json({
+              error: "Could not persist activity events right now. They remain queued on your device.",
+              code: "ACTIVITY_SYNC_RETRY"
+            });
+          }
+          for (const row of eventInsertRows) {
+            syncedEventIds.push(row.client_event_id);
+          }
+          const deltasByDate = /* @__PURE__ */ new Map();
+          const topicDeltas = /* @__PURE__ */ new Map();
+          for (const row of eventInsertRows) {
+            const bucket = deltasByDate.get(row.activity_date_wat) || {
+              questionsPracticed: 0,
+              correctCount: 0,
+              xpEarned: 0,
+              studySeconds: 0,
+              sessionsCompleted: 0,
+              subjects: /* @__PURE__ */ new Set()
+            };
+            if (row.event_type === "question_attempt") {
+              bucket.questionsPracticed += 1;
+              if (row.is_correct) bucket.correctCount += 1;
+              const tKey = `${row.subject}::${row.topic}`;
+              const tBucket = topicDeltas.get(tKey) || {
+                subject: row.subject,
+                topic: row.topic,
+                attempted: 0,
+                correct: 0,
+                lastResult: row.is_correct ? "correct" : "incorrect",
+                lastAttemptAt: row.occurred_at
+              };
+              tBucket.attempted += 1;
+              if (row.is_correct) tBucket.correct += 1;
+              tBucket.lastResult = row.is_correct ? "correct" : "incorrect";
+              if (row.occurred_at > tBucket.lastAttemptAt) {
+                tBucket.lastAttemptAt = row.occurred_at;
+              }
+              topicDeltas.set(tKey, tBucket);
+            } else {
+              bucket.sessionsCompleted += 1;
+            }
+            bucket.xpEarned += row.xp_awarded;
+            bucket.studySeconds += row.elapsed_seconds;
+            if (row.subject) bucket.subjects.add(row.subject);
+            deltasByDate.set(row.activity_date_wat, bucket);
+          }
+          const affectedDates = Array.from(deltasByDate.keys());
+          const { data: existingDaily } = await supabaseAdmin.from("student_daily_usage").select(
+            "activity_date, questions_practiced, correct_count, xp_earned, study_seconds, sessions_completed, subjects_practiced"
+          ).eq("user_id", userId).in("activity_date", affectedDates);
+          const existingByDate = new Map(
+            (existingDaily || []).map((r) => [String(r.activity_date).slice(0, 10), r])
+          );
+          const dailyUpserts = affectedDates.map((dateKey) => {
+            const prev = existingByDate.get(dateKey);
+            const delta = deltasByDate.get(dateKey);
+            const mergedSubjects = Array.from(
+              /* @__PURE__ */ new Set([
+                ...Array.isArray(prev?.subjects_practiced) ? prev.subjects_practiced : [],
+                ...Array.from(delta.subjects)
+              ])
+            );
+            return {
+              user_id: userId,
+              activity_date: dateKey,
+              questions_practiced: Number(prev?.questions_practiced || 0) + delta.questionsPracticed,
+              correct_count: Number(prev?.correct_count || 0) + delta.correctCount,
+              xp_earned: Number(prev?.xp_earned || 0) + delta.xpEarned,
+              study_seconds: Number(prev?.study_seconds || 0) + delta.studySeconds,
+              sessions_completed: Number(prev?.sessions_completed || 0) + delta.sessionsCompleted,
+              subjects_practiced: mergedSubjects,
+              updated_at: (/* @__PURE__ */ new Date()).toISOString()
+            };
+          });
+          await supabaseAdmin.from("student_daily_usage").upsert(dailyUpserts, { onConflict: "user_id,activity_date" });
+          if (topicDeltas.size > 0) {
+            const { data: existingMastery } = await supabaseAdmin.from("student_topic_mastery").select("subject, topic, attempted_count, correct_count, correct_streak, interval_days").eq("user_id", userId);
+            const masteryMap = new Map(
+              (existingMastery || []).map((m) => [`${m.subject}::${m.topic}`, m])
+            );
+            const masteryUpserts = Array.from(topicDeltas.values()).map((delta) => {
+              const prev = masteryMap.get(`${delta.subject}::${delta.topic}`);
+              const nextAttempted = Number(prev?.attempted_count || 0) + delta.attempted;
+              const nextCorrect = Number(prev?.correct_count || 0) + delta.correct;
+              const nextScore = Math.round(nextCorrect / Math.max(1, nextAttempted) * 100);
+              const nextStreak = delta.lastResult === "correct" ? Number(prev?.correct_streak || 0) + 1 : 0;
+              const nextInterval = delta.lastResult === "correct" ? Math.min(30, Math.max(1, Number(prev?.interval_days || 1) * 2)) : 1;
+              const nextReview = new Date(
+                Date.now() + nextInterval * 24 * 60 * 60 * 1e3
+              ).toISOString();
+              return {
+                user_id: userId,
+                subject: delta.subject,
+                topic: delta.topic,
+                attempted_count: nextAttempted,
+                correct_count: nextCorrect,
+                mastery_score: nextScore,
+                correct_streak: nextStreak,
+                interval_days: nextInterval,
+                last_result: delta.lastResult,
+                last_attempt_at: delta.lastAttemptAt,
+                next_review_at: nextReview,
+                updated_at: (/* @__PURE__ */ new Date()).toISOString()
+              };
+            });
+            await supabaseAdmin.from("student_topic_mastery").upsert(masteryUpserts, { onConflict: "user_id,subject,topic" });
+          }
+          try {
+            await recordStudyActivity(supabaseAdmin, userId, LAGOS_TIMEZONE);
+          } catch {
+          }
+        }
+        const summary = await buildAuthoritativeSummaryForUser(userId);
+        res.set("Cache-Control", "no-store");
+        return res.status(200).json({
+          status: "synced",
+          syncedEventIds: Array.from(new Set(syncedEventIds)),
+          freshCount: freshEvents.length,
+          summary
+        });
+      } catch (err) {
+        console.error(
+          "[SABI] Activity sync error:",
+          err instanceof Error ? err.message : "unknown_error"
+        );
+        return res.status(503).json({
+          error: "Activity sync is temporarily unavailable. Your progress stays safely queued on-device.",
+          code: "ACTIVITY_SYNC_RETRY"
+        });
+      }
+    }
+  );
+  router8.get("/activity/summary", requireAuth, async (req, res) => {
+    const userId = getAuthenticatedUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    try {
+      const summary = await buildAuthoritativeSummaryForUser(userId);
+      res.set("Cache-Control", "no-store");
+      return res.json(summary);
+    } catch {
+      return res.status(503).json({
+        error: "Could not load your study activity summary right now.",
+        code: "ACTIVITY_SUMMARY_UNAVAILABLE"
+      });
+    }
+  });
+}
+
 // server/learning/routes.ts
 var router = (0, import_express.Router)();
-var createSessionSchema = import_zod2.z.strictObject({
-  mode: import_zod2.z.enum(["diagnostic", "smart_practice", "blitz", "cbt", "custom"]),
-  subject: import_zod2.z.string().trim().min(1).max(80).optional(),
-  subjects: import_zod2.z.array(import_zod2.z.string().trim().min(1).max(80)).max(4).optional(),
-  topic: import_zod2.z.string().trim().min(1).max(160).optional(),
-  topics: import_zod2.z.array(import_zod2.z.string().trim().min(1).max(160)).max(20).optional(),
-  subtopic: import_zod2.z.string().trim().min(1).max(160).optional(),
-  difficulty: import_zod2.z.enum(["easy", "medium", "hard"]).optional(),
-  year: import_zod2.z.number().int().min(1990).max(2100).optional(),
-  limit: import_zod2.z.number().int().min(1).max(180).default(20),
-  configurationKey: import_zod2.z.enum(["quick-mock", "full-mock"]).optional(),
-  metadata: import_zod2.z.record(import_zod2.z.string(), import_zod2.z.unknown()).default({})
+registerStage3LearningRoutes(router);
+var createSessionSchema = import_zod3.z.strictObject({
+  mode: import_zod3.z.enum(["diagnostic", "smart_practice", "blitz", "cbt", "custom"]),
+  subject: import_zod3.z.string().trim().min(1).max(80).optional(),
+  subjects: import_zod3.z.array(import_zod3.z.string().trim().min(1).max(80)).max(4).optional(),
+  topic: import_zod3.z.string().trim().min(1).max(160).optional(),
+  topics: import_zod3.z.array(import_zod3.z.string().trim().min(1).max(160)).max(20).optional(),
+  subtopic: import_zod3.z.string().trim().min(1).max(160).optional(),
+  difficulty: import_zod3.z.enum(["easy", "medium", "hard"]).optional(),
+  year: import_zod3.z.number().int().min(1990).max(2100).optional(),
+  limit: import_zod3.z.number().int().min(1).max(180).default(20),
+  configurationKey: import_zod3.z.enum(["quick-mock", "full-mock"]).optional(),
+  metadata: import_zod3.z.record(import_zod3.z.string(), import_zod3.z.unknown()).default({})
 });
-var sourceReviewSchema = import_zod2.z.strictObject({
-  verificationStatus: import_zod2.z.enum(["verified", "restricted", "rejected"]),
-  permittedUse: import_zod2.z.enum(["unknown", "internal_review", "practice_display", "redistribution_allowed", "restricted"]),
-  notes: import_zod2.z.string().trim().max(1e3).optional()
+var sourceReviewSchema = import_zod3.z.strictObject({
+  verificationStatus: import_zod3.z.enum(["verified", "restricted", "rejected"]),
+  permittedUse: import_zod3.z.enum(["unknown", "internal_review", "practice_display", "redistribution_allowed", "restricted"]),
+  notes: import_zod3.z.string().trim().max(1e3).optional()
 });
-var questionTaxonomySchema = import_zod2.z.strictObject({
-  topicId: import_zod2.z.string().uuid(),
-  subtopicId: import_zod2.z.string().uuid().optional()
+var questionTaxonomySchema = import_zod3.z.strictObject({
+  topicId: import_zod3.z.string().uuid(),
+  subtopicId: import_zod3.z.string().uuid().optional()
 });
-var questionReviewSchema = import_zod2.z.strictObject({
-  action: import_zod2.z.enum(["publish", "needs-review", "reject"]),
-  notes: import_zod2.z.string().trim().max(1e3).optional()
+var questionReviewSchema = import_zod3.z.strictObject({
+  action: import_zod3.z.enum(["publish", "needs-review", "reject"]),
+  notes: import_zod3.z.string().trim().max(1e3).optional()
 });
-var answerSchema = import_zod2.z.strictObject({
-  questionId: import_zod2.z.string().trim().min(1).max(100),
-  selectedOption: import_zod2.z.enum(["A", "B", "C", "D"]),
-  elapsedMs: import_zod2.z.number().int().min(0).max(36e5).optional()
+var answerSchema = import_zod3.z.strictObject({
+  questionId: import_zod3.z.string().trim().min(1).max(100),
+  selectedOption: import_zod3.z.enum(["A", "B", "C", "D"]),
+  elapsedMs: import_zod3.z.number().int().min(0).max(36e5).optional()
 });
 function shuffle(items) {
   const result = [...items];
@@ -65845,7 +66641,7 @@ var routes_default2 = router2;
 // server/ai/routes.ts
 var import_node_crypto3 = require("node:crypto");
 var import_express3 = require("express");
-var import_zod3 = require("zod");
+var import_zod4 = require("zod");
 
 // server/ai/gateway.ts
 var import_node_crypto = require("node:crypto");
@@ -66359,14 +67155,14 @@ async function getAICreditBalance(db, userId) {
 
 // server/ai/routes.ts
 var router3 = (0, import_express3.Router)();
-var aiConsentSchema = import_zod3.z.strictObject({ granted: import_zod3.z.boolean() });
-var aiTaskPricingSchema = import_zod3.z.strictObject({ creditCost: import_zod3.z.number().int().min(0).max(1e5), isActive: import_zod3.z.boolean() });
-var aiTaskSchema = import_zod3.z.enum(["explanation", "tutor_chat", "content_draft", "study_plan"]);
-var aiCreditGrantSchema = import_zod3.z.strictObject({
-  userId: import_zod3.z.string().uuid(),
-  credits: import_zod3.z.number().int().min(1).max(1e5),
-  reason: import_zod3.z.string().trim().min(3).max(300),
-  idempotencyKey: import_zod3.z.string().trim().min(12).max(128)
+var aiConsentSchema = import_zod4.z.strictObject({ granted: import_zod4.z.boolean() });
+var aiTaskPricingSchema = import_zod4.z.strictObject({ creditCost: import_zod4.z.number().int().min(0).max(1e5), isActive: import_zod4.z.boolean() });
+var aiTaskSchema = import_zod4.z.enum(["explanation", "tutor_chat", "content_draft", "study_plan"]);
+var aiCreditGrantSchema = import_zod4.z.strictObject({
+  userId: import_zod4.z.string().uuid(),
+  credits: import_zod4.z.number().int().min(1).max(1e5),
+  reason: import_zod4.z.string().trim().min(3).max(300),
+  idempotencyKey: import_zod4.z.string().trim().min(12).max(128)
 });
 async function hasAICoConsent(userId) {
   const { data, error } = await supabaseAdmin.from("student_consent_history").select("granted, recorded_at, policy_version").eq("user_id", userId).eq("consent_type", "ai_tutor").order("recorded_at", { ascending: false }).limit(1).maybeSingle();
@@ -66410,11 +67206,11 @@ router3.post("/consent", requireAuth, validateBody(aiConsentSchema), async (req,
     return res.status(503).json({ error: "Your AI consent preference could not be saved." });
   }
 });
-var explanationRequestSchema = import_zod3.z.strictObject({
-  sessionId: import_zod3.z.string().uuid(),
-  questionId: import_zod3.z.string().trim().min(1).max(100),
-  preference: import_zod3.z.enum(["short", "detailed"]).default("detailed"),
-  language: import_zod3.z.enum(["english", "pidgin", "mixed"]).default("english")
+var explanationRequestSchema = import_zod4.z.strictObject({
+  sessionId: import_zod4.z.string().uuid(),
+  questionId: import_zod4.z.string().trim().min(1).max(100),
+  preference: import_zod4.z.enum(["short", "detailed"]).default("detailed"),
+  language: import_zod4.z.enum(["english", "pidgin", "mixed"]).default("english")
 });
 function buildVerifiedExplanationPrompt(input) {
   const correctText = input.options[input.correctOption];
@@ -66447,14 +67243,14 @@ function buildVerifiedExplanationPrompt(input) {
     ].join("\n")
   };
 }
-var chatRequestSchema = import_zod3.z.strictObject({
-  messages: import_zod3.z.array(import_zod3.z.strictObject({
-    role: import_zod3.z.enum(["user", "assistant"]),
-    content: import_zod3.z.string().trim().min(1).max(4e3)
+var chatRequestSchema = import_zod4.z.strictObject({
+  messages: import_zod4.z.array(import_zod4.z.strictObject({
+    role: import_zod4.z.enum(["user", "assistant"]),
+    content: import_zod4.z.string().trim().min(1).max(4e3)
   })).min(1).max(12),
-  subject: import_zod3.z.string().trim().min(1).max(80).optional(),
-  topic: import_zod3.z.string().trim().min(1).max(160).optional(),
-  sessionId: import_zod3.z.string().uuid().optional()
+  subject: import_zod4.z.string().trim().min(1).max(80).optional(),
+  topic: import_zod4.z.string().trim().min(1).max(160).optional(),
+  sessionId: import_zod4.z.string().uuid().optional()
 });
 router3.get("/credits", requireAuth, async (req, res) => {
   const userId = req.user?.id;
@@ -66535,19 +67331,19 @@ router3.put("/admin/task-pricing/:task", requireAuth, requireRole("ADMIN", "MAST
   if (auditError) console.error("[SABI AI] Task pricing audit failed:", auditError.message);
   return res.json({ pricing: data });
 });
-var costSimulationSchema = import_zod3.z.strictObject({
-  requestsPerMonth: import_zod3.z.number().int().min(0).max(1e8),
-  taskMix: import_zod3.z.record(import_zod3.z.string(), import_zod3.z.number().min(0).max(1)).optional(),
-  cacheHitRate: import_zod3.z.number().min(0).max(1).default(0),
-  retryRate: import_zod3.z.number().min(0).max(3).default(0),
-  providers: import_zod3.z.array(import_zod3.z.strictObject({
-    id: import_zod3.z.string().trim().min(1).max(64),
-    inputPricePerMillion: import_zod3.z.number().min(0).nullable(),
-    outputPricePerMillion: import_zod3.z.number().min(0).nullable(),
-    avgInputTokens: import_zod3.z.number().int().min(0).max(1e6),
-    avgOutputTokens: import_zod3.z.number().int().min(0).max(1e6),
-    expectedSuccessRate: import_zod3.z.number().min(0.01).max(1),
-    fallbackShare: import_zod3.z.number().min(0).max(5).optional()
+var costSimulationSchema = import_zod4.z.strictObject({
+  requestsPerMonth: import_zod4.z.number().int().min(0).max(1e8),
+  taskMix: import_zod4.z.record(import_zod4.z.string(), import_zod4.z.number().min(0).max(1)).optional(),
+  cacheHitRate: import_zod4.z.number().min(0).max(1).default(0),
+  retryRate: import_zod4.z.number().min(0).max(3).default(0),
+  providers: import_zod4.z.array(import_zod4.z.strictObject({
+    id: import_zod4.z.string().trim().min(1).max(64),
+    inputPricePerMillion: import_zod4.z.number().min(0).nullable(),
+    outputPricePerMillion: import_zod4.z.number().min(0).nullable(),
+    avgInputTokens: import_zod4.z.number().int().min(0).max(1e6),
+    avgOutputTokens: import_zod4.z.number().int().min(0).max(1e6),
+    expectedSuccessRate: import_zod4.z.number().min(0.01).max(1),
+    fallbackShare: import_zod4.z.number().min(0).max(5).optional()
   })).min(1).max(30)
 });
 router3.post("/admin/cost-simulator", requireAuth, requireRole("ADMIN", "MASTER_ADMIN"), validateBody(costSimulationSchema), async (req, res) => {
@@ -66942,16 +67738,16 @@ var routes_default3 = router3;
 // server/ai/knowledgeRoutes.ts
 var import_node_crypto4 = require("node:crypto");
 var import_express4 = require("express");
-var import_zod4 = require("zod");
+var import_zod5 = require("zod");
 var router4 = (0, import_express4.Router)();
-var knowledgeDocumentSchema = import_zod4.z.strictObject({
-  title: import_zod4.z.string().trim().min(3).max(200),
-  subject: import_zod4.z.string().trim().max(80).optional(),
-  topic: import_zod4.z.string().trim().max(160).optional(),
-  sourceType: import_zod4.z.enum(["official_syllabus", "approved_textbook", "teacher_note", "question_explanation", "other"]),
-  sourceReference: import_zod4.z.string().trim().min(3).max(300),
-  sourceUrl: import_zod4.z.string().url().refine((value) => value.startsWith("https://"), "Source URL must use HTTPS.").optional(),
-  content: import_zod4.z.string().trim().min(100).max(1e5)
+var knowledgeDocumentSchema = import_zod5.z.strictObject({
+  title: import_zod5.z.string().trim().min(3).max(200),
+  subject: import_zod5.z.string().trim().max(80).optional(),
+  topic: import_zod5.z.string().trim().max(160).optional(),
+  sourceType: import_zod5.z.enum(["official_syllabus", "approved_textbook", "teacher_note", "question_explanation", "other"]),
+  sourceReference: import_zod5.z.string().trim().min(3).max(300),
+  sourceUrl: import_zod5.z.string().url().refine((value) => value.startsWith("https://"), "Source URL must use HTTPS.").optional(),
+  content: import_zod5.z.string().trim().min(100).max(1e5)
 });
 function chunkText(content, maxLength = 1800) {
   const paragraphs = content.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
@@ -67087,7 +67883,7 @@ var knowledgeRoutes_default = router4;
 // server/billing/routes.ts
 var import_node_crypto6 = require("node:crypto");
 var import_express5 = require("express");
-var import_zod5 = require("zod");
+var import_zod6 = require("zod");
 
 // server/billing/providers.ts
 var import_node_crypto5 = require("node:crypto");
@@ -67252,24 +68048,24 @@ function addBillingPeriod(start, interval) {
 
 // server/billing/routes.ts
 var router5 = (0, import_express5.Router)();
-var planSchema = import_zod5.z.strictObject({
-  planKey: import_zod5.z.string().trim().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
-  displayName: import_zod5.z.string().trim().min(2).max(100),
-  description: import_zod5.z.string().trim().max(1e3).optional(),
-  priceAmount: import_zod5.z.number().finite().min(0),
-  currency: import_zod5.z.literal("NGN").default("NGN"),
-  billingInterval: import_zod5.z.enum(["monthly", "quarterly", "yearly", "one_time"]),
-  features: import_zod5.z.record(import_zod5.z.string(), import_zod5.z.unknown()).default({}),
-  limits: import_zod5.z.record(import_zod5.z.string(), import_zod5.z.unknown()).default({}),
-  aiCreditAllowance: import_zod5.z.number().int().min(0).default(0),
-  isActive: import_zod5.z.boolean().default(false),
-  displayOrder: import_zod5.z.number().int().default(0)
+var planSchema = import_zod6.z.strictObject({
+  planKey: import_zod6.z.string().trim().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+  displayName: import_zod6.z.string().trim().min(2).max(100),
+  description: import_zod6.z.string().trim().max(1e3).optional(),
+  priceAmount: import_zod6.z.number().finite().min(0),
+  currency: import_zod6.z.literal("NGN").default("NGN"),
+  billingInterval: import_zod6.z.enum(["monthly", "quarterly", "yearly", "one_time"]),
+  features: import_zod6.z.record(import_zod6.z.string(), import_zod6.z.unknown()).default({}),
+  limits: import_zod6.z.record(import_zod6.z.string(), import_zod6.z.unknown()).default({}),
+  aiCreditAllowance: import_zod6.z.number().int().min(0).default(0),
+  isActive: import_zod6.z.boolean().default(false),
+  displayOrder: import_zod6.z.number().int().default(0)
 });
-var entitlementSchema = import_zod5.z.strictObject({
-  entitlementKey: import_zod5.z.string().trim().regex(/^[a-z0-9][a-z0-9_.-]{1,99}$/),
-  description: import_zod5.z.string().trim().min(2).max(500),
-  valueSchema: import_zod5.z.record(import_zod5.z.string(), import_zod5.z.unknown()).default({}),
-  isActive: import_zod5.z.boolean().default(false)
+var entitlementSchema = import_zod6.z.strictObject({
+  entitlementKey: import_zod6.z.string().trim().regex(/^[a-z0-9][a-z0-9_.-]{1,99}$/),
+  description: import_zod6.z.string().trim().min(2).max(500),
+  valueSchema: import_zod6.z.record(import_zod6.z.string(), import_zod6.z.unknown()).default({}),
+  isActive: import_zod6.z.boolean().default(false)
 });
 async function validatePlanFeatureKeys(features) {
   const keys = Object.entries(features).filter(([, value]) => value !== false && value !== null && value !== void 0).map(([key]) => key);
@@ -67280,9 +68076,9 @@ async function validatePlanFeatureKeys(features) {
   const missing = keys.filter((key) => !active.has(key));
   return missing.length ? { ok: false, code: "PLAN_FEATURE_NOT_CONFIGURED", missing } : { ok: true };
 }
-var checkoutSchema = import_zod5.z.strictObject({
-  planKey: import_zod5.z.string().trim().min(1).max(80),
-  idempotencyKey: import_zod5.z.string().trim().min(12).max(128)
+var checkoutSchema = import_zod6.z.strictObject({
+  planKey: import_zod6.z.string().trim().min(1).max(80),
+  idempotencyKey: import_zod6.z.string().trim().min(12).max(128)
 });
 function authenticatedUser2(req) {
   return req.user?.id || null;
@@ -67749,7 +68545,7 @@ var routes_default4 = router5;
 
 // server/gamification/routes.ts
 var import_express6 = require("express");
-var import_zod6 = require("zod");
+var import_zod7 = require("zod");
 
 // server/gamification/leagueService.ts
 var LEAGUE_THRESHOLDS = {
@@ -67841,20 +68637,20 @@ function annotateStandingsWithZones(rows, tier, currentUserId) {
 
 // server/gamification/routes.ts
 var router6 = (0, import_express6.Router)();
-var ruleSchema = import_zod6.z.strictObject({
-  description: import_zod6.z.string().trim().min(3).max(300),
-  xpDelta: import_zod6.z.number().int().min(1).max(1e5),
-  maxAwardsPerDay: import_zod6.z.number().int().min(0).max(1e4).default(1),
-  isActive: import_zod6.z.boolean().default(false)
+var ruleSchema = import_zod7.z.strictObject({
+  description: import_zod7.z.string().trim().min(3).max(300),
+  xpDelta: import_zod7.z.number().int().min(1).max(1e5),
+  maxAwardsPerDay: import_zod7.z.number().int().min(0).max(1e4).default(1),
+  isActive: import_zod7.z.boolean().default(false)
 });
-var leagueSyncSchema = import_zod6.z.strictObject({
-  totalXp: import_zod6.z.number().int().min(0).max(5e5),
-  weeklyXp: import_zod6.z.number().int().min(0).max(1e5).optional(),
-  streakDays: import_zod6.z.number().int().min(0).max(3650),
-  questionsSolved: import_zod6.z.number().int().min(0).max(2e5),
-  displayName: import_zod6.z.string().trim().min(1).max(40).optional()
+var leagueSyncSchema = import_zod7.z.strictObject({
+  totalXp: import_zod7.z.number().int().min(0).max(5e5),
+  weeklyXp: import_zod7.z.number().int().min(0).max(1e5).optional(),
+  streakDays: import_zod7.z.number().int().min(0).max(3650),
+  questionsSolved: import_zod7.z.number().int().min(0).max(2e5),
+  displayName: import_zod7.z.string().trim().min(1).max(40).optional()
 });
-var TIER_QUERY_SCHEMA = import_zod6.z.enum(["blue", "silver", "gold"]);
+var TIER_QUERY_SCHEMA = import_zod7.z.enum(["blue", "silver", "gold"]);
 router6.get("/me", requireAuth, async (req, res) => {
   const userId = req.user?.id;
   if (!userId) return res.status(401).json({ error: "Authentication required." });
@@ -68062,7 +68858,7 @@ var routes_default5 = router6;
 // server/notifications/routes.ts
 var import_node_crypto7 = require("node:crypto");
 var import_express7 = require("express");
-var import_zod7 = require("zod");
+var import_zod8 = require("zod");
 
 // server/notifications/providers.ts
 function getNotificationReadiness(channel) {
@@ -68297,26 +69093,26 @@ async function dispatchNotificationBatch(limit = 25) {
 
 // server/notifications/routes.ts
 var router7 = (0, import_express7.Router)();
-var dispatchSchema = import_zod7.z.strictObject({ limit: import_zod7.z.number().int().min(1).max(100).default(25) });
-var quietHoursSchema = import_zod7.z.strictObject({
-  enabled: import_zod7.z.boolean().default(false),
-  start: import_zod7.z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("22:00"),
-  end: import_zod7.z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("07:00"),
-  timezone: import_zod7.z.string().trim().min(1).max(80).default("Africa/Lagos")
+var dispatchSchema = import_zod8.z.strictObject({ limit: import_zod8.z.number().int().min(1).max(100).default(25) });
+var quietHoursSchema = import_zod8.z.strictObject({
+  enabled: import_zod8.z.boolean().default(false),
+  start: import_zod8.z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("22:00"),
+  end: import_zod8.z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).default("07:00"),
+  timezone: import_zod8.z.string().trim().min(1).max(80).default("Africa/Lagos")
 });
-var preferenceSchema = import_zod7.z.strictObject({
-  channel: import_zod7.z.enum(["email", "push", "in_app", "sms"]),
-  notificationKey: import_zod7.z.string().trim().min(1).max(100),
-  enabled: import_zod7.z.boolean(),
+var preferenceSchema = import_zod8.z.strictObject({
+  channel: import_zod8.z.enum(["email", "push", "in_app", "sms"]),
+  notificationKey: import_zod8.z.string().trim().min(1).max(100),
+  enabled: import_zod8.z.boolean(),
   quietHours: quietHoursSchema.default({ enabled: false, start: "22:00", end: "07:00", timezone: "Africa/Lagos" })
 });
-var templateSchema = import_zod7.z.strictObject({
-  templateKey: import_zod7.z.string().trim().regex(/^[a-z0-9][a-z0-9_.-]{1,99}$/),
-  channel: import_zod7.z.enum(["email", "push", "in_app", "sms"]),
-  locale: import_zod7.z.string().trim().min(2).max(12).default("en"),
-  subjectTemplate: import_zod7.z.string().trim().max(300).optional(),
-  bodyTemplate: import_zod7.z.string().trim().min(1).max(1e4),
-  variablesSchema: import_zod7.z.record(import_zod7.z.string(), import_zod7.z.unknown()).default({})
+var templateSchema = import_zod8.z.strictObject({
+  templateKey: import_zod8.z.string().trim().regex(/^[a-z0-9][a-z0-9_.-]{1,99}$/),
+  channel: import_zod8.z.enum(["email", "push", "in_app", "sms"]),
+  locale: import_zod8.z.string().trim().min(2).max(12).default("en"),
+  subjectTemplate: import_zod8.z.string().trim().max(300).optional(),
+  bodyTemplate: import_zod8.z.string().trim().min(1).max(1e4),
+  variablesSchema: import_zod8.z.record(import_zod8.z.string(), import_zod8.z.unknown()).default({})
 });
 function secretMatches(received, expected) {
   if (!received || !expected) return false;
@@ -68468,8 +69264,483 @@ router7.post("/dispatch", validateBody(dispatchSchema), async (req, res) => {
 });
 var routes_default6 = router7;
 
+// server/snapshots/routes.ts
+var import_express8 = require("express");
+var import_zod9 = require("zod");
+var OPTION_KEY_SCHEMA = import_zod9.z.enum(["A", "B", "C", "D"]);
+var checkPublicAnswerSchema = import_zod9.z.strictObject({
+  selectedOption: OPTION_KEY_SCHEMA
+});
+var shareLinkPublishSchema = import_zod9.z.strictObject({
+  questionId: import_zod9.z.string().trim().min(1).max(120),
+  canonicalQuestionId: import_zod9.z.string().trim().min(1).max(100).optional(),
+  mode: import_zod9.z.enum(["blitz", "smart", "custom", "cbt"]).default("blitz"),
+  subjectCanonical: import_zod9.z.string().trim().min(1).max(100),
+  subjectLabel: import_zod9.z.string().trim().min(1).max(80),
+  topicLabel: import_zod9.z.string().trim().min(1).max(180),
+  year: import_zod9.z.number().int().min(1978).max(2100).optional(),
+  question: import_zod9.z.string().trim().min(1).max(4e3),
+  options: import_zod9.z.strictObject({
+    A: import_zod9.z.string().trim().min(1).max(1e3),
+    B: import_zod9.z.string().trim().min(1).max(1e3),
+    C: import_zod9.z.string().trim().min(1).max(1e3),
+    D: import_zod9.z.string().trim().min(1).max(1e3)
+  }),
+  answer: OPTION_KEY_SCHEMA,
+  explanationShort: import_zod9.z.string().max(2500).default(""),
+  explanationFull: import_zod9.z.string().max(6e3).default(""),
+  explanationPidgin: import_zod9.z.string().max(6e3).default("")
+});
+var upsertSnapshotSchema = import_zod9.z.strictObject({
+  snapshotId: import_zod9.z.string().trim().min(1).max(140),
+  questionId: import_zod9.z.string().trim().min(1).max(120),
+  canonicalQuestionId: import_zod9.z.string().trim().min(1).max(100),
+  mode: import_zod9.z.enum(["blitz", "smart", "custom", "cbt"]),
+  subjectCanonical: import_zod9.z.string().trim().min(1).max(100),
+  subjectLabel: import_zod9.z.string().trim().min(1).max(80),
+  topicLabel: import_zod9.z.string().trim().min(1).max(180),
+  year: import_zod9.z.number().int().min(1978).max(2100).optional(),
+  question: import_zod9.z.string().trim().min(1).max(4e3),
+  options: import_zod9.z.strictObject({
+    A: import_zod9.z.string().trim().min(1).max(1e3),
+    B: import_zod9.z.string().trim().min(1).max(1e3),
+    C: import_zod9.z.string().trim().min(1).max(1e3),
+    D: import_zod9.z.string().trim().min(1).max(1e3)
+  }),
+  answer: OPTION_KEY_SCHEMA,
+  explanationShort: import_zod9.z.string().max(2500).default(""),
+  explanationFull: import_zod9.z.string().max(6e3).default(""),
+  explanationPidgin: import_zod9.z.string().max(6e3).default(""),
+  wasAnswered: import_zod9.z.boolean(),
+  selectedOption: OPTION_KEY_SCHEMA.nullable(),
+  isCorrect: import_zod9.z.boolean().nullable(),
+  explanationStyle: import_zod9.z.enum(["english", "pidgin"]).default("english"),
+  savedAt: import_zod9.z.string().trim().max(64).optional()
+});
+var recordAttemptSchema = import_zod9.z.strictObject({
+  selectedOption: OPTION_KEY_SCHEMA
+});
+function normalizeCanonicalId(rawId) {
+  const trimmed = String(rawId || "").trim();
+  if (!trimmed) return "";
+  const withoutLoop = trimmed.replace(/-(?:loop|y)\d+$/i, "");
+  return withoutLoop.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+}
+function normalizeAnswerKey(raw) {
+  const upper = String(raw || "").trim().toUpperCase();
+  if (upper === "A" || upper === "B" || upper === "C" || upper === "D") {
+    return upper;
+  }
+  return null;
+}
+function escapeHtmlAttr(raw) {
+  return String(raw || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function injectSharedQuestionOpenGraphHtml(htmlTemplate, question, canonicalUrl) {
+  const shortStem = question.question.length > 155 ? `${question.question.slice(0, 152).trimEnd()}\u2026` : question.question;
+  const ogTitle = escapeHtmlAttr(
+    `SABI JAMB ${question.subjectLabel} Challenge \u2014 ${question.topicLabel}`
+  );
+  const ogDescription = escapeHtmlAttr(
+    `${shortStem} Tap to pick A, B, C, or D and see if you sabi the answer!`
+  );
+  const safeUrl = escapeHtmlAttr(canonicalUrl);
+  const metaTags = [
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="SABI JAMB UTME" />`,
+    `<meta property="og:title" content="${ogTitle}" />`,
+    `<meta property="og:description" content="${ogDescription}" />`,
+    `<meta property="og:url" content="${safeUrl}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${ogTitle}" />`,
+    `<meta name="twitter:description" content="${ogDescription}" />`
+  ].join("\n    ");
+  let updated = htmlTemplate.replace(
+    /<title>[\s\S]*?<\/title>/i,
+    `<title>${ogTitle}</title>`
+  );
+  updated = updated.replace(/<meta\s+property=["']og:[^"']+["'][^>]*>\s*/gi, "");
+  updated = updated.replace(/<meta\s+name=["']twitter:[^"']+["'][^>]*>\s*/gi, "");
+  if (updated.includes("</head>")) {
+    updated = updated.replace("</head>", `    ${metaTags}
+  </head>`);
+  }
+  return updated;
+}
+async function resolveQuestionForPublicShare(rawId) {
+  const cleanedRaw = String(rawId || "").trim().slice(0, 100);
+  const canonical = normalizeCanonicalId(cleanedRaw);
+  if (!canonical) return null;
+  if (hasServiceRoleKey) {
+    try {
+      const candidateIds = Array.from(new Set([cleanedRaw, canonical].filter(Boolean)));
+      const { data: row, error } = await supabaseAdmin.from("question_bank").select(
+        "id, subject, topic, subtopic, year, question, option_a, option_b, option_c, option_d, answer, explanation, explanation_short"
+      ).in("id", candidateIds).limit(1).maybeSingle();
+      if (!error && row) {
+        const answerKey = normalizeAnswerKey(row.answer);
+        if (answerKey && row.question && row.option_a && row.option_b && row.option_c && row.option_d) {
+          const subjectCanonical = String(row.subject || "JAMB UTME");
+          const topicLabel = String(row.topic || row.subtopic || "Core Syllabus");
+          const explanationShort = String(row.explanation_short || "").trim() || `Option ${answerKey} is correct based on the official JAMB ${subjectCanonical} syllabus.`;
+          const explanationFull = String(row.explanation || "").trim() || explanationShort;
+          const explanationPidgin = `Na Option ${answerKey} be the correct answer for dis ${subjectCanonical} (${topicLabel}) question. ${explanationShort}`;
+          return {
+            id: String(row.id),
+            subjectCanonical,
+            subjectLabel: getShortSubjectLabel(subjectCanonical),
+            topicLabel,
+            year: typeof row.year === "number" ? row.year : void 0,
+            question: String(row.question),
+            options: {
+              A: String(row.option_a),
+              B: String(row.option_b),
+              C: String(row.option_c),
+              D: String(row.option_d)
+            },
+            answer: answerKey,
+            explanationShort,
+            explanationFull,
+            explanationPidgin,
+            source: "supabase"
+          };
+        }
+      }
+    } catch {
+    }
+    try {
+      const { data: sharedRow, error: sharedErr } = await supabaseAdmin.from("shared_question_links").select(
+        "canonical_question_id, question_id, subject_canonical, subject_label, topic_label, question_year, question_text, options, correct_answer, explanation_short, explanation_full, explanation_pidgin"
+      ).eq("canonical_question_id", canonical).maybeSingle();
+      if (!sharedErr && sharedRow) {
+        const answerKey = normalizeAnswerKey(sharedRow.correct_answer);
+        const opts = sharedRow.options;
+        if (answerKey && sharedRow.question_text && opts?.A && opts?.B && opts?.C && opts?.D) {
+          const subjectCanonical = String(sharedRow.subject_canonical || "JAMB UTME");
+          const explanationShort = String(sharedRow.explanation_short || "").trim() || `Option ${answerKey} is correct based on the official JAMB ${subjectCanonical} syllabus.`;
+          return {
+            id: String(sharedRow.canonical_question_id || sharedRow.question_id),
+            subjectCanonical,
+            subjectLabel: String(
+              sharedRow.subject_label || getShortSubjectLabel(subjectCanonical)
+            ),
+            topicLabel: String(sharedRow.topic_label || "Core Syllabus"),
+            year: typeof sharedRow.question_year === "number" ? sharedRow.question_year : void 0,
+            question: String(sharedRow.question_text),
+            options: {
+              A: String(opts.A),
+              B: String(opts.B),
+              C: String(opts.C),
+              D: String(opts.D)
+            },
+            answer: answerKey,
+            explanationShort,
+            explanationFull: String(sharedRow.explanation_full || "").trim() || explanationShort,
+            explanationPidgin: String(sharedRow.explanation_pidgin || "").trim() || `Na Option ${answerKey} be the correct answer for dis ${subjectCanonical} question.`,
+            source: "shared_link"
+          };
+        }
+      }
+    } catch {
+    }
+  }
+  const curated = getCuratedStarterQuestions();
+  const curatedMatch = curated.find(
+    (q) => q.id.toLowerCase() === cleanedRaw.toLowerCase() || q.id.toLowerCase() === canonical.toLowerCase()
+  );
+  if (curatedMatch) {
+    return {
+      ...curatedMatch,
+      source: "curated"
+    };
+  }
+  const seedMatch = SEED_QUESTIONS.find(
+    (q) => q.id.toLowerCase() === cleanedRaw.toLowerCase() || q.id.toLowerCase() === canonical.toLowerCase()
+  );
+  if (seedMatch) {
+    return {
+      id: seedMatch.id,
+      subjectCanonical: seedMatch.subject,
+      subjectLabel: getShortSubjectLabel(seedMatch.subject),
+      topicLabel: seedMatch.topic || seedMatch.subtopic || "Core Syllabus",
+      year: seedMatch.year,
+      question: seedMatch.question,
+      options: seedMatch.options,
+      answer: seedMatch.answer,
+      explanationShort: seedMatch.explanation_short || `Option ${seedMatch.answer} is correct based on the official JAMB ${seedMatch.subject} syllabus.`,
+      explanationFull: seedMatch.explanation || seedMatch.explanation_short || `Option ${seedMatch.answer} is the verified JAMB answer.`,
+      explanationPidgin: seedMatch.explanation_pidgin || `Na Option ${seedMatch.answer} be the correct answer for dis ${seedMatch.subject} question.`,
+      source: "seed"
+    };
+  }
+  return null;
+}
+function mapDbRowToSnapshot(row) {
+  return {
+    snapshotId: String(row.snapshot_id),
+    questionId: String(row.question_id),
+    canonicalQuestionId: String(row.canonical_question_id),
+    mode: row.mode,
+    subjectCanonical: String(row.subject_canonical),
+    subjectLabel: String(row.subject_label),
+    topicLabel: String(row.topic_label),
+    year: typeof row.question_year === "number" ? row.question_year : void 0,
+    question: String(row.question_text),
+    options: row.options,
+    answer: row.correct_answer,
+    explanationShort: String(row.explanation_short || ""),
+    explanationFull: String(row.explanation_full || ""),
+    explanationPidgin: String(row.explanation_pidgin || ""),
+    wasAnswered: Boolean(row.was_answered),
+    selectedOption: row.selected_option ?? null,
+    isCorrect: typeof row.is_correct === "boolean" ? row.is_correct : null,
+    explanationStyle: row.explanation_style === "pidgin" ? "pidgin" : "english",
+    savedAt: String(row.saved_at || (/* @__PURE__ */ new Date()).toISOString())
+  };
+}
+var publicQuestionRouter = (0, import_express8.Router)();
+publicQuestionRouter.get("/:questionId", async (req, res) => {
+  const questionId = String(req.params.questionId || "").trim();
+  const resolved = await resolveQuestionForPublicShare(questionId);
+  if (!resolved) {
+    return res.status(404).json({
+      error: "This shared JAMB question could not be found.",
+      code: "QUESTION_NOT_FOUND"
+    });
+  }
+  res.set("Cache-Control", "public, max-age=120");
+  return res.json({
+    question: {
+      id: resolved.id,
+      subjectCanonical: resolved.subjectCanonical,
+      subjectLabel: resolved.subjectLabel,
+      topicLabel: resolved.topicLabel,
+      year: resolved.year,
+      question: resolved.question,
+      options: resolved.options
+    },
+    source: resolved.source
+  });
+});
+publicQuestionRouter.post(
+  "/:questionId/check",
+  validateBody(checkPublicAnswerSchema),
+  async (req, res) => {
+    const questionId = String(req.params.questionId || "").trim();
+    const { selectedOption } = req.body;
+    const resolved = await resolveQuestionForPublicShare(questionId);
+    if (!resolved) {
+      return res.status(404).json({
+        error: "This shared JAMB question could not be found.",
+        code: "QUESTION_NOT_FOUND"
+      });
+    }
+    return res.json({
+      questionId: resolved.id,
+      selectedOption,
+      correctAnswer: resolved.answer,
+      isCorrect: selectedOption === resolved.answer,
+      explanationShort: resolved.explanationShort,
+      explanationFull: resolved.explanationFull,
+      explanationPidgin: resolved.explanationPidgin
+    });
+  }
+);
+var snapshotRouter = (0, import_express8.Router)();
+snapshotRouter.post(
+  "/share-link",
+  requireAuth,
+  validateBody(shareLinkPublishSchema),
+  async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const input = req.body;
+    const canonicalId = normalizeCanonicalId(input.canonicalQuestionId || input.questionId);
+    if (!canonicalId) {
+      return res.status(400).json({ error: "Invalid question identifier." });
+    }
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    try {
+      const { error } = await supabaseAdmin.from("shared_question_links").upsert(
+        {
+          canonical_question_id: canonicalId,
+          question_id: input.questionId,
+          shared_by_user_id: userId,
+          mode: input.mode,
+          subject_canonical: input.subjectCanonical,
+          subject_label: input.subjectLabel,
+          topic_label: input.topicLabel,
+          question_year: input.year ?? null,
+          question_text: input.question,
+          options: input.options,
+          correct_answer: input.answer,
+          explanation_short: input.explanationShort,
+          explanation_full: input.explanationFull,
+          explanation_pidgin: input.explanationPidgin,
+          updated_at: nowIso
+        },
+        { onConflict: "canonical_question_id" }
+      );
+      if (error) {
+        return res.status(200).json({
+          status: "fallback",
+          canonicalQuestionId: canonicalId,
+          path: `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(input.mode)}&src=share`
+        });
+      }
+      return res.status(200).json({
+        status: "published",
+        canonicalQuestionId: canonicalId,
+        path: `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(input.mode)}&src=share`
+      });
+    } catch {
+      return res.status(200).json({
+        status: "fallback",
+        canonicalQuestionId: canonicalId,
+        path: `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(input.mode)}&src=share`
+      });
+    }
+  }
+);
+snapshotRouter.get("/", requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+  try {
+    const { data, error } = await supabaseAdmin.from("saved_question_snapshots").select(
+      "snapshot_id, question_id, canonical_question_id, mode, subject_canonical, subject_label, topic_label, question_year, question_text, options, correct_answer, explanation_short, explanation_full, explanation_pidgin, was_answered, selected_option, is_correct, explanation_style, saved_at"
+    ).eq("user_id", userId).order("saved_at", { ascending: false }).limit(100);
+    if (error) {
+      return res.status(503).json({
+        error: "Saved snapshots table is unavailable. Run the latest Supabase migration.",
+        code: "SNAPSHOTS_UNAVAILABLE"
+      });
+    }
+    return res.json({
+      source: "supabase",
+      snapshots: (data || []).map(mapDbRowToSnapshot)
+    });
+  } catch {
+    return res.status(503).json({
+      error: "Saved snapshots could not be loaded right now.",
+      code: "SNAPSHOTS_UNAVAILABLE"
+    });
+  }
+});
+snapshotRouter.post("/", requireAuth, validateBody(upsertSnapshotSchema), async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+  const input = req.body;
+  const canonicalId = normalizeCanonicalId(input.canonicalQuestionId || input.questionId);
+  if (!canonicalId) {
+    return res.status(400).json({ error: "Invalid question identifier." });
+  }
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  const payload = {
+    user_id: userId,
+    snapshot_id: input.snapshotId,
+    question_id: input.questionId,
+    canonical_question_id: canonicalId,
+    mode: input.mode,
+    subject_canonical: input.subjectCanonical,
+    subject_label: input.subjectLabel,
+    topic_label: input.topicLabel,
+    question_year: input.year ?? null,
+    question_text: input.question,
+    options: input.options,
+    correct_answer: input.answer,
+    explanation_short: input.explanationShort,
+    explanation_full: input.explanationFull,
+    explanation_pidgin: input.explanationPidgin,
+    was_answered: Boolean(input.wasAnswered && input.selectedOption),
+    selected_option: input.wasAnswered ? input.selectedOption : null,
+    is_correct: input.wasAnswered ? input.isCorrect : null,
+    explanation_style: input.explanationStyle,
+    saved_at: input.savedAt || nowIso,
+    updated_at: nowIso
+  };
+  try {
+    const { data, error } = await supabaseAdmin.from("saved_question_snapshots").upsert(payload, { onConflict: "user_id,canonical_question_id" }).select(
+      "snapshot_id, question_id, canonical_question_id, mode, subject_canonical, subject_label, topic_label, question_year, question_text, options, correct_answer, explanation_short, explanation_full, explanation_pidgin, was_answered, selected_option, is_correct, explanation_style, saved_at"
+    ).single();
+    if (error || !data) {
+      return res.status(503).json({
+        error: "Could not sync saved snapshot to Supabase.",
+        code: "SNAPSHOT_SYNC_FAILED"
+      });
+    }
+    return res.status(200).json({
+      status: "synced",
+      snapshot: mapDbRowToSnapshot(data)
+    });
+  } catch {
+    return res.status(503).json({
+      error: "Could not sync saved snapshot to Supabase.",
+      code: "SNAPSHOT_SYNC_FAILED"
+    });
+  }
+});
+snapshotRouter.patch(
+  "/:canonicalQuestionId/attempt",
+  requireAuth,
+  validateBody(recordAttemptSchema),
+  async (req, res) => {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const canonicalId = normalizeCanonicalId(String(req.params.canonicalQuestionId || ""));
+    if (!canonicalId) {
+      return res.status(400).json({ error: "Invalid question identifier." });
+    }
+    const { selectedOption } = req.body;
+    try {
+      const { data: existing, error: fetchErr } = await supabaseAdmin.from("saved_question_snapshots").select("id, correct_answer").eq("user_id", userId).eq("canonical_question_id", canonicalId).maybeSingle();
+      if (fetchErr) {
+        return res.status(503).json({ error: "Could not update saved snapshot right now." });
+      }
+      if (!existing) {
+        return res.status(404).json({ error: "Saved snapshot not found." });
+      }
+      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+      const { data, error } = await supabaseAdmin.from("saved_question_snapshots").update({
+        was_answered: true,
+        selected_option: selectedOption,
+        is_correct: selectedOption === existing.correct_answer,
+        saved_at: nowIso,
+        updated_at: nowIso
+      }).eq("user_id", userId).eq("canonical_question_id", canonicalId).select(
+        "snapshot_id, question_id, canonical_question_id, mode, subject_canonical, subject_label, topic_label, question_year, question_text, options, correct_answer, explanation_short, explanation_full, explanation_pidgin, was_answered, selected_option, is_correct, explanation_style, saved_at"
+      ).single();
+      if (error || !data) {
+        return res.status(503).json({ error: "Could not save your snapshot attempt." });
+      }
+      return res.json({
+        status: "updated",
+        snapshot: mapDbRowToSnapshot(data)
+      });
+    } catch {
+      return res.status(503).json({ error: "Could not save your snapshot attempt." });
+    }
+  }
+);
+snapshotRouter.delete("/:canonicalQuestionId", requireAuth, async (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) return res.status(401).json({ error: "Authentication required." });
+  const canonicalId = normalizeCanonicalId(String(req.params.canonicalQuestionId || ""));
+  if (!canonicalId) {
+    return res.status(400).json({ error: "Invalid question identifier." });
+  }
+  try {
+    const { error } = await supabaseAdmin.from("saved_question_snapshots").delete().eq("user_id", userId).eq("canonical_question_id", canonicalId);
+    if (error) {
+      return res.status(503).json({ error: "Could not remove saved snapshot." });
+    }
+    return res.json({ status: "removed", canonicalQuestionId: canonicalId });
+  } catch {
+    return res.status(503).json({ error: "Could not remove saved snapshot." });
+  }
+});
+
 // server.ts
-var app = (0, import_express8.default)();
+var app = (0, import_express9.default)();
 var PORT = config.port;
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
@@ -68482,7 +69753,7 @@ app.use(
     crossOriginEmbedderPolicy: false
   })
 );
-app.use(import_express8.default.json({ limit: config.maxJsonBody }));
+app.use(import_express9.default.json({ limit: config.maxJsonBody }));
 app.use((req, res, next) => {
   if (!req.path.startsWith("/api")) {
     res.removeHeader("X-Frame-Options");
@@ -68554,6 +69825,7 @@ app.get("/api/health", (_req, res) => {
   res.json({
     status: "ok",
     phase: "phase0",
+    stage: "stage3-sync-and-question-bank",
     runtime: process.env.VERCEL ? "vercel-function" : "node-server",
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
     supabase_url_configured: Boolean(SUPABASE_URL),
@@ -68562,6 +69834,15 @@ app.get("/api/health", (_req, res) => {
     configuration_error: SUPABASE_ADMIN_ERROR,
     instant_verify: config.instantVerify,
     ai_configured: Boolean(process.env.GEMINI_API_KEY),
+    public_web_url_configured: Boolean(
+      process.env.SABI_APP_URL || process.env.VITE_PUBLIC_WEB_URL || process.env.VITE_PUBLIC_APP_URL
+    ),
+    billing_configured: Boolean(
+      process.env.PAYSTACK_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY
+    ),
+    email_notifications_configured: Boolean(
+      process.env.BREVO_API_KEY || process.env.TERMII_API_KEY
+    ),
     extra_cors_origins: config.allowedOrigins.length
   });
 });
@@ -68569,17 +69850,66 @@ app.post("/api/auth/register", authLimiter, validateBody(registerSchema), async 
   try {
     const { fullName, email, password, phone, stateOfOrigin, provider = "email" } = req.body;
     const normalizedEmail = String(email).trim().toLowerCase();
-    const { data: existingProfile, error: profileLookupError } = await supabaseAdmin.from("profiles").select("id").eq("email", normalizedEmail).maybeSingle();
+    const { data: existingProfile, error: profileLookupError } = await supabaseAdmin.from("profiles").select("*").eq("email", normalizedEmail).maybeSingle();
     if (profileLookupError) {
       console.error("[SABI] Registration profile lookup failed:", profileLookupError.message);
       return res.status(503).json({ error: "Registration is temporarily unavailable. Please try again." });
     }
-    if (existingProfile) {
+    const existingProviders = Array.isArray(existingProfile?.auth_providers) ? existingProfile.auth_providers : [];
+    const isGoogleOnlyProfile = Boolean(existingProfile?.id) && existingProviders.includes("google") && !existingProviders.includes("email");
+    if (existingProfile && !isGoogleOnlyProfile) {
       return res.status(409).json({
-        error: "An account with this email is already registered. Please sign in or use Forgot Password."
+        error: "An account with this email is already registered. Please sign in with your password or Continue with Google."
       });
     }
-    const uniqueId = generateDeterministicSabiId(normalizedEmail);
+    const uniqueId = existingProfile?.sabi_unique_id || generateDeterministicSabiId(normalizedEmail);
+    if (existingProfile && isGoogleOnlyProfile) {
+      const mergedProviders = Array.from(/* @__PURE__ */ new Set([...existingProviders, "email", provider]));
+      const resolvedName = fullName || existingProfile.full_name || "Candidate";
+      const resolvedPhone = phone || existingProfile.phone || "";
+      const resolvedState = stateOfOrigin || existingProfile.state_of_origin || "Lagos";
+      const { error: linkErr } = await supabaseAdmin.auth.admin.updateUserById(
+        existingProfile.id,
+        {
+          password: String(password),
+          email_confirm: true,
+          user_metadata: {
+            full_name: resolvedName,
+            phone: resolvedPhone,
+            state_of_origin: resolvedState,
+            sabi_unique_id: uniqueId,
+            email_verified: true,
+            issuer: "SABI"
+          }
+        }
+      );
+      if (linkErr) {
+        return res.status(400).json({
+          error: linkErr.message || "Could not link email password to your existing Google account. Please Continue with Google."
+        });
+      }
+      const { data: linkedProfile, error: linkProfileErr } = await supabaseAdmin.from("profiles").update({
+        full_name: resolvedName,
+        phone: resolvedPhone,
+        state_of_origin: resolvedState,
+        sabi_unique_id: uniqueId,
+        auth_providers: mergedProviders,
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("id", existingProfile.id).select("*").single();
+      if (linkProfileErr || !linkedProfile) {
+        return res.status(500).json({
+          error: linkProfileErr?.message || "Failed to synchronize linked Google + Email profile."
+        });
+      }
+      return res.json({
+        status: "linked",
+        verified: true,
+        auth_user_id: existingProfile.id,
+        profile: linkedProfile,
+        sabi_unique_id: linkedProfile.sabi_unique_id,
+        requires_email_verification: false
+      });
+    }
     let userId;
     const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
       email: normalizedEmail,
@@ -68601,7 +69931,7 @@ app.post("/api/auth/register", authLimiter, validateBody(registerSchema), async 
       const alreadyRegistered = reason.includes("already") || reason.includes("exists") || reason.includes("registered");
       if (alreadyRegistered) {
         return res.status(409).json({
-          error: "An account with this email is already registered. Please sign in or use Forgot Password."
+          error: "An account with this email is already registered. Please sign in or Continue with Google."
         });
       }
       return res.status(400).json({
@@ -68621,6 +69951,7 @@ app.post("/api/auth/register", authLimiter, validateBody(registerSchema), async 
         phone: phone || "",
         state_of_origin: stateOfOrigin || "Lagos",
         auth_providers: updatedProviders,
+        onboarding_completed: false,
         updated_at: (/* @__PURE__ */ new Date()).toISOString()
       },
       { onConflict: "email" }
@@ -68691,6 +70022,7 @@ app.post(
         const { error: confirmErr } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
           email_confirm: true,
           user_metadata: {
+            ...user.metadata || {},
             sabi_unique_id: resolvedUniqueId,
             email_verified: true,
             issuer: "SABI"
@@ -68703,17 +70035,19 @@ app.post(
           });
         }
       }
+      const metadata = user.metadata || {};
+      const googleOrMetaName = typeof metadata.full_name === "string" && metadata.full_name.trim() || typeof metadata.name === "string" && metadata.name.trim() || "";
       if (!profile) {
-        const metadata = user.metadata || {};
         const { data: upserted, error: upsertError } = await supabaseAdmin.from("profiles").upsert(
           {
             id: user.id,
             email: user.email || email,
             sabi_unique_id: resolvedUniqueId,
-            full_name: metadata.full_name || metadata.name || "",
+            full_name: googleOrMetaName || "Candidate",
             phone: metadata.phone || user.phone || "",
             state_of_origin: metadata.state_of_origin || "Lagos",
             auth_providers: user.providers.length ? user.providers : ["email"],
+            onboarding_completed: false,
             updated_at: (/* @__PURE__ */ new Date()).toISOString()
           },
           { onConflict: "email" }
@@ -68729,11 +70063,20 @@ app.post(
           });
         }
         profile = upserted;
-      } else if (user.providers.length) {
+      } else {
         const mergedProviders = Array.from(
-          /* @__PURE__ */ new Set([...profile.auth_providers || ["email"], ...user.providers])
+          /* @__PURE__ */ new Set([
+            ...Array.isArray(profile.auth_providers) ? profile.auth_providers : ["email"],
+            ...user.providers || []
+          ])
         );
-        const { data: updated, error: providerUpdateError } = await supabaseAdmin.from("profiles").update({ auth_providers: mergedProviders, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", profile.id).select("*").maybeSingle();
+        const shouldUpgradeName = googleOrMetaName && (!profile.full_name || profile.full_name.trim() === "" || profile.full_name.trim().toLowerCase() === "candidate");
+        const { data: updated, error: providerUpdateError } = await supabaseAdmin.from("profiles").update({
+          auth_providers: mergedProviders,
+          sabi_unique_id: resolvedUniqueId,
+          ...shouldUpgradeName ? { full_name: googleOrMetaName } : {},
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        }).eq("id", profile.id).select("*").maybeSingle();
         if (providerUpdateError || !updated) {
           console.error(
             "[SABI] Verification provider sync failed:",
@@ -68938,6 +70281,126 @@ app.post("/api/auth/reset-password", (_req, res) => {
     error: 'This recovery method has been retired for security reasons. Update the SABI app and use "Forgot Password" to receive a 6-digit recovery code.'
   });
 });
+app.get("/api/profile/me", requireAuth, async (req, res) => {
+  const user = req.user;
+  const normalizedEmail = String(user.email || "").trim().toLowerCase();
+  try {
+    const profileSelectCols = "id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at";
+    let { data: profile, error } = await supabaseAdmin.from("profiles").select(profileSelectCols).eq("id", user.id).maybeSingle();
+    if (error) {
+      return res.status(500).json({ error: error.message || "Failed to load candidate profile." });
+    }
+    if (!profile && normalizedEmail) {
+      const { data: profileByEmail, error: emailErr } = await supabaseAdmin.from("profiles").select(profileSelectCols).eq("email", normalizedEmail).maybeSingle();
+      if (emailErr) {
+        return res.status(500).json({ error: emailErr.message || "Failed to load candidate profile." });
+      }
+      profile = profileByEmail;
+    }
+    const metadata = user.metadata || {};
+    const metaName = typeof metadata.full_name === "string" && metadata.full_name.trim() || typeof metadata.name === "string" && metadata.name.trim() || "";
+    if (!profile) {
+      const fallbackUniqueId = typeof metadata.sabi_unique_id === "string" && /^\d{4}[A-Z]$/.test(metadata.sabi_unique_id) ? metadata.sabi_unique_id : generateDeterministicSabiId(normalizedEmail || user.id);
+      const fallbackName = metaName || "Candidate";
+      const fallbackPhone = typeof metadata.phone === "string" && metadata.phone.trim() ? metadata.phone.trim() : user.phone || "";
+      const fallbackState = typeof metadata.state_of_origin === "string" && metadata.state_of_origin.trim() ? metadata.state_of_origin.trim() : "Lagos";
+      const { data: createdProfile, error: createErr } = await supabaseAdmin.from("profiles").upsert(
+        {
+          id: user.id,
+          email: normalizedEmail,
+          sabi_unique_id: fallbackUniqueId,
+          full_name: fallbackName,
+          phone: fallbackPhone,
+          state_of_origin: fallbackState,
+          auth_providers: user.providers.length > 0 ? user.providers : ["email"],
+          onboarding_completed: false,
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        },
+        { onConflict: normalizedEmail ? "email" : "id" }
+      ).select(profileSelectCols).maybeSingle();
+      if (createErr || !createdProfile) {
+        return res.status(500).json({ error: createErr?.message || "Could not initialize candidate profile." });
+      }
+      profile = createdProfile;
+    } else {
+      const existingProviders = Array.isArray(profile.auth_providers) ? profile.auth_providers : ["email"];
+      const mergedProviders = Array.from(
+        /* @__PURE__ */ new Set([...existingProviders, ...user.providers || []])
+      );
+      const needsProviderSync = mergedProviders.length > existingProviders.length;
+      const needsNameUpgrade = Boolean(metaName) && (!profile.full_name || profile.full_name.trim() === "" || profile.full_name.trim().toLowerCase() === "candidate");
+      const needsUniqueId = !profile.sabi_unique_id;
+      if (needsProviderSync || needsNameUpgrade || needsUniqueId) {
+        const resolvedUniqueId = profile.sabi_unique_id || generateDeterministicSabiId(normalizedEmail || user.id);
+        const { data: syncedProfile } = await supabaseAdmin.from("profiles").update({
+          auth_providers: mergedProviders,
+          sabi_unique_id: resolvedUniqueId,
+          ...needsNameUpgrade ? { full_name: metaName } : {},
+          updated_at: (/* @__PURE__ */ new Date()).toISOString()
+        }).eq("id", profile.id).select(profileSelectCols).maybeSingle();
+        if (syncedProfile) {
+          profile = syncedProfile;
+        }
+      }
+    }
+    const rawOnboarding = profile.onboarding_answers && typeof profile.onboarding_answers === "object" ? profile.onboarding_answers : {};
+    const liveProgress = rawOnboarding.live_progress && typeof rawOnboarding.live_progress === "object" ? rawOnboarding.live_progress : null;
+    res.set("Cache-Control", "no-store");
+    return res.json({
+      status: "ok",
+      profile,
+      onboarding_completed: Boolean(profile.onboarding_completed),
+      registered_subjects: Array.isArray(profile.registered_subjects) ? profile.registered_subjects : [],
+      live_progress: liveProgress
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err?.message || "Failed to load candidate profile." });
+  }
+});
+app.patch(
+  "/api/profile/me",
+  requireAuth,
+  validateBody(profileUpdateSchema),
+  async (req, res) => {
+    const user = req.user;
+    const { fullName, phone, stateOfOrigin, targetCourse, targetUniversity, targetScore } = req.body;
+    try {
+      const { data: existing, error: fetchErr } = await supabaseAdmin.from("profiles").select("id, onboarding_answers").eq("id", user.id).maybeSingle();
+      if (fetchErr) {
+        return res.status(500).json({ error: fetchErr.message || "Failed to load existing profile." });
+      }
+      if (!existing) {
+        return res.status(404).json({ error: "Candidate profile not found." });
+      }
+      const updatePayload = {
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      if (fullName !== void 0) updatePayload.full_name = fullName;
+      if (phone !== void 0) updatePayload.phone = phone;
+      if (stateOfOrigin !== void 0) updatePayload.state_of_origin = stateOfOrigin;
+      if (targetScore !== void 0) updatePayload.target_score = targetScore;
+      if (fullName !== void 0 || targetCourse !== void 0 || targetUniversity !== void 0) {
+        const currentAnswers = existing.onboarding_answers && typeof existing.onboarding_answers === "object" ? existing.onboarding_answers : {};
+        updatePayload.onboarding_answers = {
+          ...currentAnswers,
+          ...fullName !== void 0 ? { fullName } : {},
+          ...targetCourse !== void 0 ? { targetCourse } : {},
+          ...targetUniversity !== void 0 ? { targetUniversity } : {}
+        };
+      }
+      const { data: updatedProfile, error: updateErr } = await supabaseAdmin.from("profiles").update(updatePayload).eq("id", user.id).select(
+        "id, email, sabi_unique_id, full_name, phone, state_of_origin, auth_providers, onboarding_completed, onboarding_answers, registered_subjects, target_score, updated_at"
+      ).maybeSingle();
+      if (updateErr || !updatedProfile) {
+        return res.status(500).json({ error: updateErr?.message || "Failed to update candidate profile." });
+      }
+      res.set("Cache-Control", "no-store");
+      return res.json({ status: "updated", profile: updatedProfile });
+    } catch (err) {
+      return res.status(500).json({ error: err?.message || "Failed to update candidate profile." });
+    }
+  }
+);
 app.post(
   "/api/profile/onboarding",
   requireAuth,
@@ -69287,6 +70750,8 @@ app.use("/api/ai", routes_default3);
 app.use("/api/billing", routes_default4);
 app.use("/api/gamification", routes_default5);
 app.use("/api/notifications", routes_default6);
+app.use("/api/public/questions", publicQuestionRouter);
+app.use("/api/snapshots", snapshotRouter);
 app.use(apiNotFoundHandler);
 app.use(errorHandler);
 async function startServer() {
@@ -69308,8 +70773,9 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = import_path.default.join(process.cwd(), "dist");
+    const distIndexPath = import_path.default.join(distPath, "index.html");
     app.use(
-      import_express8.default.static(distPath, {
+      import_express9.default.static(distPath, {
         etag: false,
         lastModified: false,
         setHeaders: (res) => {
@@ -69317,9 +70783,26 @@ async function startServer() {
         }
       })
     );
+    app.get("/q/:questionId", async (req, res) => {
+      res.set("Cache-Control", "public, max-age=120");
+      try {
+        const htmlTemplate = import_fs.default.readFileSync(distIndexPath, "utf8");
+        const resolved = await resolveQuestionForPublicShare(String(req.params.questionId || ""));
+        if (!resolved) {
+          return res.type("html").send(htmlTemplate);
+        }
+        const host = req.get("host") || "sabi-tan.vercel.app";
+        const proto = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
+        const canonicalUrl = `${proto}://${host}/q/${encodeURIComponent(resolved.id)}`;
+        const enrichedHtml = injectSharedQuestionOpenGraphHtml(htmlTemplate, resolved, canonicalUrl);
+        return res.type("html").send(enrichedHtml);
+      } catch {
+        return res.sendFile(distIndexPath);
+      }
+    });
     app.get("*", (_req, res) => {
       res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.sendFile(import_path.default.join(distPath, "index.html"));
+      res.sendFile(distIndexPath);
     });
   }
   app.listen(PORT, "0.0.0.0", () => {
