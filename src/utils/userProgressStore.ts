@@ -135,21 +135,70 @@ const DEFAULT_PROGRESS: UserRealProgress = {
   dailyActivityLog: {},
 };
 
-export function getTodayIsoDate(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
+const OFFLINE_QUEUE_KEY = 'sabi_offline_activity_queue_v1';
+const MAX_OFFLINE_QUEUE = 500;
+let profileSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+function formatLagosDate(date: Date): string {
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Lagos',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const year = parts.find((p) => p.type === 'year')?.value;
+    const month = parts.find((p) => p.type === 'month')?.value;
+    const day = parts.find((p) => p.type === 'day')?.value;
+    if (year && month && day) return `${year}-${month}-${day}`;
+  } catch {
+    // Fallback to local clock if Intl timeZone is unavailable
+  }
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function getTodayIsoDate(): string {
+  return formatLagosDate(new Date());
 }
 
 export function getYesterdayIsoDate(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return formatLagosDate(d);
+}
+
+function appendOfflineActivityOutbox(event: {
+  eventType: 'question_attempt' | 'session_completed';
+  mode: 'blitz' | 'smart' | 'custom' | 'cbt' | 'diagnostic';
+  questionId?: string | null;
+  subject: string;
+  topic: string;
+  selectedOption?: 'A' | 'B' | 'C' | 'D' | null;
+  isCorrect?: boolean | null;
+  elapsedSeconds: number;
+  comboMultiplier?: number;
+}): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    const queue = Array.isArray(parsed) ? parsed : [];
+    const rand = Math.random().toString(36).slice(2, 10);
+    queue.push({
+      ...event,
+      clientEventId: `${event.eventType}-${Date.now()}-${rand}`,
+      occurredAt: new Date().toISOString(),
+    });
+    localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue.slice(-MAX_OFFLINE_QUEUE)));
+    if (typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new Event('sabi-activity-queued'));
+    }
+  } catch {
+    // ignore storage quota errors
+  }
 }
 
 function computeNextStreak(current: UserRealProgress, today: string): {
@@ -284,7 +333,10 @@ export function getRealUserProgress(): UserRealProgress {
   }
 }
 
-export function saveRealUserProgress(next: UserRealProgress): UserRealProgress {
+export function saveRealUserProgress(
+  next: UserRealProgress,
+  options?: { skipRemoteSync?: boolean }
+): UserRealProgress {
   const normalized: UserRealProgress = {
     ...next,
     mainDiamonds: Math.max(0, next.mainDiamonds || 0),
@@ -300,17 +352,143 @@ export function saveRealUserProgress(next: UserRealProgress): UserRealProgress {
   if (typeof window === 'undefined') return normalized;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-    window.dispatchEvent(new Event('sabi-progress-updated'));
+    if (typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(new Event('sabi-progress-updated'));
+    }
 
-    // Signed-out callers receive 401 which is ignored silently.
-    apiFetch('/api/profile/progress', {
-      method: 'POST',
-      body: JSON.stringify({ progress: normalized }),
-    }).catch(() => {});
+    if (!options?.skipRemoteSync) {
+      if (profileSyncTimer) clearTimeout(profileSyncTimer);
+      profileSyncTimer = setTimeout(() => {
+        profileSyncTimer = null;
+        // Signed-out callers receive 401 which is ignored silently.
+        apiFetch('/api/profile/progress', {
+          method: 'POST',
+          body: JSON.stringify({ progress: normalized }),
+        }).catch(() => {});
+      }, 1500);
+    }
   } catch {
     // ignore storage errors
   }
   return normalized;
+}
+
+export interface ServerProgressReconciliationInput {
+  todayWat: string;
+  streakDays: number;
+  longestStreak: number;
+  lastActivityDate: string | null;
+  totalXp: number;
+  dailyXp: number;
+  totalStudySeconds: number;
+  dailyStudySeconds: number;
+  dailyActivityLog: Record<
+    string,
+    {
+      date: string;
+      questionsPracticed: number;
+      correctCount: number;
+      xpEarned: number;
+      studySeconds: number;
+      sessionsCompleted: number;
+      subjectsPracticed: string[];
+    }
+  >;
+  subjectStats: Record<string, { solved: number; correct: number; rating: number }>;
+  topicStats: Record<
+    string,
+    Record<
+      string,
+      { solved: number; correct: number; lastPracticedAt: string; lastMissedAt?: string }
+    >
+  >;
+}
+
+/**
+ * Reconciles authoritative Supabase streak, XP, daily usage, and topic mastery into the
+ * device cache without overwriting unsynced local work or triggering a feedback loop.
+ */
+export function reconcileServerProgressSummary(
+  server: ServerProgressReconciliationInput
+): UserRealProgress {
+  const local = getRealUserProgress();
+  const today = server.todayWat || getTodayIsoDate();
+
+  const mergedDailyLog: Record<string, DailyActivityEntry> = { ...local.dailyActivityLog };
+  for (const [dateKey, row] of Object.entries(server.dailyActivityLog || {})) {
+    const prev = mergedDailyLog[dateKey];
+    mergedDailyLog[dateKey] = {
+      date: dateKey,
+      questionsPracticed: Math.max(prev?.questionsPracticed || 0, row.questionsPracticed || 0),
+      correctCount: Math.max(prev?.correctCount || 0, row.correctCount || 0),
+      levelsAttempted: Math.max(prev?.levelsAttempted || 0, row.sessionsCompleted || 0),
+      flawlessLevelsCleared: prev?.flawlessLevelsCleared || 0,
+      subjectsPracticed: Array.from(
+        new Set([...(prev?.subjectsPracticed || []), ...(row.subjectsPracticed || [])])
+      ),
+      xpEarned: Math.max(prev?.xpEarned || 0, row.xpEarned || 0),
+      studySeconds: Math.max(prev?.studySeconds || 0, row.studySeconds || 0),
+    };
+  }
+
+  const mergedSubjectStats: Record<string, SubjectProgressStat> = { ...local.subjectStats };
+  for (const [subj, stat] of Object.entries(server.subjectStats || {})) {
+    const prev = mergedSubjectStats[subj];
+    if (!prev || stat.solved >= prev.solved) {
+      mergedSubjectStats[subj] = {
+        ...prev,
+        solved: stat.solved,
+        correct: stat.correct,
+        rating: stat.rating,
+      };
+    }
+  }
+
+  const mergedTopicStats: Record<string, Record<string, TopicProgressStat>> = {
+    ...local.topicStats,
+  };
+  for (const [subj, topics] of Object.entries(server.topicStats || {})) {
+    const currentSubjTopics = { ...(mergedTopicStats[subj] || {}) };
+    for (const [topicName, tStat] of Object.entries(topics)) {
+      const prev = currentSubjTopics[topicName];
+      if (!prev || tStat.solved >= prev.solved) {
+        currentSubjTopics[topicName] = {
+          solved: tStat.solved,
+          correct: tStat.correct,
+          lastPracticedAt: tStat.lastPracticedAt,
+          ...(tStat.lastMissedAt ? { lastMissedAt: tStat.lastMissedAt } : {}),
+        };
+      }
+    }
+    mergedTopicStats[subj] = currentSubjTopics;
+  }
+
+  const mergedLastActive =
+    server.lastActivityDate && (!local.lastActiveDate || server.lastActivityDate >= local.lastActiveDate)
+      ? server.lastActivityDate
+      : local.lastActiveDate;
+
+  const mergedDraft: UserRealProgress = {
+    ...local,
+    streakDays: Math.max(local.streakDays, server.streakDays),
+    longestStreak: Math.max(local.longestStreak, server.longestStreak, server.streakDays),
+    lastActiveDate: mergedLastActive,
+    totalXp: Math.max(local.totalXp, server.totalXp),
+    dailyXp: Math.max(local.dailyXpDate === today ? local.dailyXp : 0, server.dailyXp),
+    dailyXpDate: Math.max(local.dailyXp, server.dailyXp) > 0 ? today : local.dailyXpDate,
+    totalStudySeconds: Math.max(local.totalStudySeconds, server.totalStudySeconds),
+    dailyStudySeconds: Math.max(
+      local.dailyXpDate === today ? local.dailyStudySeconds : 0,
+      server.dailyStudySeconds
+    ),
+    dailyActivityLog: mergedDailyLog,
+    subjectStats: mergedSubjectStats,
+    topicStats: mergedTopicStats,
+  };
+
+  return saveRealUserProgress(applyXpToLimitedDiamonds(mergedDraft, today), {
+    skipRemoteSync: true,
+  });
 }
 
 export interface EconomySnapshot {
@@ -404,6 +582,9 @@ export function recordStudyActivity(params: {
   mode: 'blitz' | 'smart' | 'custom' | 'cbt' | 'diagnostic';
   elapsedSeconds?: number;
   xpOverride?: number;
+  questionId?: string;
+  selectedOption?: 'A' | 'B' | 'C' | 'D';
+  comboMultiplier?: number;
 }): UserRealProgress {
   const current = getRealUserProgress();
   const today = getTodayIsoDate();
@@ -509,6 +690,17 @@ export function recordStudyActivity(params: {
   };
 
   const withLimitedDiamonds = applyXpToLimitedDiamonds(draft, today);
+  appendOfflineActivityOutbox({
+    eventType: 'question_attempt',
+    mode: params.mode,
+    questionId: params.questionId || null,
+    subject: subjectKey,
+    topic: topicName,
+    selectedOption: params.selectedOption || null,
+    isCorrect: params.isCorrect,
+    elapsedSeconds: clampedSeconds,
+    comboMultiplier: params.comboMultiplier,
+  });
   return saveRealUserProgress(withLimitedDiamonds);
 }
 
@@ -570,6 +762,13 @@ export function recordSessionDurationBonus(params: {
   };
 
   const withLimitedDiamonds = applyXpToLimitedDiamonds(draft, today);
+  appendOfflineActivityOutbox({
+    eventType: 'session_completed',
+    mode: params.mode,
+    subject: 'JAMB UTME',
+    topic: `${params.mode.toUpperCase()} Session`,
+    elapsedSeconds: clampedDuration,
+  });
   return saveRealUserProgress(withLimitedDiamonds);
 }
 

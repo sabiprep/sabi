@@ -172,7 +172,7 @@ app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     phase: 'phase0',
-    stage: 'stage2-auth-hardened',
+    stage: 'stage3-sync-and-question-bank',
     runtime: process.env.VERCEL ? 'vercel-function' : 'node-server',
     timestamp: new Date().toISOString(),
     supabase_url_configured: Boolean(SUPABASE_URL),

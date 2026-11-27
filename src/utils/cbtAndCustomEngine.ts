@@ -7,6 +7,7 @@ import {
   type PracticeFeedQuestion,
 } from './smartPracticeSession';
 import { recordSessionDurationBonus, recordStudyActivity } from './userProgressStore';
+import { flushOfflineActivityQueue, loadCachedLiveQuestions } from './activitySyncEngine';
 
 export type CbtMockPreset = 'full_180' | 'quick_40';
 export type CbtSourceMode = 'shuffle' | 'year';
@@ -160,16 +161,36 @@ function normalizeQuestion(q: Question): PracticeFeedQuestion & {
   };
 }
 
-let cachedAllQuestions: (PracticeFeedQuestion & {
+let cachedSeedQuestions: (PracticeFeedQuestion & {
   difficulty: 'easy' | 'medium' | 'hard';
   year?: number;
 })[] | null = null;
 
 export function getAllNormalizedQuestions() {
-  if (!cachedAllQuestions) {
-    cachedAllQuestions = SEED_QUESTIONS.map(normalizeQuestion);
+  if (!cachedSeedQuestions) {
+    cachedSeedQuestions = SEED_QUESTIONS.map(normalizeQuestion);
   }
-  return cachedAllQuestions;
+  const liveCached = loadCachedLiveQuestions();
+  if (liveCached.length === 0) {
+    return cachedSeedQuestions;
+  }
+  const byId = new Map<
+    string,
+    PracticeFeedQuestion & { difficulty: 'easy' | 'medium' | 'hard'; year?: number }
+  >();
+  for (const item of liveCached) {
+    byId.set(item.id, {
+      ...item,
+      difficulty: item.difficulty || 'medium',
+      year: item.year,
+    });
+  }
+  for (const seed of cachedSeedQuestions) {
+    if (!byId.has(seed.id)) {
+      byId.set(seed.id, seed);
+    }
+  }
+  return Array.from(byId.values());
 }
 
 /**
@@ -398,8 +419,10 @@ export function gradeCbtExam(params: {
 
     if (selectedOption) {
       recordStudyActivity({
+        questionId: q.id,
         subject: q.subjectCanonical,
         topic: q.topicLabel,
+        selectedOption,
         isCorrect,
         mode: 'cbt',
         elapsedSeconds: Math.max(
@@ -462,6 +485,7 @@ export function gradeCbtExam(params: {
   };
 
   saveCbtMockResult(result);
+  void flushOfflineActivityQueue();
   return result;
 }
 

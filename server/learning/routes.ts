@@ -17,8 +17,10 @@ import { buildLearningAnalytics, buildStudyPlan, buildSyllabusCoverage } from '.
 import { buildAdaptiveDecisionRows, selectPersonalizedQuestions, type PersonalizedSelection } from './selectors';
 import { enqueueNotification } from '../notifications/queue';
 import { awardXP, recordStudyActivity } from '../gamification/service';
+import { registerStage3LearningRoutes } from './activitySync';
 
 const router = Router();
+registerStage3LearningRoutes(router);
 
 const createSessionSchema = z.strictObject({
   mode: z.enum(['diagnostic', 'smart_practice', 'blitz', 'cbt', 'custom']),

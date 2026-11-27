@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Award,
@@ -26,7 +26,13 @@ const STREAK_MILESTONES = [
  */
 export function Screen7aStreakWonderland() {
   const navigate = useNavigate();
-  const data = useMemo(() => getWonderlandDashboardState(), []);
+  const [progressRev, setProgressRev] = useState(0);
+  useEffect(() => {
+    const onUpdated = () => setProgressRev((r) => r + 1);
+    window.addEventListener('sabi-progress-updated', onUpdated);
+    return () => window.removeEventListener('sabi-progress-updated', onUpdated);
+  }, []);
+  const data = useMemo(() => getWonderlandDashboardState(), [progressRev]);
   const [selectedDay, setSelectedDay] = useState<number | null>(data.calendarTodayDay);
 
   const daysToBeatRecord = Math.max(1, data.longestStreak - data.streakDays + 1);

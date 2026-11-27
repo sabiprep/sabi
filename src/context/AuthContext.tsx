@@ -3,6 +3,11 @@ import type { Session, User } from '@supabase/supabase-js';
 import { Navigate, useLocation } from 'react-router-dom';
 import { isSupabaseConfigured, supabase, type SabiCandidateProfile } from '../lib/supabase';
 import { apiGetJson } from '../utils/apiClient';
+import {
+  flushOfflineActivityQueue,
+  hydrateProgressFromServer,
+  scheduleBackgroundActivityFlush,
+} from '../utils/activitySyncEngine';
 import { saveRealUserProgress } from '../utils/userProgressStore';
 
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
@@ -35,16 +40,29 @@ export const ACCOUNT_SCOPED_STORAGE_KEYS = [
   'sabi_onboarding_v2_answers',
   'sabi_onboarding_v2_10q',
   'sabi_onboarding_wonderland_v3_draft',
+  'sabi_onboarding_profile_v1',
   'sabi_onboarding_submission_key',
+  'sabi_real_user_progress_v1',
   'sabi_real_progress_v1',
+  'sabi_offline_activity_queue_v1',
+  'sabi_question_bank_cache_v1',
   'sabi_question_snapshots_v1',
+  'sabi_saved_question_ids_v1',
   'sabi_saved_questions_v1',
+  'sabi_mistakes_vault_v1',
   'sabi_plan_label',
   'sabi_assistant_threads_v1',
   'sabi_assistant_active_thread_v1',
   'sabi_practice_ai_config_v1',
   'sabi_cbt_last_result_v1',
+  'sabi_cbt_mock_history_v1',
+  'sabi_custom_practice_config_v1',
+  'sabi_custom_practice_history_v1',
+  'sabi_diagnostic_baseline_v1',
+  'sabi_last_smart_practice_result_v1',
   'sabi_smart_practice_last_result_v1',
+  'sabi_notifications_v1',
+  'sabi_league_previous_tier_v1',
 ] as const;
 
 /**
@@ -106,7 +124,7 @@ export function applyProfileToDeviceCache(
         localStorage.setItem('sabi_onboarding_v2_10q', JSON.stringify(normalizedOnboarding));
       }
       if (live_progress && typeof live_progress === 'object') {
-        saveRealUserProgress(live_progress as any);
+        saveRealUserProgress(live_progress as any, { skipRemoteSync: true });
       }
     }
   } catch {
@@ -199,6 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (apiRes.ok && apiRes.data?.profile) {
         applyProfileToDeviceCache(apiRes.data.profile, activeUser.email);
         setProfile(apiRes.data.profile);
+        void hydrateProgressFromServer();
         return apiRes.data.profile;
       }
 
@@ -215,6 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const typedProfile = directProfile as SabiCandidateProfile;
         applyProfileToDeviceCache(typedProfile, activeUser.email);
         setProfile(typedProfile);
+        void hydrateProgressFromServer();
         return typedProfile;
       }
     } catch {
@@ -224,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fallback = buildFallbackProfileFromUser(activeUser);
     applyProfileToDeviceCache(fallback, activeUser.email);
     setProfile(fallback);
+    void hydrateProgressFromServer();
     return fallback;
   }, []);
 
@@ -348,6 +369,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authSubscription?.subscription?.unsubscribe();
     };
   }, [hydrateProfileForUser]);
+
+  // Stage 3: Automatically flush offline study activity events when queued, back online, or app resumes
+  useEffect(() => {
+    if (status !== 'authenticated' || typeof window === 'undefined') return;
+
+    const handleQueued = () => {
+      scheduleBackgroundActivityFlush();
+    };
+    const handleOnline = () => {
+      void hydrateProgressFromServer();
+    };
+    const handleVisibility = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        void flushOfflineActivityQueue();
+      }
+    };
+
+    window.addEventListener('sabi-activity-queued', handleQueued);
+    window.addEventListener('online', handleOnline);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    return () => {
+      window.removeEventListener('sabi-activity-queued', handleQueued);
+      window.removeEventListener('online', handleOnline);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+    };
+  }, [status]);
 
   const onboardingCompleted = useMemo(() => {
     if (profile) return Boolean(profile.onboarding_completed);

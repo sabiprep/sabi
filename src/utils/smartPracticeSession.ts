@@ -457,6 +457,37 @@ export function buildSmartPracticeDeck(
 }
 
 /**
+ * Seamlessly upgrades upcoming unseen cards in an active Blitz / Smart Practice deck
+ * with fresh questions fetched from Supabase `question_bank` without disturbing the
+ * current question or already-answered cards.
+ */
+export function mergeLiveQuestionsIntoDeck(
+  currentDeck: PracticeFeedQuestion[],
+  liveQuestions: PracticeFeedQuestion[],
+  currentIndex: number
+): PracticeFeedQuestion[] {
+  if (!liveQuestions.length) return currentDeck;
+  const keepCount = Math.min(currentDeck.length, Math.max(1, currentIndex + 1));
+  const lockedPrefix = currentDeck.slice(0, keepCount);
+  const seen = new Set(lockedPrefix.map((q) => q.id));
+  const merged: PracticeFeedQuestion[] = [...lockedPrefix];
+
+  for (const live of liveQuestions) {
+    if (!seen.has(live.id)) {
+      seen.add(live.id);
+      merged.push(live);
+    }
+  }
+  for (const fallback of currentDeck.slice(keepCount)) {
+    if (!seen.has(fallback.id)) {
+      seen.add(fallback.id);
+      merged.push(fallback);
+    }
+  }
+  return merged;
+}
+
+/**
  * Combo math matching Screens 03 & 04:
  * - Streak 0–2 -> x1 (10 XP)
  * - Streak 3–5 -> x2 (20 XP)
@@ -616,58 +647,26 @@ export function loadLastSmartPracticeResult(firstName: string): SmartPracticeSes
     }
   }
 
-  // Design-accurate preview default matching Screen 06 if opened directly
+  // Honest empty state when no real practice session has been completed yet (zero fake preview numbers)
+  const plan = getDailyFailureDrillPlan([]);
   return {
-    pace: 'blitz',
+    pace: 'guided',
     firstName,
-    durationMinutes: 12,
-    totalQuestions: 10,
-    correctCount: 8,
-    accuracyPercent: 80,
-    totalXp: 84,
-    bestStreak: 5,
-    subjectsCount: 4,
-    topics: [
-      {
-        subjectCanonical: 'Chemistry',
-        subjectLabel: 'Chemistry',
-        topicLabel: 'Periodic table',
-        correct: 3,
-        total: 4,
-        accuracy: 75,
-      },
-      {
-        subjectCanonical: 'English Language',
-        subjectLabel: 'English',
-        topicLabel: 'Antonyms',
-        correct: 2,
-        total: 2,
-        accuracy: 100,
-      },
-      {
-        subjectCanonical: 'Physics',
-        subjectLabel: 'Physics',
-        topicLabel: 'Units',
-        correct: 2,
-        total: 2,
-        accuracy: 100,
-      },
-      {
-        subjectCanonical: 'Mathematics',
-        subjectLabel: 'Mathematics',
-        topicLabel: 'Logarithms',
-        correct: 1,
-        total: 2,
-        accuracy: 50,
-      },
-    ],
+    durationMinutes: 0,
+    totalQuestions: 0,
+    correctCount: 0,
+    accuracyPercent: 0,
+    totalXp: 0,
+    bestStreak: 0,
+    subjectsCount: 0,
+    topics: [],
     coachMessage:
-      "Periodic table is coming together: 3 of 4 right today. Logarithm rules still dey worry you small. Let's fix that next.",
+      'Complete your first Blitz or Smart Practice session to see your real topic-by-topic breakdown and SABI Coach recommendations here.',
     nextBestStep: {
-      subjectCanonical: 'Mathematics',
-      subjectLabel: 'Mathematics',
-      topicLabel: 'Laws of logarithms',
-      estimatedMinutes: 6,
+      subjectCanonical: plan.subjectCanonical,
+      subjectLabel: plan.subjectLabel,
+      topicLabel: plan.topicLabel,
+      estimatedMinutes: plan.estimatedMinutes,
     },
     completedAt: new Date().toISOString(),
   };

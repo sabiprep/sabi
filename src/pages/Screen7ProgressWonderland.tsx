@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -32,9 +32,15 @@ import { sound } from '../utils/soundEffects';
  */
 export function Screen7ProgressWonderland() {
   const navigate = useNavigate();
-  const data = useMemo(() => getWonderlandDashboardState(), []);
-  const league = useMemo(() => getMultiTierLeagueSnapshot(), []);
-  const subjectRatings = useMemo(() => getSubjectRatingsSnapshot(), []);
+  const [progressRev, setProgressRev] = useState(0);
+  useEffect(() => {
+    const onUpdated = () => setProgressRev((r) => r + 1);
+    window.addEventListener('sabi-progress-updated', onUpdated);
+    return () => window.removeEventListener('sabi-progress-updated', onUpdated);
+  }, []);
+  const data = useMemo(() => getWonderlandDashboardState(), [progressRev]);
+  const league = useMemo(() => getMultiTierLeagueSnapshot(), [progressRev]);
+  const subjectRatings = useMemo(() => getSubjectRatingsSnapshot(), [progressRev]);
 
   const goTo = (path: string) => {
     try {

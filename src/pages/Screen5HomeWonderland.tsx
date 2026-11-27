@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   Calendar,
@@ -156,7 +156,13 @@ function ConcentricTargetIcon({
  */
 export function Screen5HomeWonderland() {
   const navigate = useNavigate();
-  const data = useMemo(() => getWonderlandDashboardState(), []);
+  const [progressRev, setProgressRev] = useState(0);
+  useEffect(() => {
+    const onUpdated = () => setProgressRev((r) => r + 1);
+    window.addEventListener('sabi-progress-updated', onUpdated);
+    return () => window.removeEventListener('sabi-progress-updated', onUpdated);
+  }, []);
+  const data = useMemo(() => getWonderlandDashboardState(), [progressRev]);
 
   const goalPercent = Math.min(100, Math.round((data.dailyGoalDone / data.dailyGoalTarget) * 100));
   const xpRemaining = Math.max(0, data.dailyGoalTarget - data.dailyGoalDone);

@@ -19,12 +19,18 @@ import {
   buildSmartPracticeDeck,
   buildSmartPracticeResult,
   getComboState,
+  mergeLiveQuestionsIntoDeck,
   saveSmartPracticeResult,
   type PracticeAnswerRecord,
   type PracticeDeckMode,
+  type PracticeFeedQuestion,
   type PracticeScope,
   type SmartPracticePace,
 } from '../utils/smartPracticeSession';
+import {
+  fetchLiveQuestionFeed,
+  flushOfflineActivityQueue,
+} from '../utils/activitySyncEngine';
 import {
   hydrateSavedSnapshotsFromServer,
   loadSavedQuestionSnapshots,
@@ -73,19 +79,38 @@ export function Screen8SmartPracticeFeedWonderland() {
       s => s.canonicalName.toLowerCase() === focusSubject.toLowerCase()
     )?.displayLabel || focusSubject;
 
-  const deck = useMemo(
-    () =>
-      buildSmartPracticeDeck(
-        focusSubject,
-        student.subjects.map(s => s.canonicalName),
-        { scope, mode: deckMode }
-      ),
-    [deckMode, focusSubject, scope, student.subjects]
+  const chosenSubjects = useMemo(
+    () => student.subjects.map(s => s.canonicalName),
+    [student.subjects]
+  );
+  const chosenSubjectsKey = chosenSubjects.join('|');
+
+  const [deck, setDeck] = useState<PracticeFeedQuestion[]>(() =>
+    buildSmartPracticeDeck(focusSubject, chosenSubjects, { scope, mode: deckMode })
   );
 
   const [sessionStartMs] = useState<number>(() => Date.now());
   const [questionStartMs, setQuestionStartMs] = useState<number>(() => Date.now());
   const [currentIndex, setCurrentIndex] = useState(0);
+  const currentIndexRef = useRef(0);
+  currentIndexRef.current = currentIndex;
+
+  useEffect(() => {
+    setDeck(buildSmartPracticeDeck(focusSubject, chosenSubjects, { scope, mode: deckMode }));
+    let active = true;
+    void fetchLiveQuestionFeed({
+      subjects: chosenSubjects,
+      focusSubject,
+      scope,
+      limit: 40,
+    }).then((res) => {
+      if (!active || !res.questions.length) return;
+      setDeck((prev) => mergeLiveQuestionsIntoDeck(prev, res.questions, currentIndexRef.current));
+    });
+    return () => {
+      active = false;
+    };
+  }, [chosenSubjectsKey, deckMode, focusSubject, scope]);
   const [selectedOption, setSelectedOption] = useState<'A' | 'B' | 'C' | 'D' | null>(null);
   const [records, setRecords] = useState<PracticeAnswerRecord[]>([]);
   const [currentStreak, setCurrentStreak] = useState(0);
@@ -161,6 +186,7 @@ export function Screen8SmartPracticeFeedWonderland() {
         startedAtMs: sessionStartMs,
       });
       saveSmartPracticeResult(result);
+      void flushOfflineActivityQueue();
       navigate('/practice/results', { state: { result } });
     },
     [navigate, pace, sessionStartMs, student.firstName]
@@ -214,11 +240,14 @@ export function Screen8SmartPracticeFeedWonderland() {
         elapsedSeconds,
       };
       recordStudyActivity({
+        questionId: currentQuestion.id,
         subject: currentQuestion.subjectCanonical,
         topic: currentQuestion.topicLabel,
+        selectedOption: opt,
         isCorrect: answeredCorrectly,
         mode: pace === 'blitz' ? 'blitz' : 'smart',
         elapsedSeconds,
+        comboMultiplier: nextCombo.multiplier,
         xpOverride: earnedXp,
       });
       if (!answeredCorrectly) {
@@ -249,6 +278,7 @@ export function Screen8SmartPracticeFeedWonderland() {
     // Blitz triggers the celebratory Checkpoint every 10 questions (Screen 05)
     if (pace === 'blitz' && totalAnswered > 0 && totalAnswered % CHECKPOINT_INTERVAL === 0) {
       setShowCheckpoint(true);
+      void flushOfflineActivityQueue();
       try {
         confetti({ particleCount: 55, spread: 60, origin: { y: 0.45 } });
       } catch {

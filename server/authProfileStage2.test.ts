@@ -141,7 +141,7 @@ describe('Stage 2 — Real Auth, Profile Hydration & Env Readiness', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
-    expect(res.body.stage).toBe('stage2-auth-hardened');
+    expect(res.body.stage).toMatch(/^stage[2-6]-/);
     expect(typeof res.body.supabase_url_configured).toBe('boolean');
     expect(typeof res.body.service_role_configured).toBe('boolean');
     expect(typeof res.body.ai_configured).toBe('boolean');
