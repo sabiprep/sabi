@@ -36,6 +36,10 @@ describe('Stage 3 — Capacitor Android Deep Links & Release Sync', () => {
       path.join(rootDir, 'android/app/src/main/AndroidManifest.xml'),
       'utf8'
     );
+    const capSettings = fs.readFileSync(
+      path.join(rootDir, 'android/capacitor.settings.gradle'),
+      'utf8'
+    );
 
     expect(pkg.version).toBe('2.1.0');
     expect(gradle).toContain('versionCode 3');
@@ -43,5 +47,11 @@ describe('Stage 3 — Capacitor Android Deep Links & Release Sync', () => {
     expect(manifest).toContain('android:scheme="sabi" android:host="auth"');
     expect(manifest).toContain('android:scheme="sabi" android:host="q"');
     expect(manifest).toContain('android:scheme="sabi" android:host="assistant"');
+    expect(manifest).toContain('android:pathPrefix="/q"');
+    expect(capSettings).toContain(':capacitor-share');
+    expect(capSettings).toContain(':capacitor-filesystem');
+    expect(
+      fs.existsSync(path.join(rootDir, 'android/app/src/main/assets/public/server.cjs'))
+    ).toBe(false);
   });
 });

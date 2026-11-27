@@ -40,6 +40,14 @@
                 <data android:scheme="sabi" android:host="assistant" />
             </intent-filter>
 
+        
+            <!-- HTTPS App Link Intent Filter for Shared Question Links (https://sabi-tan.vercel.app/q/<questionId>) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="sabi-tan.vercel.app" android:pathPrefix="/q" />
+            </intent-filter>
         </activity>
 
         <provider

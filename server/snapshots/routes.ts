@@ -11,7 +11,7 @@ import { validateBody } from '../middleware/validate';
 
 type OptionKey = 'A' | 'B' | 'C' | 'D';
 
-interface ResolvedServerQuestion {
+export interface ResolvedServerQuestion {
   id: string;
   subjectCanonical: string;
   subjectLabel: string;
@@ -23,13 +23,34 @@ interface ResolvedServerQuestion {
   explanationShort: string;
   explanationFull: string;
   explanationPidgin: string;
-  source: 'supabase' | 'curated' | 'seed';
+  source: 'supabase' | 'shared_link' | 'curated' | 'seed';
 }
 
 const OPTION_KEY_SCHEMA = z.enum(['A', 'B', 'C', 'D']);
 
 const checkPublicAnswerSchema = z.strictObject({
   selectedOption: OPTION_KEY_SCHEMA,
+});
+
+const shareLinkPublishSchema = z.strictObject({
+  questionId: z.string().trim().min(1).max(120),
+  canonicalQuestionId: z.string().trim().min(1).max(100).optional(),
+  mode: z.enum(['blitz', 'smart', 'custom', 'cbt']).default('blitz'),
+  subjectCanonical: z.string().trim().min(1).max(100),
+  subjectLabel: z.string().trim().min(1).max(80),
+  topicLabel: z.string().trim().min(1).max(180),
+  year: z.number().int().min(1978).max(2100).optional(),
+  question: z.string().trim().min(1).max(4000),
+  options: z.strictObject({
+    A: z.string().trim().min(1).max(1000),
+    B: z.string().trim().min(1).max(1000),
+    C: z.string().trim().min(1).max(1000),
+    D: z.string().trim().min(1).max(1000),
+  }),
+  answer: OPTION_KEY_SCHEMA,
+  explanationShort: z.string().max(2500).default(''),
+  explanationFull: z.string().max(6000).default(''),
+  explanationPidgin: z.string().max(6000).default(''),
 });
 
 const upsertSnapshotSchema = z.strictObject({
@@ -63,7 +84,7 @@ const recordAttemptSchema = z.strictObject({
   selectedOption: OPTION_KEY_SCHEMA,
 });
 
-function normalizeCanonicalId(rawId: string): string {
+export function normalizeCanonicalId(rawId: string): string {
   const trimmed = String(rawId || '').trim();
   if (!trimmed) return '';
   const withoutLoop = trimmed.replace(/-(?:loop|y)\d+$/i, '');
@@ -79,11 +100,73 @@ function normalizeAnswerKey(raw: unknown): OptionKey | null {
 }
 
 /**
- * Resolves a question for public share links:
- * 1. Queries live Supabase `question_bank` first (when configured) so real JAMB DB items work.
- * 2. Falls back cleanly to SABI curated starters and official seed questions.
+ * Strictly escapes untrusted text for safe injection into HTML attribute/title contexts.
  */
-async function resolveQuestionForPublicShare(rawId: string): Promise<ResolvedServerQuestion | null> {
+export function escapeHtmlAttr(raw: string): string {
+  return String(raw || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Injects rich WhatsApp / X / Telegram OpenGraph & Twitter Card metadata into the SPA
+ * `index.html` shell for `/q/:questionId` links so shared links display the actual JAMB
+ * subject, topic, and question preview card before the visitor even taps.
+ * Never includes the correct answer key.
+ */
+export function injectSharedQuestionOpenGraphHtml(
+  htmlTemplate: string,
+  question: ResolvedServerQuestion,
+  canonicalUrl: string
+): string {
+  const shortStem =
+    question.question.length > 155
+      ? `${question.question.slice(0, 152).trimEnd()}…`
+      : question.question;
+  const ogTitle = escapeHtmlAttr(
+    `SABI JAMB ${question.subjectLabel} Challenge — ${question.topicLabel}`
+  );
+  const ogDescription = escapeHtmlAttr(
+    `${shortStem} Tap to pick A, B, C, or D and see if you sabi the answer!`
+  );
+  const safeUrl = escapeHtmlAttr(canonicalUrl);
+
+  const metaTags = [
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="SABI JAMB UTME" />`,
+    `<meta property="og:title" content="${ogTitle}" />`,
+    `<meta property="og:description" content="${ogDescription}" />`,
+    `<meta property="og:url" content="${safeUrl}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:title" content="${ogTitle}" />`,
+    `<meta name="twitter:description" content="${ogDescription}" />`,
+  ].join('\n    ');
+
+  let updated = htmlTemplate.replace(
+    /<title>[\s\S]*?<\/title>/i,
+    `<title>${ogTitle}</title>`
+  );
+  updated = updated.replace(/<meta\s+property=["']og:[^"']+["'][^>]*>\s*/gi, '');
+  updated = updated.replace(/<meta\s+name=["']twitter:[^"']+["'][^>]*>\s*/gi, '');
+  if (updated.includes('</head>')) {
+    updated = updated.replace('</head>', `    ${metaTags}\n  </head>`);
+  }
+  return updated;
+}
+
+/**
+ * Resolves a question for public share links:
+ * 1. Live Supabase `question_bank` (all official past & curated DB items).
+ * 2. Live Supabase `shared_question_links` (guarantees future AI-generated & custom questions work forever).
+ * 3. Curated Blitz / Smart Practice starters.
+ * 4. Official Seed Questions bank.
+ */
+export async function resolveQuestionForPublicShare(
+  rawId: string
+): Promise<ResolvedServerQuestion | null> {
   const cleanedRaw = String(rawId || '').trim().slice(0, 100);
   const canonical = normalizeCanonicalId(cleanedRaw);
   if (!canonical) return null;
@@ -142,11 +225,58 @@ async function resolveQuestionForPublicShare(rawId: string): Promise<ResolvedSer
         }
       }
     } catch {
+      // Fall through cleanly
+    }
+
+    // 2. Permanent `shared_question_links` registry (covers AI-generated & future custom questions)
+    try {
+      const { data: sharedRow, error: sharedErr } = await supabaseAdmin
+        .from('shared_question_links')
+        .select(
+          'canonical_question_id, question_id, subject_canonical, subject_label, topic_label, question_year, question_text, options, correct_answer, explanation_short, explanation_full, explanation_pidgin'
+        )
+        .eq('canonical_question_id', canonical)
+        .maybeSingle();
+
+      if (!sharedErr && sharedRow) {
+        const answerKey = normalizeAnswerKey(sharedRow.correct_answer);
+        const opts = sharedRow.options as Record<string, string> | null;
+        if (answerKey && sharedRow.question_text && opts?.A && opts?.B && opts?.C && opts?.D) {
+          const subjectCanonical = String(sharedRow.subject_canonical || 'JAMB UTME');
+          const explanationShort =
+            String(sharedRow.explanation_short || '').trim() ||
+            `Option ${answerKey} is correct based on the official JAMB ${subjectCanonical} syllabus.`;
+          return {
+            id: String(sharedRow.canonical_question_id || sharedRow.question_id),
+            subjectCanonical,
+            subjectLabel: String(
+              sharedRow.subject_label || getShortSubjectLabel(subjectCanonical)
+            ),
+            topicLabel: String(sharedRow.topic_label || 'Core Syllabus'),
+            year: typeof sharedRow.question_year === 'number' ? sharedRow.question_year : undefined,
+            question: String(sharedRow.question_text),
+            options: {
+              A: String(opts.A),
+              B: String(opts.B),
+              C: String(opts.C),
+              D: String(opts.D),
+            },
+            answer: answerKey,
+            explanationShort,
+            explanationFull: String(sharedRow.explanation_full || '').trim() || explanationShort,
+            explanationPidgin:
+              String(sharedRow.explanation_pidgin || '').trim() ||
+              `Na Option ${answerKey} be the correct answer for dis ${subjectCanonical} question.`,
+            source: 'shared_link',
+          };
+        }
+      }
+    } catch {
       // Fall through cleanly to curated/seed catalog
     }
   }
 
-  // 2. Curated Blitz / Smart Practice starters
+  // 3. Curated Blitz / Smart Practice starters
   const curated = getCuratedStarterQuestions();
   const curatedMatch = curated.find(
     (q) =>
@@ -160,7 +290,7 @@ async function resolveQuestionForPublicShare(rawId: string): Promise<ResolvedSer
     };
   }
 
-  // 3. Official Seed Questions bank
+  // 4. Official Seed Questions bank
   const seedMatch = SEED_QUESTIONS.find(
     (q) =>
       q.id.toLowerCase() === cleanedRaw.toLowerCase() ||
@@ -288,10 +418,76 @@ publicQuestionRouter.post(
 );
 
 // =============================================================================
-// AUTHENTICATED SAVED SNAPSHOTS VAULT ROUTER (`/api/snapshots`)
+// AUTHENTICATED SAVED SNAPSHOTS & SHARE-LINK REGISTRY ROUTER (`/api/snapshots`)
 // =============================================================================
 
 export const snapshotRouter = Router();
+
+/**
+ * POST /api/snapshots/share-link
+ * Registers any question being shared (including future AI-generated questions) in
+ * `shared_question_links` so its permanent `/q/:canonicalQuestionId` route resolves
+ * cleanly for external WhatsApp / social recipients.
+ */
+snapshotRouter.post(
+  '/share-link',
+  requireAuth,
+  validateBody(shareLinkPublishSchema),
+  async (req, res) => {
+    const userId = (req as AuthenticatedRequest).user?.id;
+    if (!userId) return res.status(401).json({ error: 'Authentication required.' });
+
+    const input = req.body as z.infer<typeof shareLinkPublishSchema>;
+    const canonicalId = normalizeCanonicalId(input.canonicalQuestionId || input.questionId);
+    if (!canonicalId) {
+      return res.status(400).json({ error: 'Invalid question identifier.' });
+    }
+
+    const nowIso = new Date().toISOString();
+    try {
+      const { error } = await supabaseAdmin.from('shared_question_links').upsert(
+        {
+          canonical_question_id: canonicalId,
+          question_id: input.questionId,
+          shared_by_user_id: userId,
+          mode: input.mode,
+          subject_canonical: input.subjectCanonical,
+          subject_label: input.subjectLabel,
+          topic_label: input.topicLabel,
+          question_year: input.year ?? null,
+          question_text: input.question,
+          options: input.options,
+          correct_answer: input.answer,
+          explanation_short: input.explanationShort,
+          explanation_full: input.explanationFull,
+          explanation_pidgin: input.explanationPidgin,
+          updated_at: nowIso,
+        },
+        { onConflict: 'canonical_question_id' }
+      );
+
+      if (error) {
+        return res.status(200).json({
+          status: 'fallback',
+          canonicalQuestionId: canonicalId,
+          path: `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(input.mode)}&src=share`,
+        });
+      }
+
+      return res.status(200).json({
+        status: 'published',
+        canonicalQuestionId: canonicalId,
+        path: `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(input.mode)}&src=share`,
+      });
+    } catch {
+      return res.status(200).json({
+        status: 'fallback',
+        canonicalQuestionId: canonicalId,
+        path: `/q/${encodeURIComponent(canonicalId)}?mode=${encodeURIComponent(input.mode)}&src=share`,
+      });
+    }
+  }
+);
 
 snapshotRouter.get('/', requireAuth, async (req, res) => {
   const userId = (req as AuthenticatedRequest).user?.id;

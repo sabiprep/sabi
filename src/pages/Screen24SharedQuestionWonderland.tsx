@@ -12,12 +12,15 @@ import {
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { SabiPurpleBookLogo } from '../components/common/SabiWonderlandShell';
 import {
+  buildSabiAppDeepLink,
   checkPublicQuestionAnswerOnServer,
+  detectVisitorDevice,
   fetchPublicQuestionFromServer,
   getPlayStoreAppUrl,
   resolvePublicQuestionById,
   type PublicAnswerCheckResult,
   type PublicSharedQuestionPayload,
+  type SnapshotSourceMode,
 } from '../utils/questionSnapshotStore';
 import { sound } from '../utils/soundEffects';
 
@@ -48,8 +51,17 @@ export function Screen24SharedQuestionWonderland() {
   const { questionId = '' } = useParams<{ questionId: string }>();
   const [searchParams] = useSearchParams();
 
-  const sourceMode = getModeLabel(searchParams.get('mode'));
+  const rawMode = searchParams.get('mode');
+  const normalizedMode: SnapshotSourceMode =
+    rawMode === 'smart' || rawMode === 'custom' || rawMode === 'cbt' ? rawMode : 'blitz';
+  const sourceMode = getModeLabel(rawMode);
   const playStoreUrl = useMemo(() => getPlayStoreAppUrl(), []);
+  const visitorDevice = useMemo(() => detectVisitorDevice(), []);
+  const isMobileVisitor = visitorDevice === 'android' || visitorDevice === 'ios';
+  const appDeepLink = useMemo(
+    () => buildSabiAppDeepLink(questionId, normalizedMode),
+    [normalizedMode, questionId]
+  );
   const localMatch = useMemo(() => resolvePublicQuestionById(questionId), [questionId]);
 
   const [question, setQuestion] = useState<PublicSharedQuestionPayload | null>(() =>
@@ -410,20 +422,24 @@ export function Screen24SharedQuestionWonderland() {
               </p>
             </div>
 
-            {/* Sign-Up Conversion & Play Store Prompt Card */}
+            {/* Device-Aware Sign-Up & Play Store Conversion Card */}
             <div
               className="rounded-[24px] bg-[#2A085E] text-white p-4 sm:p-5 space-y-3.5"
               style={{ boxShadow: '0 6px 0 #170338' }}
             >
               <div>
                 <div className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#FFE824]">
-                  READY FOR MORE JAMB QUESTIONS?
+                  {isMobileVisitor
+                    ? 'GET THE FULL SABI MOBILE APP'
+                    : 'READY FOR MORE JAMB QUESTIONS?'}
                 </div>
                 <h3
                   className="mt-1 text-[20px] sm:text-[22px] font-bold text-white leading-tight"
                   style={{ fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif" }}
                 >
-                  Sign up on SABI to unlock Blitz, Smart Practice & CBT Mock
+                  {isMobileVisitor
+                    ? 'Unlock Blitz, Smart Practice & CBT Mock on the SABI App'
+                    : 'Sign up on SABI WebApp to unlock Blitz, Smart Practice & CBT Mock'}
                 </h3>
                 <p className="mt-1 text-[13px] font-semibold text-[#DCD0F5] leading-snug">
                   Track your real mastery across all 4 JAMB subjects, climb Blue → Gold leagues,
@@ -431,48 +447,109 @@ export function Screen24SharedQuestionWonderland() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => navigate(signUpPath)}
-                  className="w-full py-3.5 px-4 rounded-[16px] bg-[#FFE824] hover:brightness-105 text-[#260559] font-extrabold text-[15px] inline-flex items-center justify-center gap-2 cursor-pointer active:translate-y-[1px]"
-                  style={{
-                    fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
-                    boxShadow: '0 4px 0 #C5AB00',
-                  }}
-                >
-                  <UserPlus size={18} />
-                  <span>Sign Up Free (WebApp)</span>
-                  <ArrowRight size={16} />
-                </button>
+              {isMobileVisitor ? (
+                <div className="space-y-2.5">
+                  {playStoreUrl ? (
+                    <a
+                      href={playStoreUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-3.5 px-4 rounded-[16px] bg-[#FFE824] hover:brightness-105 text-[#260559] font-extrabold text-[15px] inline-flex items-center justify-center gap-2"
+                      style={{
+                        fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                        boxShadow: '0 4px 0 #C5AB00',
+                      }}
+                    >
+                      <Smartphone size={18} />
+                      <span>Download SABI on Play Store &amp; Sign Up</span>
+                      <ExternalLink size={15} />
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => navigate(signUpPath)}
+                      className="w-full py-3.5 px-4 rounded-[16px] bg-[#FFE824] hover:brightness-105 text-[#260559] font-extrabold text-[15px] inline-flex items-center justify-center gap-2 cursor-pointer active:translate-y-[1px]"
+                      style={{
+                        fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                        boxShadow: '0 4px 0 #C5AB00',
+                      }}
+                    >
+                      <UserPlus size={18} />
+                      <span>Sign Up Free Now</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
 
-                {playStoreUrl ? (
-                  <a
-                    href={playStoreUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3.5 px-4 rounded-[16px] bg-[#6C19E5] hover:brightness-110 text-white font-extrabold text-[14.5px] inline-flex items-center justify-center gap-2"
-                    style={{ boxShadow: '0 4px 0 #46099E' }}
-                  >
-                    <Smartphone size={17} />
-                    <span>Get SABI on Play Store</span>
-                    <ExternalLink size={15} />
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/auth/sign-in')}
-                    className="w-full py-3.5 px-4 rounded-[16px] bg-white/12 hover:bg-white/18 text-white font-extrabold text-[14px] inline-flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <span>Already have an account? Sign In</span>
-                  </button>
-                )}
-              </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {visitorDevice === 'android' && (
+                      <a
+                        href={appDeepLink}
+                        className="w-full py-3 px-4 rounded-[16px] bg-[#6C19E5] hover:brightness-110 text-white font-extrabold text-[14px] inline-flex items-center justify-center gap-2"
+                        style={{ boxShadow: '0 4px 0 #46099E' }}
+                      >
+                        <Smartphone size={16} />
+                        <span>Open in SABI Android App</span>
+                      </a>
+                    )}
 
-              {!playStoreUrl && (
-                <div className="flex items-center justify-center gap-1.5 text-[11.5px] font-bold text-[#C8B8E6]">
-                  <Smartphone size={13} className="text-[#FFE824]" />
-                  <span>Full WebApp live in Chrome · Google Play Android release coming soon</span>
+                    <button
+                      type="button"
+                      onClick={() => navigate(playStoreUrl ? signUpPath : '/auth/sign-in')}
+                      className="w-full py-3 px-4 rounded-[16px] bg-white/12 hover:bg-white/18 text-white font-extrabold text-[13.5px] inline-flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>
+                        {playStoreUrl
+                          ? 'Or Sign Up on Web'
+                          : 'Already have an account? Sign In'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {!playStoreUrl && (
+                    <div className="flex items-center justify-center gap-1.5 text-[11.5px] font-bold text-[#C8B8E6]">
+                      <Smartphone size={13} className="text-[#FFE824]" />
+                      <span>Android app listing launching on Google Play · Sign up now to reserve your SABI ID</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => navigate(signUpPath)}
+                      className="w-full py-3.5 px-4 rounded-[16px] bg-[#FFE824] hover:brightness-105 text-[#260559] font-extrabold text-[15px] inline-flex items-center justify-center gap-2 cursor-pointer active:translate-y-[1px]"
+                      style={{
+                        fontFamily: "'Fredoka', 'Plus Jakarta Sans', sans-serif",
+                        boxShadow: '0 4px 0 #C5AB00',
+                      }}
+                    >
+                      <UserPlus size={18} />
+                      <span>Sign Up Free (WebApp)</span>
+                      <ArrowRight size={16} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => navigate('/auth/sign-in')}
+                      className="w-full py-3.5 px-4 rounded-[16px] bg-white/12 hover:bg-white/18 text-white font-extrabold text-[14px] inline-flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Already have an account? Sign In</span>
+                    </button>
+                  </div>
+
+                  {playStoreUrl && (
+                    <a
+                      href={playStoreUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2.5 px-4 rounded-[14px] bg-[#6C19E5]/80 hover:bg-[#6C19E5] text-white font-extrabold text-[13px] inline-flex items-center justify-center gap-2"
+                    >
+                      <Smartphone size={15} />
+                      <span>Also available on Android — Get SABI on Google Play</span>
+                      <ExternalLink size={13} />
+                    </a>
+                  )}
                 </div>
               )}
             </div>

@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   buildQuestionShareCopy,
   buildQuestionShareUrl,
+  buildSabiAppDeepLink,
   dataUrlToBlob,
+  detectVisitorDevice,
   getPublicShareOrigin,
   loadSavedQuestionSnapshots,
   normalizeCanonicalQuestionId,
@@ -37,7 +39,7 @@ function createMemoryStorage(): Storage {
   };
 }
 
-describe('Stage 2 — Question Save Snapshots & Public Share-Link System', () => {
+describe('Stage 1B & 2 — Question Save Snapshots & Universal Public Share-Link System', () => {
   beforeEach(() => {
     const storage = createMemoryStorage();
     vi.stubGlobal('localStorage', storage);
@@ -131,7 +133,7 @@ describe('Stage 2 — Question Save Snapshots & Public Share-Link System', () =>
     expect(afterDelete).toHaveLength(0);
   });
 
-  it('builds canonical public /q/:id share URLs and never leaks Capacitor localhost origins', () => {
+  it('builds canonical public /q/:id share URLs and rejects localhost, capacitor, and private preview proxy hosts', () => {
     const url = buildQuestionShareUrl('SABI-CHM-PT-1-loop1', 'blitz', 'https://sabi.ng');
     expect(url).toBe('https://sabi.ng/q/SABI-CHM-PT-1?mode=blitz&src=share');
 
@@ -148,13 +150,49 @@ describe('Stage 2 — Question Save Snapshots & Public Share-Link System', () =>
     expect(bundle.whatsappUrl).toContain('https://wa.me/?text=');
 
     // Simulate Capacitor Android WebView running on https://localhost
-    vi.stubGlobal('window', {
-      localStorage: createMemoryStorage(),
-      location: { origin: 'https://localhost' },
+    const androidOrigin = getPublicShareOrigin({
+      envPublicOverride: '',
+      windowOriginOverride: 'https://localhost',
     });
-    const androidOrigin = getPublicShareOrigin();
     expect(androidOrigin).not.toContain('localhost');
     expect(androidOrigin.startsWith('https://')).toBe(true);
+
+    // Simulate private AI Studio preview proxy host (must never be shared externally)
+    const previewOrigin = getPublicShareOrigin({
+      envPublicOverride: '',
+      windowOriginOverride: 'https://ais-pre-abc123.europe-west2.run.app',
+    });
+    expect(previewOrigin).not.toContain('ais-pre-');
+    expect(previewOrigin).toBe('https://sabi-tan.vercel.app');
+
+    // Explicit public web domain override is respected cleanly
+    const customOrigin = getPublicShareOrigin({
+      envPublicOverride: 'https://app.sabi.ng/',
+      windowOriginOverride: 'https://ais-dev-xyz.run.app',
+    });
+    expect(customOrigin).toBe('https://app.sabi.ng');
+  });
+
+  it('detects Android, iOS, and Desktop visitors and generates clean native sabi://q deep links', () => {
+    expect(
+      detectVisitorDevice(
+        'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36'
+      )
+    ).toBe('android');
+    expect(
+      detectVisitorDevice(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1'
+      )
+    ).toBe('ios');
+    expect(
+      detectVisitorDevice(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36'
+      )
+    ).toBe('desktop');
+
+    expect(buildSabiAppDeepLink('SABI-CHM-PT-1-loop2', 'blitz')).toBe(
+      'sabi://q/SABI-CHM-PT-1?mode=blitz&src=share'
+    );
   });
 
   it('converts PNG data URLs cleanly into binary Blobs for reliable download & share', () => {

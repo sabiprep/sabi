@@ -17,6 +17,7 @@ import {
   buildQuestionShareCopy,
   copyTextReliably,
   normalizeCanonicalQuestionId,
+  publishSharedQuestionLink,
   renderQuestionSnapshotPng,
   saveSnapshotImageToDevice,
   shareSnapshotNativeOrWeb,
@@ -63,8 +64,11 @@ export function QuestionShareSheet({
       setIncludeAnswerInSnapshot(wasAnswered);
       setCopiedLink(false);
       setStatusNote(null);
+      // Register the question in shared_question_links so even future AI-generated
+      // questions resolve cleanly when external recipients tap the /q/:id link.
+      void publishSharedQuestionLink(question, mode);
     }
-  }, [open, question.id, wasAnswered]);
+  }, [open, mode, question, wasAnswered]);
 
   useEffect(() => {
     if (!open) return;

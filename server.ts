@@ -5,6 +5,7 @@
 
 import 'dotenv/config';
 import express from 'express';
+import fs from 'fs';
 import path from 'path';
 import helmet from 'helmet';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -39,7 +40,12 @@ import aiKnowledgeRoutes from './server/ai/knowledgeRoutes';
 import billingRoutes from './server/billing/routes';
 import gamificationRoutes from './server/gamification/routes';
 import notificationRoutes from './server/notifications/routes';
-import { publicQuestionRouter, snapshotRouter } from './server/snapshots/routes';
+import {
+  injectSharedQuestionOpenGraphHtml,
+  publicQuestionRouter,
+  resolveQuestionForPublicShare,
+  snapshotRouter,
+} from './server/snapshots/routes';
 
 const app = express();
 const PORT = config.port;
@@ -1376,6 +1382,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
+    const distIndexPath = path.join(distPath, 'index.html');
     app.use(
       express.static(distPath, {
         etag: false,
@@ -1385,9 +1392,27 @@ async function startServer() {
         },
       })
     );
+    // Dynamic OpenGraph social preview for WhatsApp, X, Telegram, and Chrome on /q/:questionId
+    app.get('/q/:questionId', async (req, res) => {
+      res.set('Cache-Control', 'public, max-age=120');
+      try {
+        const htmlTemplate = fs.readFileSync(distIndexPath, 'utf8');
+        const resolved = await resolveQuestionForPublicShare(String(req.params.questionId || ''));
+        if (!resolved) {
+          return res.type('html').send(htmlTemplate);
+        }
+        const host = req.get('host') || 'sabi-tan.vercel.app';
+        const proto = req.protocol === 'https' || req.get('x-forwarded-proto') === 'https' ? 'https' : 'http';
+        const canonicalUrl = `${proto}://${host}/q/${encodeURIComponent(resolved.id)}`;
+        const enrichedHtml = injectSharedQuestionOpenGraphHtml(htmlTemplate, resolved, canonicalUrl);
+        return res.type('html').send(enrichedHtml);
+      } catch {
+        return res.sendFile(distIndexPath);
+      }
+    });
     app.get('*', (_req, res) => {
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.sendFile(distIndexPath);
     });
   }
 

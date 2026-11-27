@@ -78,6 +78,33 @@ function ensureAndroidPlatform() {
       manifest = manifest.replace('</activity>', questionDeepLinkFilter);
     }
 
+    // HTTPS Android App Links so tapping a WhatsApp https://<domain>/q/<id> link opens SABI App if installed
+    let publicHost = 'sabi-tan.vercel.app';
+    try {
+      const configuredUrl = process.env.VITE_PUBLIC_WEB_URL || process.env.SABI_APP_URL || '';
+      if (configuredUrl) {
+        const parsedHost = new URL(configuredUrl).hostname;
+        if (parsedHost && !parsedHost.includes('localhost')) {
+          publicHost = parsedHost;
+        }
+      }
+    } catch {
+      // Keep default publicHost
+    }
+
+    if (!manifest.includes('android:pathPrefix="/q"')) {
+      const httpsAppLinkFilter = `
+            <!-- HTTPS App Link Intent Filter for Shared Question Links (https://${publicHost}/q/<questionId>) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="${publicHost}" android:pathPrefix="/q" />
+            </intent-filter>
+        </activity>`;
+      manifest = manifest.replace('</activity>', httpsAppLinkFilter);
+    }
+
     fs.writeFileSync(manifestPath, manifest, 'utf8');
   }
 

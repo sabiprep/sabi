@@ -545,19 +545,70 @@ function isLocalOrNativeOrigin(origin: string): boolean {
 }
 
 /**
- * Returns a real, externally reachable public base URL for share links (`/q/:id`).
- * Never returns `https://localhost` from a Capacitor Android APK build.
+ * Registers a shared question (including future AI-generated questions) on the
+ * backend (`/api/snapshots/share-link`) so its permanent `/q/:id` route resolves
+ * for external WhatsApp / social recipients even if it isn't in `question_bank` yet.
  */
-export function getPublicShareOrigin(): string {
+export async function publishSharedQuestionLink(
+  question: PracticeFeedQuestion & { year?: number },
+  mode: SnapshotSourceMode = 'blitz'
+): Promise<boolean> {
+  const canonical = normalizeCanonicalQuestionId(question.id) || question.id;
+  if (!canonical) return false;
+  try {
+    const token = await getAccessToken();
+    if (!token) return false;
+    const res = await apiPostJson('/api/snapshots/share-link', {
+      questionId: question.id,
+      canonicalQuestionId: canonical,
+      mode,
+      subjectCanonical: question.subjectCanonical,
+      subjectLabel: question.subjectLabel,
+      topicLabel: question.topicLabel,
+      year: question.year,
+      question: question.question,
+      options: question.options,
+      answer: question.answer,
+      explanationShort: question.explanationShort,
+      explanationFull: question.explanationFull,
+      explanationPidgin: question.explanationPidgin,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns a real, externally reachable public base URL for share links (`/q/:id`).
+ * Never returns `https://localhost`, `capacitor://`, or private AI Studio preview
+ * proxy URLs (`ais-pre-...`, `ais-dev-...`) that lock out external WhatsApp recipients.
+ */
+export function getPublicShareOrigin(options?: {
+  envPublicOverride?: string;
+  windowOriginOverride?: string;
+}): string {
+  const envObj =
+    typeof import.meta !== 'undefined' && (import.meta as any).env
+      ? (import.meta as any).env
+      : {};
+
   const envPublic =
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_PUBLIC_WEB_URL) || '';
+    options?.envPublicOverride ??
+    envObj.VITE_PUBLIC_WEB_URL ??
+    envObj.VITE_PUBLIC_APP_URL ??
+    '';
   const cleanedPublic = String(envPublic).trim().replace(/\/+$/, '');
-  if (cleanedPublic && /^https?:\/\//i.test(cleanedPublic) && !isLocalOrNativeOrigin(cleanedPublic)) {
+  if (
+    cleanedPublic &&
+    /^https?:\/\//i.test(cleanedPublic) &&
+    !isLocalOrNativeOrigin(cleanedPublic) &&
+    !isPreviewProxyHost(cleanedPublic)
+  ) {
     return cleanedPublic;
   }
 
-  const envApi =
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) || '';
+  const envApi = envObj.VITE_API_BASE_URL || '';
   const cleanedApi = String(envApi).trim().replace(/\/+$/, '');
   if (
     cleanedApi &&
@@ -568,19 +619,46 @@ export function getPublicShareOrigin(): string {
     return cleanedApi;
   }
 
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    const winOrigin = window.location.origin.replace(/\/+$/, '');
-    if (!isLocalOrNativeOrigin(winOrigin)) {
-      return winOrigin;
-    }
+  const winOriginRaw =
+    options?.windowOriginOverride ??
+    (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '');
+  const winOrigin = String(winOriginRaw).trim().replace(/\/+$/, '');
+  if (winOrigin && !isLocalOrNativeOrigin(winOrigin) && !isPreviewProxyHost(winOrigin)) {
+    return winOrigin;
   }
 
   return FALLBACK_PUBLIC_WEB_ORIGIN;
 }
 
 /**
+ * Detects whether a `/q/:questionId` visitor is on Android, iOS, or Desktop PC
+ * so the post-answer prompt routes mobile users toward the SABI Android App (Play Store)
+ * and desktop users cleanly toward the SABI Desktop WebApp.
+ */
+export function detectVisitorDevice(userAgentOverride?: string): 'android' | 'ios' | 'desktop' {
+  const ua =
+    userAgentOverride ??
+    (typeof navigator !== 'undefined' && navigator.userAgent ? navigator.userAgent : '');
+  if (/Android/i.test(ua)) return 'android';
+  if (/iPhone|iPad|iPod/i.test(ua)) return 'ios';
+  return 'desktop';
+}
+
+/**
+ * Builds the native SABI Android custom-scheme deep link (`sabi://q/<id>`) so
+ * mobile visitors who already have the SABI APK installed can jump straight into the app.
+ */
+export function buildSabiAppDeepLink(
+  questionId: string,
+  mode: SnapshotSourceMode = 'blitz'
+): string {
+  const canonical = normalizeCanonicalQuestionId(questionId) || questionId;
+  return `sabi://q/${encodeURIComponent(canonical)}?mode=${encodeURIComponent(mode)}&src=share`;
+}
+
+/**
  * Optional Google Play Store URL (set via VITE_PLAY_STORE_URL once Android listing is published).
- * Empty string defaults cleanly to the WebApp Sign-Up flow.
+ * Empty string defaults cleanly to the WebApp Sign-Up flow with a Play Store launch notice.
  */
 export function getPlayStoreAppUrl(): string {
   const raw =
